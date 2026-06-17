@@ -113,3 +113,34 @@ def test_score_all_rank_range():
     assert result["rank"].min() == 1.0, f"Min rank should be 1, got {result['rank'].min()}"
     assert result["rank"].max() == float(n), f"Max rank should be {n}, got {result['rank'].max()}"
     assert result["rank"].nunique() == n, "All ranks should be distinct for random data"
+
+
+def test_score_all_uses_sentiment_score_when_provided(tmp_path):
+    import yaml
+
+    # Create a weights.yaml with sentiment weight active
+    weights = {
+        "data_pillar": {"level": 0.5, "change": 0.5},
+        "pillars": {"data": 0.70, "sentiment": 0.30},
+    }
+    weights_file = tmp_path / "weights.yaml"
+    weights_file.write_text(yaml.dump(weights))
+
+    # 4 sectors, flat data signals (z-scores all → 0)
+    signals = pd.DataFrame(
+        {col: [1.0, 1.0, 1.0, 1.0] for col in [
+            "rs_ratio", "rs_momentum", "return_1m", "return_3m", "return_6m",
+            "acceleration", "above_50dma", "above_200dma", "ma50_slope",
+            "obv_slope", "breadth_above_50dma",
+        ]},
+        index=["US|Tech", "US|Energy", "EU|Tech", "EU|Energy"],
+    )
+    # Give one sector a high positive sentiment score
+    sentiment = pd.Series(
+        {"US|Tech": 2.0, "US|Energy": -1.0, "EU|Tech": 0.0, "EU|Energy": 0.0}
+    )
+    result = score_all(signals, weights_path=str(weights_file), sentiment_score=sentiment)
+
+    # With sentiment weight > 0 and flat data, US|Tech (highest sentiment) > US|Energy (lowest)
+    assert result.loc["US|Tech", "composite"] > result.loc["US|Energy", "composite"]
+    assert not pd.isna(result.loc["US|Tech", "sentiment_score"])
