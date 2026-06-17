@@ -105,12 +105,20 @@ def compute_obv(close: pd.Series, volume: pd.Series) -> dict[str, float]:
     close_aligned = close.loc[common_index].dropna()
     volume_aligned = volume.loc[close_aligned.index]
 
+    # Guard against NaN in volume
+    volume_aligned = volume_aligned.dropna()
+    close_aligned = close_aligned.loc[volume_aligned.index]
+
     price_diff = close_aligned.diff()
     direction = np.sign(price_diff).fillna(0)
     obv = (direction * volume_aligned).cumsum()
 
     obv_tail = obv.iloc[-20:]
     if len(obv_tail) < 20:
+        return result
+
+    # Guard against NaN in obv_tail before polyfit
+    if obv_tail.isna().any():
         return result
 
     mean_abs_obv = float(obv_tail.abs().mean())
