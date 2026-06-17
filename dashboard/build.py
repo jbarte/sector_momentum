@@ -39,10 +39,19 @@ def _ensure_plotly_bundle() -> Path:
         import requests
 
         logger.info("Downloading Plotly bundle from %s …", PLOTLY_CDN)
-        resp = requests.get(PLOTLY_CDN, timeout=60)
-        resp.raise_for_status()
-        bundle.write_bytes(resp.content)
-        logger.info("Saved Plotly bundle (%d KB) to %s", len(resp.content) // 1024, bundle)
+        try:
+            resp = requests.get(PLOTLY_CDN, timeout=30)
+            resp.raise_for_status()
+            bundle.write_bytes(resp.content)
+            logger.info("Downloaded plotly bundle (%d KB)", len(resp.content) // 1024)
+        except Exception as exc:
+            logger.error(
+                "Failed to download Plotly bundle from %s: %s\n"
+                "Fix: manually download plotly.min.js from https://cdn.plot.ly/ "
+                "and place it at dashboard/assets/plotly.min.js",
+                PLOTLY_CDN, exc
+            )
+            sys.exit(1)
     return bundle
 
 
@@ -174,9 +183,9 @@ def _build_rrg_figure(history_df) -> str:
 
     fig.update_layout(
         title=dict(text="Relative Rotation Graph (composite proxy)", font=dict(size=13)),
-        xaxis=dict(title="RS-Ratio (100 = benchmark)", range=[88, 112],
+        xaxis=dict(title="RS-Ratio (composite proxy)", range=[88, 112],
                    gridcolor="#333", zeroline=False),
-        yaxis=dict(title="RS-Momentum (100 = benchmark)", range=[88, 112],
+        yaxis=dict(title="RS-Momentum (composite proxy)", range=[88, 112],
                    gridcolor="#333", zeroline=False),
         paper_bgcolor="#1a1a2e",
         plot_bgcolor="#16213e",
