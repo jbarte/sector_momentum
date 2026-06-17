@@ -15,5 +15,8 @@ data/cache/*.parquet
 # data/momentum.db  # DO commit this (CI writes it)
 docs/index.html    # generated; committed by CI
 
+# Dashboard assets (large downloaded binary — fetched on first run)
+dashboard/assets/plotly.min.js
+
 # Worktrees
 .worktrees/
