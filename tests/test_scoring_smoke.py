@@ -34,3 +34,10 @@ assert result['rank'].nunique() == n  # all ranks distinct (no ties with random 
 
 print("Scoring smoke tests passed")
 print(result[['composite', 'rank']].sort_values('rank'))
+
+# Tie test
+tied = pd.Series({'A': 1.0, 'B': 1.0, 'C': 0.5})
+tied_ranks = rank_sectors(tied)
+assert tied_ranks['A'] == tied_ranks['B'], "tied composites must get same rank"
+assert tied_ranks['C'] == 3.0, "non-tied sector must get correct rank"
+print("Tie test passed")

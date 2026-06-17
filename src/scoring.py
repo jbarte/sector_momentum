@@ -122,13 +122,13 @@ def compute_composite(
 
 def rank_sectors(composite: pd.Series) -> pd.Series:
     """
-    Integer rank 1..N where 1 = highest composite score.
+    Float rank 1..N where 1 = highest composite score.
     Ties broken by average rank (same as scipy.stats.rankdata method='average').
-    Returns a Series of int ranks with the same index.
+    Returns a Series of float ranks (integer values when no ties, fractional when ties).
     """
     # Negate so that highest composite gets rank 1 after rankdata
     ranks = rankdata(-composite.values, method="average")
-    return pd.Series(ranks.astype(int), index=composite.index)
+    return pd.Series(ranks, index=composite.index)
 
 
 def score_all(
