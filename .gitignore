@@ -9,7 +9,7 @@ venv/
 # Data cache (large files)
 data/cache/*
 !data/cache/.gitkeep
-*.parquet
+data/cache/*.parquet
 
 # Generated output (committed by CI, not manually)
 # data/momentum.db  # DO commit this (CI writes it)
