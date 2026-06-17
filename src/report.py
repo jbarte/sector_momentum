@@ -41,9 +41,10 @@ def build_ranked_table(scores_with_deltas: pd.DataFrame) -> str:
         composite = f"{row['composite']:.2f}"
         level = f"{row['level_score']:.2f}"
         change = f"{row['change_score']:.2f}"
-        delta_rank = int(row["delta_rank"])
+        delta_rank = int(row.get("delta_rank", 0))
         delta_rank_str = f"{delta_rank:+d}"
-        delta_composite = f"{row['delta_composite']:.2f}"
+        delta_composite_val = row.get("delta_composite", 0.0)
+        delta_composite = f"{delta_composite_val:.2f}"
         star = "🌱" if row.get("emerging_flag", False) else ""
         rows.append(
             f"| {rank} | {sector} | {region} | {composite} | {level} | {change} | {delta_rank_str} | {delta_composite} | {star} |"
@@ -67,6 +68,10 @@ def build_movers(scores_with_deltas: pd.DataFrame, top_n: int = 5) -> str:
     """
     df = scores_with_deltas.copy()
 
+    # Guard against missing delta_rank column (first scan)
+    if 'delta_rank' not in df.columns:
+        return "_No delta data available (first scan)._\n"
+
     # Top climbers: largest positive delta_rank (ascending rank = better)
     # A positive delta_rank means the rank number went up (fell in standings),
     # but in the context of "climbers" we want sectors whose rank improved (rank number decreased).
@@ -78,7 +83,7 @@ def build_movers(scores_with_deltas: pd.DataFrame, top_n: int = 5) -> str:
         sector = row["gics_sector"]
         region = row["region"]
         rank = int(row["rank"])
-        delta_rank = int(row["delta_rank"])
+        delta_rank = int(row.get("delta_rank", 0))
         return f"- **{sector}** ({region}): rank {rank} (Δ{delta_rank:+d})"
 
     climber_lines = [format_entry(row) for _, row in climbers.iterrows()]
