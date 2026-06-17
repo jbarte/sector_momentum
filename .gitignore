@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Data cache (large files)
+data/cache/*
+!data/cache/.gitkeep
+data/cache/*.parquet
+
+# Generated output (committed by CI)
+# data/momentum.db and docs/index.html are both committed — CI keeps them current
+
+# Dashboard assets (large downloaded binary — fetched on first run)
+dashboard/assets/plotly.min.js
+
+# Worktrees
+.worktrees/
+
+# Claude Code internal files
+.claude/

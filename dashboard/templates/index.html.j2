@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sector Momentum Dashboard</title>
+<script src="{{ plotly_bundle }}"></script>
+<style>
+/* =========================================================
+   Base / Reset
+   ========================================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #0d0d1a;
+  --bg2:        #1a1a2e;
+  --bg3:        #16213e;
+  --accent:     #4FC3F7;
+  --accent2:    #AED581;
+  --text:       #e0e0e0;
+  --text-muted: #888;
+  --border:     #2d2d4a;
+  --up:         #AED581;
+  --down:       #F06292;
+  --tab-active: #4FC3F7;
+  --font:       'Segoe UI', system-ui, -apple-system, sans-serif;
+  --radius:     6px;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* =========================================================
+   Header
+   ========================================================= */
+header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+header h1 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+.scan-date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.disclaimer {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 8px;
+}
+
+/* =========================================================
+   Tab bar
+   ========================================================= */
+.tabs {
+  display: flex;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  gap: 2px;
+  padding: 0 24px;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 10px 16px;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--tab-active);
+  border-bottom-color: var(--tab-active);
+}
+
+/* =========================================================
+   Tab content panels
+   ========================================================= */
+.tab-panel { display: none; padding: 24px; }
+.tab-panel.active { display: block; }
+
+/* =========================================================
+   Leaderboard table
+   ========================================================= */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+thead tr {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+thead th {
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+thead th:hover { color: var(--accent); }
+thead th.sort-asc::after  { content: " ▲"; font-size: 0.7em; }
+thead th.sort-desc::after { content: " ▼"; font-size: 0.7em; }
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(79,195,247,0.04); }
+tbody td {
+  padding: 9px 14px;
+  vertical-align: middle;
+}
+.rank-badge {
+  display: inline-block;
+  width: 28px; height: 28px;
+  line-height: 28px;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--bg3);
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+.rank-badge.top3 { background: rgba(79,195,247,0.2); color: #fff; }
+.arrow.up   { color: var(--up);   font-size: 0.8rem; }
+.arrow.down { color: var(--down); font-size: 0.8rem; }
+.tag-region {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(79,195,247,0.12);
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+/* =========================================================
+   Plotly chart containers
+   ========================================================= */
+.chart-container {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-height: 420px;
+}
+
+/* =========================================================
+   Drill-down panel
+   ========================================================= */
+.drilldown-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.drilldown-controls label { color: var(--text-muted); font-size: 0.875rem; }
+select.sector-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 6px 10px;
+  cursor: pointer;
+  min-width: 220px;
+}
+select.sector-select:focus { outline: 1px solid var(--accent); }
+
+/* =========================================================
+   Guide panel
+   ========================================================= */
+.guide {
+  max-width: 740px;
+  line-height: 1.7;
+}
+.guide h2 {
+  font-size: 1rem;
+  color: var(--accent);
+  margin-top: 24px;
+  margin-bottom: 6px;
+}
+.guide h2:first-child { margin-top: 0; }
+.guide p { color: var(--text-muted); margin-bottom: 8px; }
+.guide ul { padding-left: 20px; color: var(--text-muted); margin-bottom: 8px; }
+.guide li { margin-bottom: 4px; }
+.guide strong { color: var(--text); }
+
+/* =========================================================
+   Responsive
+   ========================================================= */
+@media (max-width: 600px) {
+  header { padding: 10px 14px; }
+  .tab-panel { padding: 14px; }
+  .tabs { padding: 0 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <h1>Sector Momentum Dashboard</h1>
+  <span class="scan-date">Last scan: {{ scan_date }}</span>
+  <span class="disclaimer">Analytical tooling, not investment advice.</span>
+</header>
+
+<!-- Tab bar -->
+<nav class="tabs" role="tablist">
+  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab">Leaderboard</button>
+  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab">RRG</button>
+  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab">Drill-down</button>
+  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab">Movers</button>
+  <button class="tab-btn" onclick="switchTab('history', this)" role="tab">History</button>
+  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab">Guide</button>
+</nav>
+
+<!-- ============================================================
+     Tab: Leaderboard
+     ============================================================ -->
+<section id="tab-leaderboard" class="tab-panel active">
+  <div class="table-wrap">
+    <table id="leaderboard-table">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0)" data-col="0">#</th>
+          <th onclick="sortTable(1)" data-col="1">Sector</th>
+          <th onclick="sortTable(2)" data-col="2">Region</th>
+          <th onclick="sortTable(3)" data-col="3">Composite</th>
+          <th onclick="sortTable(4)" data-col="4">Level</th>
+          <th onclick="sortTable(5)" data-col="5">Change</th>
+          <th onclick="sortTable(6)" data-col="6">Data</th>
+          <th onclick="sortTable(7)" data-col="7">Rank Δ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in leaderboard_rows %}
+        <tr>
+          <td>
+            <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
+          </td>
+          <td>{{ row.sector }}</td>
+          <td><span class="tag-region">{{ row.region }}</span></td>
+          <td>{{ row.composite }}</td>
+          <td>{{ row.level_score }}</td>
+          <td>{{ row.change_score }}</td>
+          <td>{{ row.data_score }}</td>
+          <td>
+            {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted)">No data available yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================
+     Tab: RRG
+     ============================================================ -->
+<section id="tab-rrg" class="tab-panel">
+  <div class="chart-container" id="rrg-chart" style="height:520px"></div>
+</section>
+
+<!-- ============================================================
+     Tab: Drill-down
+     ============================================================ -->
+<section id="tab-drilldown" class="tab-panel">
+  <div class="drilldown-controls">
+    <label for="sector-select">Sector:</label>
+    <select class="sector-select" id="sector-select" onchange="updateDrilldown()">
+      {% for sk in sector_keys %}
+      <option value="{{ sk }}">{{ sk }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="chart-container" id="drilldown-chart" style="height:460px"></div>
+</section>
+
+<!-- ============================================================
+     Tab: Movers
+     ============================================================ -->
+<section id="tab-movers" class="tab-panel">
+  <div class="chart-container" id="movers-chart" style="height:520px"></div>
+</section>
+
+<!-- ============================================================
+     Tab: History
+     ============================================================ -->
+<section id="tab-history" class="tab-panel">
+  <div class="chart-container" id="history-chart" style="height:520px"></div>
+</section>
+
+<!-- ============================================================
+     Tab: Guide
+     ============================================================ -->
+<section id="tab-guide" class="tab-panel">
+  <div class="guide">
+    <h2>Leaderboard</h2>
+    <p>
+      The Leaderboard ranks every sector by its <strong>composite score</strong> — a
+      weighted blend of level, momentum-change, and data-quality sub-scores. A higher
+      composite (more positive z-score) means the sector is exhibiting stronger relative
+      momentum versus its benchmark.
+    </p>
+    <ul>
+      <li><strong>Level score</strong> — captures the current absolute momentum level
+          (returns, MA structure, OBV trend).</li>
+      <li><strong>Change score</strong> — captures how momentum is accelerating or
+          decelerating versus the prior scan.</li>
+      <li><strong>Data score</strong> — reflects data completeness; sectors with missing
+          signals are penalised.</li>
+      <li><strong>Rank Δ</strong> — how many ranks the sector climbed (▲) or fell (▼)
+          versus the previous scan.</li>
+    </ul>
+    <p>Click any column header to sort the table.</p>
+
+    <h2>Relative Rotation Graph (RRG)</h2>
+    <p>
+      The RRG plots sectors on two axes derived from their relative strength vs the
+      benchmark index:
+    </p>
+    <ul>
+      <li><strong>X-axis (RS-Ratio)</strong> — whether the sector is outperforming (> 100)
+          or underperforming (< 100) the benchmark.</li>
+      <li><strong>Y-axis (RS-Momentum)</strong> — whether relative strength is
+          accelerating (> 100) or decelerating (< 100).</li>
+    </ul>
+    <p>Quadrant interpretation:</p>
+    <ul>
+      <li><strong>Leading</strong> (top-right) — outperforming and accelerating.</li>
+      <li><strong>Weakening</strong> (bottom-right) — outperforming but decelerating.</li>
+      <li><strong>Lagging</strong> (bottom-left) — underperforming and decelerating.</li>
+      <li><strong>Improving</strong> (top-left) — underperforming but accelerating.</li>
+    </ul>
+    <p>
+      Dotted tail lines show the last 3 scan positions, indicating rotation direction.
+      Note: in Phase 1 the axes are proxies derived from composite score and rank;
+      true JdK RS-Ratio values require the RRG signal data from the signals table.
+    </p>
+
+    <h2>Drill-down</h2>
+    <p>
+      Select a sector from the dropdown to view how each score component has evolved over
+      time. Useful for spotting multi-scan trends — a rising <em>change_score</em>
+      alongside a rising <em>composite</em> is a strong signal of sustained momentum.
+    </p>
+
+    <h2>Movers</h2>
+    <p>
+      The Movers panel shows the rank change between the two most recent scans.
+      <span style="color:var(--up)">Blue bars</span> indicate sectors that climbed the
+      leaderboard; <span style="color:var(--down)">pink bars</span> indicate sectors that
+      slipped. Large moves may reflect data updates, macro events, or genuine momentum
+      shifts.
+    </p>
+
+    <h2>History</h2>
+    <p>
+      A line chart of composite score across all stored scans. Persistent upward trends
+      in a sector's composite score indicate sustained momentum, while reversals may
+      signal rotation into or out of the sector.
+    </p>
+
+    <h2>Disclaimer</h2>
+    <p>
+      <strong>This tool is for analytical and educational purposes only.</strong>
+      It does not constitute investment advice or a recommendation to buy, sell, or hold
+      any security. Past momentum is not indicative of future returns. Always perform
+      your own due diligence and consult a qualified financial adviser before making
+      investment decisions.
+    </p>
+  </div>
+</section>
+
+<!-- ============================================================
+     JavaScript
+     ============================================================ -->
+<script>
+// ----- Tab switching -----
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+
+  // Lazy-render Plotly charts on first activation
+  if (name === 'rrg')       renderRRG();
+  if (name === 'movers')    renderMovers();
+  if (name === 'history')   renderHistory();
+  if (name === 'drilldown') renderDrilldown();
+}
+
+// ----- Plotly data (injected by build.py) -----
+var RRG_DATA    = {{ rrg_data_json | safe }};
+var MOVERS_DATA = {{ movers_json | safe }};
+var HISTORY_DATA = {{ history_json | safe }};
+var DRILLDOWN_DATA = {{ drilldown_data | safe }};
+
+// ----- Render helpers -----
+var _rendered = {};
+
+function renderRRG() {
+  if (_rendered.rrg) return;
+  _rendered.rrg = true;
+  Plotly.newPlot('rrg-chart', RRG_DATA.data, RRG_DATA.layout, {responsive: true, displayModeBar: true});
+}
+
+function renderMovers() {
+  if (_rendered.movers) return;
+  _rendered.movers = true;
+  Plotly.newPlot('movers-chart', MOVERS_DATA.data, MOVERS_DATA.layout, {responsive: true, displayModeBar: true});
+}
+
+function renderHistory() {
+  if (_rendered.history) return;
+  _rendered.history = true;
+  Plotly.newPlot('history-chart', HISTORY_DATA.data, HISTORY_DATA.layout, {responsive: true, displayModeBar: true});
+}
+
+function renderDrilldown() {
+  _rendered.drilldown = false; // always re-render on sector change
+  updateDrilldown();
+}
+
+function updateDrilldown() {
+  var sel = document.getElementById('sector-select');
+  if (!sel) return;
+  var key = sel.value;
+  var figJson = DRILLDOWN_DATA[key];
+  if (!figJson) {
+    document.getElementById('drilldown-chart').innerHTML =
+      '<p style="padding:24px;color:var(--text-muted)">No data for ' + key + '</p>';
+    return;
+  }
+  var fig = typeof figJson === 'string' ? JSON.parse(figJson) : figJson;
+  Plotly.newPlot('drilldown-chart', fig.data, fig.layout, {responsive: true, displayModeBar: true});
+}
+
+// ----- Sortable table -----
+var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
+
+function sortTable(col) {
+  var table  = document.getElementById('leaderboard-table');
+  var tbody  = table.querySelector('tbody');
+  var rows   = Array.from(tbody.querySelectorAll('tr'));
+  var headers = table.querySelectorAll('thead th');
+
+  if (_sortCol === col) {
+    _sortDir *= -1;
+  } else {
+    _sortCol = col;
+    _sortDir = 1;
+  }
+
+  // Update header classes
+  headers.forEach(function(h, i) {
+    h.classList.remove('sort-asc', 'sort-desc');
+    if (i === col) h.classList.add(_sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  });
+
+  rows.sort(function(a, b) {
+    var aCell = a.querySelectorAll('td')[col];
+    var bCell = b.querySelectorAll('td')[col];
+    var aText = aCell ? aCell.innerText.trim() : '';
+    var bText = bCell ? bCell.innerText.trim() : '';
+
+    // Strip arrows and symbols for comparison
+    aText = aText.replace(/[▲▼]/g, '').trim();
+    bText = bText.replace(/[▲▼]/g, '').trim();
+
+    var aNum = parseFloat(aText.replace(/[+,]/g, ''));
+    var bNum = parseFloat(bText.replace(/[+,]/g, ''));
+
+    if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * _sortDir;
+    return aText.localeCompare(bText) * _sortDir;
+  });
+
+  rows.forEach(function(r) { tbody.appendChild(r); });
+}
+</script>
+
+</body>
+</html>

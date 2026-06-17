@@ -1,0 +1,29 @@
+# Pillar weights (must sum to 1.0)
+# Phase 1: sentiment pillar not yet implemented. data=1.0, sentiment=0.0.
+# Phase 2 target: data=0.70, sentiment=0.30 (update after sentiment is live).
+pillars:
+  data: 1.0
+  sentiment: 0.0
+
+# Within data pillar: level vs change split
+data_pillar:
+  level: 0.50
+  change: 0.50
+
+# Within level score: equal-weight these signals
+level_signals:
+  rs_ratio: 1.0        # RRG RS-Ratio (relative strength level)
+  return_3m: 1.0       # 3-month return
+  return_6m: 1.0       # 6-month return
+  above_50dma: 1.0     # price vs 50-DMA distance
+  above_200dma: 1.0    # price vs 200-DMA distance
+
+# Within change score: equal-weight these signals
+change_signals:
+  rs_momentum: 1.0     # RRG RS-Momentum (rate of change of RS)
+  acceleration: 1.0    # 1M return minus 3M return
+  ma50_slope: 1.0      # slope of 50-DMA
+  obv_slope: 1.0       # slope of OBV trend
+
+# Persistence: consecutive improved scans required for emerging flag
+emerging_min_consecutive: 2
