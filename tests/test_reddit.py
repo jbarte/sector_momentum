@@ -35,12 +35,18 @@ def test_counts_posts_in_7d_and_30d_windows(keywords, tmp_path):
     mock_resp.raise_for_status = Mock()
     mock_resp.json.return_value = _make_response([recent, mid, old])
 
-    with patch("src.data.reddit.requests.get", return_value=mock_resp):
+    with patch("src.data.reddit.requests.get", return_value=mock_resp) as mock_get:
         result = fetch_reddit(keywords, cache_dir=str(tmp_path))
 
     assert result is not None
     assert result["Technology"]["7d"] == 1
     assert result["Technology"]["30d"] == 2
+
+    # Verify query uses space-OR-space (not +OR+ which would be double-encoded)
+    first_call = mock_get.call_args_list[0]
+    params_used = first_call[1]["params"]
+    assert " OR " in params_used["q"]
+    assert "+OR+" not in params_used["q"]
 
 
 def test_returns_none_on_network_error(keywords, tmp_path):

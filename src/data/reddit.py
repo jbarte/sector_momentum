@@ -56,8 +56,11 @@ def fetch_reddit(
 
     if os.path.exists(cache_file):
         logger.info("Reddit: cache hit %s", cache_file)
-        with open(cache_file) as fh:
-            return json.load(fh)
+        try:
+            with open(cache_file) as fh:
+                return json.load(fh)
+        except (json.JSONDecodeError, OSError):
+            pass  # fall through to fresh fetch
 
     ua = os.environ.get("REDDIT_USER_AGENT", _DEFAULT_UA)
     headers = {"User-Agent": ua}
@@ -65,7 +68,7 @@ def fetch_reddit(
 
     try:
         for sector, terms in keywords.items():
-            query = "+OR+".join(terms)
+            query = " OR ".join(terms)
             params = {"q": query, "sort": "new", "limit": 100,
                       "restrict_sr": "on", "t": "month"}
             resp = requests.get(_SEARCH_URL, params=params, headers=headers, timeout=10)
