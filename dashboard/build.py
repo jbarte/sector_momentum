@@ -210,7 +210,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     ]
 
     if history_df.empty:
-        return {}, score_signals
+        return {}, [], score_signals
 
     sector_keys = (history_df["region"] + "|" + history_df["gics_sector"]).unique().tolist()
     sector_keys.sort()
