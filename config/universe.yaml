@@ -1,0 +1,43 @@
+# US sector ETFs (SPDR Select Sector)
+us_sectors:
+  Technology: XLK
+  Financials: XLF
+  Energy: XLE
+  Health Care: XLV
+  Industrials: XLI
+  Consumer Discretionary: XLY
+  Consumer Staples: XLP
+  Utilities: XLU
+  Materials: XLB
+  Real Estate: XLRE
+  Communication Services: XLC
+
+# US benchmark
+us_benchmark: RSP  # equal-weight S&P 500 (less mega-cap distorted)
+us_benchmark_alt: SPY
+
+# European sector proxies (STOXX Europe 600 sector UCITS ETFs via iShares/Amundi)
+# Using Yahoo Finance tickers for iShares STOXX Europe 600 sector ETFs
+eu_sectors:
+  Technology: EXV3.DE         # iShares STOXX Europe 600 Technology
+  Financials: EXV1.DE         # iShares STOXX Europe 600 Banks + Financial Services (combined into Financials)
+  Energy: EXV4.DE             # iShares STOXX Europe 600 Oil & Gas
+  Health Care: EXV6.DE        # iShares STOXX Europe 600 Health Care
+  Industrials: EXV8.DE        # iShares STOXX Europe 600 Industrial Goods & Services
+  Consumer Discretionary: EXH7.DE  # iShares STOXX Europe 600 Retail (proxy)
+  Consumer Staples: EXH3.DE   # iShares STOXX Europe 600 Food & Beverage
+  Utilities: EXH8.DE          # iShares STOXX Europe 600 Utilities
+  Materials: EXV5.DE          # iShares STOXX Europe 600 Basic Resources
+  Real Estate: IPRP.L         # iShares European Property Yield UCITS ETF
+  Communication Services: EXV2.DE  # iShares STOXX Europe 600 Telecommunications
+
+# European benchmark
+eu_benchmark: EXSA.DE  # iShares STOXX Europe 600 UCITS ETF
+
+# Swedish market context (not used as signal sources)
+swedish_context:
+  - OMXS30
+  - OMXSPI
+
+# Lookback for price history (trading days)
+price_lookback_days: 252  # ~1 year

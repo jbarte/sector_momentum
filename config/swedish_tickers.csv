@@ -1,0 +1,33 @@
+ticker,name,gics_sector,market_cap_bn_sek,exchange
+ERIC-B.ST,Ericsson B,Communication Services,280,Nasdaq Stockholm
+TELE2-B.ST,Tele2 B,Communication Services,55,Nasdaq Stockholm
+KINV-B.ST,Kinnevik B,Communication Services,30,Nasdaq Stockholm
+ESSITY-B.ST,Essity B,Consumer Staples,120,Nasdaq Stockholm
+ICA.ST,ICA Gruppen,Consumer Staples,50,Nasdaq Stockholm
+AXFO.ST,Axfood,Consumer Staples,40,Nasdaq Stockholm
+BETS-B.ST,Betsson B,Consumer Discretionary,18,Nasdaq Stockholm
+HUSQ-B.ST,Husqvarna B,Consumer Discretionary,30,Nasdaq Stockholm
+HUFV-A.ST,Hufvudstaden A,Real Estate,20,Nasdaq Stockholm
+CAST.ST,Castellum,Real Estate,30,Nasdaq Stockholm
+FABG.ST,Fabege,Real Estate,18,Nasdaq Stockholm
+WALL-B.ST,Wallenstam B,Real Estate,15,Nasdaq Stockholm
+ATCO-A.ST,Atlas Copco A,Industrials,650,Nasdaq Stockholm
+SAND.ST,Sandvik,Industrials,220,Nasdaq Stockholm
+SKF-B.ST,SKF B,Industrials,80,Nasdaq Stockholm
+EPIR.ST,Epiroc A,Industrials,130,Nasdaq Stockholm
+ALFA.ST,Alfa Laval,Industrials,90,Nasdaq Stockholm
+SWED-A.ST,Swedbank A,Financials,200,Nasdaq Stockholm
+SEB-A.ST,SEB A,Financials,260,Nasdaq Stockholm
+SHBA.ST,Svenska Handelsbanken A,Financials,160,Nasdaq Stockholm
+INVE-B.ST,Investor B,Financials,580,Nasdaq Stockholm
+LUPE.ST,Lundin Energy,Energy,90,Nasdaq Stockholm
+NIBE-B.ST,NIBE Industrier B,Utilities,60,Nasdaq Stockholm
+BEIA-B.ST,Beijer Alma B,Industrials,15,Nasdaq Stockholm
+ASSA-B.ST,Assa Abloy B,Industrials,190,Nasdaq Stockholm
+HEXA-B.ST,Hexagon B,Technology,210,Nasdaq Stockholm
+SINCH.ST,Sinch,Technology,15,Nasdaq Stockholm
+SWMA.ST,Swedish Match,Consumer Staples,120,Nasdaq Stockholm
+GETIB.ST,Getinge B,Health Care,50,Nasdaq Stockholm
+EKTA-B.ST,Elekta B,Health Care,20,Nasdaq Stockholm
+SOBI.ST,Swedish Orphan Biovitrum,Health Care,40,Nasdaq Stockholm
+BOL.ST,Boliden,Materials,60,Nasdaq Stockholm

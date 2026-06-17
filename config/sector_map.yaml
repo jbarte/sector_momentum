@@ -1,0 +1,35 @@
+# Maps STOXX Europe 600 supersectors to GICS-11 buckets
+# This is how EU sectors align with US SPDR sectors
+stoxx_to_gics:
+  Technology: Technology
+  Banks: Financials
+  Financial Services: Financials
+  Insurance: Financials
+  Oil & Gas: Energy
+  Health Care: Health Care
+  Industrial Goods & Services: Industrials
+  Retail: Consumer Discretionary
+  Travel & Leisure: Consumer Discretionary
+  Automobiles & Parts: Consumer Discretionary
+  Media: Consumer Discretionary
+  Food Beverage & Tobacco: Consumer Staples
+  Personal & Household Goods: Consumer Staples
+  Utilities: Utilities
+  Basic Resources: Materials
+  Chemicals: Materials
+  Real Estate: Real Estate
+  Telecommunications: Communication Services
+
+# GICS-11 canonical sector names (used as keys everywhere)
+gics_sectors:
+  - Technology
+  - Financials
+  - Energy
+  - Health Care
+  - Industrials
+  - Consumer Discretionary
+  - Consumer Staples
+  - Utilities
+  - Materials
+  - Real Estate
+  - Communication Services

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Data cache (large files)
+data/cache/*
+!data/cache/.gitkeep
+*.parquet
+
+# Generated output (committed by CI, not manually)
+# data/momentum.db  # DO commit this (CI writes it)
+docs/index.html    # generated; committed by CI
+
+# Worktrees
+.worktrees/
