@@ -30,26 +30,41 @@ def _cache_path(ticker: str, cache_dir: str) -> str:
     return os.path.join(cache_dir, f"{_sanitize_ticker(ticker)}_prices.parquet")
 
 
+def _last_trading_day() -> date:
+    """Return the most recent weekday (Mon-Fri) as a proxy for last trading day."""
+    d = date.today() - timedelta(days=1)
+    while d.weekday() >= 5:  # 5=Saturday, 6=Sunday
+        d -= timedelta(days=1)
+    return d
+
+
 def _cache_is_fresh(path: str) -> bool:
-    """Return True if the cache file exists and its last date >= yesterday."""
+    """Return True if the cache file exists and its last date >= last trading day."""
     if not os.path.exists(path):
         return False
     try:
         df = pd.read_parquet(path)
         if df.empty:
             return False
-        yesterday = date.today() - timedelta(days=1)
+        last_trading = _last_trading_day()
         last_cached = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
-        return last_cached >= yesterday
+        return last_cached >= last_trading
     except Exception:
         return False
 
 
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Ensure the DataFrame has exactly the required OHLCV columns."""
-    # yfinance may return MultiIndex columns when downloading a single ticker
+    # yfinance may return MultiIndex columns when downloading a single ticker.
+    # Level ordering is version-dependent: check if level 0 is all the same
+    # value (ticker symbol repeated), and if so use level 1 instead.
     if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.get_level_values(0)
+        level0_vals = df.columns.get_level_values(0)
+        if len(set(level0_vals)) == 1:
+            # All values on level 0 are the same (e.g. the ticker) — use level 1
+            df.columns = df.columns.get_level_values(1)
+        else:
+            df.columns = df.columns.get_level_values(0)
 
     # Normalise column names: title-case the first letter so "close" -> "Close"
     rename = {}
@@ -77,7 +92,19 @@ def _fetch_stooq(ticker: str, start: str, end: str) -> pd.DataFrame:
 def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
     import yfinance as yf  # type: ignore
 
-    df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False)
+    # multi_level_index=False avoids MultiIndex columns (yfinance >= 0.2.31).
+    # Fall back to the old call signature on older versions.
+    try:
+        df = yf.download(
+            ticker,
+            start=start,
+            end=end,
+            auto_adjust=True,
+            progress=False,
+            multi_level_index=False,
+        )
+    except TypeError:
+        df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False)
     return df
 
 
@@ -92,6 +119,9 @@ def _fetch_single(ticker: str, start: str, end: str) -> pd.DataFrame | None:
             df = _normalize_columns(df)
             if df.empty or "Close" not in df.columns:
                 logger.warning("No usable columns from %s for ticker %s", source, ticker)
+                continue
+            if df["Close"].isna().all():
+                logger.warning("All-NaN Close column from %s for ticker %s", source, ticker)
                 continue
             df.index = pd.to_datetime(df.index)
             df = df.sort_index(ascending=True)
@@ -137,7 +167,14 @@ def fetch_prices(
             continue
 
         try:
-            df.to_parquet(path)
+            tmp_path = path + ".tmp"
+            try:
+                df.to_parquet(tmp_path)
+                os.replace(tmp_path, path)
+            except Exception:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+                raise
         except Exception as exc:
             logger.warning("Could not write cache for %s: %s", ticker, exc)
 
