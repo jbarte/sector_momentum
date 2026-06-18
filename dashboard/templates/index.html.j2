@@ -216,6 +216,22 @@ tbody td:nth-child(n+4) {
   text-transform: uppercase;
 }
 
+/* Trajectory badges */
+.traj-badge {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: var(--mono);
+}
+.traj-badge.strong_up   { color: var(--up); background: color-mix(in srgb, var(--up) 15%, transparent); }
+.traj-badge.up          { color: var(--up); background: color-mix(in srgb, var(--up) 8%, transparent); }
+.traj-badge.flat        { color: var(--fg4); background: color-mix(in srgb, var(--fg4) 10%, transparent); }
+.traj-badge.down        { color: var(--down); background: color-mix(in srgb, var(--down) 8%, transparent); }
+.traj-badge.strong_down { color: var(--down); background: color-mix(in srgb, var(--down) 15%, transparent); }
+
 /* =========================================================
    Plotly chart containers
    ========================================================= */
@@ -423,6 +439,7 @@ select.sector-select:focus {
           <th onclick="sortTable(6)" data-col="6">Data</th>
           <th onclick="sortTable(7)" data-col="7">Sentiment</th>
           <th onclick="sortTable(8)" data-col="8">Rank Δ</th>
+          <th data-col="9" title="Rank slope over last 3–5 scans">Trend</th>
         </tr>
       </thead>
       <tbody>
@@ -442,12 +459,15 @@ select.sector-select:focus {
           <td>
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
+          <td>
+            <span class="traj-badge {{ row.trajectory_state }}">{{ row.trajectory_label }}</span>
+          </td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
-          <td colspan="9">{{ row.breakdown_html | safe }}</td>
+          <td colspan="10">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)">No data available yet.</td></tr>
+        <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)">No data available yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
