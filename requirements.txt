@@ -10,3 +10,4 @@ plotly>=5.18
 pyarrow>=14.0
 fredapi>=0.5
 pytest>=7.4
+pytrends>=4.9

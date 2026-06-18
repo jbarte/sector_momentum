@@ -244,6 +244,7 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
   <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab">Drill-down</button>
   <button class="tab-btn" onclick="switchTab('movers', this)" role="tab">Movers</button>
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab">History</button>
+  <button class="tab-btn" onclick="switchTab('sentiment', this)" role="tab">Data ⇄ Sentiment</button>
   <button class="tab-btn" onclick="switchTab('guide', this)" role="tab">Guide</button>
 </nav>
 
@@ -262,7 +263,8 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
           <th onclick="sortTable(4)" data-col="4">Level</th>
           <th onclick="sortTable(5)" data-col="5">Change</th>
           <th onclick="sortTable(6)" data-col="6">Data</th>
-          <th onclick="sortTable(7)" data-col="7">Rank Δ</th>
+          <th onclick="sortTable(7)" data-col="7">Sentiment</th>
+          <th onclick="sortTable(8)" data-col="8">Rank Δ</th>
         </tr>
       </thead>
       <tbody>
@@ -277,12 +279,13 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
           <td>{{ row.level_score }}</td>
           <td>{{ row.change_score }}</td>
           <td>{{ row.data_score }}</td>
+          <td>{{ row.sentiment_score }}</td>
           <td>
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted)">No data available yet.</td></tr>
+        <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted)">No data available yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -323,6 +326,19 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
      ============================================================ -->
 <section id="tab-history" class="tab-panel">
   <div class="chart-container" id="history-chart" style="height:520px"></div>
+</section>
+
+<!-- ============================================================
+     Tab: Data ⇄ Sentiment
+     ============================================================ -->
+<section id="tab-sentiment" class="tab-panel">
+  <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
+  <p style="color:var(--text-muted);font-size:0.8rem;padding:8px 0 0 4px">
+    Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
+    Hollow points = no sentiment data this scan (source unavailable or EU-only).
+    Sentiment is a confirming signal — noisy, gameable, retail-biased.
+    This is analytical tooling, not investment advice.
+  </p>
 </section>
 
 <!-- ============================================================
@@ -423,6 +439,7 @@ function switchTab(name, btn) {
   if (name === 'movers')    renderMovers();
   if (name === 'history')   renderHistory();
   if (name === 'drilldown') renderDrilldown();
+  if (name === 'sentiment') renderSentiment();
 }
 
 // ----- Plotly data (injected by build.py) -----
@@ -430,6 +447,7 @@ var RRG_DATA    = {{ rrg_data_json | safe }};
 var MOVERS_DATA = {{ movers_json | safe }};
 var HISTORY_DATA = {{ history_json | safe }};
 var DRILLDOWN_DATA = {{ drilldown_data | safe }};
+var SENTIMENT_DATA = {{ sentiment_scatter_json | safe }};
 
 // ----- Render helpers -----
 var _rendered = {};
@@ -450,6 +468,12 @@ function renderHistory() {
   if (_rendered.history) return;
   _rendered.history = true;
   Plotly.newPlot('history-chart', HISTORY_DATA.data, HISTORY_DATA.layout, {responsive: true, displayModeBar: true});
+}
+
+function renderSentiment() {
+  if (_rendered.sentiment) return;
+  _rendered.sentiment = true;
+  Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
 }
 
 function renderDrilldown() {

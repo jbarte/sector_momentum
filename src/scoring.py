@@ -134,18 +134,19 @@ def rank_sectors(composite: pd.Series) -> pd.Series:
 def score_all(
     signals_df: pd.DataFrame,
     weights_path: str = "config/weights.yaml",
+    sentiment_score: pd.Series | None = None,
 ) -> pd.DataFrame:
     """
     Full pipeline: z-score → level/change → data → composite → rank.
 
     Returns a DataFrame with columns:
-      level_score, change_score, data_score, sentiment_score (NaN in Phase 1),
+      level_score, change_score, data_score, sentiment_score,
       composite, rank
 
-    Reads level/change weight from weights.yaml (data_pillar.level / data_pillar.change).
-    Reads pillar weights from weights.yaml (pillars.data / pillars.sentiment).
+    sentiment_score: optional Series indexed like signals_df. If provided,
+      it is reindexed to match signals_df (missing keys → 0.0) and passed
+      to compute_composite with the configured sentiment weight.
     """
-    # Load weights
     weights_file = Path(weights_path)
     with weights_file.open() as fh:
         cfg = yaml.safe_load(fh)
@@ -155,12 +156,21 @@ def score_all(
     data_weight: float = float(cfg["pillars"]["data"])
     sentiment_weight: float = float(cfg["pillars"]["sentiment"])
 
-    # Pipeline
     z_df = zscore_cross_section(signals_df)
     level = compute_level_score(z_df)
     change = compute_change_score(z_df)
     data = compute_data_score(level, change, level_weight=level_weight, change_weight=change_weight)
-    composite = compute_composite(data, sentiment_score=None, data_weight=data_weight, sentiment_weight=sentiment_weight)
+
+    # Align sentiment_score index to signals_df; fill gaps with 0.0 (neutral)
+    if sentiment_score is not None:
+        sentiment_score = sentiment_score.reindex(signals_df.index, fill_value=0.0)
+
+    composite = compute_composite(
+        data,
+        sentiment_score=sentiment_score,
+        data_weight=data_weight,
+        sentiment_weight=sentiment_weight,
+    )
     ranks = rank_sectors(composite)
 
     return pd.DataFrame(
@@ -168,7 +178,7 @@ def score_all(
             "level_score": level,
             "change_score": change,
             "data_score": data,
-            "sentiment_score": np.nan,
+            "sentiment_score": sentiment_score if sentiment_score is not None else np.nan,
             "composite": composite,
             "rank": ranks,
         },
