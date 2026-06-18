@@ -1,13 +1,14 @@
-"""Pytest tests for the state / SQLite persistence module."""
+"""Pytest tests for the state / Postgres persistence module."""
 import datetime
 import os
-import tempfile
 
-import numpy as np
 import pandas as pd
 import pytest
 
 from src.state import init_db, save_scan, load_last_scan, compute_deltas, get_scan_history
+
+_has_db = bool(os.environ.get("DATABASE_URL"))
+skipif_no_db = pytest.mark.skipif(not _has_db, reason="DATABASE_URL not set")
 
 
 # ---------------------------------------------------------------------------
@@ -16,13 +17,15 @@ from src.state import init_db, save_scan, load_last_scan, compute_deltas, get_sc
 
 @pytest.fixture
 def db_conn():
-    """Create a fresh temporary SQLite DB for each test, then clean up."""
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-        db_path = f.name
-    conn = init_db(db_path)
+    """Open a connection to Supabase and clean up test rows after each test."""
+    conn = init_db()
     yield conn
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM signals")
+            cur.execute("DELETE FROM scores")
+            cur.execute("DELETE FROM scans")
     conn.close()
-    os.unlink(db_path)
 
 
 def _make_scan_data(sectors=None):
@@ -63,6 +66,7 @@ def _make_scan_data(sectors=None):
 # Tests
 # ---------------------------------------------------------------------------
 
+@skipif_no_db
 def test_save_scan_returns_positive_int(db_conn):
     """save_scan should return a positive integer scan_id."""
     signals_df, scores_df = _make_scan_data()
@@ -71,6 +75,7 @@ def test_save_scan_returns_positive_int(db_conn):
     assert scan_id > 0
 
 
+@skipif_no_db
 def test_load_last_scan_after_save(db_conn):
     """load_last_scan returns a DataFrame with the saved rows."""
     signals_df, scores_df = _make_scan_data()
@@ -81,6 +86,7 @@ def test_load_last_scan_after_save(db_conn):
     assert "composite" in last.columns
 
 
+@skipif_no_db
 def test_load_last_scan_returns_most_recent(db_conn):
     """After two scans, load_last_scan returns the second scan's data."""
     signals_df, scores_df = _make_scan_data()
@@ -93,11 +99,11 @@ def test_load_last_scan_returns_most_recent(db_conn):
 
     last = load_last_scan(db_conn)
     assert last is not None
-    # The most-recent scan has composites 0.9, 0.1, -0.5
     composites = sorted(last["composite"].tolist(), reverse=True)
     assert abs(composites[0] - 0.9) < 1e-9
 
 
+@skipif_no_db
 def test_compute_deltas_columns(db_conn):
     """compute_deltas should produce delta_composite, delta_rank, emerging_flag."""
     signals_df, scores_df = _make_scan_data()
@@ -114,6 +120,7 @@ def test_compute_deltas_columns(db_conn):
     assert "emerging_flag" in deltas.columns
 
 
+@skipif_no_db
 def test_get_scan_history_row_count(db_conn):
     """get_scan_history returns n_sectors * n_scans rows."""
     signals_df, scores_df = _make_scan_data()
@@ -124,5 +131,4 @@ def test_get_scan_history_row_count(db_conn):
     save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df2)
 
     history = get_scan_history(db_conn, n_scans=5)
-    # 3 sectors × 2 scans
     assert len(history) == 6

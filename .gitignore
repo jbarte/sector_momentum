@@ -11,8 +11,10 @@ data/cache/*
 !data/cache/.gitkeep
 data/cache/*.parquet
 
-# Generated output (committed by CI)
-# data/momentum.db and docs/index.html are both committed — CI keeps them current
+# momentum.db is generated locally from Supabase data — not committed
+data/momentum.db
+data/momentum.db-wal
+data/momentum.db-shm
 
 # Dashboard assets (large downloaded binary — fetched on first run)
 dashboard/assets/plotly.min.js

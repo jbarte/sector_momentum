@@ -2,19 +2,20 @@
 SQLite state management for the Sector Momentum Scanner.
 
 Persists scan results (signals and scores) so each new scan can be compared
-to the previous one. Uses WAL mode for better concurrency.
+to the previous one. Backed by Supabase (Postgres) via psycopg2.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
-import sqlite3
+import os
 from datetime import datetime
 from pathlib import Path
 
+import psycopg2
+import psycopg2.extensions
 import pandas as pd
-import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -22,34 +23,38 @@ logger = logging.getLogger(__name__)
 # Schema
 # ---------------------------------------------------------------------------
 
-_DDL = """
-CREATE TABLE IF NOT EXISTS scans (
-    scan_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_at      TEXT NOT NULL,
-    config_hash TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS signals (
-    scan_id     INTEGER NOT NULL REFERENCES scans(scan_id),
-    region      TEXT NOT NULL,
-    gics_sector TEXT NOT NULL,
-    signal_name TEXT NOT NULL,
-    raw_value   REAL,
-    z_value     REAL
-);
-
-CREATE TABLE IF NOT EXISTS scores (
-    scan_id         INTEGER NOT NULL REFERENCES scans(scan_id),
-    region          TEXT NOT NULL,
-    gics_sector     TEXT NOT NULL,
-    level_score     REAL,
-    change_score    REAL,
-    data_score      REAL,
-    sentiment_score REAL,
-    composite       REAL,
-    rank            REAL
-);
-"""
+_DDL_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS scans (
+        scan_id     SERIAL PRIMARY KEY,
+        run_at      TEXT NOT NULL,
+        config_hash TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS signals (
+        scan_id     INTEGER NOT NULL REFERENCES scans(scan_id),
+        region      TEXT NOT NULL,
+        gics_sector TEXT NOT NULL,
+        signal_name TEXT NOT NULL,
+        raw_value   REAL,
+        z_value     REAL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS scores (
+        scan_id         INTEGER NOT NULL REFERENCES scans(scan_id),
+        region          TEXT NOT NULL,
+        gics_sector     TEXT NOT NULL,
+        level_score     REAL,
+        change_score    REAL,
+        data_score      REAL,
+        sentiment_score REAL,
+        composite       REAL,
+        rank            REAL
+    )
+    """,
+]
 
 
 # ---------------------------------------------------------------------------
@@ -57,19 +62,19 @@ CREATE TABLE IF NOT EXISTS scores (
 # ---------------------------------------------------------------------------
 
 
-def init_db(db_path: str | Path = "data/momentum.db") -> sqlite3.Connection:
+def init_db() -> psycopg2.extensions.connection:
     """
-    Create the database and tables if they don't exist.
-    Returns an open connection with WAL mode enabled (better concurrency).
+    Connect to Supabase/Postgres and create tables if they don't exist.
+    Reads DATABASE_URL from the environment.
+    Returns an open psycopg2 connection.
     """
-    db_path = Path(db_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-
-    conn = sqlite3.connect(str(db_path), check_same_thread=False)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.executescript(_DDL)
-    conn.commit()
-    logger.info("Database initialised at %s", db_path)
+    db_url = os.environ["DATABASE_URL"]
+    conn = psycopg2.connect(db_url)
+    with conn:
+        with conn.cursor() as cur:
+            for stmt in _DDL_STATEMENTS:
+                cur.execute(stmt)
+    logger.info("Database initialised (Supabase/Postgres)")
     return conn
 
 
@@ -83,7 +88,7 @@ def _compute_config_hash(weights_path: str | Path) -> str:
 
 
 def save_scan(
-    conn: sqlite3.Connection,
+    conn: psycopg2.extensions.connection,
     run_at: datetime,
     region_sector_signals: pd.DataFrame,
     scores_df: pd.DataFrame,
@@ -92,72 +97,70 @@ def save_scan(
     """
     Insert a new scan row and all its signals/scores.
     Returns the new scan_id.
-    config_hash is computed from the weights.yaml file contents.
     Uses a transaction (all-or-nothing).
     """
     config_hash = _compute_config_hash(weights_path)
     run_at_str = run_at.isoformat()
 
-    with conn:  # transaction – auto-commits or rolls back
-        cur = conn.execute(
-            "INSERT INTO scans (run_at, config_hash) VALUES (?, ?)",
-            (run_at_str, config_hash),
-        )
-        scan_id = cur.lastrowid
-
-        # --- signals ---
-        if not region_sector_signals.empty:
-            signals_rows = [
-                (
-                    scan_id,
-                    row["region"],
-                    row["gics_sector"],
-                    row["signal_name"],
-                    _to_float_or_none(row.get("raw_value")),
-                    _to_float_or_none(row.get("z_value")),
-                )
-                for _, row in region_sector_signals.iterrows()
-            ]
-            conn.executemany(
-                "INSERT INTO signals "
-                "(scan_id, region, gics_sector, signal_name, raw_value, z_value) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                signals_rows,
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO scans (run_at, config_hash) VALUES (%s, %s) RETURNING scan_id",
+                (run_at_str, config_hash),
             )
+            scan_id = cur.fetchone()[0]
 
-        # --- scores ---
-        if not scores_df.empty:
-            score_cols = [
-                "level_score",
-                "change_score",
-                "data_score",
-                "sentiment_score",
-                "composite",
-                "rank",
-            ]
-            scores_rows = [
-                (
-                    scan_id,
-                    row["region"],
-                    row["gics_sector"],
-                    *(_to_float_or_none(row.get(c)) for c in score_cols),
+            if not region_sector_signals.empty:
+                signals_rows = [
+                    (
+                        scan_id,
+                        row["region"],
+                        row["gics_sector"],
+                        row["signal_name"],
+                        _to_float_or_none(row.get("raw_value")),
+                        _to_float_or_none(row.get("z_value")),
+                    )
+                    for _, row in region_sector_signals.iterrows()
+                ]
+                cur.executemany(
+                    "INSERT INTO signals "
+                    "(scan_id, region, gics_sector, signal_name, raw_value, z_value) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    signals_rows,
                 )
-                for _, row in scores_df.iterrows()
-            ]
-            conn.executemany(
-                "INSERT INTO scores "
-                "(scan_id, region, gics_sector, level_score, change_score, "
-                "data_score, sentiment_score, composite, rank) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                scores_rows,
-            )
+
+            if not scores_df.empty:
+                score_cols = [
+                    "level_score",
+                    "change_score",
+                    "data_score",
+                    "sentiment_score",
+                    "composite",
+                    "rank",
+                ]
+                scores_rows = [
+                    (
+                        scan_id,
+                        row["region"],
+                        row["gics_sector"],
+                        *(_to_float_or_none(row.get(c)) for c in score_cols),
+                    )
+                    for _, row in scores_df.iterrows()
+                ]
+                cur.executemany(
+                    "INSERT INTO scores "
+                    "(scan_id, region, gics_sector, level_score, change_score, "
+                    "data_score, sentiment_score, composite, rank) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    scores_rows,
+                )
 
     logger.info("Saved scan_id=%d at %s", scan_id, run_at_str)
     return scan_id
 
 
 def load_last_scan(
-    conn: sqlite3.Connection,
+    conn: psycopg2.extensions.connection,
 ) -> pd.DataFrame | None:
     """
     Load the scores for the most recent scan.
@@ -165,16 +168,16 @@ def load_last_scan(
         region, gics_sector, composite, rank, scan_id
     Returns None if no prior scan exists.
     """
-    row = conn.execute(
-        "SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT 1"
-    ).fetchone()
+    with conn.cursor() as cur:
+        cur.execute("SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT 1")
+        row = cur.fetchone()
     if row is None:
         return None
 
     scan_id = row[0]
     df = pd.read_sql_query(
         "SELECT region, gics_sector, composite, rank, scan_id "
-        "FROM scores WHERE scan_id = ?",
+        "FROM scores WHERE scan_id = %s",
         conn,
         params=(scan_id,),
     )
@@ -190,7 +193,6 @@ def compute_deltas(
         delta_composite = current.composite - prior.composite
         delta_rank      = prior.rank - current.rank  (positive = climbing)
         emerging_flag   = (delta_rank > 0) AND (delta_composite > 0)
-                          [Phase 1 simplified; Phase 2 will use multi-scan history]
 
     If prior_scores is None all delta columns are zero/False.
     Returns current_scores with the three new columns appended.
@@ -218,7 +220,7 @@ def compute_deltas(
     return result
 
 
-def get_signals_for_latest_scan(conn: sqlite3.Connection) -> pd.DataFrame:
+def get_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
     """
     Return all signal rows for the most recent scan.
     Columns: region, gics_sector, signal_name, raw_value, z_value
@@ -235,7 +237,7 @@ def get_signals_for_latest_scan(conn: sqlite3.Connection) -> pd.DataFrame:
 
 
 def get_scan_history(
-    conn: sqlite3.Connection,
+    conn: psycopg2.extensions.connection,
     n_scans: int = 10,
 ) -> pd.DataFrame:
     """
@@ -252,7 +254,7 @@ def get_scan_history(
         FROM scores s
         JOIN scans sc ON sc.scan_id = s.scan_id
         WHERE sc.scan_id IN (
-            SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT ?
+            SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s
         )
         ORDER BY sc.run_at ASC, s.region, s.gics_sector
     """
@@ -266,7 +268,7 @@ def get_scan_history(
 
 
 def _to_float_or_none(value) -> float | None:
-    """Convert NaN / None to None so SQLite stores NULL, otherwise float."""
+    """Convert NaN / None to None so Postgres stores NULL, otherwise float."""
     if value is None:
         return None
     try:
