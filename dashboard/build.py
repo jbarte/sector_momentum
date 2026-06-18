@@ -973,8 +973,14 @@ def main() -> None:
             key, score_row_dict, row_signals, _universe, _weights
         )
 
-    # 4. Compute relative path from docs/ to dashboard/assets/plotly.min.js
-    plotly_bundle_rel = "../dashboard/assets/plotly.min.js"
+    # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
+    import shutil
+    docs_assets = out_dir / "assets"
+    docs_assets.mkdir(exist_ok=True)
+    plotly_src = _ASSETS_DIR / "plotly.min.js"
+    if plotly_src.exists():
+        shutil.copy2(plotly_src, docs_assets / "plotly.min.js")
+    plotly_bundle_rel = "assets/plotly.min.js"
 
     # 5. Render template
     template_path = Path(__file__).parent / "templates" / "index.html.j2"
