@@ -1,9 +1,8 @@
 # Pillar weights (must sum to 1.0)
-# Phase 1: sentiment pillar not yet implemented. data=1.0, sentiment=0.0.
-# Phase 2 target: data=0.70, sentiment=0.30 (update after sentiment is live).
+# Phase 2: sentiment pillar active. data=0.70, sentiment=0.30.
 pillars:
-  data: 1.0
-  sentiment: 0.0
+  data: 0.70        # was 1.0
+  sentiment: 0.30   # was 0.0
 
 # Within data pillar: level vs change split
 data_pillar:
