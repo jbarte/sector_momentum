@@ -75,14 +75,12 @@ def test_build_scored_df_for_db_columns():
 def test_parse_args_defaults(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["scan.py"])
     args = _parse_args()
-    assert args.db == "data/momentum.db"
     assert args.dry_run is False
     assert args.no_dashboard is False
 
 
 def test_parse_args_flags(monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run", "--no-dashboard", "--db", "tmp.db"])
+    monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run", "--no-dashboard"])
     args = _parse_args()
     assert args.dry_run is True
     assert args.no_dashboard is True
-    assert args.db == "tmp.db"
