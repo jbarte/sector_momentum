@@ -226,6 +226,70 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
   .tab-panel { padding: 14px; }
   .tabs { padding: 0 8px; }
 }
+
+/* =========================================================
+   Leaderboard row breakdown
+   ========================================================= */
+.leaderboard-row { cursor: pointer; }
+.leaderboard-row:hover { background: rgba(79,195,247,0.07); }
+.chevron { font-size: 0.65em; color: var(--text-muted); margin-left: 4px; transition: transform 0.15s; display: inline-block; }
+.breakdown-row { display: none; }
+.breakdown-row.open { display: table-row; }
+.breakdown-inner {
+  padding: 14px 18px;
+  background: #12122a;
+  border-top: 1px solid var(--border);
+}
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 700px) { .breakdown-grid { grid-template-columns: 1fr; } }
+
+/* Score tree */
+.score-tree { font-family: 'Courier New', monospace; font-size: 0.82em; line-height: 1.9; }
+.st-row { display: flex; align-items: baseline; gap: 4px; }
+.st-top .st-label { font-weight: 700; color: var(--accent); }
+.st-top .st-val   { font-weight: 700; color: var(--accent); }
+.st-conn  { color: #555; white-space: pre; min-width: 2.5em; }
+.st-label { color: var(--text-muted); }
+.st-wt    { color: #666; font-size: 0.85em; }
+.st-val   { color: var(--text); margin-left: auto; min-width: 48px; text-align: right; }
+.st-meta  { color: #555; font-size: 0.8em; margin-left: 4px; }
+.bd-footer {
+  margin-top: 12px;
+  font-size: 0.78em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+
+/* Signal tables */
+.sig-section { margin-bottom: 10px; }
+.sig-title {
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.sig-table { border-collapse: collapse; width: 100%; font-size: 0.82em; }
+.sig-table td { padding: 3px 6px; vertical-align: middle; }
+.sig-label { color: var(--text-muted); white-space: nowrap; }
+.sig-raw   { color: var(--text); font-family: monospace; text-align: right; min-width: 54px; }
+.sig-bar   { padding: 0 8px; }
+.sig-z     { color: var(--text-muted); font-family: monospace; text-align: right; min-width: 46px; }
+.z-bar-wrap { display: inline-block; width: 60px; height: 7px; background: #2a2a40; border-radius: 4px; vertical-align: middle; }
+.z-bar      { display: inline-block; height: 7px; border-radius: 4px; }
+.sig-chip   { font-size: 0.8em; padding: 1px 5px; border-radius: 3px; }
+.sig-chip.bull { color: #4FC3F7; }
+.sig-chip.bear { color: #F06292; }
+.sig-chip.neut { color: #666; }
+.sig-info   { font-size: 0.78em; color: #666; margin-top: 6px; border-top: 1px solid #1e1e35; padding-top: 5px; }
+.info-lbl   { color: #555; }
 </style>
 </head>
 <body>
@@ -269,9 +333,10 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
       </thead>
       <tbody>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Technology" onclick="toggleBreakdown('EU-Technology')">
           <td>
             <span class="rank-badge top3">1</span>
+            <span class="chevron" id="chev-EU-Technology">▶</span>
           </td>
           <td>Technology</td>
           <td><span class="tag-region">EU</span></td>
@@ -284,10 +349,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Technology">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.695</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.695</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">1.605</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.214</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXV3.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">103.0</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+22.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+23.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+10.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+20.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">98.7</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-10.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.005</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.004</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +11.6% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Health_Care" onclick="toggleBreakdown('US-Health_Care')">
           <td>
             <span class="rank-badge top3">2</span>
+            <span class="chevron" id="chev-US-Health_Care">▶</span>
           </td>
           <td>Health Care</td>
           <td><span class="tag-region">US</span></td>
@@ -300,10 +369,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Health_Care">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.517</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.517</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.128</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">1.163</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLV &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">101.6</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+2.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+0.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+3.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+3.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.4</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">+2.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.108</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +5.4% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Technology" onclick="toggleBreakdown('US-Technology')">
           <td>
             <span class="rank-badge top3">3</span>
+            <span class="chevron" id="chev-US-Technology">▶</span>
           </td>
           <td>Technology</td>
           <td><span class="tag-region">US</span></td>
@@ -316,10 +389,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Technology">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.455</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.455</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">1.545</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.636</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLK &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">98.0</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+33.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+30.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+9.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+25.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">98.8</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-28.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.006</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +5.8% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Utilities" onclick="toggleBreakdown('EU-Utilities')">
           <td>
             <span class="rank-badge">4</span>
+            <span class="chevron" id="chev-EU-Utilities">▶</span>
           </td>
           <td>Utilities</td>
           <td><span class="tag-region">EU</span></td>
@@ -332,10 +409,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow up">▲</span> +4.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Utilities">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.366</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.366</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">0.451</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.282</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXH8.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">103.8</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+6.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+4.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+5.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+6.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">99.8</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">+4.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.002</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.003</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +10.8% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Financials" onclick="toggleBreakdown('EU-Financials')">
           <td>
             <span class="rank-badge">5</span>
+            <span class="chevron" id="chev-EU-Financials">▶</span>
           </td>
           <td>Financials</td>
           <td><span class="tag-region">EU</span></td>
@@ -348,10 +429,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -3.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Financials">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.311</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.311</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">1.081</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.459</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXV1.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">100.8</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+20.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+19.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+8.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+17.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.4</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-10.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.003</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.063</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +9.9% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Health_Care" onclick="toggleBreakdown('EU-Health_Care')">
           <td>
             <span class="rank-badge">6</span>
+            <span class="chevron" id="chev-EU-Health_Care">▶</span>
           </td>
           <td>Health Care</td>
           <td><span class="tag-region">EU</span></td>
@@ -364,10 +449,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -2.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Health_Care">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.297</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.297</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">1.064</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.470</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXV6.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">98.1</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+17.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+39.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+4.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+24.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">99.2</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-11.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.003</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +5.3% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Financials" onclick="toggleBreakdown('US-Financials')">
           <td>
             <span class="rank-badge">7</span>
+            <span class="chevron" id="chev-US-Financials">▶</span>
           </td>
           <td>Financials</td>
           <td><span class="tag-region">US</span></td>
@@ -380,10 +469,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Financials">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.255</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.255</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">0.094</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.416</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLF &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">101.3</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+10.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">-0.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+4.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+4.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.7</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-3.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.022</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +6.4% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Industrials" onclick="toggleBreakdown('US-Industrials')">
           <td>
             <span class="rank-badge">8</span>
+            <span class="chevron" id="chev-US-Industrials">▶</span>
           </td>
           <td>Industrials</td>
           <td><span class="tag-region">US</span></td>
@@ -396,10 +489,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Industrials">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.227</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.227</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">0.328</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.126</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLI &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">100.3</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+8.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+15.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+4.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+10.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.4</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-3.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.002</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.003</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +4.9% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Real_Estate" onclick="toggleBreakdown('US-Real_Estate')">
           <td>
             <span class="rank-badge">9</span>
+            <span class="chevron" id="chev-US-Real_Estate">▶</span>
           </td>
           <td>Real Estate</td>
           <td><span class="tag-region">US</span></td>
@@ -412,10 +509,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Real_Estate">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.211</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.211</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">0.094</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.329</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLRE &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">100.4</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+6.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+12.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+2.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+7.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.5</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-2.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.002</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.005</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +4.3% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Materials" onclick="toggleBreakdown('US-Materials')">
           <td>
             <span class="rank-badge">10</span>
+            <span class="chevron" id="chev-US-Materials">▶</span>
           </td>
           <td>Materials</td>
           <td><span class="tag-region">US</span></td>
@@ -428,10 +529,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Materials">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.203</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.203</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">0.200</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.206</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLB &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">99.7</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+6.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+17.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+2.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+10.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.3</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-2.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.023</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +4.8% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Industrials" onclick="toggleBreakdown('EU-Industrials')">
           <td>
             <span class="rank-badge">11</span>
+            <span class="chevron" id="chev-EU-Industrials">▶</span>
           </td>
           <td>Industrials</td>
           <td><span class="tag-region">EU</span></td>
@@ -444,10 +549,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -6.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Industrials">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.038</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.038</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.045</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.121</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXV8.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">99.7</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+9.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+7.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+2.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+5.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.5</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-4.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.006</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +4.8% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Consumer_Discretionary" onclick="toggleBreakdown('EU-Consumer_Discretionary')">
           <td>
             <span class="rank-badge">12</span>
+            <span class="chevron" id="chev-EU-Consumer_Discretionary">▶</span>
           </td>
           <td>Consumer Discretionary</td>
           <td><span class="tag-region">EU</span></td>
@@ -460,10 +569,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -6.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Consumer_Discretionary">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">0.034</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">0.034</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">0.148</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.080</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXH2.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">99.3</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+11.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+11.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+3.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+7.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.2</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-7.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.002</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.011</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +3.8% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Consumer_Staples" onclick="toggleBreakdown('US-Consumer_Staples')">
           <td>
             <span class="rank-badge">13</span>
+            <span class="chevron" id="chev-US-Consumer_Staples">▶</span>
           </td>
           <td>Consumer Staples</td>
           <td><span class="tag-region">US</span></td>
@@ -476,10 +589,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Consumer_Staples">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.030</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.030</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.146</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.085</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLP &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">100.1</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+1.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+9.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+2.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+5.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.7</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-0.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.019</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +1.1% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Consumer_Staples" onclick="toggleBreakdown('EU-Consumer_Staples')">
           <td>
             <span class="rank-badge">14</span>
+            <span class="chevron" id="chev-EU-Consumer_Staples">▶</span>
           </td>
           <td>Consumer Staples</td>
           <td><span class="tag-region">EU</span></td>
@@ -492,10 +609,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -7.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Consumer_Staples">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.145</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.145</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.326</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.036</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXH3.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">99.5</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+1.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+6.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+2.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+3.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.2</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">+0.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.009</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +1.6% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Utilities" onclick="toggleBreakdown('US-Utilities')">
           <td>
             <span class="rank-badge">15</span>
+            <span class="chevron" id="chev-US-Utilities">▶</span>
           </td>
           <td>Utilities</td>
           <td><span class="tag-region">US</span></td>
@@ -508,10 +629,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Utilities">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.221</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.221</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.687</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.245</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLU &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">98.7</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">-3.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+6.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">-0.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+2.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.6</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">+6.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">-0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.002</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +2.7% &middot; Breadth &gt;50-DMA: 0%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Consumer_Discretionary" onclick="toggleBreakdown('US-Consumer_Discretionary')">
           <td>
             <span class="rank-badge">16</span>
+            <span class="chevron" id="chev-US-Consumer_Discretionary">▶</span>
           </td>
           <td>Consumer Discretionary</td>
           <td><span class="tag-region">US</span></td>
@@ -524,10 +649,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Consumer_Discretionary">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.230</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.230</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.760</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.299</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLY &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">97.1</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+4.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">-1.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+0.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+0.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.6</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-3.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.013</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +1.7% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Energy" onclick="toggleBreakdown('EU-Energy')">
           <td>
             <span class="rank-badge">17</span>
+            <span class="chevron" id="chev-EU-Energy">▶</span>
           </td>
           <td>Energy</td>
           <td><span class="tag-region">EU</span></td>
@@ -540,10 +669,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -14.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Energy">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.286</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.286</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.683</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">0.110</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXV4.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">99.8</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">-1.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">-0.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">-0.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">-0.4%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.4</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">+2.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.000</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.005</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +1.4% &middot; Breadth &gt;50-DMA: 0%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Communication_Services" onclick="toggleBreakdown('EU-Communication_Services')">
           <td>
             <span class="rank-badge">18</span>
+            <span class="chevron" id="chev-EU-Communication_Services">▶</span>
           </td>
           <td>Communication Services</td>
           <td><span class="tag-region">EU</span></td>
@@ -556,10 +689,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -7.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Communication_Services">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.314</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.314</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.175</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.454</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXV2.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">97.0</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+1.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+27.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">-0.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+12.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">99.1</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-4.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">+0.003</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: -3.1% &middot; Breadth &gt;50-DMA: 0%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Real_Estate" onclick="toggleBreakdown('EU-Real_Estate')">
           <td>
             <span class="rank-badge">19</span>
+            <span class="chevron" id="chev-EU-Real_Estate">▶</span>
           </td>
           <td>Real Estate</td>
           <td><span class="tag-region">EU</span></td>
@@ -572,10 +709,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -9.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Real_Estate">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.446</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.446</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.875</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.017</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: IPRP.L &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">97.6</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">-0.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+3.7%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">-1.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">-0.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.2</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">+1.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.000</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.010</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +0.8% &middot; Breadth &gt;50-DMA: 0%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="EU-Materials" onclick="toggleBreakdown('EU-Materials')">
           <td>
             <span class="rank-badge">20</span>
+            <span class="chevron" id="chev-EU-Materials">▶</span>
           </td>
           <td>Materials</td>
           <td><span class="tag-region">EU</span></td>
@@ -588,10 +729,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             <span class="arrow down">▼</span> -11.0
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-EU-Materials">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.516</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.516</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.889</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.144</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: EXV5.DE &middot; Benchmark: EXSA.DE</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">97.9</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">+5.2%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">-9.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">+1.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">-4.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">99.9</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-2.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.000</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: +3.1% &middot; Breadth &gt;50-DMA: 100%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Energy" onclick="toggleBreakdown('US-Energy')">
           <td>
             <span class="rank-badge">21</span>
+            <span class="chevron" id="chev-US-Energy">▶</span>
           </td>
           <td>Energy</td>
           <td><span class="tag-region">US</span></td>
@@ -604,10 +749,14 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
             —
           </td>
         </tr>
+        <tr class="breakdown-row" id="bd-US-Energy">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.624</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.624</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-0.581</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.667</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLE &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">97.3</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">-4.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">+23.5%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">-4.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">+9.8%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">99.4</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-2.1%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">-0.001</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.003</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: -6.9% &middot; Breadth &gt;50-DMA: 0%</div></div></div></div></td>
+        </tr>
         
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="US-Communication_Services" onclick="toggleBreakdown('US-Communication_Services')">
           <td>
             <span class="rank-badge">22</span>
+            <span class="chevron" id="chev-US-Communication_Services">▶</span>
           </td>
           <td>Communication Services</td>
           <td><span class="tag-region">US</span></td>
@@ -619,6 +768,9 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
           <td>
             —
           </td>
+        </tr>
+        <tr class="breakdown-row" id="bd-US-Communication_Services">
+          <td colspan="8"><div class="breakdown-inner"><div class="breakdown-grid"><div class="bd-left"><div class="score-tree"><div class="st-row st-top"><span class="st-label">Composite</span><span class="st-val">-0.796</span></div><div class="st-row"><span class="st-conn">├─</span><span class="st-label">Data Score</span><span class="st-wt">(70%)</span><span class="st-val">-0.796</span></div><div class="st-row st-sub"><span class="st-conn">│ ├─</span><span class="st-label">Level</span><span class="st-wt">(50%)</span><span class="st-val">-1.317</span><span class="st-meta">5 signals</span></div><div class="st-row st-sub"><span class="st-conn">│ └─</span><span class="st-label">Change</span><span class="st-wt">(50%)</span><span class="st-val">-0.276</span><span class="st-meta">4 signals</span></div><div class="st-row"><span class="st-conn">└─</span><span class="st-label">Sentiment</span><span class="st-wt">(30%)</span><span class="st-val">—</span></div></div><div class="bd-footer">ETF: XLC &middot; Benchmark: RSP</div></div><div class="bd-right"><div class="sig-section"><div class="sig-title">Level Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">Relative Strength</td><td class="sig-raw">96.0</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">3M Return</td><td class="sig-raw">-2.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">6M Return</td><td class="sig-raw">-3.0%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 50-DMA</td><td class="sig-raw">-2.6%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Dist. from 200-DMA</td><td class="sig-raw">-2.3%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-section"><div class="sig-title">Change Signals</div><table class="sig-table"><tbody><tr><td class="sig-label">RS Momentum</td><td class="sig-raw">100.4</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">Momentum Accel.</td><td class="sig-raw">-0.9%</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">50-DMA Slope</td><td class="sig-raw">+0.000</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr><tr><td class="sig-label">OBV Trend</td><td class="sig-raw">-0.039</td><td class="sig-bar"><span class="z-bar-wrap"></span></td><td class="sig-z">—</td><td><span class="sig-chip neut">—</span></td></tr></tbody></table></div><div class="sig-info"><span class="info-lbl">Not scored:</span> 1M Return: -3.2% &middot; Breadth &gt;50-DMA: 0%</div></div></div></div></td>
         </tr>
         
       </tbody>
@@ -871,14 +1023,24 @@ function updateDrilldown() {
   Plotly.newPlot('drilldown-chart', fig.data, fig.layout, {responsive: true, displayModeBar: true});
 }
 
+// ----- Breakdown toggle -----
+function toggleBreakdown(id) {
+  var bdRow = document.getElementById('bd-' + id);
+  var chev  = document.getElementById('chev-' + id);
+  if (!bdRow) return;
+  bdRow.classList.toggle('open');
+  if (chev) chev.textContent = bdRow.classList.contains('open') ? '▼' : '▶';
+}
+
 // ----- Sortable table -----
 var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
 
 function sortTable(col) {
-  var table  = document.getElementById('leaderboard-table');
-  var tbody  = table.querySelector('tbody');
-  var rows   = Array.from(tbody.querySelectorAll('tr'));
+  var table   = document.getElementById('leaderboard-table');
+  var tbody   = table.querySelector('tbody');
   var headers = table.querySelectorAll('thead th');
+  // Only sort leaderboard rows — skip breakdown rows
+  var rows = Array.from(tbody.querySelectorAll('tr.leaderboard-row'));
 
   if (_sortCol === col) {
     _sortDir *= -1;
@@ -887,7 +1049,6 @@ function sortTable(col) {
     _sortDir = 1;
   }
 
-  // Update header classes
   headers.forEach(function(h, i) {
     h.classList.remove('sort-asc', 'sort-desc');
     if (i === col) h.classList.add(_sortDir === 1 ? 'sort-asc' : 'sort-desc');
@@ -899,9 +1060,8 @@ function sortTable(col) {
     var aText = aCell ? aCell.innerText.trim() : '';
     var bText = bCell ? bCell.innerText.trim() : '';
 
-    // Strip arrows and symbols for comparison
-    aText = aText.replace(/[▲▼]/g, '').trim();
-    bText = bText.replace(/[▲▼]/g, '').trim();
+    aText = aText.replace(/[▲▼▶]/g, '').trim();
+    bText = bText.replace(/[▲▼▶]/g, '').trim();
 
     var aNum = parseFloat(aText.replace(/[+,]/g, ''));
     var bNum = parseFloat(bText.replace(/[+,]/g, ''));
@@ -910,7 +1070,15 @@ function sortTable(col) {
     return aText.localeCompare(bText) * _sortDir;
   });
 
-  rows.forEach(function(r) { tbody.appendChild(r); });
+  // Re-append each leaderboard row followed by its breakdown row
+  rows.forEach(function(r) {
+    tbody.appendChild(r);
+    var sectorId = r.dataset.sectorId;
+    if (sectorId) {
+      var bd = document.getElementById('bd-' + sectorId);
+      if (bd) tbody.appendChild(bd);
+    }
+  });
 }
 </script>
 

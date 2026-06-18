@@ -63,6 +63,25 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 
+# ---------------------------------------------------------------------------
+# Signal metadata for leaderboard breakdown
+# ---------------------------------------------------------------------------
+
+_SIGNAL_META: dict[str, dict] = {
+    "rs_ratio":            {"label": "Relative Strength",  "group": "level"},
+    "return_3m":           {"label": "3M Return",           "group": "level"},
+    "return_6m":           {"label": "6M Return",           "group": "level"},
+    "above_50dma":         {"label": "Dist. from 50-DMA",   "group": "level"},
+    "above_200dma":        {"label": "Dist. from 200-DMA",  "group": "level"},
+    "rs_momentum":         {"label": "RS Momentum",         "group": "change"},
+    "acceleration":        {"label": "Momentum Accel.",     "group": "change"},
+    "ma50_slope":          {"label": "50-DMA Slope",        "group": "change"},
+    "obv_slope":           {"label": "OBV Trend",           "group": "change"},
+    "return_1m":           {"label": "1M Return",           "group": "info"},
+    "breadth_above_50dma": {"label": "Breadth >50-DMA",     "group": "info"},
+}
+
+
 def _safe_float(v) -> float | None:
     """Return float or None for NaN/None values."""
     if v is None:
@@ -72,6 +91,178 @@ def _safe_float(v) -> float | None:
         return None if math.isnan(f) else f
     except (TypeError, ValueError):
         return None
+
+
+def _format_raw_value(name: str, value) -> str:
+    """Format a signal's raw value for human display."""
+    if value is None:
+        return "—"
+    v = float(value)
+    if name in ("rs_ratio", "rs_momentum"):
+        return f"{v:.1f}"
+    if name == "breadth_above_50dma":
+        return f"{v * 100:.0f}%"
+    if name in ("ma50_slope", "obv_slope"):
+        return f"{v:+.3f}"
+    # return_*, above_*dma, acceleration — stored as decimal fraction
+    return f"{v * 100:+.1f}%"
+
+
+def _build_breakdown_html(
+    sector_key: str,
+    score_row: dict,
+    sector_signals: list[dict],
+    universe: dict,
+    weights: dict,
+) -> str:
+    """Pre-render the breakdown panel for one sector row."""
+    import html as _html
+
+    region, sector_name = sector_key.split("|", 1)
+
+    # Ticker + benchmark from universe
+    if region == "US":
+        ticker = universe.get("us_sectors", {}).get(sector_name, "—")
+        benchmark = universe.get("us_benchmark", "RSP")
+    else:
+        ticker = universe.get("eu_sectors", {}).get(sector_name, "—")
+        benchmark = universe.get("eu_benchmark", "EXSA.DE")
+
+    # Weights
+    data_weight  = weights.get("pillars", {}).get("data", 1.0)
+    sent_weight  = weights.get("pillars", {}).get("sentiment", 0.0)
+    level_weight = weights.get("data_pillar", {}).get("level", 0.5)
+    chg_weight   = weights.get("data_pillar", {}).get("change", 0.5)
+
+    def fv(v):
+        f = _safe_float(v)
+        return f"{f:.3f}" if f is not None else "—"
+
+    composite     = fv(score_row.get("composite"))
+    data_score    = fv(score_row.get("data_score"))
+    level_score   = fv(score_row.get("level_score"))
+    change_score  = fv(score_row.get("change_score"))
+    sent_score    = fv(score_row.get("sentiment_score"))
+
+    # Score-tree HTML
+    tree = (
+        f'<div class="score-tree">'
+        f'<div class="st-row st-top">'
+        f'<span class="st-label">Composite</span>'
+        f'<span class="st-val">{composite}</span>'
+        f'</div>'
+        f'<div class="st-row">'
+        f'<span class="st-conn">├─</span>'
+        f'<span class="st-label">Data Score</span>'
+        f'<span class="st-wt">({data_weight*100:.0f}%)</span>'
+        f'<span class="st-val">{data_score}</span>'
+        f'</div>'
+        f'<div class="st-row st-sub">'
+        f'<span class="st-conn">│ ├─</span>'
+        f'<span class="st-label">Level</span>'
+        f'<span class="st-wt">({level_weight*100:.0f}%)</span>'
+        f'<span class="st-val">{level_score}</span>'
+        f'<span class="st-meta">5 signals</span>'
+        f'</div>'
+        f'<div class="st-row st-sub">'
+        f'<span class="st-conn">│ └─</span>'
+        f'<span class="st-label">Change</span>'
+        f'<span class="st-wt">({chg_weight*100:.0f}%)</span>'
+        f'<span class="st-val">{change_score}</span>'
+        f'<span class="st-meta">4 signals</span>'
+        f'</div>'
+        f'<div class="st-row">'
+        f'<span class="st-conn">└─</span>'
+        f'<span class="st-label">Sentiment</span>'
+        f'<span class="st-wt">({sent_weight*100:.0f}%)</span>'
+        f'<span class="st-val">{sent_score}</span>'
+        f'</div>'
+        f'</div>'
+        f'<div class="bd-footer">'
+        f'ETF: {_html.escape(str(ticker))} &middot; '
+        f'Benchmark: {_html.escape(str(benchmark))}'
+        f'</div>'
+    )
+
+    # Signal lookup
+    sig_by_name = {s["signal_name"]: s for s in sector_signals}
+
+    def sig_row(name: str) -> str:
+        meta = _SIGNAL_META.get(name)
+        if not meta:
+            return ""
+        sig  = sig_by_name.get(name, {})
+        raw  = _format_raw_value(name, sig.get("raw_value"))
+        z_v  = _safe_float(sig.get("z_value"))
+
+        if z_v is not None:
+            bar_w = min(abs(z_v) / 3.0, 1.0) * 60
+            if z_v >= 0.5:
+                color, chip = "#4FC3F7", '<span class="sig-chip bull">▲</span>'
+            elif z_v <= -0.5:
+                color, chip = "#F06292", '<span class="sig-chip bear">▼</span>'
+            else:
+                color, chip = "#666", '<span class="sig-chip neut">—</span>'
+            bar = (
+                f'<span class="z-bar-wrap">'
+                f'<span class="z-bar" style="width:{bar_w:.0f}px;background:{color}"></span>'
+                f'</span>'
+            )
+            z_str = f"{z_v:+.2f}"
+        else:
+            bar  = '<span class="z-bar-wrap"></span>'
+            chip = '<span class="sig-chip neut">—</span>'
+            z_str = "—"
+
+        return (
+            f'<tr>'
+            f'<td class="sig-label">{_html.escape(meta["label"])}</td>'
+            f'<td class="sig-raw">{_html.escape(raw)}</td>'
+            f'<td class="sig-bar">{bar}</td>'
+            f'<td class="sig-z">{_html.escape(z_str)}</td>'
+            f'<td>{chip}</td>'
+            f'</tr>'
+        )
+
+    level_order  = list(weights.get("level_signals",  {}).keys())
+    change_order = list(weights.get("change_signals", {}).keys())
+    level_rows  = "".join(sig_row(n) for n in level_order)
+    change_rows = "".join(sig_row(n) for n in change_order)
+
+    # Info-only signals (not scored)
+    info_parts = []
+    for n in ("return_1m", "breadth_above_50dma"):
+        sig = sig_by_name.get(n, {})
+        if sig.get("raw_value") is not None:
+            lbl = _SIGNAL_META[n]["label"]
+            val = _format_raw_value(n, sig["raw_value"])
+            info_parts.append(f"{_html.escape(lbl)}: {_html.escape(val)}")
+    info_html = (
+        f'<div class="sig-info"><span class="info-lbl">Not scored:</span> '
+        + " &middot; ".join(info_parts)
+        + "</div>"
+    ) if info_parts else ""
+
+    signals = (
+        f'<div class="sig-section">'
+        f'<div class="sig-title">Level Signals</div>'
+        f'<table class="sig-table"><tbody>{level_rows}</tbody></table>'
+        f'</div>'
+        f'<div class="sig-section">'
+        f'<div class="sig-title">Change Signals</div>'
+        f'<table class="sig-table"><tbody>{change_rows}</tbody></table>'
+        f'</div>'
+        f'{info_html}'
+    )
+
+    return (
+        f'<div class="breakdown-inner">'
+        f'<div class="breakdown-grid">'
+        f'<div class="bd-left">{tree}</div>'
+        f'<div class="bd-right">{signals}</div>'
+        f'</div>'
+        f'</div>'
+    )
 
 
 def _build_rrg_figure(history_df) -> str:
@@ -588,7 +779,7 @@ def main() -> None:
 
     # 2. Open DB + load history
     sys.path.insert(0, str(project_root))
-    from src.state import init_db, get_scan_history
+    from src.state import init_db, get_scan_history, get_signals_for_latest_scan
 
     if not db_path.exists():
         print(f"No database found at {db_path}. Run scan.py first.")
@@ -596,6 +787,7 @@ def main() -> None:
 
     conn = init_db(db_path=db_path)
     history_df = get_scan_history(conn, n_scans=20)
+    signals_df = get_signals_for_latest_scan(conn)   # must come before conn.close()
     conn.close()
 
     if history_df.empty:
@@ -603,6 +795,13 @@ def main() -> None:
         sys.exit(0)
 
     logger.info("Loaded %d rows from %d scans", len(history_df), history_df["scan_id"].nunique())
+
+    # Load config for breakdown panel
+    import yaml as _yaml
+    with open(project_root / "config/universe.yaml") as _fh:
+        _universe = _yaml.safe_load(_fh)
+    with open(project_root / "config/weights.yaml") as _fh:
+        _weights = _yaml.safe_load(_fh)
 
     # 3. Build figures
     logger.info("Building RRG figure …")
@@ -622,6 +821,31 @@ def main() -> None:
 
     logger.info("Building Data⇄Sentiment scatter …")
     sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
+
+    # Enrich rows with breakdown HTML (keyed by sector_id for JS toggle)
+    latest_scan_id = history_df["scan_id"].max()
+    latest_scores  = history_df[history_df["scan_id"] == latest_scan_id]
+    for row in leaderboard_rows:
+        key = f"{row['region']}|{row['sector']}"
+        row["key"]       = key
+        row["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        mask = (
+            (latest_scores["region"]      == row["region"]) &
+            (latest_scores["gics_sector"] == row["sector"])
+        )
+        score_slice = latest_scores[mask]
+        score_row_dict = {} if score_slice.empty else score_slice.iloc[0].to_dict()
+        if not signals_df.empty:
+            sig_mask = (
+                (signals_df["region"]      == row["region"]) &
+                (signals_df["gics_sector"] == row["sector"])
+            )
+            row_signals = signals_df[sig_mask].to_dict("records")
+        else:
+            row_signals = []
+        row["breakdown_html"] = _build_breakdown_html(
+            key, score_row_dict, row_signals, _universe, _weights
+        )
 
     # 4. Compute relative path from docs/ to dashboard/assets/plotly.min.js
     plotly_bundle_rel = "../dashboard/assets/plotly.min.js"

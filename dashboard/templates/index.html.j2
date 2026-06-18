@@ -226,6 +226,70 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
   .tab-panel { padding: 14px; }
   .tabs { padding: 0 8px; }
 }
+
+/* =========================================================
+   Leaderboard row breakdown
+   ========================================================= */
+.leaderboard-row { cursor: pointer; }
+.leaderboard-row:hover { background: rgba(79,195,247,0.07); }
+.chevron { font-size: 0.65em; color: var(--text-muted); margin-left: 4px; transition: transform 0.15s; display: inline-block; }
+.breakdown-row { display: none; }
+.breakdown-row.open { display: table-row; }
+.breakdown-inner {
+  padding: 14px 18px;
+  background: #12122a;
+  border-top: 1px solid var(--border);
+}
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 700px) { .breakdown-grid { grid-template-columns: 1fr; } }
+
+/* Score tree */
+.score-tree { font-family: 'Courier New', monospace; font-size: 0.82em; line-height: 1.9; }
+.st-row { display: flex; align-items: baseline; gap: 4px; }
+.st-top .st-label { font-weight: 700; color: var(--accent); }
+.st-top .st-val   { font-weight: 700; color: var(--accent); }
+.st-conn  { color: #555; white-space: pre; min-width: 2.5em; }
+.st-label { color: var(--text-muted); }
+.st-wt    { color: #666; font-size: 0.85em; }
+.st-val   { color: var(--text); margin-left: auto; min-width: 48px; text-align: right; }
+.st-meta  { color: #555; font-size: 0.8em; margin-left: 4px; }
+.bd-footer {
+  margin-top: 12px;
+  font-size: 0.78em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+
+/* Signal tables */
+.sig-section { margin-bottom: 10px; }
+.sig-title {
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.sig-table { border-collapse: collapse; width: 100%; font-size: 0.82em; }
+.sig-table td { padding: 3px 6px; vertical-align: middle; }
+.sig-label { color: var(--text-muted); white-space: nowrap; }
+.sig-raw   { color: var(--text); font-family: monospace; text-align: right; min-width: 54px; }
+.sig-bar   { padding: 0 8px; }
+.sig-z     { color: var(--text-muted); font-family: monospace; text-align: right; min-width: 46px; }
+.z-bar-wrap { display: inline-block; width: 60px; height: 7px; background: #2a2a40; border-radius: 4px; vertical-align: middle; }
+.z-bar      { display: inline-block; height: 7px; border-radius: 4px; }
+.sig-chip   { font-size: 0.8em; padding: 1px 5px; border-radius: 3px; }
+.sig-chip.bull { color: #4FC3F7; }
+.sig-chip.bear { color: #F06292; }
+.sig-chip.neut { color: #666; }
+.sig-info   { font-size: 0.78em; color: #666; margin-top: 6px; border-top: 1px solid #1e1e35; padding-top: 5px; }
+.info-lbl   { color: #555; }
 </style>
 </head>
 <body>
@@ -269,9 +333,10 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
       </thead>
       <tbody>
         {% for row in leaderboard_rows %}
-        <tr>
+        <tr class="leaderboard-row" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
           <td>
             <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
+            <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
           <td>{{ row.sector }}</td>
           <td><span class="tag-region">{{ row.region }}</span></td>
@@ -283,6 +348,9 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
           <td>
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
+        </tr>
+        <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
+          <td colspan="8">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% else %}
         <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted)">No data available yet.</td></tr>
@@ -495,14 +563,24 @@ function updateDrilldown() {
   Plotly.newPlot('drilldown-chart', fig.data, fig.layout, {responsive: true, displayModeBar: true});
 }
 
+// ----- Breakdown toggle -----
+function toggleBreakdown(id) {
+  var bdRow = document.getElementById('bd-' + id);
+  var chev  = document.getElementById('chev-' + id);
+  if (!bdRow) return;
+  bdRow.classList.toggle('open');
+  if (chev) chev.textContent = bdRow.classList.contains('open') ? '▼' : '▶';
+}
+
 // ----- Sortable table -----
 var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
 
 function sortTable(col) {
-  var table  = document.getElementById('leaderboard-table');
-  var tbody  = table.querySelector('tbody');
-  var rows   = Array.from(tbody.querySelectorAll('tr'));
+  var table   = document.getElementById('leaderboard-table');
+  var tbody   = table.querySelector('tbody');
   var headers = table.querySelectorAll('thead th');
+  // Only sort leaderboard rows — skip breakdown rows
+  var rows = Array.from(tbody.querySelectorAll('tr.leaderboard-row'));
 
   if (_sortCol === col) {
     _sortDir *= -1;
@@ -511,7 +589,6 @@ function sortTable(col) {
     _sortDir = 1;
   }
 
-  // Update header classes
   headers.forEach(function(h, i) {
     h.classList.remove('sort-asc', 'sort-desc');
     if (i === col) h.classList.add(_sortDir === 1 ? 'sort-asc' : 'sort-desc');
@@ -523,9 +600,8 @@ function sortTable(col) {
     var aText = aCell ? aCell.innerText.trim() : '';
     var bText = bCell ? bCell.innerText.trim() : '';
 
-    // Strip arrows and symbols for comparison
-    aText = aText.replace(/[▲▼]/g, '').trim();
-    bText = bText.replace(/[▲▼]/g, '').trim();
+    aText = aText.replace(/[▲▼▶]/g, '').trim();
+    bText = bText.replace(/[▲▼▶]/g, '').trim();
 
     var aNum = parseFloat(aText.replace(/[+,]/g, ''));
     var bNum = parseFloat(bText.replace(/[+,]/g, ''));
@@ -534,7 +610,15 @@ function sortTable(col) {
     return aText.localeCompare(bText) * _sortDir;
   });
 
-  rows.forEach(function(r) { tbody.appendChild(r); });
+  // Re-append each leaderboard row followed by its breakdown row
+  rows.forEach(function(r) {
+    tbody.appendChild(r);
+    var sectorId = r.dataset.sectorId;
+    if (sectorId) {
+      var bd = document.getElementById('bd-' + sectorId);
+      if (bd) tbody.appendChild(bd);
+    }
+  });
 }
 </script>
 
