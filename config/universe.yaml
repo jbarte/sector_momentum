@@ -20,14 +20,14 @@ us_benchmark_alt: SPY
 # Using Yahoo Finance tickers for iShares STOXX Europe 600 sector ETFs
 eu_sectors:
   Technology: EXV3.DE         # iShares STOXX Europe 600 Technology
-  Financials: EXV1.DE         # Banks (primary proxy; Financial Services EXH4.DE and Insurance EXH5.DE not combined — see ARCHITECTURE.md §3.1 gap)
-  Energy: EXV4.DE             # iShares STOXX Europe 600 Oil & Gas
-  Health Care: EXV6.DE        # iShares STOXX Europe 600 Health Care
-  Industrials: EXV8.DE        # iShares STOXX Europe 600 Industrial Goods & Services
-  Consumer Discretionary: EXH2.DE  # Automobiles & Parts (dominant sub-sector by weight; Retail EXH7.DE and Travel & Leisure excluded — proxy is imperfect)
+  Financials: EXV1.DE         # Banks (primary proxy; Financial Services EXH2.DE and Insurance EXH5.DE not combined — see ARCHITECTURE.md §3.1 gap)
+  Energy: EXH1.DE             # iShares STOXX Europe 600 Oil & Gas
+  Health Care: EXV4.DE        # iShares STOXX Europe 600 Health Care
+  Industrials: EXH4.DE        # iShares STOXX Europe 600 Industrial Goods & Services
+  Consumer Discretionary: EXH7.DE  # Personal & Household Goods (closest GICS proxy; Retail EXH8.DE and Travel & Leisure excluded — proxy is imperfect)
   Consumer Staples: EXH3.DE   # iShares STOXX Europe 600 Food & Beverage
-  Utilities: EXH8.DE          # iShares STOXX Europe 600 Utilities
-  Materials: EXV5.DE          # iShares STOXX Europe 600 Basic Resources
+  Utilities: EXH9.DE          # iShares STOXX Europe 600 Utilities
+  Materials: EXV6.DE          # iShares STOXX Europe 600 Basic Resources
   Real Estate: IPRP.L         # iShares European Property Yield UCITS ETF
   Communication Services: EXV2.DE  # iShares STOXX Europe 600 Telecommunications
 
