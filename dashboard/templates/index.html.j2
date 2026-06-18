@@ -490,6 +490,31 @@ select.sector-select:focus {
   padding-top: 6px;
 }
 .info-lbl { font-weight: 500; }
+
+/* Instruments table */
+.bd-instruments {
+  margin-top: 14px;
+  border-top: 1px dashed var(--border-soft);
+  padding-top: 10px;
+}
+.etf-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.etf-table th {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg4);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 2px 8px 5px;
+  text-align: left;
+}
+.etf-table td { padding: 4px 8px; vertical-align: middle; }
+.etf-ticker { font-family: var(--font-mono); font-weight: 600; color: var(--fg2); white-space: nowrap; }
+.etf-name   { color: var(--fg3); }
+.etf-ter    { font-family: var(--font-mono); color: var(--fg4); text-align: right; white-space: nowrap; }
+.etf-isin   { font-family: var(--font-mono); font-size: 11px; color: var(--fg4); }
+.etf-link a { color: var(--brand-strong); text-decoration: none; }
+.etf-link a:hover { color: var(--brand); }
 </style>
 </head>
 <body>

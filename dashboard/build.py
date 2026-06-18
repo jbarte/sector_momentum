@@ -209,12 +209,56 @@ def _format_raw_value(name: str, value) -> str:
     return f"{v * 100:+.1f}%"
 
 
+def _build_instruments_html(sector_key: str, sector_etfs: dict) -> str:
+    """Render the Instruments table for a sector breakdown panel."""
+    import html as _html
+
+    region, sector_name = sector_key.split("|", 1)
+    etf_list = sector_etfs.get(region, {}).get(sector_name, [])
+    if not etf_list:
+        return ""
+
+    rows = ""
+    for etf in etf_list:
+        ticker  = etf.get("ticker", "")
+        name    = etf.get("name", "")
+        ter     = etf.get("ter", "")
+        isin    = etf.get("isin", "")
+        url     = etf.get("url", "")
+        link    = (
+            f'<a href="{_html.escape(url)}" target="_blank" rel="noopener">↗</a>'
+            if url else ""
+        )
+        rows += (
+            f"<tr>"
+            f'<td class="etf-ticker">{_html.escape(ticker)}</td>'
+            f'<td class="etf-name">{_html.escape(name)}</td>'
+            f'<td class="etf-ter">{_html.escape(str(ter))}</td>'
+            f'<td class="etf-isin">{_html.escape(isin)}</td>'
+            f'<td class="etf-link">{link}</td>'
+            f"</tr>"
+        )
+
+    return (
+        f'<div class="bd-instruments">'
+        f'<div class="sig-title">Instruments</div>'
+        f'<table class="etf-table">'
+        f"<thead><tr>"
+        f"<th>Ticker</th><th>Name</th><th>TER</th><th>ISIN</th><th></th>"
+        f"</tr></thead>"
+        f"<tbody>{rows}</tbody>"
+        f"</table>"
+        f"</div>"
+    )
+
+
 def _build_breakdown_html(
     sector_key: str,
     score_row: dict,
     sector_signals: list[dict],
     universe: dict,
     weights: dict,
+    sector_etfs: dict | None = None,
 ) -> str:
     """Pre-render the breakdown panel for one sector row."""
     import html as _html
@@ -362,12 +406,14 @@ def _build_breakdown_html(
         f'{info_html}'
     )
 
+    instruments = _build_instruments_html(sector_key, sector_etfs or {})
     return (
         f'<div class="breakdown-inner">'
         f'<div class="breakdown-grid">'
         f'<div class="bd-left">{tree}</div>'
         f'<div class="bd-right">{signals}</div>'
         f'</div>'
+        f'{instruments}'
         f'</div>'
     )
 
@@ -924,6 +970,8 @@ def main() -> None:
         _universe = _yaml.safe_load(_fh)
     with open(project_root / "config/weights.yaml") as _fh:
         _weights = _yaml.safe_load(_fh)
+    _etfs_path = project_root / "config/sector_etfs.yaml"
+    _sector_etfs = _yaml.safe_load(_etfs_path.read_text()) if _etfs_path.exists() else {}
 
     # 3. Build figures
     logger.info("Building RRG figure …")
@@ -970,7 +1018,7 @@ def main() -> None:
         else:
             row_signals = []
         row["breakdown_html"] = _build_breakdown_html(
-            key, score_row_dict, row_signals, _universe, _weights
+            key, score_row_dict, row_signals, _universe, _weights, _sector_etfs
         )
 
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it

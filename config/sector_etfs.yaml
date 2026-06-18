@@ -1,0 +1,297 @@
+# Investable instruments per GICS sector and region
+# Used in the dashboard breakdown panel as an informational reference.
+# Keys must match universe.yaml sector names exactly.
+# Not trading advice — TERs and ISINs current as of 2026-06.
+
+US:
+  Technology:
+    - ticker: XLK
+      name: Technology Select Sector SPDR Fund
+      isin: US81369Y8030
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xlk/
+    - ticker: VGT
+      name: Vanguard Information Technology ETF
+      isin: US92204A7028
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vgt
+
+  Financials:
+    - ticker: XLF
+      name: Financial Select Sector SPDR Fund
+      isin: US81369Y6059
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xlf/
+    - ticker: VFH
+      name: Vanguard Financials ETF
+      isin: US92204A4058
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vfh
+
+  Energy:
+    - ticker: XLE
+      name: Energy Select Sector SPDR Fund
+      isin: US81369Y5069
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xle/
+    - ticker: VDE
+      name: Vanguard Energy ETF
+      isin: US92204A3068
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vde
+
+  Health Care:
+    - ticker: XLV
+      name: Health Care Select Sector SPDR Fund
+      isin: US81369Y2090
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xlv/
+    - ticker: VHT
+      name: Vanguard Health Care ETF
+      isin: US92204A5048
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vht
+
+  Industrials:
+    - ticker: XLI
+      name: Industrial Select Sector SPDR Fund
+      isin: US81369Y7040
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xli/
+    - ticker: VIS
+      name: Vanguard Industrials ETF
+      isin: US92204A6038
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vis
+
+  Consumer Discretionary:
+    - ticker: XLY
+      name: Consumer Discretionary Select Sector SPDR Fund
+      isin: US81369Y4070
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xly/
+    - ticker: VCR
+      name: Vanguard Consumer Discretionary ETF
+      isin: US92204A1088
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vcr
+
+  Consumer Staples:
+    - ticker: XLP
+      name: Consumer Staples Select Sector SPDR Fund
+      isin: US81369Y3080
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xlp/
+    - ticker: VDC
+      name: Vanguard Consumer Staples ETF
+      isin: US92204A2078
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vdc
+
+  Utilities:
+    - ticker: XLU
+      name: Utilities Select Sector SPDR Fund
+      isin: US81369Y8865
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xlu/
+    - ticker: VPU
+      name: Vanguard Utilities ETF
+      isin: US92204A8760
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vpu
+
+  Materials:
+    - ticker: XLB
+      name: Materials Select Sector SPDR Fund
+      isin: US81369Y1001
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xlb/
+    - ticker: VAW
+      name: Vanguard Materials ETF
+      isin: US92204A8018
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vaw
+
+  Real Estate:
+    - ticker: XLRE
+      name: Real Estate Select Sector SPDR Fund
+      isin: US81369Y8600
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xlre/
+    - ticker: VNQ
+      name: Vanguard Real Estate ETF
+      isin: US9229085538
+      ter: "0.13%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vnq
+
+  Communication Services:
+    - ticker: XLC
+      name: Communication Services Select Sector SPDR Fund
+      isin: US81369Y8527
+      ter: "0.09%"
+      issuer: SPDR
+      url: https://www.sectorspdr.com/xlc/
+    - ticker: VOX
+      name: Vanguard Communication Services ETF
+      isin: US92204A8844
+      ter: "0.10%"
+      issuer: Vanguard
+      url: https://investor.vanguard.com/investment-products/etfs/profile/vox
+
+EU:
+  # iShares STOXX Europe 600 sector ETFs (Xetra-listed, TER 0.46–0.47%)
+  # Amundi STOXX Europe 600 sector ETFs (Xetra-listed, TER 0.30%, formerly Lyxor)
+  # Note: EU sector ETFs track STOXX sub-sectors, not GICS — see name for closest proxy.
+
+  Technology:
+    - ticker: EXV3.DE
+      name: iShares STOXX Europe 600 Technology
+      isin: DE000A0H08Q4
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08Q4
+    - ticker: LTUG
+      name: Amundi STOXX Europe 600 Technology
+      isin: LU1834988518
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834988518
+
+  Financials:
+    - ticker: EXV1.DE
+      name: iShares STOXX Europe 600 Banks
+      isin: DE000A0F5UJ7
+      ter: "0.47%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0F5UJ7
+    - ticker: LBNK
+      name: Amundi STOXX Europe 600 Banks
+      isin: LU1834983477
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834983477
+
+  Energy:
+    # No iShares STOXX 600 Oil & Gas with confirmed ISIN available
+    - ticker: LOGS
+      name: Amundi STOXX Europe 600 Oil & Gas Screened
+      isin: LU1834988278
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834988278
+
+  Health Care:
+    - ticker: EXV4.DE
+      name: iShares STOXX Europe 600 Health Care
+      isin: DE000A0Q4R36
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0Q4R36
+    - ticker: LHTC
+      name: Amundi STOXX Europe 600 Health Care
+      isin: LU1834986900
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834986900
+
+  Industrials:
+    # No iShares STOXX 600 Industrials with confirmed ISIN available
+    - ticker: LIGS
+      name: Amundi STOXX Europe 600 Industrial Goods & Services
+      isin: LU1834987890
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834987890
+
+  Consumer Discretionary:
+    # No iShares STOXX 600 Consumer Discretionary with confirmed ISIN available
+    - ticker: LTVL
+      name: Amundi STOXX Europe 600 Travel & Leisure
+      isin: LU1834988781
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834988781
+
+  Consumer Staples:
+    - ticker: EXH3.DE
+      name: iShares STOXX Europe 600 Food & Beverage
+      isin: DE000A0H08H3
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08H3
+    - ticker: LFOD
+      name: Amundi STOXX Europe 600 Food & Beverage
+      isin: LU1834985845
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834985845
+
+  Utilities:
+    - ticker: EXH9.DE
+      name: iShares STOXX Europe 600 Utilities
+      isin: DE000A0Q4R02
+      ter: "0.47%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0Q4R02
+    - ticker: LUTI
+      name: Amundi STOXX Europe 600 Utilities
+      isin: LU1834988864
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834988864
+
+  Materials:
+    - ticker: EXV6.DE
+      name: iShares STOXX Europe 600 Basic Resources
+      isin: DE000A0F5UK5
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0F5UK5
+    - ticker: LBRE
+      name: Amundi STOXX Europe 600 Basic Resources
+      isin: LU1834983550
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834983550
+
+  Real Estate:
+    - ticker: IPRP.L
+      name: iShares European Property Yield UCITS ETF
+      isin: IE00B0M63284
+      ter: "0.40%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00B0M63284
+
+  Communication Services:
+    - ticker: EXV2.DE
+      name: iShares STOXX Europe 600 Telecommunications
+      isin: DE000A0H08R2
+      ter: "0.47%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08R2
+    - ticker: LTCM
+      name: Amundi STOXX Europe 600 Telecommunications
+      isin: LU1834988609
+      ter: "0.30%"
+      issuer: Amundi
+      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834988609
