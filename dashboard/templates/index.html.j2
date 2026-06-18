@@ -279,6 +279,56 @@ select.sector-select:focus {
   box-shadow: 0 0 0 3px rgba(143,167,122,0.2);
 }
 
+/* Tab interpretation guides */
+.tab-guide {
+  background: color-mix(in srgb, var(--bg2) 60%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 18px;
+  padding: 0;
+  font-size: 0.875rem;
+}
+.tab-guide summary {
+  padding: 10px 16px;
+  cursor: pointer;
+  color: var(--fg3);
+  font-weight: 500;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+.tab-guide summary::before {
+  content: "▶";
+  font-size: 0.65em;
+  transition: transform 0.15s;
+}
+.tab-guide[open] summary::before {
+  transform: rotate(90deg);
+}
+.tab-guide-body {
+  padding: 0 18px 16px 18px;
+  color: var(--fg2);
+  line-height: 1.65;
+}
+.tab-guide-body h4 {
+  margin: 12px 0 4px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg4);
+}
+.tab-guide-body ul {
+  margin: 4px 0 0 0;
+  padding-left: 18px;
+}
+.tab-guide-body li {
+  margin-bottom: 3px;
+}
+.tab-guide-body .signal-hi { color: var(--up); font-weight: 600; }
+.tab-guide-body .signal-lo { color: var(--down); font-weight: 600; }
+
 /* =========================================================
    Guide panel
    ========================================================= */
@@ -426,6 +476,25 @@ select.sector-select:focus {
      Tab: Leaderboard
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active">
+  <details class="tab-guide">
+    <summary>How to read this tab</summary>
+    <div class="tab-guide-body">
+      <p>Every sector is ranked by <strong>composite score</strong> — a cross-sectional z-score blending level momentum (how strong the sector is now) and change momentum (whether it's accelerating or decelerating). A score of <strong>0</strong> means average across all sectors; <strong>+1.0</strong> means one standard deviation above average.</p>
+      <h4>Trend badge — the most actionable signal</h4>
+      <p>Computed as the linear slope of rank over the last 3–5 scans. A falling rank number means the sector is climbing the leaderboard.</p>
+      <ul>
+        <li><span class="signal-hi">↑↑ Rising fast</span> — rank improving 1.5+ places per scan. Strong entry signal.</li>
+        <li><span class="signal-hi">↑ Rising</span> — rank improving 0.3–1.5 places per scan. Emerging momentum.</li>
+        <li>→ Flat — rank stable. Momentum is neither building nor unwinding.</li>
+        <li><span class="signal-lo">↓ Falling</span> — rank deteriorating even if it is still high. Momentum is fading.</li>
+        <li><span class="signal-lo">↓↓ Falling fast</span> — avoid or consider exiting.</li>
+      </ul>
+      <h4>Entry setup</h4>
+      <p>Composite &gt; 0 with <span class="signal-hi">↑</span> or <span class="signal-hi">↑↑</span> trajectory and a positive Change score. Click any row to see the full signal breakdown.</p>
+      <h4>Exit / avoid signal</h4>
+      <p><span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span> trajectory even when rank is still high — the sector is topping. Rank Δ turning negative confirms the reversal.</p>
+    </div>
+  </details>
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
@@ -478,6 +547,22 @@ select.sector-select:focus {
      Tab: RRG
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel">
+  <details class="tab-guide">
+    <summary>How to read this tab</summary>
+    <div class="tab-guide-body">
+      <p>Sectors are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
+      <h4>Four quadrants</h4>
+      <ul>
+        <li><strong>Leading (top-right):</strong> Outperforming AND accelerating. Currently strong — but watch for rotation into Weakening.</li>
+        <li><strong>Weakening (bottom-right):</strong> Outperforming but decelerating. <span class="signal-lo">Prime exit / reduce signal.</span></li>
+        <li><strong>Lagging (bottom-left):</strong> Underperforming AND decelerating. Avoid.</li>
+        <li><strong>Improving (top-left):</strong> Underperforming but accelerating. <span class="signal-hi">Prime entry signal</span> — sectors typically rotate counter-clockwise from here into Leading.</li>
+      </ul>
+      <h4>How to use</h4>
+      <p>Sectors rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show the last 3 scan positions — the direction of the tail matters more than the current position.</p>
+      <p><em>Note: current axes are composite-based proxies. True JdK RS-Ratio/Momentum requires daily price data relative to a benchmark.</em></p>
+    </div>
+  </details>
   <div class="chart-container" id="rrg-chart" style="height:520px"></div>
 </section>
 
@@ -485,6 +570,21 @@ select.sector-select:focus {
      Tab: Drill-down
      ============================================================ -->
 <section id="tab-drilldown" class="tab-panel">
+  <details class="tab-guide">
+    <summary>How to read this tab</summary>
+    <div class="tab-guide-body">
+      <p>Select a sector to see its score component history across all stored scans.</p>
+      <h4>Key patterns</h4>
+      <ul>
+        <li><span class="signal-hi">Composite rising + Change score rising:</span> sustained acceleration. Highest-conviction entry setup.</li>
+        <li><span class="signal-lo">Composite near peak + Change score turning negative:</span> the sector is topping. Reduce or exit.</li>
+        <li>Composite falling but Change score rising: bottoming process. Watch for a second consecutive scan confirming before entering.</li>
+        <li>Level score and Change score diverging: momentum structure is breaking down — treat with caution.</li>
+      </ul>
+      <h4>How to use</h4>
+      <p>Pair with the leaderboard Trend badge. A sector showing <span class="signal-hi">↑</span> on the leaderboard that also has rising composite and change_score in the drill-down is the highest-conviction setup. A sector with a high rank but flat or falling change_score is likely to slip in the next scan.</p>
+    </div>
+  </details>
   <div class="drilldown-controls">
     <label for="sector-select">Sector:</label>
     <select class="sector-select" id="sector-select" onchange="updateDrilldown()">
@@ -500,6 +600,18 @@ select.sector-select:focus {
      Tab: Movers
      ============================================================ -->
 <section id="tab-movers" class="tab-panel">
+  <details class="tab-guide">
+    <summary>How to read this tab</summary>
+    <div class="tab-guide-body">
+      <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = sectors that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = sectors that slipped.</p>
+      <h4>How to use</h4>
+      <ul>
+        <li>A single large positive move can be a data event rather than sustained momentum — confirm in the Drill-down tab before acting.</li>
+        <li>Sectors with 2+ consecutive large positive moves in the History tab carry more conviction than single-scan jumps.</li>
+        <li><span class="signal-lo">Red flag:</span> a top-ranked sector with a large negative bar here is an early topping signal. Check the leaderboard Trend badge — if it shows <span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span>, the reversal is likely real.</li>
+      </ul>
+    </div>
+  </details>
   <div class="chart-container" id="movers-chart" style="height:520px"></div>
 </section>
 
@@ -507,6 +619,21 @@ select.sector-select:focus {
      Tab: History
      ============================================================ -->
 <section id="tab-history" class="tab-panel">
+  <details class="tab-guide">
+    <summary>How to read this tab</summary>
+    <div class="tab-guide-body">
+      <p>Composite score trend across all stored scans for every sector. The composite is a cross-sectional z-score — 0 = sector-average for that scan.</p>
+      <h4>Key patterns</h4>
+      <ul>
+        <li><span class="signal-hi">Consistent upward slope:</span> quality momentum. The sector has been outperforming for multiple scans — this is the highest-quality signal.</li>
+        <li><span class="signal-lo">Sharp spike then reversal:</span> likely a one-time data event, not sustainable momentum. Treat with caution.</li>
+        <li>Gradual recovery from negative territory: potential emerging opportunity — cross-check the leaderboard Trend badge for confirmation.</li>
+        <li>Flat around zero: sector in line with average; no edge.</li>
+      </ul>
+      <h4>How to use</h4>
+      <p>Use as context for current rank. A sector ranked #1 after steadily rising for 10 scans is a different risk profile from one that jumped from #8 last scan. Long, smooth uptrends are the entries worth holding; V-shaped reversals are the ones to trade quickly or skip.</p>
+    </div>
+  </details>
   <div class="chart-container" id="history-chart" style="height:520px"></div>
 </section>
 
