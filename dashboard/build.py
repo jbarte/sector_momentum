@@ -164,13 +164,13 @@ def _compute_rank_trajectories(history_df) -> dict:
         den = sum((i - x_mean) ** 2 for i in range(n))
         slope = round(num / den, 3) if den else 0.0
 
-        if slope <= -1.0:
+        if slope <= -1.5:
             state, label = "strong_up", "↑↑"
         elif slope <= -0.3:
             state, label = "up", "↑"
         elif slope < 0.3:
             state, label = "flat", "→"
-        elif slope < 1.0:
+        elif slope < 1.5:
             state, label = "down", "↓"
         else:
             state, label = "strong_down", "↓↓"

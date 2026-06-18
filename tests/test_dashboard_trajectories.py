@@ -100,12 +100,13 @@ def test_uses_last_five_scans_only():
     ranks = [15, 14, 13, 5, 4, 3, 2, 1]
     df = _make_history(ranks)
     result = _compute_rank_trajectories(df)
-    # Should show strong_up because it uses only the last 5 scans
-    assert result["US|Technology"]["state"] == "strong_up"
+    # Should show up because it uses only the last 5 scans
+    # (last 5: [5,4,3,2,1] = slope ≈ -1.0, which is between -1.5 and -0.3)
+    assert result["US|Technology"]["state"] == "up"
 
 
 def test_multiple_sectors_independent():
     df = _make_history([1, 1, 1, 1, 1], ranks_us_fin=[5, 4, 3, 2, 1])
     result = _compute_rank_trajectories(df)
     assert result["US|Technology"]["state"] == "flat"
-    assert result["US|Financials"]["state"] == "strong_up"
+    assert result["US|Financials"]["state"] == "up"
