@@ -67,6 +67,38 @@ import plotly.io as pio
 # Signal metadata for leaderboard breakdown
 # ---------------------------------------------------------------------------
 
+_WARM_PALETTE = [
+    "#5A6F49",  # green-600
+    "#A55A3C",  # terra-500
+    "#738A5F",  # green-500
+    "#BF6F50",  # terra-400
+    "#455636",  # green-700
+    "#83462E",  # terra-600
+    "#6A8599",  # info blue-gray
+    "#8F8568",  # beige-500
+    "#2F3C25",  # green-800
+    "#5E3121",  # terra-700
+]
+
+_SCORE_SIGNAL_COLORS: dict[str, str] = {
+    "composite":    "#5A6F49",
+    "level_score":  "#8FA77A",
+    "change_score": "#A55A3C",
+    "data_score":   "#6A8599",
+    "rank":         "#8F8568",
+}
+
+_CHART_STYLE = dict(
+    paper_bgcolor="#F5F0E6",
+    plot_bgcolor="#FAF7F0",
+    font_color="#3E392B",
+    font_family="Inter, -apple-system, sans-serif",
+    gridcolor="#DFD5BE",
+    zerolinecolor="#C4B89A",
+    legend_bgcolor="#FAF7F0",
+    legend_bordercolor="#DFD5BE",
+)
+
 _SIGNAL_META: dict[str, dict] = {
     "rs_ratio":            {"label": "Relative Strength",  "group": "level"},
     "return_3m":           {"label": "3M Return",           "group": "level"},
@@ -198,11 +230,11 @@ def _build_breakdown_html(
         if z_v is not None:
             bar_w = min(abs(z_v) / 3.0, 1.0) * 60
             if z_v >= 0.5:
-                color, chip = "#4FC3F7", '<span class="sig-chip bull">▲</span>'
+                color, chip = "#8FA77A", '<span class="sig-chip bull">▲</span>'
             elif z_v <= -0.5:
-                color, chip = "#F06292", '<span class="sig-chip bear">▼</span>'
+                color, chip = "#BF6F50", '<span class="sig-chip bear">▼</span>'
             else:
-                color, chip = "#666", '<span class="sig-chip neut">—</span>'
+                color, chip = "#C4B89A", '<span class="sig-chip neut">—</span>'
             bar = (
                 f'<span class="z-bar-wrap">'
                 f'<span class="z-bar" style="width:{bar_w:.0f}px;background:{color}"></span>'
@@ -276,7 +308,11 @@ def _build_rrg_figure(history_df) -> str:
 
     if history_df.empty:
         fig = go.Figure()
-        fig.update_layout(title="RRG — no data")
+        fig.update_layout(
+            title="RRG — no data",
+            paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B"),
+        )
         return pio.to_json(fig)
 
     # history_df has scan_id, run_at, region, gics_sector, composite, rank, etc.
@@ -288,7 +324,7 @@ def _build_rrg_figure(history_df) -> str:
 
     # Build a region -> color map
     regions = latest["region"].unique().tolist()
-    color_palette = ["#4FC3F7", "#AED581", "#FFB74D", "#F06292", "#CE93D8"]
+    color_palette = ["#5A6F49", "#A55A3C", "#738A5F", "#BF6F50", "#8FA77A"]
     region_colors = {r: color_palette[i % len(color_palette)] for i, r in enumerate(regions)}
 
     # Use composite as a proxy for rs_ratio offset (centred at 100)
@@ -313,9 +349,9 @@ def _build_rrg_figure(history_df) -> str:
 
     # Quadrant lines
     fig.add_shape(type="line", x0=100, x1=100, y0=90, y1=110,
-                  line=dict(color="#555", width=1, dash="dot"))
+                  line=dict(color="#C4B89A", width=1, dash="dot"))
     fig.add_shape(type="line", x0=90, x1=110, y0=100, y1=100,
-                  line=dict(color="#555", width=1, dash="dot"))
+                  line=dict(color="#C4B89A", width=1, dash="dot"))
 
     # Quadrant labels
     for qx, qy, qlabel in [
@@ -323,7 +359,7 @@ def _build_rrg_figure(history_df) -> str:
         (95, 95, "Lagging"), (105, 95, "Weakening"),
     ]:
         fig.add_annotation(x=qx, y=qy, text=qlabel,
-                           showarrow=False, font=dict(size=9, color="#888"),
+                           showarrow=False, font=dict(size=9, color="#8F8568"),
                            xanchor="center", yanchor="middle")
 
     # Tail lines per sector
@@ -359,7 +395,7 @@ def _build_rrg_figure(history_df) -> str:
             y=region_latest["_y"].tolist(),
             mode="markers+text",
             marker=dict(size=12, color=region_colors[region],
-                        line=dict(width=1, color="#222")),
+                        line=dict(width=1, color="#1F1C15")),
             text=region_latest["gics_sector"].tolist(),
             textposition="top center",
             textfont=dict(size=9),
@@ -373,15 +409,16 @@ def _build_rrg_figure(history_df) -> str:
         ))
 
     fig.update_layout(
-        title=dict(text="Relative Rotation Graph (composite proxy)", font=dict(size=13)),
+        title=dict(text="Relative Rotation Graph (composite proxy)",
+                   font=dict(size=13, color="#3E392B")),
         xaxis=dict(title="RS-Ratio (composite proxy)", range=[88, 112],
-                   gridcolor="#333", zeroline=False),
+                   gridcolor="#DFD5BE", zeroline=False),
         yaxis=dict(title="RS-Momentum (composite proxy)", range=[88, 112],
-                   gridcolor="#333", zeroline=False),
-        paper_bgcolor="#1a1a2e",
-        plot_bgcolor="#16213e",
-        font=dict(color="#e0e0e0"),
-        legend=dict(bgcolor="#1a1a2e", bordercolor="#444"),
+                   gridcolor="#DFD5BE", zeroline=False),
+        paper_bgcolor="#F5F0E6",
+        plot_bgcolor="#FAF7F0",
+        font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+        legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE"),
         margin=dict(l=50, r=20, t=50, b=50),
     )
     return pio.to_json(fig)
@@ -419,7 +456,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
 
         fig = go.Figure()
 
-        for sk in sector_keys:
+        for i, sk in enumerate(sector_keys):
             sk_data = history_df[history_df["sector_key"] == sk].sort_values("scan_id")
             if sk_data.empty:
                 continue
@@ -429,17 +466,19 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
                 y=sk_data[signal].tolist(),
                 mode="lines+markers",
                 name=f"{sector_name} ({region})",
+                line=dict(color=_WARM_PALETTE[i % len(_WARM_PALETTE)]),
                 hovertemplate=f"<b>{sector_name}</b><br>Date: %{{x}}<br>{signal}: %{{y:.3f}}<extra></extra>",
             ))
 
         fig.update_layout(
-            title=dict(text=signal.replace("_", " ").title(), font=dict(size=13)),
-            xaxis=dict(title="Scan Date", gridcolor="#333"),
-            yaxis=dict(title=signal.replace("_", " ").title(), gridcolor="#333"),
-            paper_bgcolor="#1a1a2e",
-            plot_bgcolor="#16213e",
-            font=dict(color="#e0e0e0"),
-            legend=dict(bgcolor="#1a1a2e", bordercolor="#444", font=dict(size=9)),
+            title=dict(text=signal.replace("_", " ").title(),
+                       font=dict(size=13, color="#3E392B")),
+            xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
+            yaxis=dict(title=signal.replace("_", " ").title(), gridcolor="#DFD5BE"),
+            paper_bgcolor="#F5F0E6",
+            plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+            legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
             margin=dict(l=50, r=20, t=50, b=50),
             hovermode="x unified",
         )
@@ -467,16 +506,18 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
                 y=sk_data[signal].tolist(),
                 mode="lines+markers",
                 name=signal.replace("_", " ").title(),
+                line=dict(color=_SCORE_SIGNAL_COLORS.get(signal, "#8F8568")),
                 hovertemplate=f"<b>{signal}</b><br>Date: %{{x}}<br>Value: %{{y:.3f}}<extra></extra>",
             ))
         fig.update_layout(
-            title=dict(text=f"{sector_name} ({region}) — Score Components", font=dict(size=13)),
-            xaxis=dict(title="Scan Date", gridcolor="#333"),
-            yaxis=dict(title="Score / Rank", gridcolor="#333"),
-            paper_bgcolor="#1a1a2e",
-            plot_bgcolor="#16213e",
-            font=dict(color="#e0e0e0"),
-            legend=dict(bgcolor="#1a1a2e", bordercolor="#444", font=dict(size=9)),
+            title=dict(text=f"{sector_name} ({region}) — score components",
+                       font=dict(size=13, color="#3E392B")),
+            xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
+            yaxis=dict(title="Score / Rank", gridcolor="#DFD5BE"),
+            paper_bgcolor="#F5F0E6",
+            plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+            legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
             margin=dict(l=50, r=20, t=50, b=50),
             hovermode="x unified",
         )
@@ -493,8 +534,8 @@ def _build_movers_figure(history_df) -> str:
         fig = go.Figure()
         fig.update_layout(
             title="Movers — need at least 2 scans",
-            paper_bgcolor="#1a1a2e", plot_bgcolor="#16213e",
-            font=dict(color="#e0e0e0"),
+            paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
         )
         return pio.to_json(fig)
 
@@ -515,7 +556,7 @@ def _build_movers_figure(history_df) -> str:
     merged["label"] = merged["gics_sector"] + " (" + merged["region"] + ")"
     merged = merged.sort_values("delta_rank", ascending=True)
 
-    colors = ["#4FC3F7" if d >= 0 else "#F06292" for d in merged["delta_rank"]]
+    colors = ["#8FA77A" if d >= 0 else "#BF6F50" for d in merged["delta_rank"]]
 
     fig = go.Figure(go.Bar(
         x=merged["delta_rank"].tolist(),
@@ -530,13 +571,14 @@ def _build_movers_figure(history_df) -> str:
     ))
 
     fig.update_layout(
-        title=dict(text="Movers — Rank Change (latest vs prior scan)", font=dict(size=13)),
-        xaxis=dict(title="Delta Rank (positive = climbing)", gridcolor="#333", zeroline=True,
-                   zerolinecolor="#555"),
-        yaxis=dict(title="", gridcolor="#333"),
-        paper_bgcolor="#1a1a2e",
-        plot_bgcolor="#16213e",
-        font=dict(color="#e0e0e0"),
+        title=dict(text="Movers — rank change (latest vs prior scan)",
+                   font=dict(size=13, color="#3E392B")),
+        xaxis=dict(title="Delta rank (positive = climbing)", gridcolor="#DFD5BE",
+                   zeroline=True, zerolinecolor="#C4B89A"),
+        yaxis=dict(title="", gridcolor="#DFD5BE"),
+        paper_bgcolor="#F5F0E6",
+        plot_bgcolor="#FAF7F0",
+        font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
         margin=dict(l=180, r=30, t=50, b=50),
         height=max(300, len(merged) * 28 + 80),
     )
@@ -551,8 +593,8 @@ def _build_history_figure(history_df) -> str:
         fig = go.Figure()
         fig.update_layout(
             title="History — no data",
-            paper_bgcolor="#1a1a2e", plot_bgcolor="#16213e",
-            font=dict(color="#e0e0e0"),
+            paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
         )
         return pio.to_json(fig)
 
@@ -562,24 +604,25 @@ def _build_history_figure(history_df) -> str:
     df = df.sort_values("scan_id")
 
     fig = go.Figure()
-    for label in sorted(df["sector_label"].unique()):
+    for i, label in enumerate(sorted(df["sector_label"].unique())):
         sec = df[df["sector_label"] == label]
         fig.add_trace(go.Scatter(
             x=sec["run_at_str"].tolist(),
             y=sec["composite"].tolist(),
             mode="lines+markers",
             name=label,
+            line=dict(color=_WARM_PALETTE[i % len(_WARM_PALETTE)]),
             hovertemplate=f"<b>{label}</b><br>Date: %{{x}}<br>Composite: %{{y:.3f}}<extra></extra>",
         ))
 
     fig.update_layout(
-        title=dict(text="Composite Score History", font=dict(size=13)),
-        xaxis=dict(title="Scan Date", gridcolor="#333"),
-        yaxis=dict(title="Composite Score", gridcolor="#333"),
-        paper_bgcolor="#1a1a2e",
-        plot_bgcolor="#16213e",
-        font=dict(color="#e0e0e0"),
-        legend=dict(bgcolor="#1a1a2e", bordercolor="#444", font=dict(size=9)),
+        title=dict(text="Composite score history", font=dict(size=13, color="#3E392B")),
+        xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
+        yaxis=dict(title="Composite score", gridcolor="#DFD5BE"),
+        paper_bgcolor="#F5F0E6",
+        plot_bgcolor="#FAF7F0",
+        font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+        legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
         margin=dict(l=50, r=20, t=50, b=50),
         hovermode="x unified",
     )

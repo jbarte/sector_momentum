@@ -3,69 +3,105 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Sector Momentum Dashboard</title>
+<title>Sector Momentum</title>
 <script src="{{ plotly_bundle }}"></script>
 <style>
-/* =========================================================
-   Base / Reset
-   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:         #0d0d1a;
-  --bg2:        #1a1a2e;
-  --bg3:        #16213e;
-  --accent:     #4FC3F7;
-  --accent2:    #AED581;
-  --text:       #e0e0e0;
-  --text-muted: #888;
-  --border:     #2d2d4a;
-  --up:         #AED581;
-  --down:       #F06292;
-  --tab-active: #4FC3F7;
-  --font:       'Segoe UI', system-ui, -apple-system, sans-serif;
-  --radius:     6px;
+  --beige-50:  #FAF7F0;
+  --beige-100: #F5F0E6;
+  --beige-200: #EDE6D6;
+  --beige-300: #DFD5BE;
+  --beige-400: #C4B89A;
+  --beige-500: #8F8568;
+  --beige-600: #5E5742;
+  --beige-700: #3E392B;
+  --beige-900: #1F1C15;
+
+  --green-100: #E2EBD9;
+  --green-300: #A9BF95;
+  --green-400: #8FA77A;
+  --green-600: #5A6F49;
+  --green-700: #455636;
+
+  --terra-400: #BF6F50;
+  --terra-500: #A55A3C;
+
+  --bg:           var(--beige-100);
+  --bg-raised:    var(--beige-50);
+  --bg-sunken:    var(--beige-200);
+  --fg1:          var(--beige-900);
+  --fg2:          var(--beige-700);
+  --fg3:          var(--beige-600);
+  --fg4:          var(--beige-500);
+  --brand-strong: var(--green-600);
+  --border:       var(--beige-300);
+  --border-soft:  var(--beige-200);
+  --up:           var(--green-600);
+  --down:         var(--terra-500);
+
+  --font-display: 'Familjen Grotesk', 'Helvetica Neue', system-ui, sans-serif;
+  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   14px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(62,57,43,0.06);
+  --shadow-sm: 0 1px 2px rgba(62,57,43,0.05), 0 2px 6px rgba(62,57,43,0.04);
+
+  --ease-standard: cubic-bezier(0.2,0.6,0.2,1);
+  --duration-fast: 140ms;
 }
 
 html, body {
   background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
+  color: var(--fg2);
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.5;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* =========================================================
    Header
    ========================================================= */
 header {
-  background: var(--bg2);
+  background: var(--bg-raised);
   border-bottom: 1px solid var(--border);
-  padding: 14px 24px;
+  padding: 16px 28px;
   display: flex;
   align-items: baseline;
   gap: 16px;
   flex-wrap: wrap;
 }
 header h1 {
-  font-size: 1.3rem;
+  font-family: var(--font-display);
+  font-size: 22px;
   font-weight: 600;
-  color: var(--accent);
-  letter-spacing: 0.02em;
+  color: var(--fg1);
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 .scan-date {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 12px;
+  color: var(--fg4);
 }
 .disclaimer {
   margin-left: auto;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-style: italic;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--fg4);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
 }
 
 /* =========================================================
@@ -73,34 +109,35 @@ header h1 {
    ========================================================= */
 .tabs {
   display: flex;
-  background: var(--bg2);
+  background: var(--bg-raised);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
-  gap: 2px;
   padding: 0 24px;
 }
 .tab-btn {
   background: none;
   border: none;
-  border-bottom: 3px solid transparent;
-  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  color: var(--fg4);
   cursor: pointer;
-  font: inherit;
-  font-size: 0.875rem;
-  padding: 10px 16px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 11px 16px;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
 }
-.tab-btn:hover { color: var(--text); }
+.tab-btn:hover { color: var(--fg2); }
 .tab-btn.active {
-  color: var(--tab-active);
-  border-bottom-color: var(--tab-active);
+  color: var(--brand-strong);
+  border-bottom-color: var(--brand-strong);
 }
 
 /* =========================================================
    Tab content panels
    ========================================================= */
-.tab-panel { display: none; padding: 24px; }
+.tab-panel { display: none; padding: 24px 28px; }
 .tab-panel.active { display: block; }
 
 /* =========================================================
@@ -108,71 +145,87 @@ header h1 {
    ========================================================= */
 .table-wrap {
   overflow-x: auto;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-xs);
 }
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 13px;
 }
 thead tr {
-  background: var(--bg3);
+  background: var(--bg-sunken);
   border-bottom: 1px solid var(--border);
 }
 thead th {
-  padding: 10px 14px;
+  padding: 10px 16px;
   text-align: left;
-  color: var(--text-muted);
+  color: var(--fg4);
+  font-size: 10px;
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
 }
-thead th:hover { color: var(--accent); }
-thead th.sort-asc::after  { content: " ▲"; font-size: 0.7em; }
-thead th.sort-desc::after { content: " ▼"; font-size: 0.7em; }
-tbody tr { border-bottom: 1px solid var(--border); }
+thead th:hover { color: var(--fg2); }
+thead th.sort-asc::after  { content: " ▲"; font-size: 0.75em; }
+thead th.sort-desc::after { content: " ▼"; font-size: 0.75em; }
+tbody tr { border-bottom: 1px dashed var(--border-soft); }
 tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: rgba(79,195,247,0.04); }
 tbody td {
-  padding: 9px 14px;
+  padding: 11px 16px;
   vertical-align: middle;
+  color: var(--fg2);
+}
+tbody td:nth-child(n+4) {
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 .rank-badge {
-  display: inline-block;
-  width: 28px; height: 28px;
-  line-height: 28px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: var(--bg3);
+  background: var(--bg-sunken);
+  font-family: var(--font-display);
   font-weight: 600;
-  font-size: 0.8rem;
-  color: var(--accent);
+  font-size: 12px;
+  color: var(--fg3);
 }
-.rank-badge.top3 { background: rgba(79,195,247,0.2); color: #fff; }
-.arrow.up   { color: var(--up);   font-size: 0.8rem; }
-.arrow.down { color: var(--down); font-size: 0.8rem; }
+.rank-badge.top3 {
+  background: var(--green-100);
+  color: var(--green-700);
+}
+.arrow.up   { color: var(--up);   font-size: 11px; }
+.arrow.down { color: var(--down); font-size: 11px; }
 .tag-region {
   display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 3px;
-  background: rgba(79,195,247,0.12);
-  color: var(--accent);
-  letter-spacing: 0.05em;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--beige-200);
+  color: var(--fg3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* =========================================================
    Plotly chart containers
    ========================================================= */
 .chart-container {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   min-height: 420px;
+  box-shadow: var(--shadow-xs);
 }
 
 /* =========================================================
@@ -185,45 +238,59 @@ tbody td {
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
-.drilldown-controls label { color: var(--text-muted); font-size: 0.875rem; }
+.drilldown-controls label {
+  color: var(--fg4);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
 select.sector-select {
-  background: var(--bg3);
+  background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.875rem;
-  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  color: var(--fg1);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 7px 12px;
   cursor: pointer;
   min-width: 220px;
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
-select.sector-select:focus { outline: 1px solid var(--accent); }
+select.sector-select:focus {
+  border-color: var(--green-400);
+  box-shadow: 0 0 0 3px rgba(143,167,122,0.2);
+}
 
 /* =========================================================
    Guide panel
    ========================================================= */
 .guide {
-  max-width: 740px;
+  max-width: 680px;
   line-height: 1.7;
 }
 .guide h2 {
-  font-size: 1rem;
-  color: var(--accent);
-  margin-top: 24px;
-  margin-bottom: 6px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--fg1);
+  letter-spacing: -0.01em;
+  margin-top: 28px;
+  margin-bottom: 8px;
 }
 .guide h2:first-child { margin-top: 0; }
-.guide p { color: var(--text-muted); margin-bottom: 8px; }
-.guide ul { padding-left: 20px; color: var(--text-muted); margin-bottom: 8px; }
-.guide li { margin-bottom: 4px; }
-.guide strong { color: var(--text); }
+.guide p { color: var(--fg3); margin-bottom: 10px; font-size: 14px; }
+.guide ul { padding-left: 18px; color: var(--fg3); margin-bottom: 10px; font-size: 14px; }
+.guide li { margin-bottom: 5px; }
+.guide strong { color: var(--fg2); font-weight: 500; }
 
 /* =========================================================
    Responsive
    ========================================================= */
 @media (max-width: 600px) {
-  header { padding: 10px 14px; }
-  .tab-panel { padding: 14px; }
+  header { padding: 12px 16px; }
+  .tab-panel { padding: 14px 16px; }
   .tabs { padding: 0 8px; }
 }
 
@@ -231,72 +298,99 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
    Leaderboard row breakdown
    ========================================================= */
 .leaderboard-row { cursor: pointer; }
-.leaderboard-row:hover { background: rgba(79,195,247,0.07); }
-.chevron { font-size: 0.65em; color: var(--text-muted); margin-left: 4px; transition: transform 0.15s; display: inline-block; }
+.leaderboard-row:hover { background: rgba(143,167,122,0.06); }
+.chevron {
+  font-size: 0.6em;
+  color: var(--fg4);
+  margin-left: 5px;
+  display: inline-block;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
 .breakdown-row { display: none; }
 .breakdown-row.open { display: table-row; }
 .breakdown-inner {
-  padding: 14px 18px;
-  background: #12122a;
-  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+  background: var(--bg-sunken);
+  border-top: 1px solid var(--border-soft);
 }
 .breakdown-grid {
   display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 20px;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
   align-items: start;
 }
 @media (max-width: 700px) { .breakdown-grid { grid-template-columns: 1fr; } }
 
 /* Score tree */
-.score-tree { font-family: 'Courier New', monospace; font-size: 0.82em; line-height: 1.9; }
+.score-tree {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 2;
+}
 .st-row { display: flex; align-items: baseline; gap: 4px; }
-.st-top .st-label { font-weight: 700; color: var(--accent); }
-.st-top .st-val   { font-weight: 700; color: var(--accent); }
-.st-conn  { color: #555; white-space: pre; min-width: 2.5em; }
-.st-label { color: var(--text-muted); }
-.st-wt    { color: #666; font-size: 0.85em; }
-.st-val   { color: var(--text); margin-left: auto; min-width: 48px; text-align: right; }
-.st-meta  { color: #555; font-size: 0.8em; margin-left: 4px; }
+.st-top .st-label { font-weight: 600; color: var(--fg1); }
+.st-top .st-val   { font-weight: 600; color: var(--brand-strong); }
+.st-conn  { color: var(--fg4); white-space: pre; min-width: 2.5em; }
+.st-label { color: var(--fg3); }
+.st-wt    { color: var(--fg4); font-size: 0.9em; }
+.st-val   { color: var(--fg2); margin-left: auto; min-width: 48px; text-align: right; }
+.st-meta  { color: var(--fg4); font-size: 0.85em; margin-left: 4px; }
 .bd-footer {
-  margin-top: 12px;
-  font-size: 0.78em;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-  padding-top: 6px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--fg4);
+  border-top: 1px dashed var(--border-soft);
+  padding-top: 8px;
+  font-family: var(--font-mono);
 }
 
 /* Signal tables */
-.sig-section { margin-bottom: 10px; }
+.sig-section { margin-bottom: 12px; }
 .sig-title {
-  font-size: 0.75em;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  margin-bottom: 4px;
+  letter-spacing: 0.10em;
+  color: var(--fg4);
+  margin-bottom: 5px;
 }
-.sig-table { border-collapse: collapse; width: 100%; font-size: 0.82em; }
+.sig-table { border-collapse: collapse; width: 100%; font-size: 12px; }
 .sig-table td { padding: 3px 6px; vertical-align: middle; }
-.sig-label { color: var(--text-muted); white-space: nowrap; }
-.sig-raw   { color: var(--text); font-family: monospace; text-align: right; min-width: 54px; }
+.sig-label { color: var(--fg3); white-space: nowrap; }
+.sig-raw   { color: var(--fg2); font-family: var(--font-mono); text-align: right; min-width: 54px; }
 .sig-bar   { padding: 0 8px; }
-.sig-z     { color: var(--text-muted); font-family: monospace; text-align: right; min-width: 46px; }
-.z-bar-wrap { display: inline-block; width: 60px; height: 7px; background: #2a2a40; border-radius: 4px; vertical-align: middle; }
-.z-bar      { display: inline-block; height: 7px; border-radius: 4px; }
-.sig-chip   { font-size: 0.8em; padding: 1px 5px; border-radius: 3px; }
-.sig-chip.bull { color: #4FC3F7; }
-.sig-chip.bear { color: #F06292; }
-.sig-chip.neut { color: #666; }
-.sig-info   { font-size: 0.78em; color: #666; margin-top: 6px; border-top: 1px solid #1e1e35; padding-top: 5px; }
-.info-lbl   { color: #555; }
+.sig-z     { color: var(--fg4); font-family: var(--font-mono); text-align: right; min-width: 46px; }
+.z-bar-wrap {
+  display: inline-block;
+  width: 60px; height: 6px;
+  background: var(--beige-300);
+  border-radius: var(--radius-pill);
+  vertical-align: middle;
+}
+.z-bar {
+  display: inline-block;
+  height: 6px;
+  border-radius: var(--radius-pill);
+}
+.sig-chip   { font-size: 11px; }
+.sig-chip.bull { color: var(--green-600); }
+.sig-chip.bear { color: var(--terra-500); }
+.sig-chip.neut { color: var(--fg4); }
+.sig-info {
+  font-size: 11px;
+  color: var(--fg4);
+  margin-top: 8px;
+  border-top: 1px dashed var(--border-soft);
+  padding-top: 6px;
+}
+.info-lbl { font-weight: 500; }
 </style>
 </head>
 <body>
 
 <!-- Header -->
 <header>
-  <h1>Sector Momentum Dashboard</h1>
+  <h1>Sector momentum</h1>
   <span class="scan-date">Last scan: {{ scan_date }}</span>
   <span class="disclaimer">Analytical tooling, not investment advice.</span>
 </header>
@@ -350,10 +444,10 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
           </td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
-          <td colspan="8">{{ row.breakdown_html | safe }}</td>
+          <td colspan="9">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted)">No data available yet.</td></tr>
+        <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)">No data available yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -416,7 +510,7 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
   <div class="guide">
     <h2>Leaderboard</h2>
     <p>
-      The Leaderboard ranks every sector by its <strong>composite score</strong> — a
+      The leaderboard ranks every sector by its <strong>composite score</strong> — a
       weighted blend of level, momentum-change, and data-quality sub-scores. A higher
       composite (more positive z-score) means the sector is exhibiting stronger relative
       momentum versus its benchmark.
@@ -439,10 +533,10 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
       benchmark index:
     </p>
     <ul>
-      <li><strong>X-axis (RS-Ratio)</strong> — whether the sector is outperforming (> 100)
-          or underperforming (< 100) the benchmark.</li>
+      <li><strong>X-axis (RS-Ratio)</strong> — whether the sector is outperforming (&gt; 100)
+          or underperforming (&lt; 100) the benchmark.</li>
       <li><strong>Y-axis (RS-Momentum)</strong> — whether relative strength is
-          accelerating (> 100) or decelerating (< 100).</li>
+          accelerating (&gt; 100) or decelerating (&lt; 100).</li>
     </ul>
     <p>Quadrant interpretation:</p>
     <ul>
@@ -466,9 +560,9 @@ select.sector-select:focus { outline: 1px solid var(--accent); }
 
     <h2>Movers</h2>
     <p>
-      The Movers panel shows the rank change between the two most recent scans.
-      <span style="color:var(--up)">Blue bars</span> indicate sectors that climbed the
-      leaderboard; <span style="color:var(--down)">pink bars</span> indicate sectors that
+      The movers panel shows the rank change between the two most recent scans.
+      <span style="color:var(--up)">Green bars</span> indicate sectors that climbed the
+      leaderboard; <span style="color:var(--down)">terracotta bars</span> indicate sectors that
       slipped. Large moves may reflect data updates, macro events, or genuine momentum
       shifts.
     </p>
@@ -556,7 +650,7 @@ function updateDrilldown() {
   var figJson = DRILLDOWN_DATA[key];
   if (!figJson) {
     document.getElementById('drilldown-chart').innerHTML =
-      '<p style="padding:24px;color:var(--text-muted)">No data for ' + key + '</p>';
+      '<p style="padding:24px;color:var(--fg4)">No data for ' + key + '</p>';
     return;
   }
   var fig = typeof figJson === 'string' ? JSON.parse(figJson) : figJson;
