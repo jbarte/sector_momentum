@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 _TIMEFRAME = "today 3-m"  # ~13 weeks
 _BATCH = 5                # max keywords per pytrends request
-_SLEEP = 2.5              # pytrends needs longer pauses to avoid 429
+_SLEEP = 20.0             # pytrends rate-limits hard after 2 batches; 20s is reliable
 
 
 def _cache_path(cache_dir: str) -> str:

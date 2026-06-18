@@ -19,6 +19,12 @@ import math
 import os
 import subprocess
 import sys
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 from datetime import date, timedelta
 from datetime import datetime
 
@@ -299,7 +305,7 @@ def run(args: argparse.Namespace) -> int:
     from src.data.prices import fetch_prices, load_universe
     from src.data.reddit import fetch_reddit
     from src.data.trends import fetch_trends
-    from src.data.stocktwits import fetch_stocktwits
+    from src.data.finnhub import fetch_finnhub_news
     from src.signals.sentiment import compute_sentiment_score
     from src.scoring import score_all
     from src.state import init_db, save_scan, load_last_scan, compute_deltas
@@ -375,13 +381,13 @@ def run(args: argparse.Namespace) -> int:
     with open("config/sentiment_keywords.yaml") as _fh:
         _sentiment_keywords = yaml.safe_load(_fh)
 
-    _reddit_raw     = fetch_reddit(_sentiment_keywords)
-    _trends_raw     = fetch_trends(_sentiment_keywords)
-    _stocktwits_raw = fetch_stocktwits(us_sectors)
+    _reddit_raw  = fetch_reddit(_sentiment_keywords)
+    _trends_raw  = fetch_trends(_sentiment_keywords)
+    _finnhub_raw = fetch_finnhub_news(us_sectors)
 
     sector_keys = list(wide_df.index)
     sentiment_scores = compute_sentiment_score(
-        _reddit_raw, _trends_raw, _stocktwits_raw,
+        _reddit_raw, _trends_raw, _finnhub_raw,
         sector_keys, us_sectors, eu_sectors,
     )
     n_sentiment = (sentiment_scores != 0.0).sum()

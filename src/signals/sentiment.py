@@ -2,7 +2,8 @@
 Sentiment signal calculator.
 
 Combines Reddit mention velocity, Google Trends search momentum, and
-StockTwits bull/bear ratio into a single sentiment_score per sector.
+Finnhub news headline sentiment (scored with VADER) into a single
+sentiment_score per sector.
 
 Missing sources produce NaN for that signal. A sector with all NaN
 signals gets 0.0 (neutral) so the data pillar carries full weight.
@@ -72,28 +73,51 @@ def _search_momentum(
     return _cross_zscore(raw)
 
 
-def _bull_bear_scores(
-    stocktwits_data: dict[str, dict] | None,
+def _news_sentiment(
+    finnhub_data: dict[str, list[str]] | None,
     us_sectors: dict[str, str],
     sector_keys: list[str],
 ) -> dict[str, float]:
-    """(bull - bear) / (bull + bear + 1) for US sectors. EU → NaN."""
+    """
+    Average VADER compound score across all headlines for each US sector.
+    EU sectors → NaN (no Finnhub coverage on free tier).
+    US scores are cross-sectional z-scored before returning.
+    """
+    if finnhub_data is None:
+        return {key: float("nan") for key in sector_keys}
+
+    try:
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+        sia = SentimentIntensityAnalyzer()
+    except ImportError:
+        logger.warning("vaderSentiment not installed — news sentiment unavailable")
+        return {key: float("nan") for key in sector_keys}
+
+    us_raw: dict[str, float] = {}
+    for sector in us_sectors:
+        headlines = finnhub_data.get(sector, [])
+        if not headlines:
+            us_raw[sector] = float("nan")
+        else:
+            scores = [sia.polarity_scores(h)["compound"] for h in headlines]
+            us_raw[sector] = sum(scores) / len(scores)
+
+    us_zscored = _cross_zscore(us_raw)
+
     result: dict[str, float] = {}
     for key in sector_keys:
         region, sector = key.split("|", 1)
-        if region != "US" or stocktwits_data is None or sector not in stocktwits_data:
-            result[key] = float("nan")
+        if region == "US":
+            result[key] = us_zscored.get(sector, float("nan"))
         else:
-            d = stocktwits_data[sector]
-            bull, bear = d.get("bull", 0), d.get("bear", 0)
-            result[key] = (bull - bear) / (bull + bear + 1.0)
+            result[key] = float("nan")
     return result
 
 
 def compute_sentiment_score(
     reddit_data: dict[str, dict] | None,
     trends_data: dict[str, pd.Series] | None,
-    stocktwits_data: dict[str, dict] | None,
+    finnhub_data: dict[str, list[str]] | None,
     sector_keys: list[str],
     us_sectors: dict[str, str],
     eu_sectors: dict[str, str],
@@ -112,7 +136,7 @@ def compute_sentiment_score(
 
     velocity = _mention_velocity(reddit_data, unique_sectors)
     momentum = _search_momentum(trends_data, unique_sectors)
-    bull_bear = _bull_bear_scores(stocktwits_data, us_sectors, sector_keys)
+    news = _news_sentiment(finnhub_data, us_sectors, sector_keys)
 
     scores: dict[str, float] = {}
     for key in sector_keys:
@@ -120,7 +144,7 @@ def compute_sentiment_score(
         signals = [
             velocity.get(sector, float("nan")),
             momentum.get(sector, float("nan")),
-            bull_bear.get(key, float("nan")),
+            news.get(key, float("nan")),
         ]
         valid = [s for s in signals if not math.isnan(s)]
         scores[key] = sum(valid) / len(valid) if valid else 0.0
