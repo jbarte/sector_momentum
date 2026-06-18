@@ -113,6 +113,20 @@ _SIGNAL_META: dict[str, dict] = {
     "breadth_above_50dma": {"label": "Breadth >50-DMA",     "group": "info"},
 }
 
+_SIGNAL_DESCRIPTIONS: dict[str, str] = {
+    "rs_ratio":            "Relative strength vs benchmark over 12 weeks, normalised to 100. Above 100 = sector outperforming; below 100 = underperforming.",
+    "return_3m":           "Price return of the sector ETF over the last 3 months. Measures medium-term absolute momentum.",
+    "return_6m":           "Price return over the last 6 months. Longer-window confirmation of trend direction.",
+    "above_50dma":         "How far the ETF price sits above its 50-day moving average. Positive = price above MA (bullish structure).",
+    "above_200dma":        "Distance from the 200-day moving average. Positive = sector is in a long-term uptrend.",
+    "rs_momentum":         "Rate of change of relative strength — whether the sector is outperforming faster or slower than last week. Above 100 = accelerating.",
+    "acceleration":        "1-month return minus 3-month return. Positive = recent price action outpacing the medium-term trend (momentum re-accelerating).",
+    "ma50_slope":          "Slope of the 50-day moving average. Positive = MA rising (uptrend intact); negative = MA rolling over.",
+    "obv_slope":           "Slope of On-Balance Volume. Rising OBV means volume is flowing into the sector, confirming price strength with buying pressure.",
+    "return_1m":           "1-month price return. Short-term reference; stored but not included in scoring.",
+    "breadth_above_50dma": "Percentage of stocks in the sector trading above their own 50-DMA. High breadth = broad-based rally, not just a few large caps.",
+}
+
 
 def _safe_float(v) -> float | None:
     """Return float or None for NaN/None values."""
@@ -301,9 +315,15 @@ def _build_breakdown_html(
             chip = '<span class="sig-chip neut">—</span>'
             z_str = "—"
 
+        tip = _SIGNAL_DESCRIPTIONS.get(name, "")
+        label_html = (
+            f'<span class="sig-tip" data-tip="{_html.escape(tip)}">'
+            f'{_html.escape(meta["label"])}'
+            f'</span>'
+        ) if tip else _html.escape(meta["label"])
         return (
             f'<tr>'
-            f'<td class="sig-label">{_html.escape(meta["label"])}</td>'
+            f'<td class="sig-label">{label_html}</td>'
             f'<td class="sig-raw">{_html.escape(raw)}</td>'
             f'<td class="sig-bar">{bar}</td>'
             f'<td class="sig-z">{_html.escape(z_str)}</td>'
@@ -795,15 +815,18 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
         ].rename(columns={"rank": "rank_prev", "composite": "comp_prev"})
         latest = latest.merge(prev, on=["region", "gics_sector"], how="left")
         latest["delta_rank"] = (latest["rank_prev"] - latest["rank"]).fillna(0)
+        latest["delta_composite"] = (latest["composite"] - latest["comp_prev"]).fillna(0)
     else:
         latest["delta_rank"] = 0.0
         latest["rank_prev"] = latest["rank"]
+        latest["delta_composite"] = 0.0
 
     latest = latest.sort_values("rank", ascending=True)
 
     rows = []
     for _, row in latest.iterrows():
         delta = _safe_float(row.get("delta_rank", 0)) or 0.0
+        delta_comp = _safe_float(row.get("delta_composite", 0)) or 0.0
         composite = _safe_float(row.get("composite"))
         rank = _safe_float(row.get("rank"))
         rows.append({
@@ -822,6 +845,7 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
             "delta_rank": f"{delta:+.1f}" if delta != 0 else "—",
             "arrow": "▲" if delta > 0 else ("▼" if delta < 0 else ""),
             "arrow_class": "up" if delta > 0 else ("down" if delta < 0 else ""),
+            "emerging": delta > 0 and delta_comp > 0,
         })
     return rows, scan_date
 

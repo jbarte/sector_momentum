@@ -442,6 +442,46 @@ select.sector-select:focus {
 .sig-chip.bull { color: var(--green-600); }
 .sig-chip.bear { color: var(--terra-500); }
 .sig-chip.neut { color: var(--fg4); }
+/* Signal tooltip */
+.sig-tip {
+  border-bottom: 1px dashed var(--fg4);
+  cursor: help;
+  position: relative;
+}
+.sig-tip::after {
+  content: attr(data-tip);
+  display: none;
+  position: absolute;
+  left: 0; top: calc(100% + 6px);
+  min-width: 220px; max-width: 320px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--fg2);
+  font-size: 0.78rem;
+  font-family: var(--font-sans);
+  line-height: 1.55;
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+  white-space: normal;
+  z-index: 200;
+  pointer-events: none;
+}
+.sig-tip:hover::after { display: block; }
+/* Emerging badge */
+.emerging-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--up);
+  background: color-mix(in srgb, var(--up) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--up) 30%, transparent);
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  margin-left: 6px;
+  vertical-align: middle;
+}
 .sig-info {
   font-size: 11px;
   color: var(--fg4);
@@ -518,7 +558,7 @@ select.sector-select:focus {
             <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
-          <td>{{ row.sector }}</td>
+          <td>{{ row.sector }}{% if row.emerging %}<span class="emerging-badge">⬆ Emerging</span>{% endif %}</td>
           <td><span class="tag-region">{{ row.region }}</span></td>
           <td>{{ row.composite }}</td>
           <td>{{ row.level_score }}</td>
