@@ -125,6 +125,61 @@ def _safe_float(v) -> float | None:
         return None
 
 
+def _compute_rank_trajectories(history_df) -> dict:
+    """
+    Compute rank slope over last 5 scans per sector.
+
+    Returns dict keyed by "{region}|{gics_sector}" with:
+        label: "↑↑" | "↑" | "→" | "↓" | "↓↓"
+        state: "strong_up" | "up" | "flat" | "down" | "strong_down"
+        slope: float (rank units per scan; negative = improving)
+    """
+    if history_df.empty:
+        return {}
+
+    df = history_df.copy()
+    df["_sk"] = df["region"] + "|" + df["gics_sector"]
+
+    scan_ids = sorted(df["scan_id"].unique())
+    recent_ids = set(scan_ids[-5:])
+    recent = df[df["scan_id"].isin(recent_ids)]
+
+    result = {}
+    for sk in df["_sk"].unique():
+        ranks = (
+            recent[recent["_sk"] == sk]
+            .sort_values("scan_id")["rank"]
+            .dropna()
+            .tolist()
+        )
+        n = len(ranks)
+        if n < 2:
+            result[sk] = {"label": "→", "state": "flat", "slope": 0.0}
+            continue
+
+        # Pure-Python OLS slope (no numpy needed)
+        x_mean = (n - 1) / 2.0
+        y_mean = sum(ranks) / n
+        num = sum((i - x_mean) * (y - y_mean) for i, y in enumerate(ranks))
+        den = sum((i - x_mean) ** 2 for i in range(n))
+        slope = round(num / den, 3) if den else 0.0
+
+        if slope <= -1.0:
+            state, label = "strong_up", "↑↑"
+        elif slope <= -0.3:
+            state, label = "up", "↑"
+        elif slope < 0.3:
+            state, label = "flat", "→"
+        elif slope < 1.0:
+            state, label = "down", "↓"
+        else:
+            state, label = "strong_down", "↓↓"
+
+        result[sk] = {"label": label, "state": state, "slope": slope}
+
+    return result
+
+
 def _format_raw_value(name: str, value) -> str:
     """Format a signal's raw value for human display."""
     if value is None:
@@ -861,6 +916,7 @@ def main() -> None:
 
     logger.info("Building leaderboard …")
     leaderboard_rows, scan_date = _build_leaderboard_rows(history_df)
+    trajectories = _compute_rank_trajectories(history_df)
 
     logger.info("Building Data⇄Sentiment scatter …")
     sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
@@ -872,6 +928,9 @@ def main() -> None:
         key = f"{row['region']}|{row['sector']}"
         row["key"]       = key
         row["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        traj = trajectories.get(key, {"label": "→", "state": "flat"})
+        row["trajectory_label"] = traj["label"]
+        row["trajectory_state"] = traj["state"]
         mask = (
             (latest_scores["region"]      == row["region"]) &
             (latest_scores["gics_sector"] == row["sector"])
