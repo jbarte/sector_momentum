@@ -395,6 +395,93 @@ def _build_history_figure(history_df) -> str:
     return pio.to_json(fig)
 
 
+def _build_sentiment_scatter_figure(history_df) -> str:
+    """Data ⇄ Sentiment scatter: x=data_score, y=sentiment_score, latest scan only."""
+    import pandas as pd
+
+    if history_df.empty:
+        fig = go.Figure()
+        fig.update_layout(title="Data ⇄ Sentiment — no data",
+                          paper_bgcolor="#1a1a2e", plot_bgcolor="#16213e",
+                          font=dict(color="#e0e0e0"))
+        return pio.to_json(fig)
+
+    latest_id = history_df["scan_id"].max()
+    df = history_df[history_df["scan_id"] == latest_id].copy()
+
+    # Separate sectors with/without sentiment scores
+    has_sentiment = df["sentiment_score"].notna() & (df["sentiment_score"] != 0.0)
+    solid = df[has_sentiment]
+    faded = df[~has_sentiment]
+
+    region_colors = {"US": "#4FC3F7", "EU": "#AED581"}
+
+    fig = go.Figure()
+
+    # Quadrant dividers at 0/0
+    for axis, xy in [("line", dict(x0=0, x1=0, y0=-3, y1=3)),
+                     ("line", dict(x0=-3, x1=3, y0=0, y1=0))]:
+        fig.add_shape(type=axis, **xy, line=dict(color="#555", width=1, dash="dot"))
+
+    # Quadrant labels
+    for x, y, label in [
+        (1.5,  1.5, "Agreement<br>(bullish)"),
+        (-1.5, 1.5, "Sentiment<br>ahead"),
+        (-1.5, -1.5, "Agreement<br>(bearish)"),
+        (1.5, -1.5, "Data ahead<br>← early signal"),
+    ]:
+        color = "#AED581" if "early" in label else "#888"
+        fig.add_annotation(x=x, y=y, text=label, showarrow=False,
+                           font=dict(size=9, color=color),
+                           xanchor="center", yanchor="middle")
+
+    for region, color in region_colors.items():
+        grp = solid[solid["region"] == region]
+        if grp.empty:
+            continue
+        fig.add_trace(go.Scatter(
+            x=grp["data_score"].tolist(),
+            y=grp["sentiment_score"].tolist(),
+            mode="markers+text",
+            marker=dict(size=12, color=color, line=dict(width=1, color="#222")),
+            text=grp["gics_sector"].tolist(),
+            textposition="top center",
+            textfont=dict(size=9),
+            name=region,
+            hovertemplate=(
+                "<b>%{text} (" + region + ")</b><br>"
+                "Data: %{x:.3f}<br>Sentiment: %{y:.3f}<extra></extra>"
+            ),
+        ))
+
+    # Faded points (no sentiment data)
+    if not faded.empty:
+        fig.add_trace(go.Scatter(
+            x=faded["data_score"].tolist(),
+            y=[0.0] * len(faded),
+            mode="markers+text",
+            marker=dict(size=8, color="#555", symbol="circle-open"),
+            text=faded["gics_sector"].tolist(),
+            textposition="top center",
+            textfont=dict(size=8, color="#666"),
+            name="no sentiment data",
+            hovertemplate="<b>%{text}</b><br>Sentiment: N/A<extra></extra>",
+        ))
+
+    fig.update_layout(
+        title=dict(text="Data ⇄ Sentiment", font=dict(size=13)),
+        xaxis=dict(title="Data Score", gridcolor="#333", zeroline=False),
+        yaxis=dict(title="Sentiment Score", gridcolor="#333", zeroline=False),
+        paper_bgcolor="#1a1a2e",
+        plot_bgcolor="#16213e",
+        font=dict(color="#e0e0e0"),
+        legend=dict(bgcolor="#1a1a2e", bordercolor="#444"),
+        margin=dict(l=50, r=20, t=50, b=50),
+        height=520,
+    )
+    return pio.to_json(fig)
+
+
 def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
     """
     Return leaderboard rows from the most recent scan and the scan date string.
@@ -441,6 +528,8 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
                 if _safe_float(row.get("change_score")) is not None else "—",
             "data_score": f"{_safe_float(row.get('data_score')):.3f}"
                 if _safe_float(row.get("data_score")) is not None else "—",
+            "sentiment_score": f"{_safe_float(row.get('sentiment_score')):.3f}"
+                if _safe_float(row.get("sentiment_score")) is not None else "—",
             "delta_rank": f"{delta:+.1f}" if delta != 0 else "—",
             "arrow": "▲" if delta > 0 else ("▼" if delta < 0 else ""),
             "arrow_class": "up" if delta > 0 else ("down" if delta < 0 else ""),
@@ -531,6 +620,9 @@ def main() -> None:
     logger.info("Building leaderboard …")
     leaderboard_rows, scan_date = _build_leaderboard_rows(history_df)
 
+    logger.info("Building Data⇄Sentiment scatter …")
+    sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
+
     # 4. Compute relative path from docs/ to dashboard/assets/plotly.min.js
     plotly_bundle_rel = "../dashboard/assets/plotly.min.js"
 
@@ -549,6 +641,7 @@ def main() -> None:
             sector_keys=sector_keys,
             movers_json=movers_json,
             history_json=history_json,
+            sentiment_scatter_json=sentiment_scatter_json,
             signals_list=signals_list,
             plotly_bundle=plotly_bundle_rel,
         ),
