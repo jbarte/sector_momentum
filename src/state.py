@@ -218,6 +218,22 @@ def compute_deltas(
     return result
 
 
+def get_signals_for_latest_scan(conn: sqlite3.Connection) -> pd.DataFrame:
+    """
+    Return all signal rows for the most recent scan.
+    Columns: region, gics_sector, signal_name, raw_value, z_value
+    Returns empty DataFrame if no scans exist.
+    """
+    return pd.read_sql_query(
+        """
+        SELECT s.region, s.gics_sector, s.signal_name, s.raw_value, s.z_value
+        FROM signals s
+        JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON s.scan_id = m.max_id
+        """,
+        conn,
+    )
+
+
 def get_scan_history(
     conn: sqlite3.Connection,
     n_scans: int = 10,

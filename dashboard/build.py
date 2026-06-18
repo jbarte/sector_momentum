@@ -63,6 +63,57 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 
+# ---------------------------------------------------------------------------
+# Signal metadata for leaderboard breakdown
+# ---------------------------------------------------------------------------
+
+_WARM_PALETTE = [
+    "#5A6F49",  # green-600
+    "#A55A3C",  # terra-500
+    "#738A5F",  # green-500
+    "#BF6F50",  # terra-400
+    "#455636",  # green-700
+    "#83462E",  # terra-600
+    "#6A8599",  # info blue-gray
+    "#8F8568",  # beige-500
+    "#2F3C25",  # green-800
+    "#5E3121",  # terra-700
+]
+
+_SCORE_SIGNAL_COLORS: dict[str, str] = {
+    "composite":    "#5A6F49",
+    "level_score":  "#8FA77A",
+    "change_score": "#A55A3C",
+    "data_score":   "#6A8599",
+    "rank":         "#8F8568",
+}
+
+_CHART_STYLE = dict(
+    paper_bgcolor="#F5F0E6",
+    plot_bgcolor="#FAF7F0",
+    font_color="#3E392B",
+    font_family="Inter, -apple-system, sans-serif",
+    gridcolor="#DFD5BE",
+    zerolinecolor="#C4B89A",
+    legend_bgcolor="#FAF7F0",
+    legend_bordercolor="#DFD5BE",
+)
+
+_SIGNAL_META: dict[str, dict] = {
+    "rs_ratio":            {"label": "Relative Strength",  "group": "level"},
+    "return_3m":           {"label": "3M Return",           "group": "level"},
+    "return_6m":           {"label": "6M Return",           "group": "level"},
+    "above_50dma":         {"label": "Dist. from 50-DMA",   "group": "level"},
+    "above_200dma":        {"label": "Dist. from 200-DMA",  "group": "level"},
+    "rs_momentum":         {"label": "RS Momentum",         "group": "change"},
+    "acceleration":        {"label": "Momentum Accel.",     "group": "change"},
+    "ma50_slope":          {"label": "50-DMA Slope",        "group": "change"},
+    "obv_slope":           {"label": "OBV Trend",           "group": "change"},
+    "return_1m":           {"label": "1M Return",           "group": "info"},
+    "breadth_above_50dma": {"label": "Breadth >50-DMA",     "group": "info"},
+}
+
+
 def _safe_float(v) -> float | None:
     """Return float or None for NaN/None values."""
     if v is None:
@@ -72,6 +123,233 @@ def _safe_float(v) -> float | None:
         return None if math.isnan(f) else f
     except (TypeError, ValueError):
         return None
+
+
+def _compute_rank_trajectories(history_df) -> dict:
+    """
+    Compute rank slope over last 5 scans per sector.
+
+    Returns dict keyed by "{region}|{gics_sector}" with:
+        label: "↑↑" | "↑" | "→" | "↓" | "↓↓"
+        state: "strong_up" | "up" | "flat" | "down" | "strong_down"
+        slope: float (rank units per scan; negative = improving)
+    """
+    if history_df.empty:
+        return {}
+
+    df = history_df.copy()
+    df["_sk"] = df["region"] + "|" + df["gics_sector"]
+
+    scan_ids = sorted(df["scan_id"].unique())
+    recent_ids = set(scan_ids[-5:])
+    recent = df[df["scan_id"].isin(recent_ids)]
+
+    result = {}
+    for sk in df["_sk"].unique():
+        ranks = (
+            recent[recent["_sk"] == sk]
+            .sort_values("scan_id")["rank"]
+            .dropna()
+            .tolist()
+        )
+        n = len(ranks)
+        if n < 2:
+            result[sk] = {"label": "→", "state": "flat", "slope": 0.0}
+            continue
+
+        # Pure-Python OLS slope (no numpy needed)
+        x_mean = (n - 1) / 2.0
+        y_mean = sum(ranks) / n
+        num = sum((i - x_mean) * (y - y_mean) for i, y in enumerate(ranks))
+        den = sum((i - x_mean) ** 2 for i in range(n))
+        slope = round(num / den, 3) if den else 0.0
+
+        if slope <= -1.5:
+            state, label = "strong_up", "↑↑"
+        elif slope <= -0.3:
+            state, label = "up", "↑"
+        elif slope < 0.3:
+            state, label = "flat", "→"
+        elif slope < 1.5:
+            state, label = "down", "↓"
+        else:
+            state, label = "strong_down", "↓↓"
+
+        result[sk] = {"label": label, "state": state, "slope": slope}
+
+    return result
+
+
+def _format_raw_value(name: str, value) -> str:
+    """Format a signal's raw value for human display."""
+    if value is None:
+        return "—"
+    v = float(value)
+    if name in ("rs_ratio", "rs_momentum"):
+        return f"{v:.1f}"
+    if name == "breadth_above_50dma":
+        return f"{v * 100:.0f}%"
+    if name in ("ma50_slope", "obv_slope"):
+        return f"{v:+.3f}"
+    # return_*, above_*dma, acceleration — stored as decimal fraction
+    return f"{v * 100:+.1f}%"
+
+
+def _build_breakdown_html(
+    sector_key: str,
+    score_row: dict,
+    sector_signals: list[dict],
+    universe: dict,
+    weights: dict,
+) -> str:
+    """Pre-render the breakdown panel for one sector row."""
+    import html as _html
+
+    region, sector_name = sector_key.split("|", 1)
+
+    # Ticker + benchmark from universe
+    if region == "US":
+        ticker = universe.get("us_sectors", {}).get(sector_name, "—")
+        benchmark = universe.get("us_benchmark", "RSP")
+    else:
+        ticker = universe.get("eu_sectors", {}).get(sector_name, "—")
+        benchmark = universe.get("eu_benchmark", "EXSA.DE")
+
+    # Weights
+    data_weight  = weights.get("pillars", {}).get("data", 1.0)
+    sent_weight  = weights.get("pillars", {}).get("sentiment", 0.0)
+    level_weight = weights.get("data_pillar", {}).get("level", 0.5)
+    chg_weight   = weights.get("data_pillar", {}).get("change", 0.5)
+
+    def fv(v):
+        f = _safe_float(v)
+        return f"{f:.3f}" if f is not None else "—"
+
+    composite     = fv(score_row.get("composite"))
+    data_score    = fv(score_row.get("data_score"))
+    level_score   = fv(score_row.get("level_score"))
+    change_score  = fv(score_row.get("change_score"))
+    sent_score    = fv(score_row.get("sentiment_score"))
+
+    # Score-tree HTML
+    tree = (
+        f'<div class="score-tree">'
+        f'<div class="st-row st-top">'
+        f'<span class="st-label">Composite</span>'
+        f'<span class="st-val">{composite}</span>'
+        f'</div>'
+        f'<div class="st-row">'
+        f'<span class="st-conn">├─</span>'
+        f'<span class="st-label">Data Score</span>'
+        f'<span class="st-wt">({data_weight*100:.0f}%)</span>'
+        f'<span class="st-val">{data_score}</span>'
+        f'</div>'
+        f'<div class="st-row st-sub">'
+        f'<span class="st-conn">│ ├─</span>'
+        f'<span class="st-label">Level</span>'
+        f'<span class="st-wt">({level_weight*100:.0f}%)</span>'
+        f'<span class="st-val">{level_score}</span>'
+        f'<span class="st-meta">5 signals</span>'
+        f'</div>'
+        f'<div class="st-row st-sub">'
+        f'<span class="st-conn">│ └─</span>'
+        f'<span class="st-label">Change</span>'
+        f'<span class="st-wt">({chg_weight*100:.0f}%)</span>'
+        f'<span class="st-val">{change_score}</span>'
+        f'<span class="st-meta">4 signals</span>'
+        f'</div>'
+        f'<div class="st-row">'
+        f'<span class="st-conn">└─</span>'
+        f'<span class="st-label">Sentiment</span>'
+        f'<span class="st-wt">({sent_weight*100:.0f}%)</span>'
+        f'<span class="st-val">{sent_score}</span>'
+        f'</div>'
+        f'</div>'
+        f'<div class="bd-footer">'
+        f'ETF: {_html.escape(str(ticker))} &middot; '
+        f'Benchmark: {_html.escape(str(benchmark))}'
+        f'</div>'
+    )
+
+    # Signal lookup
+    sig_by_name = {s["signal_name"]: s for s in sector_signals}
+
+    def sig_row(name: str) -> str:
+        meta = _SIGNAL_META.get(name)
+        if not meta:
+            return ""
+        sig  = sig_by_name.get(name, {})
+        raw  = _format_raw_value(name, sig.get("raw_value"))
+        z_v  = _safe_float(sig.get("z_value"))
+
+        if z_v is not None:
+            bar_w = min(abs(z_v) / 3.0, 1.0) * 60
+            if z_v >= 0.5:
+                color, chip = "#8FA77A", '<span class="sig-chip bull">▲</span>'
+            elif z_v <= -0.5:
+                color, chip = "#BF6F50", '<span class="sig-chip bear">▼</span>'
+            else:
+                color, chip = "#C4B89A", '<span class="sig-chip neut">—</span>'
+            bar = (
+                f'<span class="z-bar-wrap">'
+                f'<span class="z-bar" style="width:{bar_w:.0f}px;background:{color}"></span>'
+                f'</span>'
+            )
+            z_str = f"{z_v:+.2f}"
+        else:
+            bar  = '<span class="z-bar-wrap"></span>'
+            chip = '<span class="sig-chip neut">—</span>'
+            z_str = "—"
+
+        return (
+            f'<tr>'
+            f'<td class="sig-label">{_html.escape(meta["label"])}</td>'
+            f'<td class="sig-raw">{_html.escape(raw)}</td>'
+            f'<td class="sig-bar">{bar}</td>'
+            f'<td class="sig-z">{_html.escape(z_str)}</td>'
+            f'<td>{chip}</td>'
+            f'</tr>'
+        )
+
+    level_order  = list(weights.get("level_signals",  {}).keys())
+    change_order = list(weights.get("change_signals", {}).keys())
+    level_rows  = "".join(sig_row(n) for n in level_order)
+    change_rows = "".join(sig_row(n) for n in change_order)
+
+    # Info-only signals (not scored)
+    info_parts = []
+    for n in ("return_1m", "breadth_above_50dma"):
+        sig = sig_by_name.get(n, {})
+        if sig.get("raw_value") is not None:
+            lbl = _SIGNAL_META[n]["label"]
+            val = _format_raw_value(n, sig["raw_value"])
+            info_parts.append(f"{_html.escape(lbl)}: {_html.escape(val)}")
+    info_html = (
+        f'<div class="sig-info"><span class="info-lbl">Not scored:</span> '
+        + " &middot; ".join(info_parts)
+        + "</div>"
+    ) if info_parts else ""
+
+    signals = (
+        f'<div class="sig-section">'
+        f'<div class="sig-title">Level Signals</div>'
+        f'<table class="sig-table"><tbody>{level_rows}</tbody></table>'
+        f'</div>'
+        f'<div class="sig-section">'
+        f'<div class="sig-title">Change Signals</div>'
+        f'<table class="sig-table"><tbody>{change_rows}</tbody></table>'
+        f'</div>'
+        f'{info_html}'
+    )
+
+    return (
+        f'<div class="breakdown-inner">'
+        f'<div class="breakdown-grid">'
+        f'<div class="bd-left">{tree}</div>'
+        f'<div class="bd-right">{signals}</div>'
+        f'</div>'
+        f'</div>'
+    )
 
 
 def _build_rrg_figure(history_df) -> str:
@@ -85,7 +363,11 @@ def _build_rrg_figure(history_df) -> str:
 
     if history_df.empty:
         fig = go.Figure()
-        fig.update_layout(title="RRG — no data")
+        fig.update_layout(
+            title="RRG — no data",
+            paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B"),
+        )
         return pio.to_json(fig)
 
     # history_df has scan_id, run_at, region, gics_sector, composite, rank, etc.
@@ -97,7 +379,7 @@ def _build_rrg_figure(history_df) -> str:
 
     # Build a region -> color map
     regions = latest["region"].unique().tolist()
-    color_palette = ["#4FC3F7", "#AED581", "#FFB74D", "#F06292", "#CE93D8"]
+    color_palette = ["#5A6F49", "#A55A3C", "#738A5F", "#BF6F50", "#8FA77A"]
     region_colors = {r: color_palette[i % len(color_palette)] for i, r in enumerate(regions)}
 
     # Use composite as a proxy for rs_ratio offset (centred at 100)
@@ -122,9 +404,9 @@ def _build_rrg_figure(history_df) -> str:
 
     # Quadrant lines
     fig.add_shape(type="line", x0=100, x1=100, y0=90, y1=110,
-                  line=dict(color="#555", width=1, dash="dot"))
+                  line=dict(color="#C4B89A", width=1, dash="dot"))
     fig.add_shape(type="line", x0=90, x1=110, y0=100, y1=100,
-                  line=dict(color="#555", width=1, dash="dot"))
+                  line=dict(color="#C4B89A", width=1, dash="dot"))
 
     # Quadrant labels
     for qx, qy, qlabel in [
@@ -132,7 +414,7 @@ def _build_rrg_figure(history_df) -> str:
         (95, 95, "Lagging"), (105, 95, "Weakening"),
     ]:
         fig.add_annotation(x=qx, y=qy, text=qlabel,
-                           showarrow=False, font=dict(size=9, color="#888"),
+                           showarrow=False, font=dict(size=9, color="#8F8568"),
                            xanchor="center", yanchor="middle")
 
     # Tail lines per sector
@@ -168,7 +450,7 @@ def _build_rrg_figure(history_df) -> str:
             y=region_latest["_y"].tolist(),
             mode="markers+text",
             marker=dict(size=12, color=region_colors[region],
-                        line=dict(width=1, color="#222")),
+                        line=dict(width=1, color="#1F1C15")),
             text=region_latest["gics_sector"].tolist(),
             textposition="top center",
             textfont=dict(size=9),
@@ -182,15 +464,16 @@ def _build_rrg_figure(history_df) -> str:
         ))
 
     fig.update_layout(
-        title=dict(text="Relative Rotation Graph (composite proxy)", font=dict(size=13)),
+        title=dict(text="Relative Rotation Graph (composite proxy)",
+                   font=dict(size=13, color="#3E392B")),
         xaxis=dict(title="RS-Ratio (composite proxy)", range=[88, 112],
-                   gridcolor="#333", zeroline=False),
+                   gridcolor="#DFD5BE", zeroline=False),
         yaxis=dict(title="RS-Momentum (composite proxy)", range=[88, 112],
-                   gridcolor="#333", zeroline=False),
-        paper_bgcolor="#1a1a2e",
-        plot_bgcolor="#16213e",
-        font=dict(color="#e0e0e0"),
-        legend=dict(bgcolor="#1a1a2e", bordercolor="#444"),
+                   gridcolor="#DFD5BE", zeroline=False),
+        paper_bgcolor="#F5F0E6",
+        plot_bgcolor="#FAF7F0",
+        font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+        legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE"),
         margin=dict(l=50, r=20, t=50, b=50),
     )
     return pio.to_json(fig)
@@ -228,7 +511,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
 
         fig = go.Figure()
 
-        for sk in sector_keys:
+        for i, sk in enumerate(sector_keys):
             sk_data = history_df[history_df["sector_key"] == sk].sort_values("scan_id")
             if sk_data.empty:
                 continue
@@ -238,17 +521,19 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
                 y=sk_data[signal].tolist(),
                 mode="lines+markers",
                 name=f"{sector_name} ({region})",
+                line=dict(color=_WARM_PALETTE[i % len(_WARM_PALETTE)]),
                 hovertemplate=f"<b>{sector_name}</b><br>Date: %{{x}}<br>{signal}: %{{y:.3f}}<extra></extra>",
             ))
 
         fig.update_layout(
-            title=dict(text=signal.replace("_", " ").title(), font=dict(size=13)),
-            xaxis=dict(title="Scan Date", gridcolor="#333"),
-            yaxis=dict(title=signal.replace("_", " ").title(), gridcolor="#333"),
-            paper_bgcolor="#1a1a2e",
-            plot_bgcolor="#16213e",
-            font=dict(color="#e0e0e0"),
-            legend=dict(bgcolor="#1a1a2e", bordercolor="#444", font=dict(size=9)),
+            title=dict(text=signal.replace("_", " ").title(),
+                       font=dict(size=13, color="#3E392B")),
+            xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
+            yaxis=dict(title=signal.replace("_", " ").title(), gridcolor="#DFD5BE"),
+            paper_bgcolor="#F5F0E6",
+            plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+            legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
             margin=dict(l=50, r=20, t=50, b=50),
             hovermode="x unified",
         )
@@ -276,16 +561,18 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
                 y=sk_data[signal].tolist(),
                 mode="lines+markers",
                 name=signal.replace("_", " ").title(),
+                line=dict(color=_SCORE_SIGNAL_COLORS.get(signal, "#8F8568")),
                 hovertemplate=f"<b>{signal}</b><br>Date: %{{x}}<br>Value: %{{y:.3f}}<extra></extra>",
             ))
         fig.update_layout(
-            title=dict(text=f"{sector_name} ({region}) — Score Components", font=dict(size=13)),
-            xaxis=dict(title="Scan Date", gridcolor="#333"),
-            yaxis=dict(title="Score / Rank", gridcolor="#333"),
-            paper_bgcolor="#1a1a2e",
-            plot_bgcolor="#16213e",
-            font=dict(color="#e0e0e0"),
-            legend=dict(bgcolor="#1a1a2e", bordercolor="#444", font=dict(size=9)),
+            title=dict(text=f"{sector_name} ({region}) — score components",
+                       font=dict(size=13, color="#3E392B")),
+            xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
+            yaxis=dict(title="Score / Rank", gridcolor="#DFD5BE"),
+            paper_bgcolor="#F5F0E6",
+            plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+            legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
             margin=dict(l=50, r=20, t=50, b=50),
             hovermode="x unified",
         )
@@ -302,8 +589,8 @@ def _build_movers_figure(history_df) -> str:
         fig = go.Figure()
         fig.update_layout(
             title="Movers — need at least 2 scans",
-            paper_bgcolor="#1a1a2e", plot_bgcolor="#16213e",
-            font=dict(color="#e0e0e0"),
+            paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
         )
         return pio.to_json(fig)
 
@@ -324,7 +611,7 @@ def _build_movers_figure(history_df) -> str:
     merged["label"] = merged["gics_sector"] + " (" + merged["region"] + ")"
     merged = merged.sort_values("delta_rank", ascending=True)
 
-    colors = ["#4FC3F7" if d >= 0 else "#F06292" for d in merged["delta_rank"]]
+    colors = ["#8FA77A" if d >= 0 else "#BF6F50" for d in merged["delta_rank"]]
 
     fig = go.Figure(go.Bar(
         x=merged["delta_rank"].tolist(),
@@ -339,13 +626,14 @@ def _build_movers_figure(history_df) -> str:
     ))
 
     fig.update_layout(
-        title=dict(text="Movers — Rank Change (latest vs prior scan)", font=dict(size=13)),
-        xaxis=dict(title="Delta Rank (positive = climbing)", gridcolor="#333", zeroline=True,
-                   zerolinecolor="#555"),
-        yaxis=dict(title="", gridcolor="#333"),
-        paper_bgcolor="#1a1a2e",
-        plot_bgcolor="#16213e",
-        font=dict(color="#e0e0e0"),
+        title=dict(text="Movers — rank change (latest vs prior scan)",
+                   font=dict(size=13, color="#3E392B")),
+        xaxis=dict(title="Delta rank (positive = climbing)", gridcolor="#DFD5BE",
+                   zeroline=True, zerolinecolor="#C4B89A"),
+        yaxis=dict(title="", gridcolor="#DFD5BE"),
+        paper_bgcolor="#F5F0E6",
+        plot_bgcolor="#FAF7F0",
+        font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
         margin=dict(l=180, r=30, t=50, b=50),
         height=max(300, len(merged) * 28 + 80),
     )
@@ -360,8 +648,8 @@ def _build_history_figure(history_df) -> str:
         fig = go.Figure()
         fig.update_layout(
             title="History — no data",
-            paper_bgcolor="#1a1a2e", plot_bgcolor="#16213e",
-            font=dict(color="#e0e0e0"),
+            paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
         )
         return pio.to_json(fig)
 
@@ -371,24 +659,25 @@ def _build_history_figure(history_df) -> str:
     df = df.sort_values("scan_id")
 
     fig = go.Figure()
-    for label in sorted(df["sector_label"].unique()):
+    for i, label in enumerate(sorted(df["sector_label"].unique())):
         sec = df[df["sector_label"] == label]
         fig.add_trace(go.Scatter(
             x=sec["run_at_str"].tolist(),
             y=sec["composite"].tolist(),
             mode="lines+markers",
             name=label,
+            line=dict(color=_WARM_PALETTE[i % len(_WARM_PALETTE)]),
             hovertemplate=f"<b>{label}</b><br>Date: %{{x}}<br>Composite: %{{y:.3f}}<extra></extra>",
         ))
 
     fig.update_layout(
-        title=dict(text="Composite Score History", font=dict(size=13)),
-        xaxis=dict(title="Scan Date", gridcolor="#333"),
-        yaxis=dict(title="Composite Score", gridcolor="#333"),
-        paper_bgcolor="#1a1a2e",
-        plot_bgcolor="#16213e",
-        font=dict(color="#e0e0e0"),
-        legend=dict(bgcolor="#1a1a2e", bordercolor="#444", font=dict(size=9)),
+        title=dict(text="Composite score history", font=dict(size=13, color="#3E392B")),
+        xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
+        yaxis=dict(title="Composite score", gridcolor="#DFD5BE"),
+        paper_bgcolor="#F5F0E6",
+        plot_bgcolor="#FAF7F0",
+        font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+        legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
         margin=dict(l=50, r=20, t=50, b=50),
         hovermode="x unified",
     )
@@ -588,7 +877,7 @@ def main() -> None:
 
     # 2. Open DB + load history
     sys.path.insert(0, str(project_root))
-    from src.state import init_db, get_scan_history
+    from src.state import init_db, get_scan_history, get_signals_for_latest_scan
 
     if not db_path.exists():
         print(f"No database found at {db_path}. Run scan.py first.")
@@ -596,6 +885,7 @@ def main() -> None:
 
     conn = init_db(db_path=db_path)
     history_df = get_scan_history(conn, n_scans=20)
+    signals_df = get_signals_for_latest_scan(conn)   # must come before conn.close()
     conn.close()
 
     if history_df.empty:
@@ -603,6 +893,13 @@ def main() -> None:
         sys.exit(0)
 
     logger.info("Loaded %d rows from %d scans", len(history_df), history_df["scan_id"].nunique())
+
+    # Load config for breakdown panel
+    import yaml as _yaml
+    with open(project_root / "config/universe.yaml") as _fh:
+        _universe = _yaml.safe_load(_fh)
+    with open(project_root / "config/weights.yaml") as _fh:
+        _weights = _yaml.safe_load(_fh)
 
     # 3. Build figures
     logger.info("Building RRG figure …")
@@ -619,9 +916,38 @@ def main() -> None:
 
     logger.info("Building leaderboard …")
     leaderboard_rows, scan_date = _build_leaderboard_rows(history_df)
+    trajectories = _compute_rank_trajectories(history_df)
 
     logger.info("Building Data⇄Sentiment scatter …")
     sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
+
+    # Enrich rows with breakdown HTML (keyed by sector_id for JS toggle)
+    latest_scan_id = history_df["scan_id"].max()
+    latest_scores  = history_df[history_df["scan_id"] == latest_scan_id]
+    for row in leaderboard_rows:
+        key = f"{row['region']}|{row['sector']}"
+        row["key"]       = key
+        row["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        traj = trajectories.get(key, {"label": "→", "state": "flat"})
+        row["trajectory_label"] = traj["label"]
+        row["trajectory_state"] = traj["state"]
+        mask = (
+            (latest_scores["region"]      == row["region"]) &
+            (latest_scores["gics_sector"] == row["sector"])
+        )
+        score_slice = latest_scores[mask]
+        score_row_dict = {} if score_slice.empty else score_slice.iloc[0].to_dict()
+        if not signals_df.empty:
+            sig_mask = (
+                (signals_df["region"]      == row["region"]) &
+                (signals_df["gics_sector"] == row["sector"])
+            )
+            row_signals = signals_df[sig_mask].to_dict("records")
+        else:
+            row_signals = []
+        row["breakdown_html"] = _build_breakdown_html(
+            key, score_row_dict, row_signals, _universe, _weights
+        )
 
     # 4. Compute relative path from docs/ to dashboard/assets/plotly.min.js
     plotly_bundle_rel = "../dashboard/assets/plotly.min.js"
