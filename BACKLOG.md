@@ -32,38 +32,63 @@ Supabase-backed `src/state.py` data layer.
 
 ---
 
-## Sentiment module as a dedicated tab
+## Sentiment module — Google Trends only, as a dedicated tab
 
-**What:** Pull the sentiment functionality out of the core scoring pipeline and
-present it as a separate dashboard tab.
+**What:** Build a search-interest ("attention") feature powered **solely by Google
+Trends**, presented as its own dashboard tab and kept out of the core momentum score.
 
-**Why:** Sentiment should be excluded from the main scoring functionality and treated
-as its own feature. Until that's built, a placeholder tab with "upcoming feature" info
-is acceptable.
+**Why Google Trends only:** We tried the other free sentiment sources and they don't
+work for us:
+- **Reddit** — free scraping / public JSON is unreliable and rate-limited; no usable
+  free access.
+- **Finnhub (news)** — free tier is too limited (US-only ETF news, tight quotas).
+- **Google Trends** — the **only** free source that reliably returns useful data, and
+  it needs no API key.
 
-**Status:** Not started (tab/UI). The scoring engine, however, is **already
-implemented but dormant** — see below.
+So we drop Reddit + Finnhub entirely and focus all effort on getting the most out of
+Trends.
 
-**Current state of the sentiment code:**
-- The module is fully built and unit-tested (`src/signals/sentiment.py`,
-  `compute_sentiment_score`) but **not wired into the live scan**. `scan.py` calls
-  `score_all(wide_df, ...)` without a `sentiment_score`, so `compute_composite`
-  returns the pure data pillar and the stored `sentiment_score` column is `NaN`.
-  `config/weights.yaml` declares `sentiment: 0.30`, but that weight is never applied.
-- The three data fetchers (`fetch_reddit`, `fetch_trends`, `fetch_finnhub_news` in
-  `src/data/`) are defined but **never called** by `scan.py` — no sentiment data is
-  retrieved during a run.
-- When wired up, `compute_sentiment_score` blends three cross-sectionally z-scored
-  signals (averaged, ignoring NaNs):
-  - **Mention velocity** — Reddit 7d/30d mention counts: `(7d/7) / (30d/30 + 1)`
-  - **Search momentum** — OLS slope of a 13-week Google Trends interest series
-  - **News sentiment** — mean VADER compound score over Finnhub headlines (**US only**;
-    EU sectors always `NaN` on the free tier)
-- Requires env vars: `FINNHUB_TOKEN` (news; returns `None` without it),
-  `REDDIT_USER_AGENT` (mentions). Trends needs no key. All three cache to `data/cache/`.
+**Status:** Not started (tab/UI). A Trends-based scoring engine partly exists but is
+dormant — see below.
 
-**To activate later:** fetch the three sources in `scan.py`, pass the resulting
-Series into `score_all(..., sentiment_score=...)`, and surface it on the dedicated tab.
+**Current state of the code:**
+- `compute_sentiment_score` (`src/signals/sentiment.py`) is built and unit-tested but
+  **not wired into the live scan** — `scan.py` calls `score_all(wide_df, ...)` without
+  a `sentiment_score`, so composite = pure data pillar and `sentiment_score` is stored
+  as `NaN`. (`config/weights.yaml` declares `sentiment: 0.30`, never applied.)
+- The Reddit + Finnhub fetchers can be removed; only `fetch_trends`
+  (`src/data/trends.py`) is relevant going forward.
+- `fetch_trends` today is thin: pulls only the **primary keyword** per sector
+  (`config/sentiment_keywords.yaml`), `today 3-m` (~13 weeks), worldwide (`geo=""`),
+  and the engine reduces each series to a single OLS slope.
+
+**Getting the most out of Google Trends (ideas to explore):**
+- **Use all keywords, not just the first.** Each sector lists several terms; combine
+  them (mean or max normalized interest) instead of discarding all but `keywords[s][0]`.
+  Prefer Trends *topics* (entity mids) over raw strings for ambiguous terms (e.g. "AI",
+  "auto", "cloud").
+- **Region-aware pulls.** Fetch `geo="US"` for `US|` sectors and per-country geos for
+  `EU|` sectors (DE/FR/GB…). This gives genuine region-specific attention and finally
+  fills the EU gap that Finnhub couldn't.
+- **Comparative (cross-sector) interest.** Trends normalizes 0–100 *within a payload*,
+  so putting sectors in the same `build_payload` yields a true head-to-head attention
+  ranking — more meaningful than independently-scaled series.
+- **Multiple derived signals from one series**, not just slope:
+  - *Momentum* — OLS slope (current)
+  - *Acceleration* — recent slope vs earlier slope (2nd derivative)
+  - *Level / range position* — latest value vs its own 13-week min–max (percentile)
+  - *Attention spike* — z-score of the latest point vs trailing mean (breakout in
+    interest)
+  - *Volatility* — stability of interest over the window
+- **Longer window for a seasonal baseline.** Pull 12 months to compute current interest
+  vs its seasonal norm (YoY), reducing false momentum from recurring seasonality.
+- **Rising / breakout queries.** `pytrends.related_queries()` surfaces "rising" search
+  terms per topic — could flag emerging themes within a sector for the tab.
+
+**To activate:** enrich `fetch_trends` along the above lines, compute the derived
+signals in a Trends-only scorer, surface them on the dedicated tab, and (optionally)
+feed a single blended Trends score back into `score_all(..., sentiment_score=...)` if
+we later decide it should influence the composite.
 
 ---
 
