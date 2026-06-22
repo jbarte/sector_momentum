@@ -29,3 +29,38 @@ and latest scan dates, and whether any runs are missing signals or scores.
 
 **Notes:** Read-only — no schema changes needed. Builds directly on the
 Supabase-backed `src/state.py` data layer.
+
+---
+
+## Sentiment module as a dedicated tab
+
+**What:** Pull the sentiment functionality out of the core scoring pipeline and
+present it as a separate dashboard tab.
+
+**Why:** Sentiment should be excluded from the main scoring functionality and treated
+as its own feature. Until that's built, a placeholder tab with "upcoming feature" info
+is acceptable.
+
+**Status:** Not started.
+
+---
+
+## Phase 3 features
+
+Carried over from earlier planning — not started:
+
+- **Swedish overlay polish** — refine the Swedish-market overlay view
+- **Multilingual sentiment polarity (FinBERT)** — replace/augment VADER with a
+  finance-tuned, multilingual sentiment model
+- **Constituent breadth** — true breadth from sector constituents (vs the current
+  proxy)
+- **Backtest against past rotations** — validate signals against historical sector
+  rotations (e.g. energy 2021–22)
+- **Streamlit live drill-down** (optional) — interactive drill-down UI
+
+---
+
+## Done
+
+- ~~Data persistence & sync strategy~~ — migrated from a git-committed SQLite blob to
+  Supabase (Postgres) so the DB stays in sync across local dev and CI. *(2026-06-22)*
