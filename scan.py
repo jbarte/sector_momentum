@@ -8,7 +8,7 @@ Run this to execute a full scan:
 Options:
     --dry-run       Fetch prices and compute signals, but don't write to DB or disk.
     --no-dashboard  Skip dashboard build step after scan.
-    --db PATH       Path to momentum.db (default: data/momentum.db)
+
 """
 
 from __future__ import annotations
@@ -75,12 +75,6 @@ def _parse_args() -> argparse.Namespace:
         "--no-dashboard",
         action="store_true",
         help="Skip dashboard build step after scan.",
-    )
-    parser.add_argument(
-        "--db",
-        default="data/momentum.db",
-        metavar="PATH",
-        help="Path to momentum.db (default: data/momentum.db).",
     )
     return parser.parse_args()
 
@@ -303,10 +297,6 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
 def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     from src.data.prices import fetch_prices, load_universe
-    from src.data.reddit import fetch_reddit
-    from src.data.trends import fetch_trends
-    from src.data.finnhub import fetch_finnhub_news
-    from src.signals.sentiment import compute_sentiment_score
     from src.scoring import score_all
     from src.state import init_db, save_scan, load_last_scan, compute_deltas
     from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
@@ -375,40 +365,20 @@ def run(args: argparse.Namespace) -> int:
     wide_df = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
 
     # ------------------------------------------------------------------
-    # Step 7b: Sentiment signals
-    # ------------------------------------------------------------------
-    logger.info("Fetching sentiment data …")
-    with open("config/sentiment_keywords.yaml") as _fh:
-        _sentiment_keywords = yaml.safe_load(_fh)
-
-    _reddit_raw  = fetch_reddit(_sentiment_keywords)
-    _trends_raw  = fetch_trends(_sentiment_keywords)
-    _finnhub_raw = fetch_finnhub_news(us_sectors)
-
-    sector_keys = list(wide_df.index)
-    sentiment_scores = compute_sentiment_score(
-        _reddit_raw, _trends_raw, _finnhub_raw,
-        sector_keys, us_sectors, eu_sectors,
-    )
-    n_sentiment = (sentiment_scores != 0.0).sum()
-    logger.info("Sentiment scores computed (%d non-neutral sectors)", n_sentiment)
-
-    # ------------------------------------------------------------------
     # Step 8: Score
     # ------------------------------------------------------------------
     logger.info("Scoring sectors …")
     scored = score_all(
         wide_df,
         weights_path="config/weights.yaml",
-        sentiment_score=sentiment_scores,
     )
     logger.info("Scoring complete. %d sectors ranked.", len(scored))
 
     # ------------------------------------------------------------------
     # Step 9–11: DB + deltas
     # ------------------------------------------------------------------
-    logger.info("Opening database at %s …", args.db)
-    conn = init_db(db_path=args.db)
+    logger.info("Connecting to Supabase …")
+    conn = init_db()
 
     prior_scan = load_last_scan(conn)
     if prior_scan is not None:
