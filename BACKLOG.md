@@ -41,7 +41,29 @@ present it as a separate dashboard tab.
 as its own feature. Until that's built, a placeholder tab with "upcoming feature" info
 is acceptable.
 
-**Status:** Not started.
+**Status:** Not started (tab/UI). The scoring engine, however, is **already
+implemented but dormant** — see below.
+
+**Current state of the sentiment code:**
+- The module is fully built and unit-tested (`src/signals/sentiment.py`,
+  `compute_sentiment_score`) but **not wired into the live scan**. `scan.py` calls
+  `score_all(wide_df, ...)` without a `sentiment_score`, so `compute_composite`
+  returns the pure data pillar and the stored `sentiment_score` column is `NaN`.
+  `config/weights.yaml` declares `sentiment: 0.30`, but that weight is never applied.
+- The three data fetchers (`fetch_reddit`, `fetch_trends`, `fetch_finnhub_news` in
+  `src/data/`) are defined but **never called** by `scan.py` — no sentiment data is
+  retrieved during a run.
+- When wired up, `compute_sentiment_score` blends three cross-sectionally z-scored
+  signals (averaged, ignoring NaNs):
+  - **Mention velocity** — Reddit 7d/30d mention counts: `(7d/7) / (30d/30 + 1)`
+  - **Search momentum** — OLS slope of a 13-week Google Trends interest series
+  - **News sentiment** — mean VADER compound score over Finnhub headlines (**US only**;
+    EU sectors always `NaN` on the free tier)
+- Requires env vars: `FINNHUB_TOKEN` (news; returns `None` without it),
+  `REDDIT_USER_AGENT` (mentions). Trends needs no key. All three cache to `data/cache/`.
+
+**To activate later:** fetch the three sources in `scan.py`, pass the resulting
+Series into `score_all(..., sentiment_score=...)`, and surface it on the dedicated tab.
 
 ---
 
