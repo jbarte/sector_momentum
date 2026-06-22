@@ -236,6 +236,33 @@ def get_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.Data
     )
 
 
+def get_rrg_history(
+    conn: psycopg2.extensions.connection,
+    n_scans: int = 6,
+) -> pd.DataFrame:
+    """
+    Return rs_ratio and rs_momentum for the last n_scans scans, for RRG tail traces.
+    Columns: scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum
+    """
+    return pd.read_sql_query(
+        """
+        SELECT sc.scan_id, sc.run_at, sig.region, sig.gics_sector,
+               MAX(CASE WHEN sig.signal_name = 'rs_ratio'    THEN sig.raw_value END) AS rs_ratio,
+               MAX(CASE WHEN sig.signal_name = 'rs_momentum' THEN sig.raw_value END) AS rs_momentum
+        FROM signals sig
+        JOIN scans sc ON sc.scan_id = sig.scan_id
+        WHERE sig.scan_id IN (
+            SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s
+        )
+        AND sig.signal_name IN ('rs_ratio', 'rs_momentum')
+        GROUP BY sc.scan_id, sc.run_at, sig.region, sig.gics_sector
+        ORDER BY sc.scan_id ASC, sig.region, sig.gics_sector
+        """,
+        conn,
+        params=(n_scans,),
+    )
+
+
 def get_scan_history(
     conn: psycopg2.extensions.connection,
     n_scans: int = 10,
