@@ -487,12 +487,12 @@ def _build_rrg_figure(rrg_df) -> str:
         r_tail = tail_df[tail_df["region"] == region]
         for sector in r_tail["gics_sector"].unique():
             sec = r_tail[r_tail["gics_sector"] == sector].sort_values("scan_id")
-            if len(sec) < 2:
-                continue
-            # Include the latest point to connect tail to current position
+            # Include the latest point to connect tail to current position before length check
             cur = latest[(latest["region"] == region) & (latest["gics_sector"] == sector)]
             if not cur.empty:
                 sec = pd.concat([sec, cur]).sort_values("scan_id")
+            if len(sec) < 2:
+                continue
             fig.add_trace(go.Scatter(
                 x=sec["rs_ratio"].tolist(),
                 y=sec["rs_momentum"].tolist(),
