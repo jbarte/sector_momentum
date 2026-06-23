@@ -416,16 +416,14 @@ def _build_breakdown_html(
     )
 
 
-def _build_rrg_figure(history_df) -> str:
+def _build_rrg_figure(rrg_df) -> str:
     """
-    Scatter plot of rs_ratio (x) vs rs_momentum (y) for the most recent scan,
-    with tail traces for the last 3 scans per sector and quadrant lines at 100/100.
-    Signals come from the signals table but the history_df is scores-based;
-    we use a stub if rs_ratio/rs_momentum are absent (they live in signals, not scores).
-    """
-    import pandas as pd
+    Relative Rotation Graph using real JdK-style RS-Ratio (x) and RS-Momentum (y).
 
-    if history_df.empty:
+    rrg_df: DataFrame with columns scan_id, run_at, region, gics_sector,
+            rs_ratio, rs_momentum — from get_rrg_history().
+    """
+    if rrg_df is None or rrg_df.empty:
         fig = go.Figure()
         fig.update_layout(
             title="RRG — no data",
@@ -434,106 +432,108 @@ def _build_rrg_figure(history_df) -> str:
         )
         return pio.to_json(fig)
 
-    # history_df has scan_id, run_at, region, gics_sector, composite, rank, etc.
-    # rs_ratio / rs_momentum are NOT in scores — they're in signals.
-    # We synthesise placeholder values from composite so the chart renders.
-    # (The real values require a JOIN with signals; the caller can augment this later.)
-    latest_scan_id = history_df["scan_id"].max()
-    latest = history_df[history_df["scan_id"] == latest_scan_id].copy()
+    import pandas as pd
 
-    # Build a region -> color map
-    regions = latest["region"].unique().tolist()
+    rrg_df = rrg_df.dropna(subset=["rs_ratio", "rs_momentum"]).copy()
+    if rrg_df.empty:
+        fig = go.Figure()
+        fig.update_layout(title="RRG — no RS signals in DB yet",
+                          paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+                          font=dict(color="#3E392B"))
+        return pio.to_json(fig)
+
+    latest_scan_id = rrg_df["scan_id"].max()
+    latest = rrg_df[rrg_df["scan_id"] == latest_scan_id].copy()
+
+    regions = sorted(rrg_df["region"].unique().tolist())
     color_palette = ["#5A6F49", "#A55A3C", "#738A5F", "#BF6F50", "#8FA77A"]
     region_colors = {r: color_palette[i % len(color_palette)] for i, r in enumerate(regions)}
 
-    # Use composite as a proxy for rs_ratio offset (centred at 100)
-    # This is clearly labelled so users know it is a composite-based proxy.
-    latest["_x"] = 100 + latest["composite"].fillna(0) * 5
-    latest["_y"] = 100 + latest["rank"].apply(lambda r: (6 - r) if r else 0).fillna(0) * 1.5
-
-    # Tail traces — last 3 scans
-    scan_ids_sorted = sorted(history_df["scan_id"].unique())
-    tail_scan_ids = scan_ids_sorted[-3:]
+    # Dynamic axis range: centre on 100, extend to fit all points + padding
+    all_x = rrg_df["rs_ratio"].values
+    all_y = rrg_df["rs_momentum"].values
+    pad = 1.5
+    x_min = min(all_x.min(), 100) - pad
+    x_max = max(all_x.max(), 100) + pad
+    y_min = min(all_y.min(), 100) - pad
+    y_max = max(all_y.max(), 100) + pad
 
     fig = go.Figure()
 
-    # Quadrant shading (subtle)
-    for qx, qy, color, label in [
-        (1, 1, "rgba(100,200,100,0.05)", "Leading"),
-        (-1, 1, "rgba(200,200,100,0.05)", "Improving"),
-        (-1, -1, "rgba(200,100,100,0.05)", "Lagging"),
-        (1, -1, "rgba(100,100,200,0.05)", "Weakening"),
-    ]:
-        pass  # annotations added below
-
-    # Quadrant lines
-    fig.add_shape(type="line", x0=100, x1=100, y0=90, y1=110,
+    # Quadrant lines at 100/100
+    fig.add_shape(type="line", x0=100, x1=100, y0=y_min, y1=y_max,
                   line=dict(color="#C4B89A", width=1, dash="dot"))
-    fig.add_shape(type="line", x0=90, x1=110, y0=100, y1=100,
+    fig.add_shape(type="line", x0=x_min, x1=x_max, y0=100, y1=100,
                   line=dict(color="#C4B89A", width=1, dash="dot"))
 
     # Quadrant labels
+    qx_r = x_min + (x_max - x_min) * 0.82
+    qx_l = x_min + (x_max - x_min) * 0.18
+    qy_t = y_min + (y_max - y_min) * 0.88
+    qy_b = y_min + (y_max - y_min) * 0.12
     for qx, qy, qlabel in [
-        (105, 105, "Leading"), (95, 105, "Improving"),
-        (95, 95, "Lagging"), (105, 95, "Weakening"),
+        (qx_r, qy_t, "Leading"),
+        (qx_l, qy_t, "Improving"),
+        (qx_l, qy_b, "Lagging"),
+        (qx_r, qy_b, "Weakening"),
     ]:
-        fig.add_annotation(x=qx, y=qy, text=qlabel,
-                           showarrow=False, font=dict(size=9, color="#8F8568"),
+        fig.add_annotation(x=qx, y=qy, text=qlabel, showarrow=False,
+                           font=dict(size=9, color="#8F8568"),
                            xanchor="center", yanchor="middle")
 
-    # Tail lines per sector
+    # Tail traces — all scans except latest
+    tail_df = rrg_df[rrg_df["scan_id"] != latest_scan_id]
     for region in regions:
-        region_history = history_df[
-            (history_df["region"] == region) &
-            (history_df["scan_id"].isin(tail_scan_ids))
-        ].copy()
-        region_history["_x"] = 100 + region_history["composite"].fillna(0) * 5
-        region_history["_y"] = 100 + region_history["rank"].apply(
-            lambda r: (6 - r) if r else 0).fillna(0) * 1.5
-
-        for sector in region_history["gics_sector"].unique():
-            sec_data = region_history[region_history["gics_sector"] == sector].sort_values("scan_id")
-            if len(sec_data) < 2:
+        r_tail = tail_df[tail_df["region"] == region]
+        for sector in r_tail["gics_sector"].unique():
+            sec = r_tail[r_tail["gics_sector"] == sector].sort_values("scan_id")
+            # Include the latest point to connect tail to current position before length check
+            cur = latest[(latest["region"] == region) & (latest["gics_sector"] == sector)]
+            if not cur.empty:
+                sec = pd.concat([sec, cur]).sort_values("scan_id")
+            if len(sec) < 2:
                 continue
             fig.add_trace(go.Scatter(
-                x=sec_data["_x"].tolist(),
-                y=sec_data["_y"].tolist(),
+                x=sec["rs_ratio"].tolist(),
+                y=sec["rs_momentum"].tolist(),
                 mode="lines+markers",
                 line=dict(color=region_colors[region], width=1, dash="dot"),
-                marker=dict(size=4, color=region_colors[region]),
+                marker=dict(size=3, color=region_colors[region]),
                 showlegend=False,
                 hoverinfo="skip",
-                opacity=0.4,
+                opacity=0.35,
             ))
 
-    # Main scatter — latest scan
+    # Main scatter — latest scan, one trace per region (for legend)
     for region in regions:
-        region_latest = latest[latest["region"] == region]
+        r_latest = latest[latest["region"] == region]
+        if r_latest.empty:
+            continue
         fig.add_trace(go.Scatter(
-            x=region_latest["_x"].tolist(),
-            y=region_latest["_y"].tolist(),
+            x=r_latest["rs_ratio"].tolist(),
+            y=r_latest["rs_momentum"].tolist(),
             mode="markers+text",
             marker=dict(size=12, color=region_colors[region],
                         line=dict(width=1, color="#1F1C15")),
-            text=region_latest["gics_sector"].tolist(),
+            text=r_latest["gics_sector"].tolist(),
             textposition="top center",
             textfont=dict(size=9),
             name=region,
             hovertemplate=(
-                "<b>%{text}</b><br>"
-                "RS Ratio (proxy): %{x:.1f}<br>"
-                "RS Momentum (proxy): %{y:.1f}<br>"
+                "<b>%{text} (" + region + ")</b><br>"
+                "RS-Ratio: %{x:.2f}<br>"
+                "RS-Momentum: %{y:.2f}<br>"
                 "<extra></extra>"
             ),
         ))
 
     fig.update_layout(
-        title=dict(text="Relative Rotation Graph (composite proxy)",
+        title=dict(text="Relative Rotation Graph",
                    font=dict(size=13, color="#3E392B")),
-        xaxis=dict(title="RS-Ratio (composite proxy)", range=[88, 112],
-                   gridcolor="#DFD5BE", zeroline=False),
-        yaxis=dict(title="RS-Momentum (composite proxy)", range=[88, 112],
-                   gridcolor="#DFD5BE", zeroline=False),
+        xaxis=dict(title="RS-Ratio (>100 = outperforming benchmark)",
+                   range=[x_min, x_max], gridcolor="#DFD5BE", zeroline=False),
+        yaxis=dict(title="RS-Momentum (>100 = RS-Ratio rising)",
+                   range=[y_min, y_max], gridcolor="#DFD5BE", zeroline=False),
         paper_bgcolor="#F5F0E6",
         plot_bgcolor="#FAF7F0",
         font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
@@ -854,11 +854,12 @@ def main() -> None:
 
     # 2. Open DB + load history
     sys.path.insert(0, str(project_root))
-    from src.state import init_db, get_scan_history, get_signals_for_latest_scan
+    from src.state import init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history
 
     conn = init_db()
     history_df = get_scan_history(conn, n_scans=20)
-    signals_df = get_signals_for_latest_scan(conn)   # must come before conn.close()
+    signals_df = get_signals_for_latest_scan(conn)
+    rrg_df = get_rrg_history(conn, n_scans=6)
     conn.close()
 
     if history_df.empty:
@@ -878,7 +879,7 @@ def main() -> None:
 
     # 3. Build figures
     logger.info("Building RRG figure …")
-    rrg_json = _build_rrg_figure(history_df)
+    rrg_json = _build_rrg_figure(rrg_df)
 
     logger.info("Building drill-down data …")
     sector_signal_data, sector_keys, signals_list = _build_drilldown_data(history_df)
