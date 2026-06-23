@@ -5,9 +5,10 @@
 Always branch before making changes. Never commit directly to `main`.
 
 1. **Create a branch** from `main` using the pattern `feature/<short-slug>` or `fix/<short-slug>`.
-2. **Commit** changes to that branch with clear, conventional commit messages (`feat:`, `fix:`, `refactor:`, `chore:`, etc.).
-3. **Push** the branch and **open a PR** against `main` via `gh pr create`. The PR description should summarise what changed and why.
-4. **Stop there.** Do not merge. Jonas reviews and merges manually.
+2. **Implement** the feature on that branch with regular commits.
+3. **Run a code review** when the implementation is complete (`/code-review`).
+4. **Address review findings**, then push: `git push -u origin feature/<short-slug>`.
+5. **Stop there.** Do not merge. Jonas reviews and merges manually.
 
 ## Commit style
 
@@ -22,13 +23,12 @@ Keep the subject line under 72 characters. No body unless the change needs conte
 
 ## Project overview
 
-Sector momentum scanner: US SPDR + STOXX Europe 600 sectors → GICS 11 → data-pillar signals → composite score → SQLite snapshots → static dashboard (GitHub Pages).
+Sector momentum scanner: US SPDR + STOXX Europe 600 sectors → GICS 11 → data-pillar signals → composite score → Supabase/Postgres snapshots → static dashboard (GitHub Pages).
 
 - Entry point: `scan.py`
 - Dashboard build: `dashboard/build.py` → `docs/`
 - Config: `config/` (universe, weights, sector maps)
-- DB: `data/momentum.db`
-- CI: `.github/workflows/scan.yml` (runs every 2 days, commits DB + dashboard back to repo)
+- CI: `.github/workflows/scan.yml` (runs every 2 days, commits dashboard back to repo)
 
 ## Dev commands
 
