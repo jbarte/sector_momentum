@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Sector Momentum</title>
 <script src="{{ plotly_bundle }}"></script>
+<script src="assets/rescore.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -226,11 +227,11 @@ tbody td:nth-child(n+4) {
   border-radius: 4px;
   font-family: var(--font-mono);
 }
-.traj-badge.strong_up   { color: var(--up); background: color-mix(in srgb, var(--up) 15%, transparent); }
-.traj-badge.up          { color: var(--up); background: color-mix(in srgb, var(--up) 8%, transparent); }
-.traj-badge.flat        { color: var(--fg4); background: color-mix(in srgb, var(--fg4) 10%, transparent); }
-.traj-badge.down        { color: var(--down); background: color-mix(in srgb, var(--down) 8%, transparent); }
-.traj-badge.strong_down { color: var(--down); background: color-mix(in srgb, var(--down) 15%, transparent); }
+.traj-badge.traj-strong_up   { color: var(--up); background: color-mix(in srgb, var(--up) 15%, transparent); }
+.traj-badge.traj-up          { color: var(--up); background: color-mix(in srgb, var(--up) 8%, transparent); }
+.traj-badge.traj-flat        { color: var(--fg4); background: color-mix(in srgb, var(--fg4) 10%, transparent); }
+.traj-badge.traj-down        { color: var(--down); background: color-mix(in srgb, var(--down) 8%, transparent); }
+.traj-badge.traj-strong_down { color: var(--down); background: color-mix(in srgb, var(--down) 15%, transparent); }
 
 /* =========================================================
    Plotly chart containers
@@ -515,6 +516,14 @@ select.sector-select:focus {
 .etf-isin   { font-family: var(--font-mono); font-size: 11px; color: var(--fg4); }
 .etf-link a { color: var(--brand-strong); text-decoration: none; }
 .etf-link a:hover { color: var(--brand); }
+
+/* =========================================================
+   Sentiment toggle control
+   ========================================================= */
+.sentiment-control { display:flex; align-items:center; gap:16px; margin:8px 0 12px; font-size:0.9em; color:#3E392B; }
+.sentiment-control input[type=number] { width:52px; }
+.sentiment-control .sw-weight[data-disabled="true"] { opacity:0.45; }
+.tab-note { font-size:0.8em; color:#8C8370; margin:0 0 8px; }
 </style>
 </head>
 <body>
@@ -560,6 +569,14 @@ select.sector-select:focus {
       <p><span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span> trajectory even when rank is still high — the sector is topping. Rank Δ turning negative confirms the reversal.</p>
     </div>
   </details>
+  <div id="sentiment-control" class="sentiment-control">
+    <label>
+      <input type="checkbox" id="sentiment-toggle"> Include sentiment in ranking
+    </label>
+    <span class="sw-weight">
+      Weight: <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
+    </span>
+  </div>
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
@@ -578,23 +595,23 @@ select.sector-select:focus {
       </thead>
       <tbody>
         {% for row in leaderboard_rows %}
-        <tr class="leaderboard-row" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
-          <td>
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
+          <td class="rank-cell">
             <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
           <td>{{ row.sector }}{% if row.emerging %}<span class="emerging-badge">⬆ Emerging</span>{% endif %}</td>
           <td><span class="tag-region">{{ row.region }}</span></td>
-          <td>{{ row.composite }}</td>
+          <td class="composite-cell">{{ row.composite }}</td>
           <td>{{ row.level_score }}</td>
           <td>{{ row.change_score }}</td>
           <td>{{ row.data_score }}</td>
-          <td>{{ row.sentiment_score }}</td>
-          <td>
+          <td class="sentiment-cell">{{ row.sentiment_score }}</td>
+          <td class="delta-cell">
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
           <td>
-            <span class="traj-badge {{ row.trajectory_state }}">{{ row.trajectory_label }}</span>
+            <span class="traj-badge traj-{{ row.trajectory_state }}">{{ row.trajectory_label }}</span>
           </td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
@@ -612,6 +629,7 @@ select.sector-select:focus {
      Tab: RRG
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel">
+  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -665,6 +683,7 @@ select.sector-select:focus {
      Tab: Movers
      ============================================================ -->
 <section id="tab-movers" class="tab-panel">
+  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -684,6 +703,7 @@ select.sector-select:focus {
      Tab: History
      ============================================================ -->
 <section id="tab-history" class="tab-panel">
+  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -706,6 +726,7 @@ select.sector-select:focus {
      Tab: Data ⇄ Sentiment
      ============================================================ -->
 <section id="tab-sentiment" class="tab-panel">
+  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
   <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
   <p style="color:var(--text-muted);font-size:0.8rem;padding:8px 0 0 4px">
     Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
@@ -822,6 +843,7 @@ var MOVERS_DATA = {{ movers_json | safe }};
 var HISTORY_DATA = {{ history_json | safe }};
 var DRILLDOWN_DATA = {{ drilldown_data | safe }};
 var SENTIMENT_DATA = {{ sentiment_scatter_json | safe }};
+var RESCORE_DATA = {{ rescore_data_json | safe }};
 
 // ----- Render helpers -----
 var _rendered = {};
@@ -925,7 +947,115 @@ function sortTable(col) {
       if (bd) tbody.appendChild(bd);
     }
   });
+
 }
+
+// ----- Sentiment toggle wiring -----
+(function () {
+  var LS_ENABLED = "sentimentEnabled", LS_WEIGHT = "sentimentWeight";
+  var toggle = document.getElementById("sentiment-toggle");
+  var weightInput = document.getElementById("sentiment-weight");
+  var weightWrap = weightInput ? weightInput.closest(".sw-weight") : null;
+  if (!toggle || !weightInput || typeof Rescore === "undefined") { return; }
+
+  function readState() {
+    var enabled = false, weight = 30;
+    try {
+      enabled = localStorage.getItem(LS_ENABLED) === "true";
+      var w = parseInt(localStorage.getItem(LS_WEIGHT), 10);
+      if (!isNaN(w)) { weight = Math.min(100, Math.max(0, w)); }
+    } catch (e) {}
+    return { enabled: enabled, weight: weight };
+  }
+
+  function fmt(n, d) { return (n === null || n === undefined) ? "—" : Number(n).toFixed(d); }
+
+  function applyRanking() {
+    var enabled = toggle.checked;
+    var weight = Math.min(100, Math.max(0, parseInt(weightInput.value, 10) || 0));
+    var W = enabled ? weight / 100 : 0;
+    try {
+      localStorage.setItem(LS_ENABLED, enabled ? "true" : "false");
+      localStorage.setItem(LS_WEIGHT, String(weight));
+    } catch (e) {}
+    weightInput.disabled = !enabled;
+    if (weightWrap) { weightWrap.setAttribute("data-disabled", String(!enabled)); }
+
+    var scored = Rescore.rescore(RESCORE_DATA, W);
+
+    var tbody = document.querySelector("table tbody"); // leaderboard tbody
+    var rows = Array.prototype.slice.call(document.querySelectorAll("tr.leaderboard-row"));
+
+    // Update each row's cells from scored[key]
+    rows.forEach(function (tr) {
+      var key = tr.getAttribute("data-sector-key");
+      var r = scored[key];
+      if (!r) { return; }
+      var rankCell = tr.querySelector(".rank-cell");
+      if (rankCell) {
+        var badge = rankCell.querySelector(".rank-badge");
+        if (badge) { badge.textContent = r.rank; badge.classList.toggle("top3", r.rank <= 3); }
+      }
+      var compCell = tr.querySelector(".composite-cell");
+      if (compCell) { compCell.textContent = fmt(r.composite, 3); }
+      var deltaCell = tr.querySelector(".delta-cell");
+      if (deltaCell) {
+        var arrow = r.delta_rank > 0 ? "▲" : (r.delta_rank < 0 ? "▼" : "");
+        var cls = r.delta_rank > 0 ? "up" : (r.delta_rank < 0 ? "down" : "");
+        var dtxt = r.delta_rank === 0 ? "—" : (r.delta_rank > 0 ? "+" : "") + r.delta_rank.toFixed(1);
+        deltaCell.innerHTML = '<span class="arrow ' + cls + '">' + arrow + '</span> ' + dtxt;
+      }
+      var traj = tr.querySelector(".traj-badge");
+      if (traj) { traj.className = "traj-badge traj-" + r.trajectory_state; traj.textContent = r.trajectory_label; }
+      var sectorCell = tr.querySelectorAll("td")[1];
+      if (sectorCell) {
+        var ebadge = sectorCell.querySelector(".emerging-badge");
+        if (r.emerging && !ebadge) {
+          var s = document.createElement("span");
+          s.className = "emerging-badge"; s.textContent = "⬆ Emerging";
+          sectorCell.appendChild(s);
+        } else if (!r.emerging && ebadge) {
+          ebadge.remove();
+        }
+      }
+      // Update breakdown score-tree for this sector, if present
+      var tree = document.querySelector('.score-tree[data-sector-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]');
+      if (tree) {
+        var cv = tree.querySelector(".st-composite-val");
+        if (cv) { cv.textContent = fmt(r.composite, 3); }
+        var dataPct = Math.round((1 - W) * 100), sentPct = Math.round(W * 100);
+        var dwt = tree.querySelector(".st-data-wt"); if (dwt) { dwt.textContent = "(" + dataPct + "%)"; }
+        var swt = tree.querySelector(".st-sent-wt"); if (swt) { swt.textContent = "(" + sentPct + "%)"; }
+      }
+    });
+
+    // Re-sort rows by rank ascending and re-attach
+    rows.sort(function (a, b) {
+      var ra = scored[a.getAttribute("data-sector-key")];
+      var rb = scored[b.getAttribute("data-sector-key")];
+      return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
+    });
+    if (tbody) {
+      rows.forEach(function (tr) {
+        tbody.appendChild(tr);
+        // keep any sibling breakdown row immediately after its leaderboard row
+        var chev = tr.querySelector(".chevron");
+        if (chev) {
+          var bdId = "bd-" + chev.id.replace("chev-", "");
+          var bdRow = document.getElementById(bdId);
+          if (bdRow) { tbody.appendChild(bdRow); }
+        }
+      });
+    }
+  }
+
+  var init = readState();
+  toggle.checked = init.enabled;
+  weightInput.value = init.weight;
+  toggle.addEventListener("change", applyRanking);
+  weightInput.addEventListener("input", applyRanking);
+  applyRanking();
+})();
 </script>
 
 </body>

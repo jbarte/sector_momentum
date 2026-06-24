@@ -135,6 +135,7 @@ def score_all(
     signals_df: pd.DataFrame,
     weights_path: str = "config/weights.yaml",
     sentiment_score: pd.Series | None = None,
+    blend_sentiment: bool = True,
 ) -> pd.DataFrame:
     """
     Full pipeline: z-score → level/change → data → composite → rank.
@@ -165,11 +166,14 @@ def score_all(
     if sentiment_score is not None:
         sentiment_score = sentiment_score.reindex(signals_df.index, fill_value=0.0)
 
+    # Canonical composite blends sentiment only when blend_sentiment is True.
+    # When False, sentiment is still stored in the output column but the
+    # composite/rank stay pure-data.
     composite = compute_composite(
         data,
-        sentiment_score=sentiment_score,
-        data_weight=data_weight,
-        sentiment_weight=sentiment_weight,
+        sentiment_score=sentiment_score if blend_sentiment else None,
+        data_weight=data_weight if blend_sentiment else 1.0,
+        sentiment_weight=sentiment_weight if blend_sentiment else 0.0,
     )
     ranks = rank_sectors(composite)
 

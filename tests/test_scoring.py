@@ -144,3 +144,31 @@ def test_score_all_uses_sentiment_score_when_provided(tmp_path):
     # With sentiment weight > 0 and flat data, US|Tech (highest sentiment) > US|Energy (lowest)
     assert result.loc["US|Tech", "composite"] > result.loc["US|Energy", "composite"]
     assert not pd.isna(result.loc["US|Tech", "sentiment_score"])
+
+
+def test_score_all_blend_sentiment_false_keeps_composite_pure_data():
+    # Two sectors, distinct signal values so data_score differs
+    idx = ["US|Technology", "US|Energy"]
+    signals = pd.DataFrame(
+        {
+            "rs_ratio": [1.0, -1.0], "return_3m": [1.0, -1.0], "return_6m": [1.0, -1.0],
+            "above_50dma": [1.0, -1.0], "above_200dma": [1.0, -1.0],
+            "rs_momentum": [1.0, -1.0], "acceleration": [1.0, -1.0],
+            "ma50_slope": [1.0, -1.0], "obv_slope": [1.0, -1.0],
+            "return_1m": [0.0, 0.0], "breadth_above_50dma": [0.0, 0.0],
+        },
+        index=idx,
+    )
+    sentiment = pd.Series({"US|Technology": -5.0, "US|Energy": 5.0})  # would flip order if blended
+
+    out = score_all(signals, sentiment_score=sentiment, blend_sentiment=False)
+
+    # sentiment_score column is populated (not NaN)
+    assert out.loc["US|Technology", "sentiment_score"] == -5.0
+    assert out.loc["US|Energy", "sentiment_score"] == 5.0
+    # composite equals data_score exactly (pure data, sentiment NOT blended)
+    pd.testing.assert_series_equal(
+        out["composite"], out["data_score"], check_names=False
+    )
+    # Technology (higher data) still ranks 1 despite negative sentiment
+    assert out.loc["US|Technology", "rank"] == 1.0

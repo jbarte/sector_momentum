@@ -15,7 +15,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dashboard.build import _build_sentiment_scatter_figure, _render
+from dashboard.build import _build_sentiment_scatter_figure, _build_leaderboard_rows, _render
 
 _TEMPLATE = Path(__file__).parent.parent / "dashboard" / "templates" / "index.html.j2"
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -81,6 +81,27 @@ def _minimal_history_df() -> pd.DataFrame:
 # Test 1 — sentiment scatter builder returns valid non-empty JSON
 # ---------------------------------------------------------------------------
 
+def test_leaderboard_rows_include_sentiment_score():
+    """Each leaderboard row must carry a formatted, non-empty sentiment_score so
+    the Sentiment column renders (regression: the column was previously blank
+    because the row dict never set this key)."""
+    df = pd.DataFrame([
+        {"scan_id": 1, "run_at": "2026-06-24T12:00:00", "region": "US",
+         "gics_sector": "Technology", "level_score": 0.5, "change_score": 0.3,
+         "data_score": 0.6, "sentiment_score": 0.42, "composite": 0.6, "rank": 1.0},
+        {"scan_id": 1, "run_at": "2026-06-24T12:00:00", "region": "EU",
+         "gics_sector": "Energy", "level_score": -0.2, "change_score": -0.1,
+         "data_score": -0.15, "sentiment_score": float("nan"), "composite": -0.15, "rank": 2.0},
+    ])
+    rows, _ = _build_leaderboard_rows(df)
+    by_sector = {r["sector"]: r for r in rows}
+    assert "sentiment_score" in by_sector["Technology"]
+    assert by_sector["Technology"]["sentiment_score"] == "0.420"
+    # NaN sentiment falls back to the em-dash placeholder, never blank
+    assert by_sector["Energy"]["sentiment_score"] == "—"
+    assert by_sector["Energy"]["sentiment_score"] != ""
+
+
 def test_sentiment_scatter_empty_df_returns_valid_json():
     empty = pd.DataFrame(columns=[
         "scan_id", "region", "gics_sector",
@@ -139,6 +160,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
             movers_json=_make_mock_plotly_json(),
             history_json=_make_mock_plotly_json(),
             sentiment_scatter_json=_make_mock_plotly_json(),
+            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
         ),
@@ -150,3 +172,60 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
         f"Empty JS variable assignments found: {matches}\n"
         "A Jinja2 variable is missing from the _render() context."
     )
+
+
+def test_build_rescore_data_shape():
+    import pandas as pd
+    from dashboard.build import _build_rescore_data
+
+    rows = []
+    for scan_id, run_at in [(1, "2026-06-22T00:00:00"), (2, "2026-06-23T00:00:00")]:
+        for region, sector, dscore, sscore in [
+            ("US", "Technology", 0.6, 0.2),
+            ("EU", "Energy", -0.3, float("nan")),  # NaN sentiment -> 0.0
+        ]:
+            rows.append({
+                "scan_id": scan_id, "run_at": run_at, "region": region,
+                "gics_sector": sector, "data_score": dscore, "sentiment_score": sscore,
+            })
+    df = pd.DataFrame(rows)
+
+    out = _build_rescore_data(df)
+
+    assert [s["scan_id"] for s in out["scans"]] == [1, 2]
+    assert set(out["sectors"]) == {"US|Technology", "EU|Energy"}
+    # arrays aligned to scans length
+    for key in out["sectors"]:
+        assert len(out["data"][key]) == 2
+        assert len(out["sentiment"][key]) == 2
+    # NaN sentiment coerced to 0.0
+    assert out["sentiment"]["EU|Energy"] == [0.0, 0.0]
+    assert out["data"]["US|Technology"] == [0.6, 0.6]
+
+
+def test_rendered_template_includes_rescore_data_and_control(tmp_path):
+    out = tmp_path / "index.html"
+    _render(
+        template_path=_TEMPLATE,
+        out_path=out,
+        context=dict(
+            scan_date="2026-06-23",
+            leaderboard_rows=[],
+            rrg_data_json=_make_mock_plotly_json(),
+            drilldown_data=json.dumps({}),
+            sector_keys=[],
+            movers_json=_make_mock_plotly_json(),
+            history_json=_make_mock_plotly_json(),
+            sentiment_scatter_json=_make_mock_plotly_json(),
+            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            signals_list=[],
+            plotly_bundle="assets/plotly.min.js",
+        ),
+    )
+    html = out.read_text()
+    assert "var RESCORE_DATA =" in html
+    assert 'assets/rescore.js' in html
+    assert 'id="sentiment-toggle"' in html
+    assert 'id="sentiment-weight"' in html
+    # no empty JS var assignments
+    assert not re.compile(r"var\s+\w+\s*=\s*;").findall(html)

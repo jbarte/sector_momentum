@@ -84,3 +84,32 @@ def test_parse_args_flags(monkeypatch):
     args = _parse_args()
     assert args.dry_run is True
     assert args.no_dashboard is True
+
+
+def test_compute_sentiment_for_scan_trends_only_returns_series():
+    """scan.py's sentiment helper returns a per-sector Series from Trends only."""
+    import pandas as pd
+    from scan import _compute_sentiment_for_scan
+
+    keywords = {"Technology": ["AI"], "Energy": ["oil"]}
+    sector_keys = ["US|Technology", "US|Energy", "EU|Technology", "EU|Energy"]
+    us_sectors = {"Technology": "XLK", "Energy": "XLE"}
+    eu_sectors = {"Technology": "EXV3.DE", "Energy": "EXV4.DE"}
+
+    # Trends present for Technology, absent for Energy -> Energy sentiment = 0.0
+    trends = {
+        "Technology": pd.Series([float(i) for i in range(13)]),  # rising slope
+        "Energy": pd.Series([5.0] * 13),                          # flat slope
+    }
+
+    result = _compute_sentiment_for_scan(
+        trends_data=trends,
+        sector_keys=sector_keys,
+        us_sectors=us_sectors,
+        eu_sectors=eu_sectors,
+    )
+
+    assert isinstance(result, pd.Series)
+    assert set(result.index) == set(sector_keys)
+    # No NaNs in the output (all-NaN sector collapses to 0.0 inside compute_sentiment_score)
+    assert not result.isna().any()

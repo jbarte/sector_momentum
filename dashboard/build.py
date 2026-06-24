@@ -295,16 +295,16 @@ def _build_breakdown_html(
 
     # Score-tree HTML
     tree = (
-        f'<div class="score-tree">'
+        f'<div class="score-tree" data-sector-key="{_html.escape(sector_key)}">'
         f'<div class="st-row st-top">'
         f'<span class="st-label">Composite</span>'
-        f'<span class="st-val">{composite}</span>'
+        f'<span class="st-val st-composite-val">{composite}</span>'
         f'</div>'
         f'<div class="st-row">'
         f'<span class="st-conn">├─</span>'
         f'<span class="st-label">Data Score</span>'
-        f'<span class="st-wt">({data_weight*100:.0f}%)</span>'
-        f'<span class="st-val">{data_score}</span>'
+        f'<span class="st-wt st-data-wt">(100%)</span>'
+        f'<span class="st-val st-data-val">{data_score}</span>'
         f'</div>'
         f'<div class="st-row st-sub">'
         f'<span class="st-conn">│ ├─</span>'
@@ -319,6 +319,12 @@ def _build_breakdown_html(
         f'<span class="st-wt">({chg_weight*100:.0f}%)</span>'
         f'<span class="st-val">{change_score}</span>'
         f'<span class="st-meta">4 signals</span>'
+        f'</div>'
+        f'<div class="st-row">'
+        f'<span class="st-conn">└─</span>'
+        f'<span class="st-label">Sentiment</span>'
+        f'<span class="st-wt st-sent-wt">(0%)</span>'
+        f'<span class="st-val st-sent-val">{fv(score_row.get("sentiment_score"))}</span>'
         f'</div>'
         f'</div>'
         f'<div class="bd-footer">'
@@ -622,6 +628,43 @@ def _build_sentiment_scatter_figure(history_df) -> str:
     return pio.to_json(fig)
 
 
+def _build_rescore_data(history_df) -> dict:
+    """Per-scan × per-sector data_score and sentiment_score arrays for the
+    client-side leaderboard rescoring. Arrays are aligned to the ascending
+    scan list; missing / NaN values become 0.0."""
+    if history_df.empty:
+        return {"scans": [], "sectors": [], "data": {}, "sentiment": {}}
+
+    df = history_df.copy()
+    df["sector_key"] = df["region"] + "|" + df["gics_sector"]
+
+    scan_ids = sorted(df["scan_id"].unique().tolist())
+    scans_meta = []
+    for sid in scan_ids:
+        run_at = df[df["scan_id"] == sid]["run_at"].iloc[0]
+        scans_meta.append({"scan_id": int(sid), "run_at": str(run_at)})
+
+    sectors = sorted(df["sector_key"].unique().tolist())
+
+    def _series(col: str) -> dict:
+        result = {}
+        for key in sectors:
+            sk = df[df["sector_key"] == key].groupby("scan_id")[col].first()
+            vals = []
+            for sid in scan_ids:
+                fv = _safe_float(sk.get(sid))
+                vals.append(fv if fv is not None else 0.0)
+            result[key] = vals
+        return result
+
+    return {
+        "scans": scans_meta,
+        "sectors": sectors,
+        "data": _series("data_score"),
+        "sentiment": _series("sentiment_score"),
+    }
+
+
 def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     """
     Build per-sector timeseries for each score column.
@@ -877,6 +920,11 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
                 if _safe_float(row.get("change_score")) is not None else "—",
             "data_score": f"{_safe_float(row.get('data_score')):.3f}"
                 if _safe_float(row.get("data_score")) is not None else "—",
+            # Raw stored sentiment score for this scan. Weight-independent: the
+            # toggle/weight only changes how much sentiment moves the composite,
+            # not the sentiment value itself, so applyRanking() never updates it.
+            "sentiment_score": f"{_safe_float(row.get('sentiment_score')):.3f}"
+                if _safe_float(row.get("sentiment_score")) is not None else "—",
             "delta_rank": f"{delta:+.1f}" if delta != 0 else "—",
             "arrow": "▲" if delta > 0 else ("▼" if delta < 0 else ""),
             "arrow_class": "up" if delta > 0 else ("down" if delta < 0 else ""),
@@ -972,6 +1020,9 @@ def main() -> None:
     logger.info("Building sentiment scatter …")
     sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
 
+    logger.info("Building rescore data …")
+    rescore_data_json = json.dumps(_build_rescore_data(history_df))
+
     logger.info("Building leaderboard …")
     leaderboard_rows, scan_date = _build_leaderboard_rows(history_df)
     trajectories = _compute_rank_trajectories(history_df)
@@ -1011,6 +1062,9 @@ def main() -> None:
     plotly_src = _ASSETS_DIR / "plotly.min.js"
     if plotly_src.exists():
         shutil.copy2(plotly_src, docs_assets / "plotly.min.js")
+    rescore_src = _ASSETS_DIR / "rescore.js"
+    if rescore_src.exists():
+        shutil.copy2(rescore_src, docs_assets / "rescore.js")
     plotly_bundle_rel = "assets/plotly.min.js"
 
     # 5. Render template
@@ -1029,6 +1083,7 @@ def main() -> None:
             movers_json=movers_json,
             history_json=history_json,
             sentiment_scatter_json=sentiment_scatter_json,
+            rescore_data_json=rescore_data_json,
             signals_list=signals_list,
             plotly_bundle=plotly_bundle_rel,
         ),
