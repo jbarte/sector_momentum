@@ -643,11 +643,10 @@ def _build_rescore_data(history_df) -> dict:
     def _series(col: str) -> dict:
         result = {}
         for key in sectors:
-            sk = df[df["sector_key"] == key].set_index("scan_id")
+            sk = df[df["sector_key"] == key].groupby("scan_id")[col].first()
             vals = []
             for sid in scan_ids:
-                v = sk[col].get(sid) if sid in sk.index else None
-                fv = _safe_float(v)
+                fv = _safe_float(sk.get(sid))
                 vals.append(fv if fv is not None else 0.0)
             result[key] = vals
         return result
