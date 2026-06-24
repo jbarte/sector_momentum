@@ -8,6 +8,7 @@ gracefully; breadth is info-only).
 """
 from __future__ import annotations
 
+import io
 import json
 import logging
 import os
@@ -15,6 +16,7 @@ import time
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,14 @@ def fetch_sp500_constituents(
             pass  # fall through to fresh scrape
 
     try:
-        tables = pd.read_html(_WIKI_URL)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/124.0 Safari/537.36"
+        }
+        resp = requests.get(_WIKI_URL, headers=headers, timeout=30)
+        resp.raise_for_status()
+        tables = pd.read_html(io.StringIO(resp.text))
         df = tables[0]
         if "Symbol" not in df.columns or "GICS Sector" not in df.columns:
             logger.warning("Constituents: unexpected table columns %s", list(df.columns))
