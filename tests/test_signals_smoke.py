@@ -9,7 +9,7 @@ volume = pd.Series(np.random.randint(1_000_000, 10_000_000, 300), index=dates).a
 
 from src.signals.relative_strength import compute_rs, compute_rs_slope, compute_rrg, latest_rrg
 from src.signals.momentum import compute_returns, compute_acceleration
-from src.signals.technical import compute_ma_structure, compute_breadth_proxy, compute_obv
+from src.signals.technical import compute_ma_structure, compute_obv
 
 rs = compute_rs(sector, bench)
 assert isinstance(rs, pd.Series), "compute_rs must return Series"
@@ -31,9 +31,6 @@ assert isinstance(acc, float)
 
 ma = compute_ma_structure(sector)
 assert {'above_50dma', 'above_200dma', 'ma50_slope'} == set(ma.keys())
-
-bp = compute_breadth_proxy(sector)
-assert 'breadth_above_50dma' in bp
 
 obv = compute_obv(sector, volume)
 assert 'obv_slope' in obv

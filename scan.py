@@ -43,6 +43,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("scan")
 
+from src.data.prices import fetch_prices
+from src.data.constituents import fetch_sp500_constituents
+from src.signals.breadth import compute_constituent_breadth
+
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
@@ -100,7 +104,7 @@ def _compute_signals_for_sector(
     """
     from src.signals.relative_strength import latest_rrg
     from src.signals.momentum import compute_returns, compute_acceleration
-    from src.signals.technical import compute_ma_structure, compute_breadth_proxy, compute_obv
+    from src.signals.technical import compute_ma_structure, compute_obv
 
     if sector_ticker not in prices:
         logger.warning("Skipping %s (%s) — ticker %s not in price data", gics_sector, region, sector_ticker)
@@ -163,13 +167,6 @@ def _compute_signals_for_sector(
     except Exception as exc:
         logger.warning("compute_obv failed for %s (%s): %s", gics_sector, region, exc)
 
-    # --- Breadth proxy ---
-    try:
-        breadth = compute_breadth_proxy(sector_close)
-        signals["breadth_above_50dma"] = breadth.get("breadth_above_50dma", float("nan"))
-    except Exception as exc:
-        logger.warning("compute_breadth_proxy failed for %s (%s): %s", gics_sector, region, exc)
-
     return signals
 
 
@@ -223,6 +220,31 @@ def _build_signals_rows(
         rows.append(row)
 
     return rows
+
+
+def _inject_constituent_breadth(rows: list[dict], start: str, end: str) -> None:
+    """Mutate rows in place: set breadth_above_50dma to true constituent breadth
+    for US sectors (NaN if unavailable/under-covered), and NaN for EU sectors.
+    Fully non-fatal — any failure leaves all breadth values NaN."""
+    nan = float("nan")
+    breadth: dict[str, float] = {}
+    try:
+        constituents = fetch_sp500_constituents()
+        if constituents:
+            all_tickers = sorted({t for ts in constituents.values() for t in ts})
+            logger.info("Fetching prices for %d S&P 500 constituents …", len(all_tickers))
+            cons_prices = fetch_prices(tickers=all_tickers, start=start, end=end)
+            breadth = compute_constituent_breadth(cons_prices, constituents)
+        else:
+            logger.warning("Constituent breadth unavailable — leaving NaN")
+    except Exception as exc:
+        logger.warning("Constituent breadth step failed (%s) — leaving NaN", exc)
+
+    for row in rows:
+        if row.get("region") == "US":
+            row["breadth_above_50dma"] = breadth.get(f"US|{row['gics_sector']}", nan)
+        else:
+            row["breadth_above_50dma"] = nan
 
 
 def _build_long_signals_df(rows: list[dict], z_wide_df=None) -> pd.DataFrame:
@@ -396,6 +418,12 @@ def run(args: argparse.Namespace) -> int:
         return 1
 
     logger.info("Signals computed for %d sectors", len(rows))
+
+    # ------------------------------------------------------------------
+    # Step 6b: Inject true constituent breadth (non-fatal)
+    # ------------------------------------------------------------------
+    logger.info("Computing true constituent breadth …")
+    _inject_constituent_breadth(rows, start=str(start_date), end=str(end_date))
 
     # ------------------------------------------------------------------
     # Step 7: Build wide DataFrame for scoring

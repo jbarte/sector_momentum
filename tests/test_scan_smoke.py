@@ -86,6 +86,45 @@ def test_parse_args_flags(monkeypatch):
     assert args.no_dashboard is True
 
 
+def test_breadth_injection_is_non_fatal_and_eu_is_nan():
+    """If constituent fetch returns None, breadth stays NaN and rows still build;
+    a helper injects true breadth for US and NaN for EU."""
+    import math
+    from unittest.mock import patch
+    from scan import _inject_constituent_breadth
+
+    rows = [
+        {"region": "US", "gics_sector": "Technology", "sector_key": "US|Technology",
+         "breadth_above_50dma": 1.0},
+        {"region": "EU", "gics_sector": "Technology", "sector_key": "EU|Technology",
+         "breadth_above_50dma": 1.0},
+    ]
+    # Constituent fetch fails → all breadth NaN, no exception raised.
+    with patch("scan.fetch_sp500_constituents", return_value=None):
+        _inject_constituent_breadth(rows, start="2026-01-01", end="2026-06-01")
+    assert math.isnan(rows[0]["breadth_above_50dma"])
+    assert math.isnan(rows[1]["breadth_above_50dma"])
+
+
+def test_breadth_injection_sets_us_value_and_eu_nan():
+    import math
+    from unittest.mock import patch
+    from scan import _inject_constituent_breadth
+
+    rows = [
+        {"region": "US", "gics_sector": "Technology", "sector_key": "US|Technology",
+         "breadth_above_50dma": float("nan")},
+        {"region": "EU", "gics_sector": "Technology", "sector_key": "EU|Technology",
+         "breadth_above_50dma": float("nan")},
+    ]
+    with patch("scan.fetch_sp500_constituents", return_value={"Technology": ["A", "B"]}), \
+         patch("scan.fetch_prices", return_value={}), \
+         patch("scan.compute_constituent_breadth", return_value={"US|Technology": 0.66}):
+        _inject_constituent_breadth(rows, start="2026-01-01", end="2026-06-01")
+    assert rows[0]["breadth_above_50dma"] == 0.66      # US injected
+    assert math.isnan(rows[1]["breadth_above_50dma"])  # EU forced NaN
+
+
 def test_compute_sentiment_for_scan_trends_only_returns_series():
     """scan.py's sentiment helper returns a per-sector Series from Trends only."""
     import pandas as pd
