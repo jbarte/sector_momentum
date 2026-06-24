@@ -994,7 +994,7 @@ function sortTable(col) {
       var rankCell = tr.querySelector(".rank-cell");
       if (rankCell) {
         var badge = rankCell.querySelector(".rank-badge");
-        if (badge) { badge.textContent = r.rank; }
+        if (badge) { badge.textContent = r.rank; badge.classList.toggle("top3", r.rank <= 3); }
       }
       var compCell = tr.querySelector(".composite-cell");
       if (compCell) { compCell.textContent = fmt(r.composite, 3); }
