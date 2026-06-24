@@ -225,12 +225,12 @@ def _build_signals_rows(
     return rows
 
 
-def _build_long_signals_df(rows: list[dict]) -> pd.DataFrame:
+def _build_long_signals_df(rows: list[dict], z_wide_df=None) -> pd.DataFrame:
     """
     Convert wide-format rows to long format expected by save_scan().
 
     Columns: region, gics_sector, signal_name, raw_value, z_value
-    z_value is NaN at this stage (scoring computes z-scores internally).
+    Pass z_wide_df (index=sector_key, columns=signal names) to populate z_value.
     """
     if not rows:
         return pd.DataFrame(columns=["region", "gics_sector", "signal_name", "raw_value", "z_value"])
@@ -243,6 +243,19 @@ def _build_long_signals_df(rows: list[dict]) -> pd.DataFrame:
         value_name="raw_value",
     )
     long["z_value"] = float("nan")
+
+    if z_wide_df is not None:
+        z_long = z_wide_df.reset_index().melt(
+            id_vars=["sector_key"],
+            value_vars=[c for c in SIGNAL_COLUMNS if c in z_wide_df.columns],
+            var_name="signal_name",
+            value_name="z_value_new",
+        )
+        long = long.merge(z_long[["sector_key", "signal_name", "z_value_new"]],
+                          on=["sector_key", "signal_name"], how="left")
+        long["z_value"] = long["z_value_new"].where(long["z_value_new"].notna(), long["z_value"])
+        long = long.drop(columns=["z_value_new"])
+
     long = long.drop(columns=["sector_key"])
     return long.reset_index(drop=True)
 
@@ -297,7 +310,7 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
 def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     from src.data.prices import fetch_prices, load_universe
-    from src.scoring import score_all
+    from src.scoring import score_all, zscore_cross_section
     from src.state import init_db, save_scan, load_last_scan, compute_deltas
     from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
 
@@ -392,8 +405,9 @@ def run(args: argparse.Namespace) -> int:
     # Compute deltas (adds delta_composite, delta_rank, emerging_flag columns)
     scored_with_deltas = compute_deltas(scored_df_for_db, prior_scan)
 
-    # Build long-format signals for DB
-    long_signals_df = _build_long_signals_df(rows)
+    # Build long-format signals for DB, with cross-sectional z-scores
+    z_df = zscore_cross_section(wide_df)
+    long_signals_df = _build_long_signals_df(rows, z_wide_df=z_df)
 
     # ------------------------------------------------------------------
     # Step 12: Persist (unless --dry-run)
