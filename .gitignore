@@ -22,5 +22,8 @@ dashboard/assets/plotly.min.js
 # Worktrees
 .worktrees/
 
+# Scan reports — generated on demand from DB, not committed
+reports/
+
 # Claude Code internal files
 .claude/

@@ -32,6 +32,29 @@ Supabase-backed `src/state.py` data layer.
 
 ---
 
+## Sentiment toggle
+
+A dashboard button to include or exclude sentiment from the composite score and leaderboard ranking. When toggled off, the leaderboard re-ranks using data score only (70% weight → 100%).
+
+**Why:** Sentiment data is noisy and sometimes unavailable (especially EU sectors). Users may want to see a pure price/technical ranking without sentiment dragging scores down for sectors with missing data.
+
+**Possible delivery:**
+- Pre-build two leaderboard datasets (with/without sentiment) at build time and swap client-side via JS on toggle — no server needed.
+- Or expose a URL param (`?sentiment=0`) and rebuild with a flag passed to `build.py`.
+- The sentiment column, score tree in breakdown, and composite values all need to update consistently when toggled.
+
+---
+
+## Sentiment methodology explanation
+
+Surface a plain-English explanation of how the sentiment score is calculated and which data sources feed it, accessible from the dashboard (e.g. an info tooltip or expandable panel near the Data ↔ Sentiment tab or the leaderboard sentiment column header).
+
+**Why:** Users need to understand what they're looking at — is it Google Trends? News sentiment? — before trusting it enough to act on. Currently no in-dashboard explanation exists.
+
+**Notes:** Pure static HTML — no pipeline changes needed. Write explanation based on `src/signals/sentiment.py` and `src/data/trends.py`, render as a collapsible `<details>` block or an `ℹ` tooltip in the template.
+
+---
+
 ## Sentiment module — Google Trends only, as a dedicated tab
 
 **What:** Build a search-interest ("attention") feature powered **solely by Google
@@ -111,3 +134,6 @@ Carried over from earlier planning — not started:
 
 - ~~Data persistence & sync strategy~~ — migrated from a git-committed SQLite blob to
   Supabase (Postgres) so the DB stays in sync across local dev and CI. *(2026-06-22)*
+- ~~Data inventory & coverage statistics~~ — `stats.py` CLI script: scan count + date
+  range, cadence gaps, per-region/per-sector coverage, signal NULL rates, table row
+  counts. *(2026-06-24)*

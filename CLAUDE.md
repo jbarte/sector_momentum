@@ -30,6 +30,10 @@ Sector momentum scanner: US SPDR + STOXX Europe 600 sectors → GICS 11 → data
 - Config: `config/` (universe, weights, sector maps)
 - CI: `.github/workflows/scan.yml` (runs every 2 days, commits dashboard back to repo)
 
+## Backlog
+
+All queued and completed work lives in `BACKLOG.md` in the project root. When asked about the backlog, read that file — not memory. When finishing a task that appears in `BACKLOG.md`, move it to the Done section with the completion date.
+
 ## Dev commands
 
 ```bash
