@@ -3,7 +3,6 @@ using scipy.rankdata and the same OLS slope as _compute_rank_trajectories."""
 import json
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -101,8 +100,10 @@ def test_rescore_parity_random(W, seed):
         assert js[k]["rank"] == pytest.approx(py[k]["rank"], abs=1e-6)
         assert js[k]["composite"] == pytest.approx(py[k]["composite"], abs=1e-6)
         assert js[k]["delta_rank"] == pytest.approx(py[k]["delta_rank"], abs=1e-6)
+        assert js[k]["delta_composite"] == pytest.approx(py[k]["delta_composite"], abs=1e-6)
         assert js[k]["emerging"] == py[k]["emerging"]
         assert js[k]["trajectory_label"] == py[k]["trajectory_label"]
+        assert js[k]["trajectory_state"] == py[k]["trajectory_state"]
 
 
 def test_rescore_parity_ties():
