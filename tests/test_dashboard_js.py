@@ -139,6 +139,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
             movers_json=_make_mock_plotly_json(),
             history_json=_make_mock_plotly_json(),
             sentiment_scatter_json=_make_mock_plotly_json(),
+            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
         ),
@@ -179,3 +180,31 @@ def test_build_rescore_data_shape():
     # NaN sentiment coerced to 0.0
     assert out["sentiment"]["EU|Energy"] == [0.0, 0.0]
     assert out["data"]["US|Technology"] == [0.6, 0.6]
+
+
+def test_rendered_template_includes_rescore_data_and_control(tmp_path):
+    out = tmp_path / "index.html"
+    _render(
+        template_path=_TEMPLATE,
+        out_path=out,
+        context=dict(
+            scan_date="2026-06-23",
+            leaderboard_rows=[],
+            rrg_data_json=_make_mock_plotly_json(),
+            drilldown_data=json.dumps({}),
+            sector_keys=[],
+            movers_json=_make_mock_plotly_json(),
+            history_json=_make_mock_plotly_json(),
+            sentiment_scatter_json=_make_mock_plotly_json(),
+            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            signals_list=[],
+            plotly_bundle="assets/plotly.min.js",
+        ),
+    )
+    html = out.read_text()
+    assert "var RESCORE_DATA =" in html
+    assert 'assets/rescore.js' in html
+    assert 'id="sentiment-toggle"' in html
+    assert 'id="sentiment-weight"' in html
+    # no empty JS var assignments
+    assert not re.compile(r"var\s+\w+\s*=\s*;").findall(html)

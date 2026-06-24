@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Sector Momentum</title>
 <script src="{{ plotly_bundle }}"></script>
+<script src="assets/rescore.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -515,6 +516,14 @@ select.sector-select:focus {
 .etf-isin   { font-family: var(--font-mono); font-size: 11px; color: var(--fg4); }
 .etf-link a { color: var(--brand-strong); text-decoration: none; }
 .etf-link a:hover { color: var(--brand); }
+
+/* =========================================================
+   Sentiment toggle control
+   ========================================================= */
+.sentiment-control { display:flex; align-items:center; gap:16px; margin:8px 0 12px; font-size:0.9em; color:#3E392B; }
+.sentiment-control input[type=number] { width:52px; }
+.sentiment-control .sw-weight[data-disabled="true"] { opacity:0.45; }
+.tab-note { font-size:0.8em; color:#8C8370; margin:0 0 8px; }
 </style>
 </head>
 <body>
@@ -560,6 +569,14 @@ select.sector-select:focus {
       <p><span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span> trajectory even when rank is still high — the sector is topping. Rank Δ turning negative confirms the reversal.</p>
     </div>
   </details>
+  <div id="sentiment-control" class="sentiment-control">
+    <label>
+      <input type="checkbox" id="sentiment-toggle"> Include sentiment in ranking
+    </label>
+    <span class="sw-weight">
+      Weight: <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
+    </span>
+  </div>
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
@@ -612,6 +629,7 @@ select.sector-select:focus {
      Tab: RRG
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel">
+  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -665,6 +683,7 @@ select.sector-select:focus {
      Tab: Movers
      ============================================================ -->
 <section id="tab-movers" class="tab-panel">
+  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -684,6 +703,7 @@ select.sector-select:focus {
      Tab: History
      ============================================================ -->
 <section id="tab-history" class="tab-panel">
+  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -706,6 +726,7 @@ select.sector-select:focus {
      Tab: Data ⇄ Sentiment
      ============================================================ -->
 <section id="tab-sentiment" class="tab-panel">
+  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
   <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
   <p style="color:var(--text-muted);font-size:0.8rem;padding:8px 0 0 4px">
     Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
@@ -822,6 +843,7 @@ var MOVERS_DATA = {{ movers_json | safe }};
 var HISTORY_DATA = {{ history_json | safe }};
 var DRILLDOWN_DATA = {{ drilldown_data | safe }};
 var SENTIMENT_DATA = {{ sentiment_scatter_json | safe }};
+var RESCORE_DATA = {{ rescore_data_json | safe }};
 
 // ----- Render helpers -----
 var _rendered = {};
