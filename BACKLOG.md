@@ -110,6 +110,32 @@ gives the full report for any fetch, not just the most recent.
 
 ---
 
+## Sector view toggle — composite vs region-split
+
+**What:** A dashboard toggle that switches the leaderboard between the current
+**region-split** view (one row per `region|sector` — 22 rows, e.g. "Technology
+US" and "Technology EU" separately) and a **composite** view (one row per GICS
+sector — 11 rows — combining the US and EU entries into a single sector score).
+
+**Why:** Sometimes you want the GICS-level read on a sector regardless of region
+("is Technology strong globally?"); other times you want the region split. Let the
+user flip between them.
+
+**Open question to resolve when scoping (the crux):** how to combine US + EU into
+one sector entry —
+- simple mean of the two regions' composites, or a weighted blend (by market size?),
+- or re-rank from combined underlying data/sentiment before scoring.
+Whatever the rule, rank, ΔRank, trajectory, emerging, and the breakdown panel all
+need to recompute consistently for the combined entries.
+
+**Possible delivery:** mirror the existing sentiment toggle — a client-side
+recompute (extend `dashboard/assets/rescore.js`) driven by a toggle, persisted in
+`localStorage`, default region-split. Pairs naturally with the sentiment-weight
+control (both are leaderboard view toggles). Breakdown for a composite row would
+need to show both regions' contributions.
+
+---
+
 ## Phase 3 features
 
 Carried over from earlier planning — not started:
