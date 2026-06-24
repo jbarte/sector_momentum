@@ -1,4 +1,14 @@
-"""Pytest tests for the state / Postgres persistence module."""
+"""Pytest tests for the state / Postgres persistence module.
+
+DANGER: the db_conn fixture's teardown runs `DELETE FROM signals/scores/scans`
+with no WHERE clause — it wipes EVERY row. It must therefore only ever connect
+to a throwaway test database, never production.
+
+These tests are gated on a dedicated TEST_DATABASE_URL env var (NOT the
+production DATABASE_URL). If TEST_DATABASE_URL is unset they skip, so a normal
+`pytest` run can never wipe the live Supabase project. To run them, point
+TEST_DATABASE_URL at a disposable Postgres/Supabase database.
+"""
 import datetime
 import os
 
@@ -7,8 +17,15 @@ import pytest
 
 from src.state import init_db, save_scan, load_last_scan, compute_deltas, get_scan_history
 
-_has_db = bool(os.environ.get("DATABASE_URL"))
-skipif_no_db = pytest.mark.skipif(not _has_db, reason="DATABASE_URL not set")
+_test_db = os.environ.get("TEST_DATABASE_URL")
+_prod_db = os.environ.get("DATABASE_URL")
+# Skip unless a dedicated test DB is configured. Also refuse to run if it points
+# at the same place as production — these tests delete all rows.
+skipif_no_db = pytest.mark.skipif(
+    not _test_db or _test_db == _prod_db,
+    reason="TEST_DATABASE_URL not set (or equals DATABASE_URL); "
+           "these tests wipe all rows and must never run against production",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -16,8 +33,11 @@ skipif_no_db = pytest.mark.skipif(not _has_db, reason="DATABASE_URL not set")
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def db_conn():
-    """Open a connection to Supabase and clean up test rows after each test."""
+def db_conn(monkeypatch):
+    """Open a connection to the dedicated TEST database and wipe its rows after
+    each test. Never touches the production DATABASE_URL (see module docstring)."""
+    # init_db() reads DATABASE_URL; point it at the test DB for this fixture only.
+    monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
     conn = init_db()
     yield conn
     with conn:
