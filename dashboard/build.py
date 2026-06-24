@@ -920,6 +920,11 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
                 if _safe_float(row.get("change_score")) is not None else "—",
             "data_score": f"{_safe_float(row.get('data_score')):.3f}"
                 if _safe_float(row.get("data_score")) is not None else "—",
+            # Raw stored sentiment score for this scan. Weight-independent: the
+            # toggle/weight only changes how much sentiment moves the composite,
+            # not the sentiment value itself, so applyRanking() never updates it.
+            "sentiment_score": f"{_safe_float(row.get('sentiment_score')):.3f}"
+                if _safe_float(row.get("sentiment_score")) is not None else "—",
             "delta_rank": f"{delta:+.1f}" if delta != 0 else "—",
             "arrow": "▲" if delta > 0 else ("▼" if delta < 0 else ""),
             "arrow_class": "up" if delta > 0 else ("down" if delta < 0 else ""),
