@@ -111,3 +111,6 @@ Carried over from earlier planning — not started:
 
 - ~~Data persistence & sync strategy~~ — migrated from a git-committed SQLite blob to
   Supabase (Postgres) so the DB stays in sync across local dev and CI. *(2026-06-22)*
+- ~~Data inventory & coverage statistics~~ — `stats.py` CLI script: scan count + date
+  range, cadence gaps, per-region/per-sector coverage, signal NULL rates, table row
+  counts. *(2026-06-24)*
