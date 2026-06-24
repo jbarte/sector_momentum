@@ -26,15 +26,31 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write   # needed to post review comments
+      pull-requests: write   # post review comments
+      id-token: write        # required by claude-code-action to mint a GitHub token via OIDC
+    env:
+      # Mapped to env so we can gate steps on its presence (secrets can't be used
+      # directly in step `if:` conditions, but env can).
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
+      # Until the one-time setup is done (add ANTHROPIC_API_KEY + install the Claude
+      # GitHub App), skip the review so the check passes green instead of hard-failing
+      # on every PR.
+      - name: Skip notice (review not configured)
+        if: ${{ env.ANTHROPIC_API_KEY == '' }}
+        run: |
+          echo "ANTHROPIC_API_KEY is not set — skipping automated review."
+          echo "To enable: add the ANTHROPIC_API_KEY repo secret and install the Claude GitHub App."
+
       - uses: actions/checkout@v4
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
         with:
           fetch-depth: 0   # full history so the diff vs base resolves
 
       - name: Claude code review
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ env.ANTHROPIC_API_KEY }}
           prompt: "/code-review --comment"
           claude_args: "--model claude-sonnet-4-6 --max-turns 15"
