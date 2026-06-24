@@ -150,3 +150,32 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
         f"Empty JS variable assignments found: {matches}\n"
         "A Jinja2 variable is missing from the _render() context."
     )
+
+
+def test_build_rescore_data_shape():
+    import pandas as pd
+    from dashboard.build import _build_rescore_data
+
+    rows = []
+    for scan_id, run_at in [(1, "2026-06-22T00:00:00"), (2, "2026-06-23T00:00:00")]:
+        for region, sector, dscore, sscore in [
+            ("US", "Technology", 0.6, 0.2),
+            ("EU", "Energy", -0.3, float("nan")),  # NaN sentiment -> 0.0
+        ]:
+            rows.append({
+                "scan_id": scan_id, "run_at": run_at, "region": region,
+                "gics_sector": sector, "data_score": dscore, "sentiment_score": sscore,
+            })
+    df = pd.DataFrame(rows)
+
+    out = _build_rescore_data(df)
+
+    assert [s["scan_id"] for s in out["scans"]] == [1, 2]
+    assert set(out["sectors"]) == {"US|Technology", "EU|Energy"}
+    # arrays aligned to scans length
+    for key in out["sectors"]:
+        assert len(out["data"][key]) == 2
+        assert len(out["sentiment"][key]) == 2
+    # NaN sentiment coerced to 0.0
+    assert out["sentiment"]["EU|Energy"] == [0.0, 0.0]
+    assert out["data"]["US|Technology"] == [0.6, 0.6]

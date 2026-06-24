@@ -622,6 +622,44 @@ def _build_sentiment_scatter_figure(history_df) -> str:
     return pio.to_json(fig)
 
 
+def _build_rescore_data(history_df) -> dict:
+    """Per-scan × per-sector data_score and sentiment_score arrays for the
+    client-side leaderboard rescoring. Arrays are aligned to the ascending
+    scan list; missing / NaN values become 0.0."""
+    if history_df.empty:
+        return {"scans": [], "sectors": [], "data": {}, "sentiment": {}}
+
+    df = history_df.copy()
+    df["sector_key"] = df["region"] + "|" + df["gics_sector"]
+
+    scan_ids = sorted(df["scan_id"].unique().tolist())
+    scans_meta = []
+    for sid in scan_ids:
+        run_at = df[df["scan_id"] == sid]["run_at"].iloc[0]
+        scans_meta.append({"scan_id": int(sid), "run_at": str(run_at)})
+
+    sectors = sorted(df["sector_key"].unique().tolist())
+
+    def _series(col: str) -> dict:
+        result = {}
+        for key in sectors:
+            sk = df[df["sector_key"] == key].set_index("scan_id")
+            vals = []
+            for sid in scan_ids:
+                v = sk[col].get(sid) if sid in sk.index else None
+                fv = _safe_float(v)
+                vals.append(fv if fv is not None else 0.0)
+            result[key] = vals
+        return result
+
+    return {
+        "scans": scans_meta,
+        "sectors": sectors,
+        "data": _series("data_score"),
+        "sentiment": _series("sentiment_score"),
+    }
+
+
 def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     """
     Build per-sector timeseries for each score column.
@@ -972,6 +1010,9 @@ def main() -> None:
     logger.info("Building sentiment scatter …")
     sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
 
+    logger.info("Building rescore data …")
+    rescore_data_json = json.dumps(_build_rescore_data(history_df))
+
     logger.info("Building leaderboard …")
     leaderboard_rows, scan_date = _build_leaderboard_rows(history_df)
     trajectories = _compute_rank_trajectories(history_df)
@@ -1011,6 +1052,9 @@ def main() -> None:
     plotly_src = _ASSETS_DIR / "plotly.min.js"
     if plotly_src.exists():
         shutil.copy2(plotly_src, docs_assets / "plotly.min.js")
+    rescore_src = _ASSETS_DIR / "rescore.js"
+    if rescore_src.exists():
+        shutil.copy2(rescore_src, docs_assets / "rescore.js")
     plotly_bundle_rel = "assets/plotly.min.js"
 
     # 5. Render template
@@ -1029,6 +1073,7 @@ def main() -> None:
             movers_json=movers_json,
             history_json=history_json,
             sentiment_scatter_json=sentiment_scatter_json,
+            rescore_data_json=rescore_data_json,
             signals_list=signals_list,
             plotly_bundle=plotly_bundle_rel,
         ),
