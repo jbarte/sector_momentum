@@ -5,7 +5,7 @@ import pytest
 
 from src.signals.relative_strength import compute_rs, compute_rs_slope, compute_rrg, latest_rrg
 from src.signals.momentum import compute_returns, compute_acceleration
-from src.signals.technical import compute_ma_structure, compute_breadth_proxy, compute_obv
+from src.signals.technical import compute_ma_structure, compute_obv
 
 
 # ---------------------------------------------------------------------------
@@ -137,13 +137,6 @@ def test_compute_ma_structure_above_for_uptrend():
     assert not np.isnan(ma["above_200dma"]), "above_200dma should not be NaN for 300-day series"
     assert ma["above_50dma"] > 0, "Expected price above 50DMA for strong uptrend"
     assert ma["above_200dma"] > 0, "Expected price above 200DMA for strong uptrend"
-
-
-def test_compute_breadth_proxy_keys():
-    """Key: breadth_above_50dma."""
-    prices = make_prices(300, seed=17)
-    bp = compute_breadth_proxy(prices)
-    assert "breadth_above_50dma" in bp
 
 
 def test_compute_obv_slope_positive_for_uptrend_with_volume():

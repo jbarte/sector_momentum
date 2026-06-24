@@ -202,9 +202,9 @@ def _compute_rank_trajectories(history_df) -> dict:
 
 def _format_raw_value(name: str, value) -> str:
     """Format a signal's raw value for human display."""
-    if value is None:
+    v = _safe_float(value)
+    if v is None:
         return "—"
-    v = float(value)
     if name in ("rs_ratio", "rs_momentum"):
         return f"{v:.1f}"
     if name == "breadth_above_50dma":

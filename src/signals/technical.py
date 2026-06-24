@@ -1,5 +1,5 @@
 """
-Technical signals: moving averages, breadth proxy, on-balance volume.
+Technical signals: moving averages and on-balance volume.
 """
 
 import pandas as pd
@@ -45,39 +45,6 @@ def compute_ma_structure(close: pd.Series) -> dict[str, float]:
         ma200 = clean.rolling(200).mean()
         ma200_last = float(ma200.iloc[-1])
         result["above_200dma"] = (last_price - ma200_last) / ma200_last
-
-    return result
-
-
-def compute_breadth_proxy(close: pd.Series) -> dict[str, float]:
-    """
-    Breadth proxy using only ETF price (no constituent data needed).
-
-    Returns:
-      'breadth_above_50dma': 1.0 if price > 50DMA, 0.0 if below (-1.0 if far below: >5%)
-      'breadth_pct_from_50dma': same as above_50dma (pct distance) — included for completeness
-
-    Note: This is a single-name proxy, not true constituent breadth.
-    """
-    nan = float("nan")
-    result = {"breadth_above_50dma": nan, "breadth_pct_from_50dma": nan}
-
-    clean = close.dropna()
-    if len(clean) < 50:
-        return result
-
-    ma50 = float(clean.rolling(50).mean().iloc[-1])
-    last_price = float(clean.iloc[-1])
-    pct = (last_price - ma50) / ma50
-
-    result["breadth_pct_from_50dma"] = pct
-
-    if pct > 0:
-        result["breadth_above_50dma"] = 1.0
-    elif pct <= -0.05:
-        result["breadth_above_50dma"] = -1.0
-    else:
-        result["breadth_above_50dma"] = 0.0
 
     return result
 

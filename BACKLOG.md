@@ -117,8 +117,6 @@ Carried over from earlier planning — not started:
 - **Swedish overlay polish** — refine the Swedish-market overlay view
 - **Multilingual sentiment polarity (FinBERT)** — replace/augment VADER with a
   finance-tuned, multilingual sentiment model
-- **Constituent breadth** — true breadth from sector constituents (vs the current
-  proxy)
 - **Backtest against past rotations** — validate signals against historical sector
   rotations (e.g. energy 2021–22)
 - **Streamlit live drill-down** (optional) — interactive drill-down UI
@@ -132,6 +130,10 @@ Carried over from earlier planning — not started:
 - ~~Data inventory & coverage statistics~~ — `stats.py` CLI script: scan count + date
   range, cadence gaps, per-region/per-sector coverage, signal NULL rates, table row
   counts. *(2026-06-24)*
+- ~~Constituent breadth (Phase 3.1)~~ — true breadth for US sectors: % of each
+  sector's S&P 500 constituents (Wikipedia GICS list, fetched with a browser UA)
+  above their own 50-DMA, info-only; EU shows "—"; retired the single-ETF proxy.
+  *(2026-06-24)*
 - ~~Sentiment toggle~~ — dashboard toggle + weight field blends Google Trends sentiment
   into the leaderboard ranking client-side (`rescore.js`); canonical composite stays
   pure-data (`score_all(..., blend_sentiment=False)`). Thin Trends wired into the scan;
