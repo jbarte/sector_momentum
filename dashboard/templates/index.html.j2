@@ -606,7 +606,7 @@ select.sector-select:focus {
           <td>{{ row.level_score }}</td>
           <td>{{ row.change_score }}</td>
           <td>{{ row.data_score }}</td>
-          <td>{{ row.sentiment_score }}</td>
+          <td class="sentiment-cell">{{ row.sentiment_score }}</td>
           <td class="delta-cell">
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>

@@ -15,7 +15,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dashboard.build import _build_sentiment_scatter_figure, _render
+from dashboard.build import _build_sentiment_scatter_figure, _build_leaderboard_rows, _render
 
 _TEMPLATE = Path(__file__).parent.parent / "dashboard" / "templates" / "index.html.j2"
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -80,6 +80,27 @@ def _minimal_history_df() -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Test 1 — sentiment scatter builder returns valid non-empty JSON
 # ---------------------------------------------------------------------------
+
+def test_leaderboard_rows_include_sentiment_score():
+    """Each leaderboard row must carry a formatted, non-empty sentiment_score so
+    the Sentiment column renders (regression: the column was previously blank
+    because the row dict never set this key)."""
+    df = pd.DataFrame([
+        {"scan_id": 1, "run_at": "2026-06-24T12:00:00", "region": "US",
+         "gics_sector": "Technology", "level_score": 0.5, "change_score": 0.3,
+         "data_score": 0.6, "sentiment_score": 0.42, "composite": 0.6, "rank": 1.0},
+        {"scan_id": 1, "run_at": "2026-06-24T12:00:00", "region": "EU",
+         "gics_sector": "Energy", "level_score": -0.2, "change_score": -0.1,
+         "data_score": -0.15, "sentiment_score": float("nan"), "composite": -0.15, "rank": 2.0},
+    ])
+    rows, _ = _build_leaderboard_rows(df)
+    by_sector = {r["sector"]: r for r in rows}
+    assert "sentiment_score" in by_sector["Technology"]
+    assert by_sector["Technology"]["sentiment_score"] == "0.420"
+    # NaN sentiment falls back to the em-dash placeholder, never blank
+    assert by_sector["Energy"]["sentiment_score"] == "—"
+    assert by_sector["Energy"]["sentiment_score"] != ""
+
 
 def test_sentiment_scatter_empty_df_returns_valid_json():
     empty = pd.DataFrame(columns=[
