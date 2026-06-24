@@ -2,7 +2,7 @@ name: Sector Momentum Scan
 
 on:
   schedule:
-    - cron: "0 6 */2 * *"   # every 2 days, 06:00 UTC
+    - cron: "0 6 * * *"    # daily, 06:00 UTC
   workflow_dispatch: {}       # manual trigger
 
 jobs:
