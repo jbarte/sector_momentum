@@ -1,0 +1,152 @@
+"""Tests that guard against broken JavaScript in the built dashboard.
+
+The dashboard embeds Plotly figures as inline JS variables. If any variable
+is missing from the build.py render context, Jinja2 renders it as an empty
+string, producing `var X = ;` — a syntax error that kills ALL interactivity
+(tab switching, row expansion, everything). These tests catch that class of bug.
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from dashboard.build import _build_sentiment_scatter_figure, _render
+
+_TEMPLATE = Path(__file__).parent.parent / "dashboard" / "templates" / "index.html.j2"
+_PROJECT_ROOT = Path(__file__).parent.parent
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _template_js_vars() -> set[str]:
+    """Parse the template and return every Jinja2 variable used in a JS
+    `var NAME = {{ var_name | safe }};` assignment."""
+    text = _TEMPLATE.read_text()
+    return set(re.findall(r"var\s+[A-Z_]+\s*=\s*\{\{\s*(\w+)\s*\|?\s*safe\s*\}\}", text))
+
+
+def _render_context_keys() -> set[str]:
+    """Extract the keys passed to _render(context=dict(...)) in build.py's main().
+
+    Uses parenthesis depth-counting to handle nested calls like json.dumps(...).
+    """
+    text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
+    marker = "context=dict("
+    start = text.find(marker)
+    if start == -1:
+        return set()
+    # Walk from the opening '(' counting depth to find the matching ')'
+    paren_start = start + len(marker) - 1  # position of '('
+    depth = 0
+    context_block = ""
+    for i, ch in enumerate(text[paren_start:], paren_start):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                context_block = text[paren_start + 1 : i]
+                break
+    # Each kwarg starts a line with `    key=`
+    return set(re.findall(r"^\s*(\w+)\s*=", context_block, re.MULTILINE))
+
+
+def _minimal_history_df() -> pd.DataFrame:
+    """One scan, two sectors — enough to exercise all figure builders."""
+    rows = []
+    for region, sector in [("US", "Technology"), ("EU", "Financials")]:
+        rows.append({
+            "scan_id": 1,
+            "run_at": "2026-06-23T12:00:00",
+            "region": region,
+            "gics_sector": sector,
+            "level_score": 0.5,
+            "change_score": 0.3,
+            "data_score": 0.6,
+            "sentiment_score": 0.1,
+            "composite": 0.4,
+            "rank": 1.0,
+        })
+    return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# Test 1 — sentiment scatter builder returns valid non-empty JSON
+# ---------------------------------------------------------------------------
+
+def test_sentiment_scatter_empty_df_returns_valid_json():
+    empty = pd.DataFrame(columns=[
+        "scan_id", "region", "gics_sector",
+        "data_score", "sentiment_score",
+    ])
+    result = _build_sentiment_scatter_figure(empty)
+    assert result, "returned empty string for empty DataFrame"
+    parsed = json.loads(result)
+    assert "data" in parsed
+    assert "layout" in parsed
+
+
+def test_sentiment_scatter_populated_df_returns_valid_json():
+    df = _minimal_history_df()
+    result = _build_sentiment_scatter_figure(df)
+    assert result, "returned empty string for populated DataFrame"
+    parsed = json.loads(result)
+    assert "data" in parsed
+    assert "layout" in parsed
+
+
+# ---------------------------------------------------------------------------
+# Test 2 — every template JS variable is in the render context
+# ---------------------------------------------------------------------------
+
+def test_render_context_covers_all_template_js_vars():
+    template_vars = _template_js_vars()
+    context_keys = _render_context_keys()
+    missing = template_vars - context_keys
+    assert not missing, (
+        f"Template JS variables not in _render() context: {missing}\n"
+        f"This causes `var X = ;` syntax errors that break all dashboard interactivity."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 3 — rendered template has no empty JS variable assignments
+# ---------------------------------------------------------------------------
+
+def _make_mock_plotly_json() -> str:
+    return json.dumps({"data": [], "layout": {}})
+
+
+def test_rendered_template_has_no_empty_js_vars(tmp_path):
+    """Render the template with minimal mock data and verify no var X = ; patterns."""
+    out = tmp_path / "index.html"
+    _render(
+        template_path=_TEMPLATE,
+        out_path=out,
+        context=dict(
+            scan_date="2026-06-23",
+            leaderboard_rows=[],
+            rrg_data_json=_make_mock_plotly_json(),
+            drilldown_data=json.dumps({}),
+            sector_keys=[],
+            movers_json=_make_mock_plotly_json(),
+            history_json=_make_mock_plotly_json(),
+            sentiment_scatter_json=_make_mock_plotly_json(),
+            signals_list=[],
+            plotly_bundle="assets/plotly.min.js",
+        ),
+    )
+    html = out.read_text()
+    empty_var_pattern = re.compile(r"var\s+\w+\s*=\s*;")
+    matches = empty_var_pattern.findall(html)
+    assert not matches, (
+        f"Empty JS variable assignments found: {matches}\n"
+        "A Jinja2 variable is missing from the _render() context."
+    )

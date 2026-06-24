@@ -543,6 +543,85 @@ def _build_rrg_figure(rrg_df) -> str:
     return pio.to_json(fig)
 
 
+def _build_sentiment_scatter_figure(history_df) -> str:
+    """Data ⇄ Sentiment scatter: x=data_score, y=sentiment_score, latest scan only."""
+    if history_df.empty:
+        fig = go.Figure()
+        fig.update_layout(title="Data ⇄ Sentiment — no data",
+                          paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+                          font=dict(color="#3E392B"))
+        return pio.to_json(fig)
+
+    latest_id = history_df["scan_id"].max()
+    df = history_df[history_df["scan_id"] == latest_id].copy()
+
+    has_sentiment = df["sentiment_score"].notna() & (df["sentiment_score"] != 0.0)
+    solid = df[has_sentiment]
+    faded = df[~has_sentiment]
+
+    region_colors = {"US": "#A55A3C", "EU": "#5A6F49"}
+
+    fig = go.Figure()
+
+    for xy in [dict(x0=0, x1=0, y0=-3, y1=3), dict(x0=-3, x1=3, y0=0, y1=0)]:
+        fig.add_shape(type="line", **xy, line=dict(color="#DFD5BE", width=1, dash="dot"))
+
+    for x, y, label in [
+        (1.5,  1.5, "Agreement<br>(bullish)"),
+        (-1.5, 1.5, "Sentiment<br>ahead"),
+        (-1.5, -1.5, "Agreement<br>(bearish)"),
+        (1.5, -1.5, "Data ahead"),
+    ]:
+        fig.add_annotation(x=x, y=y, text=label, showarrow=False,
+                           font=dict(size=9, color="#8C8370"),
+                           xanchor="center", yanchor="middle")
+
+    for region, color in region_colors.items():
+        grp = solid[solid["region"] == region]
+        if grp.empty:
+            continue
+        fig.add_trace(go.Scatter(
+            x=grp["data_score"].tolist(),
+            y=grp["sentiment_score"].tolist(),
+            mode="markers+text",
+            marker=dict(size=12, color=color, line=dict(width=1, color="#C8B89A")),
+            text=grp["gics_sector"].tolist(),
+            textposition="top center",
+            textfont=dict(size=9, color="#3E392B"),
+            name=region,
+            hovertemplate=(
+                "<b>%{text} (" + region + ")</b><br>"
+                "Data: %{x:.3f}<br>Sentiment: %{y:.3f}<extra></extra>"
+            ),
+        ))
+
+    if not faded.empty:
+        fig.add_trace(go.Scatter(
+            x=faded["data_score"].tolist(),
+            y=[0.0] * len(faded),
+            mode="markers+text",
+            marker=dict(size=8, color="#C8B89A", symbol="circle-open"),
+            text=faded["gics_sector"].tolist(),
+            textposition="top center",
+            textfont=dict(size=8, color="#8C8370"),
+            name="no sentiment data",
+            hovertemplate="<b>%{text}</b><br>Sentiment: N/A<extra></extra>",
+        ))
+
+    fig.update_layout(
+        title=dict(text="Data ⇄ Sentiment", font=dict(size=13, color="#3E392B")),
+        xaxis=dict(title="Data Score", gridcolor="#DFD5BE", zeroline=False),
+        yaxis=dict(title="Sentiment Score", gridcolor="#DFD5BE", zeroline=False),
+        paper_bgcolor="#F5F0E6",
+        plot_bgcolor="#FAF7F0",
+        font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+        legend=dict(font=dict(size=9), bgcolor="#FAF7F0", bordercolor="#DFD5BE"),
+        margin=dict(l=50, r=20, t=50, b=50),
+        height=520,
+    )
+    return pio.to_json(fig)
+
+
 def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     """
     Build per-sector timeseries for each score column.
@@ -890,6 +969,9 @@ def main() -> None:
     logger.info("Building history figure …")
     history_json = _build_history_figure(history_df)
 
+    logger.info("Building sentiment scatter …")
+    sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
+
     logger.info("Building leaderboard …")
     leaderboard_rows, scan_date = _build_leaderboard_rows(history_df)
     trajectories = _compute_rank_trajectories(history_df)
@@ -946,6 +1028,7 @@ def main() -> None:
             sector_keys=sector_keys,
             movers_json=movers_json,
             history_json=history_json,
+            sentiment_scatter_json=sentiment_scatter_json,
             signals_list=signals_list,
             plotly_bundle=plotly_bundle_rel,
         ),
