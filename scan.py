@@ -260,6 +260,30 @@ def _build_long_signals_df(rows: list[dict], z_wide_df=None) -> pd.DataFrame:
     return long.reset_index(drop=True)
 
 
+def _compute_sentiment_for_scan(
+    trends_data,
+    sector_keys: list[str],
+    us_sectors: dict[str, str],
+    eu_sectors: dict[str, str],
+) -> "pd.Series":
+    """Trends-only sentiment score per sector_key.
+
+    Reddit and Finnhub are intentionally disabled (passed as None); only Google
+    Trends search momentum feeds sentiment. compute_sentiment_score collapses an
+    all-NaN sector to 0.0 (neutral).
+    """
+    from src.signals.sentiment import compute_sentiment_score
+
+    return compute_sentiment_score(
+        reddit_data=None,
+        trends_data=trends_data,
+        finnhub_data=None,
+        sector_keys=sector_keys,
+        us_sectors=us_sectors,
+        eu_sectors=eu_sectors,
+    )
+
+
 def _build_scored_df_for_db(scored: pd.DataFrame) -> pd.DataFrame:
     """
     scored has index = "region|gics_sector". Split index back into columns
@@ -311,6 +335,7 @@ def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     from src.data.prices import fetch_prices, load_universe
     from src.scoring import score_all, zscore_cross_section
+    from src.data.trends import fetch_trends
     from src.state import init_db, save_scan, load_last_scan, compute_deltas
     from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
 
@@ -378,12 +403,26 @@ def run(args: argparse.Namespace) -> int:
     wide_df = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
 
     # ------------------------------------------------------------------
-    # Step 8: Score
+    # Step 8: Sentiment (thin Google Trends) + Score
     # ------------------------------------------------------------------
+    logger.info("Fetching Google Trends sentiment …")
+    with open("config/sentiment_keywords.yaml", "r") as _fh:
+        sentiment_keywords = yaml.safe_load(_fh)
+    trends_data = fetch_trends(sentiment_keywords)
+    sentiment_score = _compute_sentiment_for_scan(
+        trends_data=trends_data,
+        sector_keys=list(wide_df.index),
+        us_sectors=us_sectors,
+        eu_sectors=eu_sectors,
+    )
+
     logger.info("Scoring sectors …")
+    # Canonical composite stays pure-data; sentiment is stored but not blended.
     scored = score_all(
         wide_df,
         weights_path="config/weights.yaml",
+        sentiment_score=sentiment_score,
+        blend_sentiment=False,
     )
     logger.info("Scoring complete. %d sectors ranked.", len(scored))
 
