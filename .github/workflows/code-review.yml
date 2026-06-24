@@ -1,0 +1,56 @@
+name: Code Review
+
+# Automated Claude code review on pull requests.
+# Posts findings as inline PR comments. Does NOT block merge — Jonas merges manually.
+#
+# Setup required once:
+#   1. Install the Claude GitHub App on this repo:  run `claude /install-github-app`
+#      (or install from https://github.com/apps/claude).
+#   2. Add repo secret ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions).
+#
+# NOTE: the `anthropics/claude-code-action` input names evolve — if a run fails on an
+# unknown input, check the action README: https://github.com/anthropics/claude-code-action
+
+on:
+  pull_request:
+    types: [opened, synchronize]   # on PR open and on each new push
+
+# Avoid stacking reviews when several pushes land quickly: cancel the in-flight
+# review for a PR when a newer commit arrives.
+concurrency:
+  group: code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # post review comments
+      id-token: write        # required by claude-code-action to mint a GitHub token via OIDC
+    env:
+      # Mapped to env so we can gate steps on its presence (secrets can't be used
+      # directly in step `if:` conditions, but env can).
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      # Until the one-time setup is done (add ANTHROPIC_API_KEY + install the Claude
+      # GitHub App), skip the review so the check passes green instead of hard-failing
+      # on every PR.
+      - name: Skip notice (review not configured)
+        if: ${{ env.ANTHROPIC_API_KEY == '' }}
+        run: |
+          echo "ANTHROPIC_API_KEY is not set — skipping automated review."
+          echo "To enable: add the ANTHROPIC_API_KEY repo secret and install the Claude GitHub App."
+
+      - uses: actions/checkout@v4
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        with:
+          fetch-depth: 0   # full history so the diff vs base resolves
+
+      - name: Claude code review
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ env.ANTHROPIC_API_KEY }}
+          prompt: "/code-review --comment"
+          claude_args: "--model claude-sonnet-4-6 --max-turns 15"
