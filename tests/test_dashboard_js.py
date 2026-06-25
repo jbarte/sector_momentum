@@ -233,6 +233,34 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
     assert not re.compile(r"var\s+\w+\s*=\s*;").findall(html)
 
 
+def test_history_tab_has_scan_index(tmp_path):
+    """The built dashboard renders the scan-index list with the active scan marked."""
+    import json as _json
+    import pandas as pd
+    from dashboard.build import _render, build_scan_index
+
+    scan_index = build_scan_index(pd.DataFrame([
+        dict(scan_id=2, run_at="2026-06-02T06:00:00", region="US", gics_sector="Technology",
+             level_score=0.7, change_score=0.7, data_score=0.7, sentiment_score=0.0,
+             composite=0.7, rank=1.0),
+        dict(scan_id=1, run_at="2026-06-01T06:00:00", region="US", gics_sector="Energy",
+             level_score=0.5, change_score=0.5, data_score=0.5, sentiment_score=0.0,
+             composite=0.5, rank=1.0),
+    ]))
+    out = tmp_path / "index.html"
+    _render(_TEMPLATE, out, dict(
+        scan_date="2026-06-02 06:00 UTC", active_scan_id=2, scan_index=scan_index,
+        leaderboard_rows=[], composite_rows=[], rrg_data_json="{}", drilldown_data="{}",
+        sector_keys=[], movers_json="{}", history_json="{}", sentiment_scatter_json="{}",
+        rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        signals_list=[], plotly_bundle="assets/plotly.min.js",
+    ))
+    html = out.read_text()
+    assert "scan-index" in html                       # the list container
+    assert "reports/report_2.md" in html              # download link
+    assert "● Showing" in html                         # active marker on MAX scan_id
+
+
 def test_built_html_has_both_row_sets_and_toggle(tmp_path):
     """The rendered leaderboard contains split rows, composite rows, and the
     view-toggle control."""

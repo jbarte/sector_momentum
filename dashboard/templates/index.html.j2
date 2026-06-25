@@ -151,6 +151,9 @@ header h1 {
   background: var(--bg-raised);
   box-shadow: var(--shadow-xs);
 }
+.scan-index { margin-bottom: 20px; }
+.scan-index .active-scan { background: var(--green-100); }
+.showing-badge { color: var(--green-700); font-weight: 600; font-size: 0.8em; white-space: nowrap; }
 table {
   width: 100%;
   border-collapse: collapse;
@@ -542,7 +545,7 @@ select.sector-select:focus {
 <!-- Header -->
 <header>
   <h1>Sector momentum</h1>
-  <span class="scan-date">Last scan: {{ scan_date }}</span>
+  <span class="scan-date">Last scan: {% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
   <span class="disclaimer">Analytical tooling, not investment advice.</span>
 </header>
 
@@ -761,6 +764,27 @@ select.sector-select:focus {
       <p>Use as context for current rank. A sector ranked #1 after steadily rising for 10 scans is a different risk profile from one that jumped from #8 last scan. Long, smooth uptrends are the entries worth holding; V-shaped reversals are the ones to trade quickly or skip.</p>
     </div>
   </details>
+  <div class="table-wrap scan-index">
+    <table>
+      <thead>
+        <tr><th></th><th>Scan</th><th>Run (UTC)</th><th>Sectors</th><th>Top sector</th><th>Report</th></tr>
+      </thead>
+      <tbody>
+        {% for s in scan_index %}
+        <tr{% if s.scan_id == active_scan_id %} class="active-scan"{% endif %}>
+          <td>{% if s.scan_id == active_scan_id %}<span class="showing-badge">● Showing</span>{% endif %}</td>
+          <td>#{{ s.scan_id }}</td>
+          <td>{{ s.run_at_display }}</td>
+          <td>{{ s.sector_count }}</td>
+          <td>{{ s.top_sector }} ({{ s.top_region }})</td>
+          <td><a href="reports/report_{{ s.scan_id }}.md">download</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:16px;color:var(--fg4)">No scans yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   <div class="chart-container" id="history-chart" style="height:520px"></div>
 </section>
 

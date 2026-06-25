@@ -1117,6 +1117,13 @@ def main() -> None:
     history_df = get_scan_history(conn, n_scans=20)
     signals_df = get_signals_for_latest_scan(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
+
+    logger.info("Building scan index + per-scan reports …")
+    all_scores_df = get_scan_history(conn, n_scans=None)
+    scan_index = build_scan_index(all_scores_df)
+    active_scan_id = scan_index[0]["scan_id"] if scan_index else None
+    _generate_scan_reports(all_scores_df, out_dir / "reports")
+
     conn.close()
 
     if history_df.empty:
@@ -1211,6 +1218,8 @@ def main() -> None:
         out_path=out_path,
         context=dict(
             scan_date=scan_date,
+            scan_index=scan_index,
+            active_scan_id=active_scan_id,
             leaderboard_rows=leaderboard_rows,
             composite_rows=composite_rows,
             rrg_data_json=rrg_json,
