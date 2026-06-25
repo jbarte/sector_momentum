@@ -4,60 +4,50 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 ---
 
-## Back up the database on every scan
+## Thematic / genre ETF momentum (beyond sectors)
 
-**What:** On each scan run, write a backup of the database (or at minimum the
-latest scan's data) to a durable location, so the data can be restored if the
-DB is ever wiped or corrupted.
+**What:** Extend the momentum engine to a second universe of **thematic / genre
+ETFs** — e.g. space, defence, clean energy, crypto, AI, robotics, uranium —
+ranked the same way the GICS sectors are, but as their own track alongside the
+sector leaderboard.
 
-**Why:** On 2026-06-25 the production Supabase DB was found emptied (0 scans) —
-the only DELETE path is the test fixture, and a string-only skip-guard let a
-prod-equivalent `TEST_DATABASE_URL` through (since hardened on
-`fix/harden-db-wipe-guard`). The history (ΔRank, trajectory, emerging) depends on
-many past scans, so losing it is expensive and not trivially recoverable. A
-per-run backup makes recovery a restore instead of a from-scratch rebuild.
+**Why:** The current scanner is GICS-sector-only. A lot of rotation happens at
+the *theme* level (defence ripping, crypto-proxy ETFs, AI), which doesn't map
+cleanly onto the 11 sectors. Applying the existing momentum pillars (RS, returns,
+MA distance/slope, OBV) to a thematic ETF universe surfaces those rotations
+without changing the sector model.
 
-**Possible scope:**
-- After a successful scan in `scan.py` (or as a step in `.github/workflows/scan.yml`),
-  dump the three tables (`scans`, `scores`, `signals`) — e.g. `pg_dump` of the
-  Supabase DB, or a CSV/Parquet/JSON export via `src/state.py` helpers.
-- Keep a rolling set of backups (e.g. last N runs) rather than a single
-  overwritten file, so one bad run can't clobber the only good backup.
-- Store somewhere durable and out-of-band from the live DB: committed to the
-  repo under `backups/` (gitignored from the dashboard but tracked), a GitHub
-  Actions artifact, or object storage. (Repo-committed is simplest and free.)
-- Add a restore path: a small `restore.py` / `scan.py --restore <file>` that
-  loads a backup back into the DB.
+**Why it's a natural fit:** the momentum signals operate on any price series, not
+anything sector-specific — only the *universe* and the *benchmark* differ. So
+this reuses `src/signals/*`, `src/scoring.py`, `src/state.py`, and most of the
+dashboard, much like sentiment was added as a parallel dimension rather than a
+rewrite.
 
-**Notes:** Pairs with the hardened wipe-guard — that prevents the accident; this
-makes any future accident recoverable. Also check whether Supabase's own
-daily backups / PITR cover this before building bespoke tooling.
+**Scope / things to resolve when designing:**
+- **Universe definition** — a new config (e.g. `config/themes.yaml`) listing each
+  theme → its ETF ticker(s). One ETF per theme to start (vs a basket).
+- **Benchmark** — themes aren't region-cohorted like sectors. Pick a single broad
+  benchmark for relative strength (e.g. `ACWI`/`SPY`), or score themes purely on
+  absolute price momentum (no RS). Decide which signals carry over (RS needs a
+  benchmark; returns/MA/OBV don't).
+- **Scoring cohort** — z-score each theme within the theme universe (its own
+  cohort), separate from the sector cohorts.
+- **Keying / storage** — current DB + dashboard key on `region|gics_sector`.
+  Themes need a parallel key (e.g. `THEME|<name>`); decide whether to reuse the
+  existing tables with a new "region"/group value or add a dimension.
+- **Constituent breadth** — likely N/A for themes (no GICS constituent list);
+  the breadth signal would stay sector-only.
+- **Sentiment** — themes map very naturally to Google Trends keywords (space,
+  defence, crypto…), so the Trends sentiment dimension extends here too.
 
----
+**Possible delivery:** a dedicated **Themes** tab/leaderboard mirroring the sector
+leaderboard (rank, composite, trajectory, breakdown), fed by the same scoring
+pipeline over the themes universe. Could ship incrementally: universe + scoring
+first (info-only table), then full leaderboard parity (deltas/trajectory), then
+sentiment.
 
-## Claude Code slash command to run a scan
-
-**What:** Add a Claude Code custom slash command (e.g. `/scan`) that runs the
-scanner, so a scan can be kicked off from within Claude Code without typing the
-full `python scan.py` invocation.
-
-**Why:** Running a scan is a frequent, repeatable action; a first-class command
-makes it one keystroke and keeps the exact invocation (venv, flags, env) in one
-place instead of being retyped.
-
-**Possible scope:**
-- A command file under `.claude/commands/scan.md` that runs the scan via the
-  project venv, e.g. `.venv/bin/python scan.py` (with optional args like
-  `--no-dashboard`).
-- Decide whether it also rebuilds the dashboard afterward (`dashboard/build.py`)
-  or stays scan-only.
-- Surface a short summary on completion (scan_id, top sectors, any fetch
-  warnings) rather than raw logs.
-
-**Notes:** `.claude/` is gitignored, so this lives locally unless that changes.
-Pure tooling convenience — no pipeline changes. Mind that a real scan hits the
-data APIs and writes to the production DB (and takes a few minutes incl. the
-~503-ticker breadth fetch).
+**Notes:** Parallels the sentiment build — a new dimension layered on the existing
+engine, not a rewrite. Biggest design decision is the benchmark/RS question above.
 
 ---
 
@@ -167,32 +157,6 @@ gives the full report for any fetch, not just the most recent.
 
 ---
 
-## Sector view toggle — composite vs region-split
-
-**What:** A dashboard toggle that switches the leaderboard between the current
-**region-split** view (one row per `region|sector` — 22 rows, e.g. "Technology
-US" and "Technology EU" separately) and a **composite** view (one row per GICS
-sector — 11 rows — combining the US and EU entries into a single sector score).
-
-**Why:** Sometimes you want the GICS-level read on a sector regardless of region
-("is Technology strong globally?"); other times you want the region split. Let the
-user flip between them.
-
-**Open question to resolve when scoping (the crux):** how to combine US + EU into
-one sector entry —
-- simple mean of the two regions' composites, or a weighted blend (by market size?),
-- or re-rank from combined underlying data/sentiment before scoring.
-Whatever the rule, rank, ΔRank, trajectory, emerging, and the breakdown panel all
-need to recompute consistently for the combined entries.
-
-**Possible delivery:** mirror the existing sentiment toggle — a client-side
-recompute (extend `dashboard/assets/rescore.js`) driven by a toggle, persisted in
-`localStorage`, default region-split. Pairs naturally with the sentiment-weight
-control (both are leaderboard view toggles). Breakdown for a composite row would
-need to show both regions' contributions.
-
----
-
 ## Unify regional benchmarks for true cross-region scoring
 
 **What:** Re-base US and EU scoring onto a common footing so sector scores are
@@ -255,3 +219,19 @@ Carried over from earlier planning — not started:
   into the leaderboard ranking client-side (`rescore.js`); canonical composite stays
   pure-data (`score_all(..., blend_sentiment=False)`). Thin Trends wired into the scan;
   rich Trends tab still pending. *(2026-06-24)*
+- ~~Sector view toggle~~ — leaderboard toggle between region-split (22 rows) and
+  composite (11 GICS rows, simple mean of US+EU) views; client-side recompute in
+  `rescore.js` (`mergeComposite`), composite rows + dual-region breakdown rendered in
+  `build.py`, persisted in `localStorage`, default region-split. *(2026-06-25)*
+- ~~Test suite could wipe production~~ — hardened the `test_state_smoke.py` wipe guard
+  to be identity-based (resolves Supabase project ref, not raw URL string) so a
+  prod-equivalent `TEST_DATABASE_URL` can't slip through, plus an `_assert_disposable`
+  backstop that refuses to DELETE the live DB. *(2026-06-25)*
+- ~~Back up the database on every scan~~ — `src/backup.py` writes a full CSV dump
+  (`scans`/`scores`/`signals` + `manifest.json`) to repo-committed `backups/` after each
+  scan (non-fatal, `--no-backup`); `restore.py` loads it back (refuses non-empty DB
+  unless `--force`); CI commits `backups/`. Git history = the rolling backup set.
+  *(2026-06-25)*
+- ~~Claude Code `/scan` command~~ — `.claude/commands/scan.md`: runs `scan.py` then
+  rebuilds the dashboard, with a concise completion summary. Local-only (`.claude/` is
+  gitignored). *(2026-06-25)*
