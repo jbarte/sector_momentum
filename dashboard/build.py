@@ -231,6 +231,46 @@ def _build_composite_history(history_df):
     return pd.concat(parts, ignore_index=True)
 
 
+def _build_composite_rows(history_df, split_breakdowns: dict) -> list[dict]:
+    """Build enriched composite leaderboard rows.
+
+    `split_breakdowns` maps "US|<sector>"/"EU|<sector>" → that region's
+    pre-rendered breakdown HTML (reused verbatim inside the composite panel).
+    """
+    import html as _html
+
+    composite_df = _build_composite_history(history_df)
+    rows, _ = _build_leaderboard_rows(composite_df)
+    trajectories = _compute_rank_trajectories(composite_df)
+
+    for row in rows:
+        sector = row["sector"]
+        key = f"ALL|{sector}"
+        row["key"] = key
+        row["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        traj = trajectories.get(key, {"label": "→", "state": "flat"})
+        row["trajectory_label"] = traj["label"]
+        row["trajectory_state"] = traj["state"]
+
+        us_panel = split_breakdowns.get(f"US|{sector}", "")
+        eu_panel = split_breakdowns.get(f"EU|{sector}", "")
+        header = (
+            f'<div class="composite-bd-header" data-sector="{_html.escape(sector)}">'
+            f'<span class="cbh-label">Composite of</span> '
+            f'<span class="cbh-us">US</span> + <span class="cbh-eu">EU</span> '
+            f'<span class="cbh-note">(mean)</span>'
+            f'</div>'
+        )
+        row["breakdown_html"] = (
+            f'<div class="composite-breakdown">{header}'
+            f'<div class="composite-bd-panels">'
+            f'<div class="composite-bd-region"><div class="cbh-region-tag">US</div>{us_panel}</div>'
+            f'<div class="composite-bd-region"><div class="cbh-region-tag">EU</div>{eu_panel}</div>'
+            f'</div></div>'
+        )
+    return rows
+
+
 def _format_raw_value(name: str, value) -> str:
     """Format a signal's raw value for human display."""
     v = _safe_float(value)
@@ -1061,6 +1101,7 @@ def main() -> None:
     # Enrich rows with breakdown HTML (keyed by sector_id for JS toggle)
     latest_scan_id = history_df["scan_id"].max()
     latest_scores  = history_df[history_df["scan_id"] == latest_scan_id]
+    split_breakdowns = {}
     for row in leaderboard_rows:
         key = f"{row['region']}|{row['sector']}"
         row["key"]       = key
@@ -1085,6 +1126,10 @@ def main() -> None:
         row["breakdown_html"] = _build_breakdown_html(
             key, score_row_dict, row_signals, _universe, _weights, _sector_etfs
         )
+        split_breakdowns[key] = row["breakdown_html"]
+
+    logger.info("Building composite leaderboard rows …")
+    composite_rows = _build_composite_rows(history_df, split_breakdowns)
 
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
     import shutil
@@ -1108,6 +1153,7 @@ def main() -> None:
         context=dict(
             scan_date=scan_date,
             leaderboard_rows=leaderboard_rows,
+            composite_rows=composite_rows,
             rrg_data_json=rrg_json,
             drilldown_data=json.dumps(sector_signal_data),
             sector_keys=sector_keys,

@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import re
 
 import pandas as pd
 import pytest
@@ -40,3 +41,31 @@ def test_composite_history_means_and_rank():
 def test_composite_history_empty():
     out = _build_composite_history(pd.DataFrame())
     assert out.empty
+
+
+def test_build_composite_rows_helper():
+    """_build_composite_rows returns 11-style rows keyed ALL|<sector> with a
+    breakdown that embeds both regional panels."""
+    from dashboard.build import _build_composite_rows
+    df = _df()
+    split_breakdowns = {
+        "US|Technology": "<div>US-TECH-PANEL</div>",
+        "EU|Technology": "<div>EU-TECH-PANEL</div>",
+        "US|Energy": "<div>US-EN-PANEL</div>",
+        "EU|Energy": "<div>EU-EN-PANEL</div>",
+    }
+    rows = _build_composite_rows(df, split_breakdowns)
+    assert len(rows) == 2
+    tech = next(r for r in rows if r["sector"] == "Technology")
+    assert tech["key"] == "ALL|Technology"
+    assert tech["sector_id"] == "ALL-Technology"
+    # breakdown embeds BOTH regional panels
+    assert "US-TECH-PANEL" in tech["breakdown_html"]
+    assert "EU-TECH-PANEL" in tech["breakdown_html"]
+
+
+def test_main_passes_composite_rows(monkeypatch):
+    """build.py's render context includes composite_rows (guards the wiring)."""
+    text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
+    assert "composite_rows=composite_rows" in text
+    assert "_build_composite_rows(history_df, split_breakdowns)" in text
