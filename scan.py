@@ -46,6 +46,7 @@ logger = logging.getLogger("scan")
 from src.data.prices import fetch_prices
 from src.data.constituents import fetch_sp500_constituents
 from src.signals.breadth import compute_constituent_breadth
+from src.backup import backup_database
 
 # ---------------------------------------------------------------------------
 # Pipeline
@@ -79,6 +80,11 @@ def _parse_args() -> argparse.Namespace:
         "--no-dashboard",
         action="store_true",
         help="Skip dashboard build step after scan.",
+    )
+    parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip writing the database backup after the scan.",
     )
     return parser.parse_args()
 
@@ -491,6 +497,13 @@ def run(args: argparse.Namespace) -> int:
             scores_df=scored_with_deltas,
         )
         logger.info("Saved scan_id=%d", scan_id)
+
+        if not args.no_backup:
+            try:
+                backup_database(conn)
+                logger.info("Database backup written to backups/")
+            except Exception as exc:  # non-fatal: a backup failure must not fail the scan
+                logger.warning("Database backup failed (%s) — continuing", exc)
 
         logger.info("Writing report …")
         ranked_table = build_ranked_table(scored_with_deltas)
