@@ -375,6 +375,17 @@ select.sector-select:focus {
 }
 .breakdown-row { display: none; }
 .breakdown-row.open { display: table-row; }
+/* Sector-view toggle: show only rows matching the active view.
+   ID-prefixed selector beats .breakdown-row.open on specificity, so
+   wrong-view open breakdowns stay hidden. */
+#leaderboard-table[data-view="split"] tr[data-view="composite"],
+#leaderboard-table[data-view="composite"] tr[data-view="split"] { display: none; }
+.sw-view select { margin-left: 4px; }
+.composite-bd-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .composite-bd-panels { grid-template-columns: 1fr; } }
+.composite-bd-header { font-weight: 600; margin-bottom: 8px; color: #3E392B; }
+.cbh-region-tag { font-weight: 600; opacity: 0.7; margin-bottom: 4px; }
+.cbh-note { opacity: 0.6; font-weight: 400; }
 .breakdown-inner {
   padding: 16px 20px;
   background: var(--bg-sunken);
@@ -570,6 +581,13 @@ select.sector-select:focus {
     </div>
   </details>
   <div id="sentiment-control" class="sentiment-control">
+    <span class="sw-view">
+      Sector view:
+      <select id="sector-view-toggle">
+        <option value="split">Region-split</option>
+        <option value="composite">Composite (US+EU)</option>
+      </select>
+    </span>
     <label>
       <input type="checkbox" id="sentiment-toggle"> Include sentiment in ranking
     </label>
@@ -595,7 +613,7 @@ select.sector-select:focus {
       </thead>
       <tbody>
         {% for row in leaderboard_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
+        <tr class="leaderboard-row" data-view="split" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
           <td class="rank-cell">
             <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
@@ -614,11 +632,35 @@ select.sector-select:focus {
             <span class="traj-badge traj-{{ row.trajectory_state }}">{{ row.trajectory_label }}</span>
           </td>
         </tr>
-        <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
+        <tr class="breakdown-row" data-view="split" id="bd-{{ row.sector_id }}">
           <td colspan="10">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% else %}
         <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)">No data available yet.</td></tr>
+        {% endfor %}
+        {% for row in composite_rows %}
+        <tr class="leaderboard-row" data-view="composite" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
+          <td class="rank-cell">
+            <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
+            <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
+          </td>
+          <td>{{ row.sector }}{% if row.emerging %}<span class="emerging-badge">⬆ Emerging</span>{% endif %}</td>
+          <td><span class="tag-region">Global</span></td>
+          <td class="composite-cell">{{ row.composite }}</td>
+          <td>{{ row.level_score }}</td>
+          <td>{{ row.change_score }}</td>
+          <td>{{ row.data_score }}</td>
+          <td class="sentiment-cell">{{ row.sentiment_score }}</td>
+          <td class="delta-cell">
+            {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
+          </td>
+          <td>
+            <span class="traj-badge traj-{{ row.trajectory_state }}">{{ row.trajectory_label }}</span>
+          </td>
+        </tr>
+        <tr class="breakdown-row" data-view="composite" id="bd-{{ row.sector_id }}">
+          <td colspan="10">{{ row.breakdown_html | safe }}</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -907,8 +949,9 @@ function sortTable(col) {
   var table   = document.getElementById('leaderboard-table');
   var tbody   = table.querySelector('tbody');
   var headers = table.querySelectorAll('thead th');
-  // Only sort leaderboard rows — skip breakdown rows
-  var rows = Array.from(tbody.querySelectorAll('tr.leaderboard-row'));
+  // Only sort leaderboard rows — skip breakdown rows; scope to active view
+  var view = (table.getAttribute('data-view') || 'split');
+  var rows = Array.from(tbody.querySelectorAll('tr.leaderboard-row[data-view="' + view + '"]'));
 
   if (_sortCol === col) {
     _sortDir *= -1;
@@ -950,52 +993,43 @@ function sortTable(col) {
 
 }
 
-// ----- Sentiment toggle wiring -----
+// ----- Sentiment + sector-view toggle wiring -----
 (function () {
-  var LS_ENABLED = "sentimentEnabled", LS_WEIGHT = "sentimentWeight";
+  var LS_ENABLED = "sentimentEnabled", LS_WEIGHT = "sentimentWeight", LS_VIEW = "sectorView";
   var toggle = document.getElementById("sentiment-toggle");
   var weightInput = document.getElementById("sentiment-weight");
+  var viewSel = document.getElementById("sector-view-toggle");
+  var table = document.getElementById("leaderboard-table");
   var weightWrap = weightInput ? weightInput.closest(".sw-weight") : null;
-  if (!toggle || !weightInput || typeof Rescore === "undefined") { return; }
+  if (!toggle || !weightInput || !viewSel || !table || typeof Rescore === "undefined") { return; }
 
-  function readState() {
-    var enabled = false, weight = 30;
-    try {
-      enabled = localStorage.getItem(LS_ENABLED) === "true";
-      var w = parseInt(localStorage.getItem(LS_WEIGHT), 10);
-      if (!isNaN(w)) { weight = Math.min(100, Math.max(0, w)); }
-    } catch (e) {}
-    return { enabled: enabled, weight: weight };
+  function readView() {
+    try { return localStorage.getItem(LS_VIEW) === "composite" ? "composite" : "split"; }
+    catch (e) { return "split"; }
   }
-
   function fmt(n, d) { return (n === null || n === undefined) ? "—" : Number(n).toFixed(d); }
 
-  function applyRanking() {
-    var enabled = toggle.checked;
-    var weight = Math.min(100, Math.max(0, parseInt(weightInput.value, 10) || 0));
-    var W = enabled ? weight / 100 : 0;
-    try {
-      localStorage.setItem(LS_ENABLED, enabled ? "true" : "false");
-      localStorage.setItem(LS_WEIGHT, String(weight));
-    } catch (e) {}
-    weightInput.disabled = !enabled;
-    if (weightWrap) { weightWrap.setAttribute("data-disabled", String(!enabled)); }
+  // Update every score-tree on the page whose key is in `scored`.
+  function updateTrees(scored, W) {
+    var dataPct = Math.round((1 - W) * 100), sentPct = Math.round(W * 100);
+    Object.keys(scored).forEach(function (key) {
+      var sel = '.score-tree[data-sector-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]';
+      var tree = document.querySelector(sel);
+      if (!tree) { return; }
+      var cv = tree.querySelector(".st-composite-val");
+      if (cv) { cv.textContent = fmt(scored[key].composite, 3); }
+      var dwt = tree.querySelector(".st-data-wt"); if (dwt) { dwt.textContent = "(" + dataPct + "%)"; }
+      var swt = tree.querySelector(".st-sent-wt"); if (swt) { swt.textContent = "(" + sentPct + "%)"; }
+    });
+  }
 
-    var scored = Rescore.rescore(RESCORE_DATA, W);
-
-    var tbody = document.querySelector("table tbody"); // leaderboard tbody
-    var rows = Array.prototype.slice.call(document.querySelectorAll("tr.leaderboard-row"));
-
-    // Update each row's cells from scored[key]
+  // Update the visible leaderboard rows' cells from `scored`.
+  function updateRows(rows, scored) {
     rows.forEach(function (tr) {
-      var key = tr.getAttribute("data-sector-key");
-      var r = scored[key];
+      var r = scored[tr.getAttribute("data-sector-key")];
       if (!r) { return; }
-      var rankCell = tr.querySelector(".rank-cell");
-      if (rankCell) {
-        var badge = rankCell.querySelector(".rank-badge");
-        if (badge) { badge.textContent = r.rank; badge.classList.toggle("top3", r.rank <= 3); }
-      }
+      var badge = tr.querySelector(".rank-cell .rank-badge");
+      if (badge) { badge.textContent = r.rank; badge.classList.toggle("top3", r.rank <= 3); }
       var compCell = tr.querySelector(".composite-cell");
       if (compCell) { compCell.textContent = fmt(r.composite, 3); }
       var deltaCell = tr.querySelector(".delta-cell");
@@ -1014,46 +1048,67 @@ function sortTable(col) {
           var s = document.createElement("span");
           s.className = "emerging-badge"; s.textContent = "⬆ Emerging";
           sectorCell.appendChild(s);
-        } else if (!r.emerging && ebadge) {
-          ebadge.remove();
-        }
-      }
-      // Update breakdown score-tree for this sector, if present
-      var tree = document.querySelector('.score-tree[data-sector-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]');
-      if (tree) {
-        var cv = tree.querySelector(".st-composite-val");
-        if (cv) { cv.textContent = fmt(r.composite, 3); }
-        var dataPct = Math.round((1 - W) * 100), sentPct = Math.round(W * 100);
-        var dwt = tree.querySelector(".st-data-wt"); if (dwt) { dwt.textContent = "(" + dataPct + "%)"; }
-        var swt = tree.querySelector(".st-sent-wt"); if (swt) { swt.textContent = "(" + sentPct + "%)"; }
+        } else if (!r.emerging && ebadge) { ebadge.remove(); }
       }
     });
+  }
 
-    // Re-sort rows by rank ascending and re-attach
+  function sortVisibleByRank(rows, scored, tbody) {
     rows.sort(function (a, b) {
       var ra = scored[a.getAttribute("data-sector-key")];
       var rb = scored[b.getAttribute("data-sector-key")];
       return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
     });
-    if (tbody) {
-      rows.forEach(function (tr) {
-        tbody.appendChild(tr);
-        // keep any sibling breakdown row immediately after its leaderboard row
-        var chev = tr.querySelector(".chevron");
-        if (chev) {
-          var bdId = "bd-" + chev.id.replace("chev-", "");
-          var bdRow = document.getElementById(bdId);
-          if (bdRow) { tbody.appendChild(bdRow); }
-        }
-      });
-    }
+    rows.forEach(function (tr) {
+      tbody.appendChild(tr);
+      var sid = tr.getAttribute("data-sector-id");
+      var bd = sid ? document.getElementById("bd-" + sid) : null;
+      if (bd) { tbody.appendChild(bd); }
+    });
   }
 
-  var init = readState();
-  toggle.checked = init.enabled;
-  weightInput.value = init.weight;
+  function applyRanking() {
+    var enabled = toggle.checked;
+    var weight = Math.min(100, Math.max(0, parseInt(weightInput.value, 10) || 0));
+    var W = enabled ? weight / 100 : 0;
+    var view = viewSel.value === "composite" ? "composite" : "split";
+    try {
+      localStorage.setItem(LS_ENABLED, enabled ? "true" : "false");
+      localStorage.setItem(LS_WEIGHT, String(weight));
+      localStorage.setItem(LS_VIEW, view);
+    } catch (e) {}
+    weightInput.disabled = !enabled;
+    if (weightWrap) { weightWrap.setAttribute("data-disabled", String(!enabled)); }
+
+    // Compute both maps so breakdown sub-panels stay live in either view.
+    var scoredSplit = Rescore.rescore(RESCORE_DATA, W);
+    var scoredComposite = Rescore.rescore(Rescore.mergeComposite(RESCORE_DATA), W);
+    updateTrees(scoredSplit, W);
+    updateTrees(scoredComposite, W);
+
+    table.setAttribute("data-view", view);
+    var activeScored = view === "composite" ? scoredComposite : scoredSplit;
+    var tbody = table.querySelector("tbody");
+    var rows = Array.prototype.slice.call(
+      tbody.querySelectorAll('tr.leaderboard-row[data-view="' + view + '"]'));
+    updateRows(rows, activeScored);
+    sortVisibleByRank(rows, activeScored, tbody);
+  }
+
+  // Init from persisted state.
+  var enabled0 = false, weight0 = 30;
+  try {
+    enabled0 = localStorage.getItem(LS_ENABLED) === "true";
+    var w = parseInt(localStorage.getItem(LS_WEIGHT), 10);
+    if (!isNaN(w)) { weight0 = Math.min(100, Math.max(0, w)); }
+  } catch (e) {}
+  toggle.checked = enabled0;
+  weightInput.value = weight0;
+  viewSel.value = readView();
+  table.setAttribute("data-view", viewSel.value);
   toggle.addEventListener("change", applyRanking);
   weightInput.addEventListener("input", applyRanking);
+  viewSel.addEventListener("change", applyRanking);
   applyRanking();
 })();
 </script>
