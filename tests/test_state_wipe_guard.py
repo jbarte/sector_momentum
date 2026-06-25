@@ -42,6 +42,18 @@ def test_local_db_is_distinct_from_supabase():
     assert _same_database(LOCAL, POOLER) is False
 
 
+def test_same_project_different_dbname_is_distinct():
+    # Same Supabase project but a different database name → genuinely separate.
+    other_db = "postgresql://postgres.abcdefghij:pw@aws-0-eu-west-1.pooler.supabase.com:6543/sandbox"
+    assert _same_database(POOLER, other_db) is False
+
+
+def test_trailing_slash_on_dbname_does_not_create_false_negative():
+    # A stray trailing slash must not make the same DB look different (would
+    # otherwise re-open the wipe gap).
+    assert _same_database(POOLER, POOLER + "/") is True
+
+
 def test_empty_or_unparseable_treated_as_same_for_safety():
     # Can't determine identity → assume same → refuse to wipe (fail safe).
     assert _same_database("", POOLER) is True

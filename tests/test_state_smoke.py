@@ -43,7 +43,7 @@ def _db_identity(url: str) -> tuple[str, str]:
         return ("", "")
     p = urlparse(url)
     host = (p.hostname or "").lower()
-    dbname = (p.path or "").lstrip("/").lower()
+    dbname = (p.path or "").strip("/").lower()
     user = p.username or ""
     ref = ""
     if "." in user and user.split(".", 1)[0] == "postgres":
@@ -83,7 +83,7 @@ def _assert_disposable(conn, prod_url: str) -> None:
 
 
 _test_db = os.environ.get("TEST_DATABASE_URL")
-_prod_db = os.environ.get("DATABASE_URL")
+_prod_db = os.environ.get("DATABASE_URL", "")
 # Skip unless a dedicated test DB is configured AND it is a different database
 # from production (identity-aware, not string-aware — see _same_database).
 skipif_no_db = pytest.mark.skipif(
@@ -114,14 +114,16 @@ def db_conn(monkeypatch):
     try:
         yield conn
     finally:
-        # Last line of defense: never DELETE if the live connection is production.
-        _assert_disposable(conn, prod_url)
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM signals")
-                cur.execute("DELETE FROM scores")
-                cur.execute("DELETE FROM scans")
-        conn.close()
+        try:
+            # Last line of defense: never DELETE if the live connection is production.
+            _assert_disposable(conn, prod_url)
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM signals")
+                    cur.execute("DELETE FROM scores")
+                    cur.execute("DELETE FROM scans")
+        finally:
+            conn.close()
 
 
 def _make_scan_data(sectors=None):
