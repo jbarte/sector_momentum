@@ -37,6 +37,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/
+          git add docs/ backups/
           git diff --staged --quiet || git commit -m "scan: $(date -u +%Y-%m-%d) automated run"
           git push
