@@ -1009,17 +1009,20 @@ function sortTable(col) {
   }
   function fmt(n, d) { return (n === null || n === undefined) ? "—" : Number(n).toFixed(d); }
 
-  // Update every score-tree on the page whose key is in `scored`.
+  // Update every score-tree on the page whose key is in `scored`. A split
+  // breakdown row and a composite sub-panel can carry the SAME data-sector-key
+  // (the composite panel embeds the regional breakdowns verbatim), so update
+  // ALL matches, not just the first.
   function updateTrees(scored, W) {
     var dataPct = Math.round((1 - W) * 100), sentPct = Math.round(W * 100);
     Object.keys(scored).forEach(function (key) {
       var sel = '.score-tree[data-sector-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]';
-      var tree = document.querySelector(sel);
-      if (!tree) { return; }
-      var cv = tree.querySelector(".st-composite-val");
-      if (cv) { cv.textContent = fmt(scored[key].composite, 3); }
-      var dwt = tree.querySelector(".st-data-wt"); if (dwt) { dwt.textContent = "(" + dataPct + "%)"; }
-      var swt = tree.querySelector(".st-sent-wt"); if (swt) { swt.textContent = "(" + sentPct + "%)"; }
+      document.querySelectorAll(sel).forEach(function (tree) {
+        var cv = tree.querySelector(".st-composite-val");
+        if (cv) { cv.textContent = fmt(scored[key].composite, 3); }
+        var dwt = tree.querySelector(".st-data-wt"); if (dwt) { dwt.textContent = "(" + dataPct + "%)"; }
+        var swt = tree.querySelector(".st-sent-wt"); if (swt) { swt.textContent = "(" + sentPct + "%)"; }
+      });
     });
   }
 
