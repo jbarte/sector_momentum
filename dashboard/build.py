@@ -200,6 +200,37 @@ def _compute_rank_trajectories(history_df) -> dict:
     return result
 
 
+def _build_composite_history(history_df):
+    """Collapse region-split history into composite (GICS-only) rows.
+
+    One row per (scan_id, gics_sector) with region="ALL", score columns set to
+    the cross-region mean, and rank recomputed per scan over the averaged
+    composite (mirrors src/scoring.py:rank_sectors).
+    """
+    import pandas as pd
+    from scipy.stats import rankdata
+
+    if history_df.empty:
+        return history_df.copy()
+
+    score_cols = ["composite", "data_score", "level_score", "change_score", "sentiment_score"]
+    present = [c for c in score_cols if c in history_df.columns]
+
+    grouped = (
+        history_df.groupby(["scan_id", "gics_sector"], as_index=False)
+        .agg({**{c: "mean" for c in present}, "run_at": "first"})
+    )
+    grouped["region"] = "ALL"
+
+    # Recompute rank within each scan over the averaged composite.
+    parts = []
+    for sid, g in grouped.groupby("scan_id"):
+        g = g.copy()
+        g["rank"] = rankdata(-g["composite"].values, method="average")
+        parts.append(g)
+    return pd.concat(parts, ignore_index=True)
+
+
 def _format_raw_value(name: str, value) -> str:
     """Format a signal's raw value for human display."""
     v = _safe_float(value)
