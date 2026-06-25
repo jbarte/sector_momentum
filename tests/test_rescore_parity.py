@@ -133,3 +133,50 @@ def test_rescore_w0_equals_data_only_order():
     assert js["US|C"]["rank"] == 1.0  # highest data
     assert js["US|A"]["rank"] == 2.0
     assert js["US|B"]["rank"] == 3.0
+
+
+def _make_split_data(n_scans=4):
+    """Two regions × 3 sectors, deterministic values."""
+    sectors = ["US|Technology", "EU|Technology",
+               "US|Energy", "EU|Energy",
+               "US|Health Care", "EU|Health Care"]
+    scans = [{"scan_id": i + 1, "run_at": f"2026-06-0{i+1}"} for i in range(n_scans)]
+    data, sentiment = {}, {}
+    for j, s in enumerate(sectors):
+        data[s] = [round(0.5 * j + 0.1 * i, 3) for i in range(n_scans)]
+        sentiment[s] = [round(0.2 * j - 0.05 * i, 3) for i in range(n_scans)]
+    return {"scans": scans, "sectors": sectors, "data": data, "sentiment": sentiment}
+
+
+def _py_merge_composite(data):
+    sectors = data["sectors"]
+    bare = sorted({k.split("|", 1)[1] for k in sectors})
+    n = len(data["scans"])
+    out = {"scans": data["scans"], "sectors": [f"ALL|{b}" for b in bare],
+           "data": {}, "sentiment": {}}
+    for b in bare:
+        us, eu = f"US|{b}", f"EU|{b}"
+        out["data"][f"ALL|{b}"] = [(data["data"][us][i] + data["data"][eu][i]) / 2 for i in range(n)]
+        out["sentiment"][f"ALL|{b}"] = [(data["sentiment"][us][i] + data["sentiment"][eu][i]) / 2 for i in range(n)]
+    return out
+
+
+@pytest.mark.parametrize("W", [0.0, 0.3, 1.0])
+def test_merge_composite_parity(tmp_path, W):
+    data = _make_split_data()
+    # JS: mergeComposite then rescore
+    script = f"""
+      const R = require({json.dumps(str(_RESCORE_JS))});
+      const data = {json.dumps(data)};
+      const merged = R.mergeComposite(data);
+      console.log(JSON.stringify(R.rescore(merged, {W})));
+    """
+    js_out = json.loads(subprocess.run(["node", "-e", script],
+                                       capture_output=True, text=True, check=True).stdout)
+    py_merged = _py_merge_composite(data)
+    py_out = _py_reference(py_merged, W)
+    assert set(js_out.keys()) == set(py_out.keys())
+    for k in py_out:
+        assert js_out[k]["rank"] == pytest.approx(py_out[k]["rank"])
+        assert js_out[k]["composite"] == pytest.approx(py_out[k]["composite"], abs=1e-9)
+        assert js_out[k]["trajectory_label"] == py_out[k]["trajectory_label"]

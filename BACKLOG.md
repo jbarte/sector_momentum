@@ -136,6 +136,40 @@ need to show both regions' contributions.
 
 ---
 
+## Unify regional benchmarks for true cross-region scoring
+
+**What:** Re-base US and EU scoring onto a common footing so sector scores are
+comparable *in absolute terms across regions*, not just within each region.
+
+**Why (the gap):** Today each region's `data_score` is z-scored within its own
+11-sector cohort, so both cohorts are centered at zero by construction. That means
+any cross-region combination (e.g. the composite view's US+EU mean) measures
+"leads within both regions" — it cannot see that one whole region is broadly
+stronger than the other. The simple-mean composite was chosen deliberately for the
+sector-view toggle for this reason; this item is the heavier, "statistically
+correct" alternative if absolute cross-region strength ever becomes something we
+want to rank on.
+
+**Two layers to the fix:**
+- **Global z-score re-pool** — z-score the price-based signals (returns, MA
+  distances, slopes) across all 22 region-sectors in one pool instead of per
+  region. These signals are already absolute, so re-pooling makes them genuinely
+  cross-region comparable.
+- **Common benchmark** — RS-ratio and RS-momentum are measured against each
+  region's own benchmark (US `RSP`, EU `EXSA.DE`), so they stay apples-to-oranges
+  no matter how you re-pool. True comparability for the relative-strength signals
+  needs both regions re-based to a single global benchmark (e.g. a world/ACWI ETF).
+  This is the larger part of the change.
+
+**Cost / notes:** Touches the core scoring pipeline (`src/scoring.py`,
+`scan.py`) and would emit a new globally-scored series; it breaks the pure
+client-side parity the sentiment + sector-view toggles rely on. Only worth it if
+absolute cross-region ranking is a real need — the within-region semantics are a
+defensible (arguably preferable) default for a rotation scanner. Captured from the
+sector-view-toggle design discussion (2026-06-25).
+
+---
+
 ## Phase 3 features
 
 Carried over from earlier planning — not started:
