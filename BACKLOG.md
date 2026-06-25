@@ -4,6 +4,63 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 ---
 
+## Back up the database on every scan
+
+**What:** On each scan run, write a backup of the database (or at minimum the
+latest scan's data) to a durable location, so the data can be restored if the
+DB is ever wiped or corrupted.
+
+**Why:** On 2026-06-25 the production Supabase DB was found emptied (0 scans) —
+the only DELETE path is the test fixture, and a string-only skip-guard let a
+prod-equivalent `TEST_DATABASE_URL` through (since hardened on
+`fix/harden-db-wipe-guard`). The history (ΔRank, trajectory, emerging) depends on
+many past scans, so losing it is expensive and not trivially recoverable. A
+per-run backup makes recovery a restore instead of a from-scratch rebuild.
+
+**Possible scope:**
+- After a successful scan in `scan.py` (or as a step in `.github/workflows/scan.yml`),
+  dump the three tables (`scans`, `scores`, `signals`) — e.g. `pg_dump` of the
+  Supabase DB, or a CSV/Parquet/JSON export via `src/state.py` helpers.
+- Keep a rolling set of backups (e.g. last N runs) rather than a single
+  overwritten file, so one bad run can't clobber the only good backup.
+- Store somewhere durable and out-of-band from the live DB: committed to the
+  repo under `backups/` (gitignored from the dashboard but tracked), a GitHub
+  Actions artifact, or object storage. (Repo-committed is simplest and free.)
+- Add a restore path: a small `restore.py` / `scan.py --restore <file>` that
+  loads a backup back into the DB.
+
+**Notes:** Pairs with the hardened wipe-guard — that prevents the accident; this
+makes any future accident recoverable. Also check whether Supabase's own
+daily backups / PITR cover this before building bespoke tooling.
+
+---
+
+## Claude Code slash command to run a scan
+
+**What:** Add a Claude Code custom slash command (e.g. `/scan`) that runs the
+scanner, so a scan can be kicked off from within Claude Code without typing the
+full `python scan.py` invocation.
+
+**Why:** Running a scan is a frequent, repeatable action; a first-class command
+makes it one keystroke and keeps the exact invocation (venv, flags, env) in one
+place instead of being retyped.
+
+**Possible scope:**
+- A command file under `.claude/commands/scan.md` that runs the scan via the
+  project venv, e.g. `.venv/bin/python scan.py` (with optional args like
+  `--no-dashboard`).
+- Decide whether it also rebuilds the dashboard afterward (`dashboard/build.py`)
+  or stays scan-only.
+- Surface a short summary on completion (scan_id, top sectors, any fetch
+  warnings) rather than raw logs.
+
+**Notes:** `.claude/` is gitignored, so this lives locally unless that changes.
+Pure tooling convenience — no pipeline changes. Mind that a real scan hits the
+data APIs and writes to the production DB (and takes a few minutes incl. the
+~503-ticker breadth fetch).
+
+---
+
 ## Sentiment methodology explanation
 
 Surface a plain-English explanation of how the sentiment score is calculated and which data sources feed it, accessible from the dashboard (e.g. an info tooltip or expandable panel near the Data ↔ Sentiment tab or the leaderboard sentiment column header).
