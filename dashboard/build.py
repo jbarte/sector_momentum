@@ -942,6 +942,65 @@ def _build_history_figure(history_df) -> str:
 
 
 
+def build_scan_index(all_scores_df) -> list[dict]:
+    """One row per scan (newest first) for the history list."""
+    import pandas as pd
+    if all_scores_df.empty:
+        return []
+    out = []
+    for sid in sorted(all_scores_df["scan_id"].unique(), reverse=True):
+        g = all_scores_df[all_scores_df["scan_id"] == sid]
+        run_at_raw = str(g["run_at"].iloc[0])
+        try:
+            disp = pd.to_datetime(run_at_raw).strftime("%Y-%m-%d %H:%M UTC")
+        except (ValueError, TypeError):
+            disp = run_at_raw
+        top = g.loc[g["rank"].idxmin()]
+        out.append({
+            "scan_id": int(sid),
+            "run_at_display": disp,
+            "run_at_raw": run_at_raw,
+            "sector_count": int(len(g)),
+            "top_sector": top["gics_sector"],
+            "top_region": top["region"],
+        })
+    return out
+
+
+def _generate_scan_reports(all_scores_df, out_dir, swedish_tickers_path="config/swedish_tickers.csv") -> list[int]:
+    """Write report_<scan_id>.md for every scan; returns scan_ids written. Non-fatal per scan."""
+    import pandas as pd
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from src.state import compute_deltas
+    from src.report import (build_ranked_table, build_movers,
+                            build_swedish_overlay, build_report_markdown)
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if all_scores_df.empty:
+        return []
+    scan_ids = sorted(all_scores_df["scan_id"].unique())
+    written = []
+    for i, sid in enumerate(scan_ids):
+        try:
+            current = all_scores_df[all_scores_df["scan_id"] == sid].copy()
+            prior = (all_scores_df[all_scores_df["scan_id"] == scan_ids[i - 1]].copy()
+                     if i > 0 else None)
+            swd = compute_deltas(current, prior)
+            scan_date = pd.to_datetime(current["run_at"].iloc[0]).strftime("%Y-%m-%d")
+            md = build_report_markdown(
+                scan_date,
+                build_ranked_table(swd),
+                build_movers(swd),
+                build_swedish_overlay(swd, swedish_tickers_path),
+            )
+            (out_dir / f"report_{int(sid)}.md").write_text(md, encoding="utf-8")
+            written.append(int(sid))
+        except Exception as exc:
+            logger.warning("Report generation failed for scan %s (%s) — skipping", sid, exc)
+    return written
+
+
 def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
     """
     Return leaderboard rows from the most recent scan and the scan date string.
@@ -1058,6 +1117,13 @@ def main() -> None:
     history_df = get_scan_history(conn, n_scans=20)
     signals_df = get_signals_for_latest_scan(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
+
+    logger.info("Building scan index + per-scan reports …")
+    all_scores_df = get_scan_history(conn, n_scans=None)
+    scan_index = build_scan_index(all_scores_df)
+    active_scan_id = scan_index[0]["scan_id"] if scan_index else None
+    _generate_scan_reports(all_scores_df, out_dir / "reports")
+
     conn.close()
 
     if history_df.empty:
@@ -1152,6 +1218,8 @@ def main() -> None:
         out_path=out_path,
         context=dict(
             scan_date=scan_date,
+            scan_index=scan_index,
+            active_scan_id=active_scan_id,
             leaderboard_rows=leaderboard_rows,
             composite_rows=composite_rows,
             rrg_data_json=rrg_json,

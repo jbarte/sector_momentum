@@ -230,3 +230,13 @@ def test_get_scan_history_row_count(db_conn):
 
     history = get_scan_history(db_conn, n_scans=5)
     assert len(history) == 6
+
+
+@skipif_no_db
+def test_get_scan_history_none_returns_all_scans(db_conn):
+    """n_scans=None returns every scan, not just a window."""
+    signals_df, scores_df = _make_scan_data()
+    for _ in range(3):
+        save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df)
+    all_rows = get_scan_history(db_conn, n_scans=None)
+    assert all_rows["scan_id"].nunique() == 3

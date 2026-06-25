@@ -265,28 +265,32 @@ def get_rrg_history(
 
 def get_scan_history(
     conn: psycopg2.extensions.connection,
-    n_scans: int = 10,
+    n_scans: int | None = 10,
 ) -> pd.DataFrame:
     """
     Return scores for the last n_scans scans joined with scan metadata.
+    When n_scans is None, returns ALL scans.
     Columns: scan_id, run_at, region, gics_sector,
              level_score, change_score, data_score, sentiment_score, composite, rank
     Ordered by (run_at ASC, region, gics_sector).
     Returns empty DataFrame if no scans exist.
     """
-    query = """
+    base = """
         SELECT sc.scan_id, sc.run_at, s.region, s.gics_sector,
                s.level_score, s.change_score, s.data_score, s.sentiment_score,
                s.composite, s.rank
         FROM scores s
         JOIN scans sc ON sc.scan_id = s.scan_id
-        WHERE sc.scan_id IN (
-            SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s
-        )
+        {scan_filter}
         ORDER BY sc.run_at ASC, s.region, s.gics_sector
     """
-    df = pd.read_sql_query(query, conn, params=(n_scans,))
-    return df
+    if n_scans is None:
+        query = base.format(scan_filter="")
+        return pd.read_sql_query(query, conn)
+    query = base.format(
+        scan_filter="WHERE sc.scan_id IN (SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s)"
+    )
+    return pd.read_sql_query(query, conn, params=(n_scans,))
 
 
 # ---------------------------------------------------------------------------
