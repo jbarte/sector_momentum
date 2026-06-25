@@ -51,6 +51,35 @@
     return { label: "↓↓", state: "strong_down" };
   }
 
+  // Merge a split-region dataset into composite (GICS-only) entries keyed
+  // "ALL|<sector>". Each per-scan value is the mean of the US and EU series.
+  // Only sectors present in BOTH regions are emitted.
+  function mergeComposite(data) {
+    var bare = {};
+    data.sectors.forEach(function (key) {
+      var parts = key.split("|");
+      var region = parts[0], sector = parts.slice(1).join("|");
+      if (!bare[sector]) { bare[sector] = {}; }
+      bare[sector][region] = key;
+    });
+    var nScans = data.scans.length;
+    var sectors = [];
+    var outData = {}, outSent = {};
+    Object.keys(bare).sort().forEach(function (sector) {
+      var us = bare[sector].US, eu = bare[sector].EU;
+      if (!us || !eu) { return; } // require both regions
+      var ck = "ALL|" + sector;
+      sectors.push(ck);
+      var d = [], s = [];
+      for (var i = 0; i < nScans; i++) {
+        d.push((data.data[us][i] + data.data[eu][i]) / 2);
+        s.push((data.sentiment[us][i] + data.sentiment[eu][i]) / 2);
+      }
+      outData[ck] = d; outSent[ck] = s;
+    });
+    return { scans: data.scans, sectors: sectors, data: outData, sentiment: outSent };
+  }
+
   // data = {scans:[{scan_id,run_at}], sectors:[key], data:{key:[..]}, sentiment:{key:[..]}}
   // Returns per-sector result for the LATEST scan.
   function rescore(data, W) {
@@ -112,7 +141,8 @@
   }
 
   var api = { rankAverage: rankAverage, olsSlope: olsSlope,
-              trajectoryLabel: trajectoryLabel, rescore: rescore };
+              trajectoryLabel: trajectoryLabel, rescore: rescore,
+              mergeComposite: mergeComposite };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
   root.Rescore = api;
 })(typeof window !== "undefined" ? window : this);
