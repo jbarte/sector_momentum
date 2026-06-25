@@ -4,6 +4,53 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 ---
 
+## Thematic / genre ETF momentum (beyond sectors)
+
+**What:** Extend the momentum engine to a second universe of **thematic / genre
+ETFs** — e.g. space, defence, clean energy, crypto, AI, robotics, uranium —
+ranked the same way the GICS sectors are, but as their own track alongside the
+sector leaderboard.
+
+**Why:** The current scanner is GICS-sector-only. A lot of rotation happens at
+the *theme* level (defence ripping, crypto-proxy ETFs, AI), which doesn't map
+cleanly onto the 11 sectors. Applying the existing momentum pillars (RS, returns,
+MA distance/slope, OBV) to a thematic ETF universe surfaces those rotations
+without changing the sector model.
+
+**Why it's a natural fit:** the momentum signals operate on any price series, not
+anything sector-specific — only the *universe* and the *benchmark* differ. So
+this reuses `src/signals/*`, `src/scoring.py`, `src/state.py`, and most of the
+dashboard, much like sentiment was added as a parallel dimension rather than a
+rewrite.
+
+**Scope / things to resolve when designing:**
+- **Universe definition** — a new config (e.g. `config/themes.yaml`) listing each
+  theme → its ETF ticker(s). One ETF per theme to start (vs a basket).
+- **Benchmark** — themes aren't region-cohorted like sectors. Pick a single broad
+  benchmark for relative strength (e.g. `ACWI`/`SPY`), or score themes purely on
+  absolute price momentum (no RS). Decide which signals carry over (RS needs a
+  benchmark; returns/MA/OBV don't).
+- **Scoring cohort** — z-score each theme within the theme universe (its own
+  cohort), separate from the sector cohorts.
+- **Keying / storage** — current DB + dashboard key on `region|gics_sector`.
+  Themes need a parallel key (e.g. `THEME|<name>`); decide whether to reuse the
+  existing tables with a new "region"/group value or add a dimension.
+- **Constituent breadth** — likely N/A for themes (no GICS constituent list);
+  the breadth signal would stay sector-only.
+- **Sentiment** — themes map very naturally to Google Trends keywords (space,
+  defence, crypto…), so the Trends sentiment dimension extends here too.
+
+**Possible delivery:** a dedicated **Themes** tab/leaderboard mirroring the sector
+leaderboard (rank, composite, trajectory, breakdown), fed by the same scoring
+pipeline over the themes universe. Could ship incrementally: universe + scoring
+first (info-only table), then full leaderboard parity (deltas/trajectory), then
+sentiment.
+
+**Notes:** Parallels the sentiment build — a new dimension layered on the existing
+engine, not a rewrite. Biggest design decision is the benchmark/RS question above.
+
+---
+
 ## Sentiment methodology explanation
 
 Surface a plain-English explanation of how the sentiment score is calculated and which data sources feed it, accessible from the dashboard (e.g. an info tooltip or expandable panel near the Data ↔ Sentiment tab or the leaderboard sentiment column header).
