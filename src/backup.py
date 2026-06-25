@@ -55,3 +55,71 @@ def read_backup(backup_dir: str | Path = "backups") -> dict[str, pd.DataFrame]:
             raise ValueError(f"{f} is missing columns: {sorted(missing)}")
         tables[name] = df[list(cols)]
     return tables
+
+
+def dump_tables(conn) -> dict[str, pd.DataFrame]:
+    """Read every row from the three tables into DataFrames (deterministic order)."""
+    order = {
+        "scans": "ORDER BY scan_id",
+        "scores": "ORDER BY scan_id, region, gics_sector",
+        "signals": "ORDER BY scan_id, region, gics_sector, signal_name",
+    }
+    out = {}
+    for name, cols in _COLUMNS.items():
+        sql = f"SELECT {', '.join(cols)} FROM {name} {order[name]}"
+        out[name] = pd.read_sql_query(sql, conn)
+    return out
+
+
+def _rows_with_nulls(df: pd.DataFrame, cols: tuple[str, ...]) -> list[tuple]:
+    """Records in column order with pandas NaN/NaT converted to None (SQL NULL)."""
+    ordered = df.reindex(columns=list(cols))
+    return [tuple(None if pd.isna(v) else v for v in rec)
+            for rec in ordered.itertuples(index=False, name=None)]
+
+
+def load_tables(conn, tables: dict[str, pd.DataFrame], *, force: bool = False) -> dict[str, int]:
+    """Insert backup rows into the DB. Refuses a non-empty DB unless force=True."""
+    counts: dict[str, int] = {}
+    with conn:
+        with conn.cursor() as cur:
+            non_empty = False
+            for name in ("scans", "scores", "signals"):
+                cur.execute(f"SELECT COUNT(*) FROM {name}")
+                if cur.fetchone()[0]:
+                    non_empty = True
+            if non_empty and not force:
+                raise RuntimeError(
+                    "target database is not empty; pass force=True (restore.py --force) "
+                    "to delete existing rows before restoring"
+                )
+            if force:
+                cur.execute("DELETE FROM signals")
+                cur.execute("DELETE FROM scores")
+                cur.execute("DELETE FROM scans")
+            # FK-safe insert order: scans before its children.
+            for name in ("scans", "signals", "scores"):
+                cols = _COLUMNS[name]
+                rows = _rows_with_nulls(tables[name], cols)
+                if rows:
+                    placeholders = ", ".join(["%s"] * len(cols))
+                    cur.executemany(
+                        f"INSERT INTO {name} ({', '.join(cols)}) VALUES ({placeholders})",
+                        rows,
+                    )
+                counts[name] = len(rows)
+            cur.execute(
+                "SELECT setval(pg_get_serial_sequence('scans', 'scan_id'), "
+                "(SELECT COALESCE(MAX(scan_id), 1) FROM scans))"
+            )
+    return counts
+
+
+def backup_database(conn, backup_dir: str | Path = "backups") -> Path:
+    """Dump the DB and write a CSV backup. Returns the backup directory."""
+    return write_backup(dump_tables(conn), backup_dir)
+
+
+def restore_database(conn, backup_dir: str | Path = "backups", *, force: bool = False) -> dict[str, int]:
+    """Load a CSV backup into the DB. Returns per-table inserted counts."""
+    return load_tables(conn, read_backup(backup_dir), force=force)
