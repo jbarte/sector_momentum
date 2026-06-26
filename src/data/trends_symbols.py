@@ -84,6 +84,60 @@ def _aggregate(
     return out
 
 
+import random
+import time
+
+
+def _new_client(timeout=(10, 25)):
+    from pytrends.request import TrendReq
+    return TrendReq(hl="en-US", tz=0, timeout=timeout)
+
+
+def fetch_symbol_trends(
+    symbol_map: dict[str, list[str]],
+    anchor: str = "SPY",
+    client=None,
+    timeframe: str = "today 3-m",
+    window: int = 13,
+    batch_size: int = 4,
+    sleep_s: float = 20.0,
+    max_retries: int = 3,
+) -> dict[str, pd.Series]:
+    if client is None:
+        try:
+            client = _new_client()
+        except Exception as exc:
+            logger.warning("Trends client init failed (%s) — sentiment neutral", exc)
+            return _aggregate({}, symbol_map, window=window)
+
+    symbols = sorted({s for syms in symbol_map.values() for s in syms})
+    batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
+    norm_by_symbol: dict[str, list[float]] = {}
+
+    for bi, batch in enumerate(batches):
+        terms = [anchor] + batch
+        df = None
+        for attempt in range(max_retries):
+            try:
+                client.build_payload(terms, timeframe=timeframe, geo="")
+                df = client.interest_over_time()
+                break
+            except Exception as exc:
+                if attempt < max_retries - 1:
+                    time.sleep(sleep_s * (2 ** attempt) + random.uniform(0, 3))
+                else:
+                    logger.warning("Trends batch %d failed (%s) — %d symbols neutral",
+                                   bi + 1, exc, len(batch))
+        if df is not None and not df.empty:
+            raw = {t: [float(v) for v in df[t].tolist()[-window:]]
+                   for t in terms if t in df.columns}
+            norm_by_symbol.update(_normalize_by_anchor(raw, anchor))
+        if bi < len(batches) - 1 and sleep_s:
+            time.sleep(sleep_s)
+
+    return _aggregate(norm_by_symbol, symbol_map, window=window)
+
+
 def score_symbol_sentiment(trends_by_key: dict[str, pd.Series]) -> pd.Series:
     """Score symbol sentiment: slope of each sector key's series, cross-sectionally z-scored.
 
