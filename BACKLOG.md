@@ -111,53 +111,57 @@ we later decide it should influence the composite.
 
 ---
 
-## Symbol-based Google Trends sentiment (tickers, not theme words)
+## Symbol-based Trends sentiment — Phase 2 (underlying US constituents)
 
-**What:** Replace the current single generic theme word per sector (`semiconductor`,
-`oil`, `bank` …) with the **actual instrument symbols** as the Google Trends queries,
-aggregated to a sector-level attention signal:
-- the sector **benchmark** ticker(s),
-- the **related/linked sector ETFs** we already map (`config/universe.yaml` primaries +
-  the alternates in `config/sector_etfs.yaml`),
-- and, where feasible, the **underlying constituent stock symbols** (US S&P 500
-  constituents are already fetched for breadth via `src/data/constituents.py`; EU has no
-  constituent list, so EU stays ETF-only).
+**What:** Extend the Phase 1 symbol-based Trends sentiment (ETF symbols → `region|sector`
+attention, shipped 2026-06-26 in `src/data/trends_symbols.py`) by adding the **underlying
+US constituent stock symbols** to each US sector's query list. EU stays ETF-only (no
+constituent list). Everything flows through the existing
+`fetch_symbol_trends` → `_aggregate` → `score_symbol_sentiment` path — Phase 2 only
+expands the per-sector symbol set.
 
-**Why:** The current keywords measure *consumer* search, not financial attention —
-"oil"/"bank"/"food"/"retail" are dominated by cooking, banking-app, grocery, and shopping
-queries. Finance-intent search (ticker symbols, fund/stock names) is the form Google
-Trends has actually been shown to track investor attention (Da/Engelberg/Gao, "In Search
-of Attention", 2011). Querying the symbols we already trade/benchmark makes the Trends
-signal defensible instead of near-noise. Stays a confirmer (toggle-only, out of the
-canonical composite) — see [[the existing Google-Trends-only item above]].
+**Why:** Phase 1 proved the mechanism on ETF tickers; mega-cap constituent names
+(`AAPL`, `MSFT`, `XOM` …) carry far more search volume than ETF tickers and are the
+finance-intent terms Trends tracks best (Da/Engelberg/Gao 2011). Stays a confirmer
+(toggle-only, composite unchanged).
+
+**Phase 1 validation result (2026-06-26) — DO NOT build Phase 2 on this as-is.** A live
+Trends run over the Phase 1 symbol map found:
+- **Mechanism works for liquid US ETFs** — `XLK/VGT`, `XLV/VHT`, `XLY/VCR`, `XLP/VDC`,
+  `XLI/VIS`, `XLC/VOX` all returned full 13/13 coverage.
+- **Signal is contaminated by ambiguous-ticker false positives** that the blocklist didn't
+  catch: `US|Communication Services` z **+4.16** (driven by **`VOX`** — Vox Media/party,
+  not the ETF) and `EU|Energy` z **+1.27** (driven by **`LOGS`** — the English word). These
+  outliers dominate the cross-sectional z.
+- **EU `.DE` tickers are dead** (0/13) as predicted; EU's only "signal" is those false
+  positives. The EU "alternate" tickers (`LTUG`, `LBNK`, `LOGS`, `LUTI`, `LBRE`…) are
+  noise-/collision-prone.
+- **Unreliable:** a Google **429** mid-run zeroed a whole batch (US Financials/Materials/
+  Real Estate/Utilities → 0), so single runs need the deferred day-cache + gentler batching.
+
+**Conclusion:** adding constituents (more, lower-volume, more-ambiguous tickers) makes the
+contamination worse, not better. The real disambiguation fix is **Trends Topics (entity
+mids)**, not a growing blocklist — and the better path overall is signed **news sentiment
+(FinBERT)**, which sidesteps search-term ambiguity entirely. **Recommended:** park Phase 2;
+pursue the FinBERT pivot (below) or Topics first. Quick stopgap if kept: expand the
+blocklist (`VOX`, `LOGS`, the `L*` EU alternates) — but it's whack-a-mole.
 
 **Scope / things to resolve when designing:**
-- **Payload normalization.** Trends scales 0–100 *within each ≤5-term request*, so values
-  from different batches aren't directly comparable. Aggregating many symbols per sector
-  needs a normalization scheme (shared anchor term across payloads, or pairwise scaling),
-  not naive concatenation.
-- **Low search volume.** Most individual tickers/stocks have near-zero global search and
-  return flat/zero series — Trends only resolves high-attention names. Likely need a volume
-  floor (drop dead terms) and a fallback; **ETF symbols may be the practical sweet spot**,
-  with constituent symbols only for the few liquid mega-caps.
-- **Ambiguous symbols.** Many tickers collide with common words (`ALL`, `KEY`, `IT`, `ON`,
-  `A`). Prefer Trends **Topics** (entity mids) over raw strings, or filter these out.
-- **Aggregation rule.** How to combine per-symbol interest into one sector number — mean of
-  normalized momentum, market-cap-weighted, or max — and whether to weight ETFs vs
-  constituents.
-- **Rate limits.** Many more terms = many more batches = heavier pytrends 429 risk; needs a
-  batching + caching strategy (today's cache is one full fetch/day).
-- **Region/geo.** Still worldwide (`geo=""`) today; decide whether to pull per-region geos.
+- **Top-N liquidity ranking.** Add the top-N (≈10) most liquid constituents per US sector.
+  `fetch_sp500_constituents()` (`src/data/constituents.py`, already used by breadth)
+  returns the names but **no market caps** — need a cap/volume source or a hardcoded
+  mega-cap shortlist to pick "most liquid".
+- **Aggregation weighting.** Phase 1 equal-weights ETFs; decide whether constituents are
+  equal-weighted alongside the ETFs or down-weighted so one ETF isn't swamped by N names.
+- **Volume reality.** Most constituents are thin on Trends; expect only mega-caps to
+  survive the existing dead-term drop. Validate coverage before trusting.
+- **Rate limits / caching.** Many more terms ⇒ many more pytrends batches ⇒ 429 risk.
+  This is where the day-cache deferred in the Phase 1 plan
+  (`trends_symbols_<date>.json`) becomes necessary.
 
-**Possible delivery:** extend `config/sentiment_keywords.yaml` (or a new symbol map) +
-`fetch_trends` to take per-sector **symbol lists**, fetch + normalize + aggregate into the
-existing `sentiment_score` input. No composite change — keep it behind the sentiment toggle.
-
-**Notes:** This is the concrete "Option A" upgrade from the 2026-06-26 sentiment-quality
-discussion. Honest caveat to keep visible: ticker search is a better *proxy* than theme
-words, but individual-name search volume is often too thin to register — validate that the
-symbol series aren't mostly zeros before trusting the signal. Reuses
-`src/data/constituents.py` (US breadth pipeline) for the underlying-symbol list.
+**Notes:** Reuses `src/data/constituents.py`. Trends *Topics* (entity disambiguation) and
+regional geo are tracked separately under [[the Google-Trends-only tab item above]], not
+here. Phase 1 design + plan: `docs/superpowers/{specs,plans}/2026-06-26-symbol-trends-*`.
 
 ---
 
@@ -206,7 +210,15 @@ Carried over from earlier planning — not started:
   single-market expression layer is a vestige of the original thesis. Not worth
   maintaining.
 - **Multilingual sentiment polarity (FinBERT)** — replace/augment VADER with a
-  finance-tuned, multilingual sentiment model
+  finance-tuned, multilingual sentiment model. **Now the recommended sentiment direction**
+  after the 2026-06-26 Trends validation showed search-attention is noisy, directionless,
+  and ambiguous-ticker-contaminated (see the symbol-Trends Phase 2 item above). FinBERT
+  gives **signed** polarity (positive/negative), not just attention, and sidesteps
+  search-term ambiguity. It's the *scorer*, paired with a free news feed — **GDELT**
+  (free global news tone) or **Alpha Vantage** `NEWS_SENTIMENT` (free tier). Free + local
+  (`transformers` + `torch`, ~400 MB model, CPU inference, no API key) — fits "free only",
+  but a heavier dependency than the current stack. Base FinBERT is English-only; EU/Swedish
+  needs a multilingual model or translate-then-score.
 - **Backtest against past rotations — Phase 2 (rotation event-study)** — the early-flag
   half: per-rotation rank-over-time vs forward return for a curated list of historical
   rotations (e.g. energy 2021–22). Phase 1 (edge / strategy backtest) shipped 2026-06-26.
