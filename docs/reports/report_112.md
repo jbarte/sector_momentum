@@ -31,16 +31,16 @@
 ## 🚀 Top Climbers (by ΔRank)
 - **Communication Services** (EU): rank 16 (Δ+0)
 - **Consumer Discretionary** (EU): rank 12 (Δ+0)
-- **Consumer Staples** (EU): rank 7 (Δ+0)
-- **Energy** (EU): rank 21 (Δ+0)
-- **Financials** (EU): rank 2 (Δ+0)
+- **Technology** (US): rank 1 (Δ+0)
+- **Real Estate** (US): rank 11 (Δ+0)
+- **Materials** (US): rank 9 (Δ+0)
 
 ## ⚠️ Biggest Fallers (by ΔRank)
 - **Communication Services** (EU): rank 16 (Δ+0)
-- **Consumer Discretionary** (EU): rank 12 (Δ+0)
-- **Consumer Staples** (EU): rank 7 (Δ+0)
-- **Energy** (EU): rank 21 (Δ+0)
-- **Financials** (EU): rank 2 (Δ+0)
+- **Real Estate** (US): rank 11 (Δ+0)
+- **Materials** (US): rank 9 (Δ+0)
+- **Industrials** (US): rank 3 (Δ+0)
+- **Health Care** (US): rank 10 (Δ+0)
 
 ## 🇸🇪 Swedish Expression
 

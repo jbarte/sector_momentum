@@ -11,6 +11,9 @@ data/cache/*
 !data/cache/.gitkeep
 data/cache/*.parquet
 
+# Backtest cache (isolated long-history fetch — not committed)
+data/backtest_cache/
+
 # momentum.db is generated locally from Supabase data — not committed
 data/momentum.db
 data/momentum.db-wal

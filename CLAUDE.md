@@ -32,7 +32,22 @@ Sector momentum scanner: US SPDR + STOXX Europe 600 sectors → GICS 11 → data
 - Entry point: `scan.py`
 - Dashboard build: `dashboard/build.py` → `docs/`
 - Config: `config/` (universe, weights, sector maps)
-- CI: `.github/workflows/scan.yml` (runs every 2 days, commits dashboard back to repo)
+- CI: `.github/workflows/scan.yml` (daily scan → commits data + dashboard),
+  `.github/workflows/build-docs.yml` (rebuilds `docs/` on push to `main` when
+  dashboard source changes)
+
+## Generated artifacts — do not commit from feature branches
+
+`docs/` (the published GitHub Pages dashboard, incl. `docs/reports/`) is a **generated
+artifact owned by CI**. Build it locally to verify a change (`python3 dashboard/build.py`),
+but **do not `git add docs/` on a feature branch** — leave it out of your commits. CI
+rebuilds and commits `docs/` on `main` after merge (`build-docs.yml`). Committing `docs/`
+from branches is what caused recurring merge conflicts (the cron and every branch each
+regenerating the same large tree). Feature PRs should be **source-only**
+(`dashboard/templates/`, `dashboard/build.py`, `src/`, `config/`, tests).
+
+`BACKLOG.md` uses a `merge=union` driver (`.gitattributes`) so concurrent Done-list
+additions auto-combine instead of conflicting.
 
 ## Backlog
 

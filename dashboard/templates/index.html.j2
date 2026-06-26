@@ -556,6 +556,7 @@ select.sector-select:focus {
   <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab">Drill-down</button>
   <button class="tab-btn" onclick="switchTab('movers', this)" role="tab">Movers</button>
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab">History</button>
+  <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab">Backtest</button>
   <button class="tab-btn" onclick="switchTab('sentiment', this)" role="tab">Data ⇄ Sentiment</button>
   <button class="tab-btn" onclick="switchTab('guide', this)" role="tab">Guide</button>
 </nav>
@@ -789,6 +790,29 @@ select.sector-select:focus {
 </section>
 
 <!-- ============================================================
+     Tab: Backtest
+     ============================================================ -->
+<section id="tab-backtest" class="tab-panel">
+  <p class="tab-note">Monthly top-{{ backtest_metrics[0].top_n if backtest_metrics else 5 }} rotation, equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded). Each region scored within its own cohort.</p>
+  {% if has_backtest %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Track</th><th>Window</th><th>Strategy CAGR</th><th>Bench CAGR</th><th>Sharpe</th><th>Max DD</th><th>Hit rate</th><th>Turnover</th></tr></thead>
+      <tbody>
+        {% for r in backtest_metrics %}
+        <tr><td>{{ r.region }}</td><td>{{ r.start }} → {{ r.end }}</td><td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td><td>{{ r.max_drawdown }}</td><td>{{ r.hit_rate }}</td><td>{{ r.avg_turnover }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="chart-container" id="backtest-chart-US" style="height:420px"></div>
+  <div class="chart-container" id="backtest-chart-EU" style="height:420px"></div>
+  {% else %}
+  <p style="text-align:center;padding:24px;color:var(--fg4)">No backtest run yet. Run <code>python backtest.py</code>.</p>
+  {% endif %}
+</section>
+
+<!-- ============================================================
      Tab: Data ⇄ Sentiment
      ============================================================ -->
 <section id="tab-sentiment" class="tab-panel">
@@ -922,6 +946,7 @@ function switchTab(name, btn) {
   if (name === 'history')   renderHistory();
   if (name === 'drilldown') renderDrilldown();
   if (name === 'sentiment') renderSentiment();
+  if (name === 'backtest')  renderBacktest();
 }
 
 // ----- Plotly data (injected by build.py) -----
@@ -931,6 +956,7 @@ var HISTORY_DATA = {{ history_json | safe }};
 var DRILLDOWN_DATA = {{ drilldown_data | safe }};
 var SENTIMENT_DATA = {{ sentiment_scatter_json | safe }};
 var RESCORE_DATA = {{ rescore_data_json | safe }};
+var BACKTEST_DATA = {{ backtest_json | safe }};
 
 // ----- Render helpers -----
 var _rendered = {};
@@ -957,6 +983,18 @@ function renderSentiment() {
   if (_rendered.sentiment) return;
   _rendered.sentiment = true;
   Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
+}
+
+function renderBacktest() {
+  if (_rendered.backtest) return;
+  _rendered.backtest = true;
+  ['US', 'EU'].forEach(function (rg) {
+    var el = document.getElementById('backtest-chart-' + rg);
+    if (el && BACKTEST_DATA[rg]) {
+      var f = BACKTEST_DATA[rg];
+      Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
+    }
+  });
 }
 
 function renderDrilldown() {

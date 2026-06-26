@@ -1,0 +1,4170 @@
+{
+  "generated_at": "2026-06-26T08:15:10.617480Z",
+  "top_n": 5,
+  "tracks": {
+    "US": {
+      "region": "US",
+      "benchmark": "RSP",
+      "top_n": 5,
+      "start": "2015-01-30",
+      "end": "2026-06-25",
+      "metrics": {
+        "total_return": 2.8535228350592052,
+        "cagr": 0.12542361463794838,
+        "ann_vol": 0.14301256553849512,
+        "sharpe": 0.9007803251222712,
+        "max_drawdown": -0.1844984748818348,
+        "hit_rate": 0.5401459854014599,
+        "avg_turnover": 0.4102189781021898,
+        "benchmark_total_return": 2.310436496441774,
+        "benchmark_cagr": 0.11054815553808517
+      },
+      "equity_curve": [
+        {
+          "date": "2015-01-30",
+          "strategy": 1.0,
+          "benchmark": 1.0
+        },
+        {
+          "date": "2015-02-27",
+          "strategy": 1.06148746748,
+          "benchmark": 1.0572647927
+        },
+        {
+          "date": "2015-03-31",
+          "strategy": 1.0449992252715012,
+          "benchmark": 1.047159637449465
+        },
+        {
+          "date": "2015-04-30",
+          "strategy": 1.0605129917134986,
+          "benchmark": 1.051423027489982
+        },
+        {
+          "date": "2015-05-29",
+          "strategy": 1.0611617012110826,
+          "benchmark": 1.0590461750066842
+        },
+        {
+          "date": "2015-06-30",
+          "strategy": 1.0390991072547742,
+          "benchmark": 1.034998885104069
+        },
+        {
+          "date": "2015-07-31",
+          "strategy": 1.0749298423038147,
+          "benchmark": 1.044986076727413
+        },
+        {
+          "date": "2015-08-31",
+          "strategy": 1.0082878675670894,
+          "benchmark": 0.9879185660317685
+        },
+        {
+          "date": "2015-09-30",
+          "strategy": 1.0065624893609286,
+          "benchmark": 0.9580712574410069
+        },
+        {
+          "date": "2015-10-30",
+          "strategy": 1.0686566269100368,
+          "benchmark": 1.0250167031746085
+        },
+        {
+          "date": "2015-11-30",
+          "strategy": 1.0716771212595557,
+          "benchmark": 1.0281420839617967
+        },
+        {
+          "date": "2015-12-31",
+          "strategy": 1.0567947908667432,
+          "benchmark": 1.0026141056301459
+        },
+        {
+          "date": "2016-01-29",
+          "strategy": 1.0198315473852124,
+          "benchmark": 0.9468840928307061
+        },
+        {
+          "date": "2016-02-29",
+          "strategy": 1.024977492423557,
+          "benchmark": 0.9563032339908137
+        },
+        {
+          "date": "2016-03-31",
+          "strategy": 1.1027908923508438,
+          "benchmark": 1.032637107397836
+        },
+        {
+          "date": "2016-04-29",
+          "strategy": 1.1006631718378592,
+          "benchmark": 1.0455235330118413
+        },
+        {
+          "date": "2016-05-31",
+          "strategy": 1.1043940434535184,
+          "benchmark": 1.0597250923429895
+        },
+        {
+          "date": "2016-06-30",
+          "strategy": 1.1153357641572557,
+          "benchmark": 1.0590529738900096
+        },
+        {
+          "date": "2016-07-29",
+          "strategy": 1.1245265844609666,
+          "benchmark": 1.102943920855374
+        },
+        {
+          "date": "2016-08-31",
+          "strategy": 1.1129565438236124,
+          "benchmark": 1.1046575545678285
+        },
+        {
+          "date": "2016-09-30",
+          "strategy": 1.117437478598241,
+          "benchmark": 1.105772305157541
+        },
+        {
+          "date": "2016-10-31",
+          "strategy": 1.0878836025670977,
+          "benchmark": 1.078786300935812
+        },
+        {
+          "date": "2016-11-30",
+          "strategy": 1.1176135462714474,
+          "benchmark": 1.135271925236507
+        },
+        {
+          "date": "2016-12-30",
+          "strategy": 1.1310448842912537,
+          "benchmark": 1.1480413414692539
+        },
+        {
+          "date": "2017-01-31",
+          "strategy": 1.131124613929858,
+          "benchmark": 1.171097211886
+        },
+        {
+          "date": "2017-02-28",
+          "strategy": 1.1675374794275297,
+          "benchmark": 1.2078020374569645
+        },
+        {
+          "date": "2017-03-31",
+          "strategy": 1.1634073377305656,
+          "benchmark": 1.2080532320181878
+        },
+        {
+          "date": "2017-04-28",
+          "strategy": 1.1787267086330924,
+          "benchmark": 1.216034325816287
+        },
+        {
+          "date": "2017-05-31",
+          "strategy": 1.1966874446175317,
+          "benchmark": 1.222818249585852
+        },
+        {
+          "date": "2017-06-30",
+          "strategy": 1.1783008965280777,
+          "benchmark": 1.2370558301268517
+        },
+        {
+          "date": "2017-07-31",
+          "strategy": 1.1914272267705968,
+          "benchmark": 1.2568103881620558
+        },
+        {
+          "date": "2017-08-31",
+          "strategy": 1.2022623257734697,
+          "benchmark": 1.244263540337487
+        },
+        {
+          "date": "2017-09-29",
+          "strategy": 1.205402060743858,
+          "benchmark": 1.2807783597671554
+        },
+        {
+          "date": "2017-10-31",
+          "strategy": 1.23713623171247,
+          "benchmark": 1.2947204944332127
+        },
+        {
+          "date": "2017-11-30",
+          "strategy": 1.2707181816480533,
+          "benchmark": 1.3439192092890053
+        },
+        {
+          "date": "2017-12-29",
+          "strategy": 1.2939156688937967,
+          "benchmark": 1.3606133918497025
+        },
+        {
+          "date": "2018-01-31",
+          "strategy": 1.3683043394590262,
+          "benchmark": 1.4202735384662792
+        },
+        {
+          "date": "2018-02-28",
+          "strategy": 1.3268133660160877,
+          "benchmark": 1.357919669824132
+        },
+        {
+          "date": "2018-03-29",
+          "strategy": 1.2846771647933077,
+          "benchmark": 1.3453721064257709
+        },
+        {
+          "date": "2018-04-30",
+          "strategy": 1.2874551153658347,
+          "benchmark": 1.3503760792677573
+        },
+        {
+          "date": "2018-05-31",
+          "strategy": 1.3153678088339773,
+          "benchmark": 1.3699855980469076
+        },
+        {
+          "date": "2018-06-29",
+          "strategy": 1.3285154860565291,
+          "benchmark": 1.3832968836422168
+        },
+        {
+          "date": "2018-07-31",
+          "strategy": 1.349984964448211,
+          "benchmark": 1.4261984388052087
+        },
+        {
+          "date": "2018-08-31",
+          "strategy": 1.3574590574389784,
+          "benchmark": 1.4541658433387186
+        },
+        {
+          "date": "2018-09-28",
+          "strategy": 1.3663241255773515,
+          "benchmark": 1.4566129032953115
+        },
+        {
+          "date": "2018-10-31",
+          "strategy": 1.237671650757352,
+          "benchmark": 1.3510594094924844
+        },
+        {
+          "date": "2018-11-30",
+          "strategy": 1.292140983252406,
+          "benchmark": 1.3863799214962507
+        },
+        {
+          "date": "2018-12-31",
+          "strategy": 1.186867927409897,
+          "benchmark": 1.2539546895658162
+        },
+        {
+          "date": "2019-01-31",
+          "strategy": 1.2676582642224763,
+          "benchmark": 1.3770178537103657
+        },
+        {
+          "date": "2019-02-28",
+          "strategy": 1.299204145437585,
+          "benchmark": 1.42750581948955
+        },
+        {
+          "date": "2019-03-29",
+          "strategy": 1.3319745568894246,
+          "benchmark": 1.4394598671369199
+        },
+        {
+          "date": "2019-04-30",
+          "strategy": 1.3721563358825093,
+          "benchmark": 1.4911447643452123
+        },
+        {
+          "date": "2019-05-31",
+          "strategy": 1.281504465769692,
+          "benchmark": 1.3877747312606137
+        },
+        {
+          "date": "2019-06-28",
+          "strategy": 1.3441394425325648,
+          "benchmark": 1.4925455380200352
+        },
+        {
+          "date": "2019-07-31",
+          "strategy": 1.3661457506922827,
+          "benchmark": 1.505144986403802
+        },
+        {
+          "date": "2019-08-30",
+          "strategy": 1.341059814753451,
+          "benchmark": 1.4559931467761615
+        },
+        {
+          "date": "2019-09-30",
+          "strategy": 1.3638326086562307,
+          "benchmark": 1.5036033480873878
+        },
+        {
+          "date": "2019-10-31",
+          "strategy": 1.36731629265883,
+          "benchmark": 1.5221058693200817
+        },
+        {
+          "date": "2019-11-29",
+          "strategy": 1.4166758108454245,
+          "benchmark": 1.5738586345056393
+        },
+        {
+          "date": "2019-12-31",
+          "strategy": 1.4593908076634172,
+          "benchmark": 1.6164301539028738
+        },
+        {
+          "date": "2020-01-31",
+          "strategy": 1.4053784867740884,
+          "benchmark": 1.5859785946179297
+        },
+        {
+          "date": "2020-02-28",
+          "strategy": 1.295292780805272,
+          "benchmark": 1.4453163033344307
+        },
+        {
+          "date": "2020-03-31",
+          "strategy": 1.1901354293929476,
+          "benchmark": 1.1851608883397946
+        },
+        {
+          "date": "2020-04-30",
+          "strategy": 1.3467981871804184,
+          "benchmark": 1.3561217082326706
+        },
+        {
+          "date": "2020-05-29",
+          "strategy": 1.43109263276369,
+          "benchmark": 1.4205846095854333
+        },
+        {
+          "date": "2020-06-30",
+          "strategy": 1.4723548689234978,
+          "benchmark": 1.4413400098827354
+        },
+        {
+          "date": "2020-07-31",
+          "strategy": 1.5698245460762927,
+          "benchmark": 1.513293662677825
+        },
+        {
+          "date": "2020-08-31",
+          "strategy": 1.6651397141207565,
+          "benchmark": 1.5778822805822934
+        },
+        {
+          "date": "2020-09-30",
+          "strategy": 1.613658197505488,
+          "benchmark": 1.5382444659627899
+        },
+        {
+          "date": "2020-10-30",
+          "strategy": 1.5980214937923005,
+          "benchmark": 1.5297073088549378
+        },
+        {
+          "date": "2020-11-30",
+          "strategy": 1.778430457960349,
+          "benchmark": 1.7483996334717862
+        },
+        {
+          "date": "2020-12-31",
+          "strategy": 1.848913985388935,
+          "benchmark": 1.821040552847365
+        },
+        {
+          "date": "2021-01-29",
+          "strategy": 1.8111533268196465,
+          "benchmark": 1.806191087989355
+        },
+        {
+          "date": "2021-02-26",
+          "strategy": 1.8376715107823087,
+          "benchmark": 1.9161329726611778
+        },
+        {
+          "date": "2021-03-31",
+          "strategy": 1.9406796929741625,
+          "benchmark": 2.031987233800851
+        },
+        {
+          "date": "2021-04-30",
+          "strategy": 2.0056612933934344,
+          "benchmark": 2.1269447528142527
+        },
+        {
+          "date": "2021-05-28",
+          "strategy": 2.0661375227104943,
+          "benchmark": 2.167681931474848
+        },
+        {
+          "date": "2021-06-30",
+          "strategy": 2.074482300466793,
+          "benchmark": 2.168297871142326
+        },
+        {
+          "date": "2021-07-30",
+          "strategy": 2.1419168912741315,
+          "benchmark": 2.1963491266073585
+        },
+        {
+          "date": "2021-08-31",
+          "strategy": 2.203938175990264,
+          "benchmark": 2.2484246518139144
+        },
+        {
+          "date": "2021-09-30",
+          "strategy": 2.1054192201429127,
+          "benchmark": 2.163080275675749
+        },
+        {
+          "date": "2021-10-29",
+          "strategy": 2.286459007549348,
+          "benchmark": 2.277717089931351
+        },
+        {
+          "date": "2021-11-30",
+          "strategy": 2.273288851662069,
+          "benchmark": 2.2175105414450518
+        },
+        {
+          "date": "2021-12-31",
+          "strategy": 2.3899698430252596,
+          "benchmark": 2.356578355523308
+        },
+        {
+          "date": "2022-01-31",
+          "strategy": 2.2606161327949206,
+          "benchmark": 2.253626979973208
+        },
+        {
+          "date": "2022-02-28",
+          "strategy": 2.24928875656597,
+          "benchmark": 2.233500401047175
+        },
+        {
+          "date": "2022-03-31",
+          "strategy": 2.3871237682820627,
+          "benchmark": 2.29314229841807
+        },
+        {
+          "date": "2022-04-29",
+          "strategy": 2.335665618804618,
+          "benchmark": 2.1439589522182354
+        },
+        {
+          "date": "2022-05-31",
+          "strategy": 2.393256572780316,
+          "benchmark": 2.1654786711342773
+        },
+        {
+          "date": "2022-06-30",
+          "strategy": 2.157309755529907,
+          "benchmark": 1.9622558063388404
+        },
+        {
+          "date": "2022-07-29",
+          "strategy": 2.2863652525261204,
+          "benchmark": 2.131978186773432
+        },
+        {
+          "date": "2022-08-31",
+          "strategy": 2.2389828853028666,
+          "benchmark": 2.0577157146133453
+        },
+        {
+          "date": "2022-09-30",
+          "strategy": 2.028252247718354,
+          "benchmark": 1.8691439591494552
+        },
+        {
+          "date": "2022-10-31",
+          "strategy": 2.309776200371557,
+          "benchmark": 2.0494790130007354
+        },
+        {
+          "date": "2022-11-30",
+          "strategy": 2.433519981131276,
+          "benchmark": 2.1854649818164917
+        },
+        {
+          "date": "2022-12-30",
+          "strategy": 2.344286211713937,
+          "benchmark": 2.0828137040777213
+        },
+        {
+          "date": "2023-01-31",
+          "strategy": 2.3892325755744794,
+          "benchmark": 2.2373468032086934
+        },
+        {
+          "date": "2023-02-28",
+          "strategy": 2.3104540906373945,
+          "benchmark": 2.16170264139942
+        },
+        {
+          "date": "2023-03-31",
+          "strategy": 2.328892726252479,
+          "benchmark": 2.1432359029392143
+        },
+        {
+          "date": "2023-04-28",
+          "strategy": 2.350199999113436,
+          "benchmark": 2.150941350601221
+        },
+        {
+          "date": "2023-05-31",
+          "strategy": 2.332635380309098,
+          "benchmark": 2.0689882208473547
+        },
+        {
+          "date": "2023-06-30",
+          "strategy": 2.5185619773048327,
+          "benchmark": 2.227238666133868
+        },
+        {
+          "date": "2023-07-31",
+          "strategy": 2.6038166766810935,
+          "benchmark": 2.3052304119205083
+        },
+        {
+          "date": "2023-08-31",
+          "strategy": 2.565313773685404,
+          "benchmark": 2.2314059199704284
+        },
+        {
+          "date": "2023-09-29",
+          "strategy": 2.470385855488948,
+          "benchmark": 2.1180675409292227
+        },
+        {
+          "date": "2023-10-31",
+          "strategy": 2.407614963420637,
+          "benchmark": 2.0304686158290517
+        },
+        {
+          "date": "2023-11-30",
+          "strategy": 2.5484687341699486,
+          "benchmark": 2.216877425896458
+        },
+        {
+          "date": "2023-12-29",
+          "strategy": 2.700211931601711,
+          "benchmark": 2.3681099283794054
+        },
+        {
+          "date": "2024-01-31",
+          "strategy": 2.7083534988831066,
+          "benchmark": 2.3480005252116256
+        },
+        {
+          "date": "2024-02-29",
+          "strategy": 2.8368052764405443,
+          "benchmark": 2.4429947811143804
+        },
+        {
+          "date": "2024-03-28",
+          "strategy": 2.9299629889738665,
+          "benchmark": 2.5522966325218994
+        },
+        {
+          "date": "2024-04-30",
+          "strategy": 2.825154154742333,
+          "benchmark": 2.4291797944143307
+        },
+        {
+          "date": "2024-05-31",
+          "strategy": 2.9147912403459415,
+          "benchmark": 2.498197953409033
+        },
+        {
+          "date": "2024-06-28",
+          "strategy": 2.9235767774484254,
+          "benchmark": 2.4855454274143023
+        },
+        {
+          "date": "2024-07-31",
+          "strategy": 2.9794631544405186,
+          "benchmark": 2.5962969553600495
+        },
+        {
+          "date": "2024-08-30",
+          "strategy": 3.100122492695693,
+          "benchmark": 2.660901436824557
+        },
+        {
+          "date": "2024-09-30",
+          "strategy": 3.1816368880777257,
+          "benchmark": 2.7213379488674403
+        },
+        {
+          "date": "2024-10-31",
+          "strategy": 3.147971143504014,
+          "benchmark": 2.6777441175591803
+        },
+        {
+          "date": "2024-11-29",
+          "strategy": 3.388587883280834,
+          "benchmark": 2.849840561147553
+        },
+        {
+          "date": "2024-12-31",
+          "strategy": 3.237236917224181,
+          "benchmark": 2.671017684387157
+        },
+        {
+          "date": "2025-01-31",
+          "strategy": 3.353091880914064,
+          "benchmark": 2.7626280891994104
+        },
+        {
+          "date": "2025-02-28",
+          "strategy": 3.322210927316807,
+          "benchmark": 2.7464700507510114
+        },
+        {
+          "date": "2025-03-31",
+          "strategy": 3.259542032524621,
+          "benchmark": 2.6532148342937076
+        },
+        {
+          "date": "2025-04-30",
+          "strategy": 3.150324413764633,
+          "benchmark": 2.590571722055744
+        },
+        {
+          "date": "2025-05-30",
+          "strategy": 3.256474722348558,
+          "benchmark": 2.70222640546335
+        },
+        {
+          "date": "2025-06-30",
+          "strategy": 3.393485349277461,
+          "benchmark": 2.79491434683896
+        },
+        {
+          "date": "2025-07-31",
+          "strategy": 3.465955011441265,
+          "benchmark": 2.8239801611622686
+        },
+        {
+          "date": "2025-08-29",
+          "strategy": 3.5122277843718552,
+          "benchmark": 2.900719035055832
+        },
+        {
+          "date": "2025-09-30",
+          "strategy": 3.5655757890232205,
+          "benchmark": 2.9300260248711796
+        },
+        {
+          "date": "2025-10-31",
+          "strategy": 3.611899040695121,
+          "benchmark": 2.9026873224062784
+        },
+        {
+          "date": "2025-11-28",
+          "strategy": 3.646450695768334,
+          "benchmark": 2.9582914994408185
+        },
+        {
+          "date": "2025-12-31",
+          "strategy": 3.6362715191117174,
+          "benchmark": 2.9705213125711687
+        },
+        {
+          "date": "2026-01-30",
+          "strategy": 3.6953175682503394,
+          "benchmark": 3.0716267774124915
+        },
+        {
+          "date": "2026-02-27",
+          "strategy": 3.925220625387022,
+          "benchmark": 3.1784703568881985
+        },
+        {
+          "date": "2026-03-31",
+          "strategy": 3.8012329247211794,
+          "benchmark": 2.988844920179319
+        },
+        {
+          "date": "2026-04-30",
+          "strategy": 3.8840862007564003,
+          "benchmark": 3.1682505777128673
+        },
+        {
+          "date": "2026-05-29",
+          "strategy": 3.9399248757890173,
+          "benchmark": 3.252191078837226
+        },
+        {
+          "date": "2026-06-25",
+          "strategy": 3.8535228350592052,
+          "benchmark": 3.310436496441774
+        }
+      ],
+      "holdings": [
+        {
+          "date": "2015-01-30",
+          "sectors": [
+            "US|Energy",
+            "US|Consumer Discretionary",
+            "US|Materials",
+            "US|Industrials",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2015-02-27",
+          "sectors": [
+            "US|Health Care",
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Industrials",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2015-03-31",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Health Care",
+            "US|Energy",
+            "US|Consumer Staples",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2015-04-30",
+          "sectors": [
+            "US|Energy",
+            "US|Technology",
+            "US|Materials",
+            "US|Consumer Discretionary",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2015-05-29",
+          "sectors": [
+            "US|Health Care",
+            "US|Utilities",
+            "US|Technology",
+            "US|Financials",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2015-06-30",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Health Care",
+            "US|Financials",
+            "US|Consumer Staples",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2015-07-31",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Financials",
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2015-08-31",
+          "sectors": [
+            "US|Utilities",
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Consumer Staples",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2015-09-30",
+          "sectors": [
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Consumer Discretionary",
+            "US|Financials",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2015-10-30",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Industrials",
+            "US|Materials",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2015-11-30",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Financials",
+            "US|Industrials",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2015-12-31",
+          "sectors": [
+            "US|Health Care",
+            "US|Consumer Staples",
+            "US|Real Estate",
+            "US|Utilities",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2016-01-29",
+          "sectors": [
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Technology",
+            "US|Real Estate",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2016-02-29",
+          "sectors": [
+            "US|Utilities",
+            "US|Industrials",
+            "US|Real Estate",
+            "US|Materials",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2016-03-31",
+          "sectors": [
+            "US|Technology",
+            "US|Utilities",
+            "US|Industrials",
+            "US|Materials",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2016-04-29",
+          "sectors": [
+            "US|Energy",
+            "US|Materials",
+            "US|Industrials",
+            "US|Financials",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2016-05-31",
+          "sectors": [
+            "US|Technology",
+            "US|Financials",
+            "US|Energy",
+            "US|Materials",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2016-06-30",
+          "sectors": [
+            "US|Utilities",
+            "US|Energy",
+            "US|Consumer Staples",
+            "US|Real Estate",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2016-07-29",
+          "sectors": [
+            "US|Real Estate",
+            "US|Technology",
+            "US|Health Care",
+            "US|Materials",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2016-08-31",
+          "sectors": [
+            "US|Financials",
+            "US|Technology",
+            "US|Energy",
+            "US|Materials",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2016-09-30",
+          "sectors": [
+            "US|Energy",
+            "US|Technology",
+            "US|Industrials",
+            "US|Real Estate",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2016-10-31",
+          "sectors": [
+            "US|Financials",
+            "US|Utilities",
+            "US|Technology",
+            "US|Consumer Staples",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2016-11-30",
+          "sectors": [
+            "US|Financials",
+            "US|Industrials",
+            "US|Energy",
+            "US|Materials",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2016-12-30",
+          "sectors": [
+            "US|Financials",
+            "US|Energy",
+            "US|Utilities",
+            "US|Real Estate",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2017-01-31",
+          "sectors": [
+            "US|Financials",
+            "US|Materials",
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2017-02-28",
+          "sectors": [
+            "US|Health Care",
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Financials",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2017-03-31",
+          "sectors": [
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Materials",
+            "US|Utilities",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2017-04-28",
+          "sectors": [
+            "US|Industrials",
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Materials",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2017-05-31",
+          "sectors": [
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Technology",
+            "US|Industrials",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2017-06-30",
+          "sectors": [
+            "US|Health Care",
+            "US|Financials",
+            "US|Industrials",
+            "US|Materials",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2017-07-31",
+          "sectors": [
+            "US|Technology",
+            "US|Health Care",
+            "US|Financials",
+            "US|Utilities",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2017-08-31",
+          "sectors": [
+            "US|Technology",
+            "US|Health Care",
+            "US|Utilities",
+            "US|Materials",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2017-09-29",
+          "sectors": [
+            "US|Energy",
+            "US|Financials",
+            "US|Industrials",
+            "US|Technology",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2017-10-31",
+          "sectors": [
+            "US|Technology",
+            "US|Financials",
+            "US|Materials",
+            "US|Utilities",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2017-11-30",
+          "sectors": [
+            "US|Financials",
+            "US|Consumer Discretionary",
+            "US|Industrials",
+            "US|Technology",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2017-12-29",
+          "sectors": [
+            "US|Energy",
+            "US|Industrials",
+            "US|Materials",
+            "US|Consumer Discretionary",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2018-01-31",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Financials",
+            "US|Technology",
+            "US|Health Care",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2018-02-28",
+          "sectors": [
+            "US|Technology",
+            "US|Financials",
+            "US|Consumer Discretionary",
+            "US|Industrials",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2018-03-29",
+          "sectors": [
+            "US|Utilities",
+            "US|Real Estate",
+            "US|Consumer Discretionary",
+            "US|Industrials",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2018-04-30",
+          "sectors": [
+            "US|Energy",
+            "US|Consumer Discretionary",
+            "US|Utilities",
+            "US|Health Care",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2018-05-31",
+          "sectors": [
+            "US|Energy",
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Industrials",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2018-06-29",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Real Estate",
+            "US|Utilities",
+            "US|Technology",
+            "US|Energy"
+          ]
+        },
+        {
+          "date": "2018-07-31",
+          "sectors": [
+            "US|Health Care",
+            "US|Industrials",
+            "US|Energy",
+            "US|Consumer Staples",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2018-08-31",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Health Care",
+            "US|Real Estate",
+            "US|Energy"
+          ]
+        },
+        {
+          "date": "2018-09-28",
+          "sectors": [
+            "US|Health Care",
+            "US|Energy",
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2018-10-31",
+          "sectors": [
+            "US|Consumer Staples",
+            "US|Real Estate",
+            "US|Utilities",
+            "US|Financials",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2018-11-30",
+          "sectors": [
+            "US|Health Care",
+            "US|Real Estate",
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2018-12-31",
+          "sectors": [
+            "US|Utilities",
+            "US|Health Care",
+            "US|Real Estate",
+            "US|Consumer Discretionary",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2019-01-31",
+          "sectors": [
+            "US|Real Estate",
+            "US|Industrials",
+            "US|Consumer Discretionary",
+            "US|Utilities",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2019-02-28",
+          "sectors": [
+            "US|Technology",
+            "US|Industrials",
+            "US|Utilities",
+            "US|Materials",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2019-03-29",
+          "sectors": [
+            "US|Real Estate",
+            "US|Technology",
+            "US|Consumer Staples",
+            "US|Consumer Discretionary",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2019-04-30",
+          "sectors": [
+            "US|Communication Services",
+            "US|Technology",
+            "US|Financials",
+            "US|Consumer Discretionary",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2019-05-31",
+          "sectors": [
+            "US|Real Estate",
+            "US|Utilities",
+            "US|Health Care",
+            "US|Consumer Staples",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2019-06-28",
+          "sectors": [
+            "US|Technology",
+            "US|Materials",
+            "US|Communication Services",
+            "US|Industrials",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2019-07-31",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Financials",
+            "US|Consumer Staples",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2019-08-30",
+          "sectors": [
+            "US|Real Estate",
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Communication Services",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2019-09-30",
+          "sectors": [
+            "US|Utilities",
+            "US|Real Estate",
+            "US|Consumer Staples",
+            "US|Financials",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2019-10-31",
+          "sectors": [
+            "US|Financials",
+            "US|Technology",
+            "US|Health Care",
+            "US|Utilities",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2019-11-29",
+          "sectors": [
+            "US|Health Care",
+            "US|Technology",
+            "US|Communication Services",
+            "US|Financials",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2019-12-31",
+          "sectors": [
+            "US|Technology",
+            "US|Health Care",
+            "US|Energy",
+            "US|Financials",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2020-01-31",
+          "sectors": [
+            "US|Utilities",
+            "US|Technology",
+            "US|Consumer Staples",
+            "US|Real Estate",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2020-02-28",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Health Care",
+            "US|Utilities",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2020-03-31",
+          "sectors": [
+            "US|Health Care",
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Communication Services",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2020-04-30",
+          "sectors": [
+            "US|Materials",
+            "US|Health Care",
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2020-05-29",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Materials",
+            "US|Technology",
+            "US|Communication Services",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2020-06-30",
+          "sectors": [
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Materials",
+            "US|Communication Services",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2020-07-31",
+          "sectors": [
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Consumer Staples",
+            "US|Materials",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2020-08-31",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Consumer Discretionary",
+            "US|Industrials",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2020-09-30",
+          "sectors": [
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Materials",
+            "US|Industrials",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2020-10-30",
+          "sectors": [
+            "US|Communication Services",
+            "US|Utilities",
+            "US|Materials",
+            "US|Industrials",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2020-11-30",
+          "sectors": [
+            "US|Energy",
+            "US|Industrials",
+            "US|Materials",
+            "US|Financials",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2020-12-31",
+          "sectors": [
+            "US|Financials",
+            "US|Materials",
+            "US|Technology",
+            "US|Industrials",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2021-01-29",
+          "sectors": [
+            "US|Communication Services",
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Health Care",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2021-02-26",
+          "sectors": [
+            "US|Energy",
+            "US|Financials",
+            "US|Industrials",
+            "US|Materials",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2021-03-31",
+          "sectors": [
+            "US|Energy",
+            "US|Industrials",
+            "US|Financials",
+            "US|Consumer Staples",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2021-04-30",
+          "sectors": [
+            "US|Real Estate",
+            "US|Financials",
+            "US|Materials",
+            "US|Industrials",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2021-05-28",
+          "sectors": [
+            "US|Financials",
+            "US|Real Estate",
+            "US|Energy",
+            "US|Materials",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2021-06-30",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Real Estate",
+            "US|Health Care",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2021-07-30",
+          "sectors": [
+            "US|Real Estate",
+            "US|Technology",
+            "US|Health Care",
+            "US|Communication Services",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2021-08-31",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Real Estate",
+            "US|Financials",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2021-09-30",
+          "sectors": [
+            "US|Energy",
+            "US|Financials",
+            "US|Consumer Discretionary",
+            "US|Health Care",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2021-10-29",
+          "sectors": [
+            "US|Energy",
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Real Estate",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2021-11-30",
+          "sectors": [
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Real Estate",
+            "US|Energy",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2021-12-31",
+          "sectors": [
+            "US|Real Estate",
+            "US|Technology",
+            "US|Consumer Staples",
+            "US|Health Care",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2022-01-31",
+          "sectors": [
+            "US|Energy",
+            "US|Consumer Staples",
+            "US|Utilities",
+            "US|Financials",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2022-02-28",
+          "sectors": [
+            "US|Energy",
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Industrials",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2022-03-31",
+          "sectors": [
+            "US|Energy",
+            "US|Utilities",
+            "US|Materials",
+            "US|Real Estate",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2022-04-29",
+          "sectors": [
+            "US|Consumer Staples",
+            "US|Energy",
+            "US|Materials",
+            "US|Utilities",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2022-05-31",
+          "sectors": [
+            "US|Energy",
+            "US|Utilities",
+            "US|Health Care",
+            "US|Materials",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2022-06-30",
+          "sectors": [
+            "US|Utilities",
+            "US|Health Care",
+            "US|Consumer Staples",
+            "US|Real Estate",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2022-07-29",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Energy",
+            "US|Industrials",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2022-08-31",
+          "sectors": [
+            "US|Energy",
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Industrials",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2022-09-30",
+          "sectors": [
+            "US|Health Care",
+            "US|Energy",
+            "US|Consumer Staples",
+            "US|Financials",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2022-10-31",
+          "sectors": [
+            "US|Energy",
+            "US|Industrials",
+            "US|Health Care",
+            "US|Consumer Staples",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2022-11-30",
+          "sectors": [
+            "US|Consumer Staples",
+            "US|Industrials",
+            "US|Health Care",
+            "US|Materials",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2022-12-30",
+          "sectors": [
+            "US|Energy",
+            "US|Industrials",
+            "US|Financials",
+            "US|Health Care",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2023-01-31",
+          "sectors": [
+            "US|Communication Services",
+            "US|Materials",
+            "US|Consumer Discretionary",
+            "US|Financials",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2023-02-28",
+          "sectors": [
+            "US|Materials",
+            "US|Industrials",
+            "US|Financials",
+            "US|Technology",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2023-03-31",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Consumer Staples",
+            "US|Industrials",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2023-04-28",
+          "sectors": [
+            "US|Consumer Staples",
+            "US|Technology",
+            "US|Communication Services",
+            "US|Utilities",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2023-05-31",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Consumer Discretionary",
+            "US|Real Estate",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2023-06-30",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Technology",
+            "US|Materials",
+            "US|Communication Services",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2023-07-31",
+          "sectors": [
+            "US|Energy",
+            "US|Communication Services",
+            "US|Materials",
+            "US|Technology",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2023-08-31",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Energy",
+            "US|Consumer Discretionary",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2023-09-29",
+          "sectors": [
+            "US|Energy",
+            "US|Communication Services",
+            "US|Technology",
+            "US|Health Care",
+            "US|Financials"
+          ]
+        },
+        {
+          "date": "2023-10-31",
+          "sectors": [
+            "US|Technology",
+            "US|Utilities",
+            "US|Communication Services",
+            "US|Consumer Staples",
+            "US|Energy"
+          ]
+        },
+        {
+          "date": "2023-11-30",
+          "sectors": [
+            "US|Technology",
+            "US|Financials",
+            "US|Materials",
+            "US|Real Estate",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2023-12-29",
+          "sectors": [
+            "US|Communication Services",
+            "US|Financials",
+            "US|Real Estate",
+            "US|Technology",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2024-01-31",
+          "sectors": [
+            "US|Communication Services",
+            "US|Financials",
+            "US|Technology",
+            "US|Industrials",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2024-02-29",
+          "sectors": [
+            "US|Materials",
+            "US|Financials",
+            "US|Industrials",
+            "US|Consumer Discretionary",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2024-03-28",
+          "sectors": [
+            "US|Materials",
+            "US|Financials",
+            "US|Energy",
+            "US|Industrials",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2024-04-30",
+          "sectors": [
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Financials",
+            "US|Industrials",
+            "US|Energy"
+          ]
+        },
+        {
+          "date": "2024-05-31",
+          "sectors": [
+            "US|Utilities",
+            "US|Communication Services",
+            "US|Technology",
+            "US|Financials",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2024-06-28",
+          "sectors": [
+            "US|Communication Services",
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Real Estate",
+            "US|Health Care"
+          ]
+        },
+        {
+          "date": "2024-07-31",
+          "sectors": [
+            "US|Utilities",
+            "US|Real Estate",
+            "US|Financials",
+            "US|Industrials",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2024-08-30",
+          "sectors": [
+            "US|Financials",
+            "US|Real Estate",
+            "US|Utilities",
+            "US|Consumer Staples",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2024-09-30",
+          "sectors": [
+            "US|Utilities",
+            "US|Consumer Discretionary",
+            "US|Industrials",
+            "US|Communication Services",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2024-10-31",
+          "sectors": [
+            "US|Communication Services",
+            "US|Financials",
+            "US|Utilities",
+            "US|Consumer Discretionary",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2024-11-29",
+          "sectors": [
+            "US|Financials",
+            "US|Consumer Discretionary",
+            "US|Communication Services",
+            "US|Utilities",
+            "US|Real Estate"
+          ]
+        },
+        {
+          "date": "2024-12-31",
+          "sectors": [
+            "US|Consumer Discretionary",
+            "US|Communication Services",
+            "US|Financials",
+            "US|Technology",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2025-01-31",
+          "sectors": [
+            "US|Communication Services",
+            "US|Financials",
+            "US|Consumer Discretionary",
+            "US|Health Care",
+            "US|Materials"
+          ]
+        },
+        {
+          "date": "2025-02-28",
+          "sectors": [
+            "US|Financials",
+            "US|Consumer Staples",
+            "US|Real Estate",
+            "US|Communication Services",
+            "US|Energy"
+          ]
+        },
+        {
+          "date": "2025-03-31",
+          "sectors": [
+            "US|Energy",
+            "US|Financials",
+            "US|Consumer Staples",
+            "US|Utilities",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2025-04-30",
+          "sectors": [
+            "US|Communication Services",
+            "US|Financials",
+            "US|Real Estate",
+            "US|Utilities",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2025-05-30",
+          "sectors": [
+            "US|Industrials",
+            "US|Communication Services",
+            "US|Technology",
+            "US|Consumer Discretionary",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2025-06-30",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Industrials",
+            "US|Financials",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2025-07-31",
+          "sectors": [
+            "US|Utilities",
+            "US|Technology",
+            "US|Industrials",
+            "US|Communication Services",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2025-08-29",
+          "sectors": [
+            "US|Materials",
+            "US|Energy",
+            "US|Financials",
+            "US|Consumer Discretionary",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2025-09-30",
+          "sectors": [
+            "US|Technology",
+            "US|Communication Services",
+            "US|Utilities",
+            "US|Industrials",
+            "US|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2025-10-31",
+          "sectors": [
+            "US|Technology",
+            "US|Industrials",
+            "US|Consumer Discretionary",
+            "US|Health Care",
+            "US|Energy"
+          ]
+        },
+        {
+          "date": "2025-11-28",
+          "sectors": [
+            "US|Health Care",
+            "US|Utilities",
+            "US|Materials",
+            "US|Technology",
+            "US|Communication Services"
+          ]
+        },
+        {
+          "date": "2025-12-31",
+          "sectors": [
+            "US|Health Care",
+            "US|Materials",
+            "US|Communication Services",
+            "US|Financials",
+            "US|Technology"
+          ]
+        },
+        {
+          "date": "2026-01-30",
+          "sectors": [
+            "US|Energy",
+            "US|Materials",
+            "US|Consumer Staples",
+            "US|Communication Services",
+            "US|Industrials"
+          ]
+        },
+        {
+          "date": "2026-02-27",
+          "sectors": [
+            "US|Energy",
+            "US|Utilities",
+            "US|Materials",
+            "US|Industrials",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2026-03-31",
+          "sectors": [
+            "US|Energy",
+            "US|Utilities",
+            "US|Materials",
+            "US|Financials",
+            "US|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2026-04-30",
+          "sectors": [
+            "US|Technology",
+            "US|Energy",
+            "US|Real Estate",
+            "US|Industrials",
+            "US|Utilities"
+          ]
+        },
+        {
+          "date": "2026-05-29",
+          "sectors": [
+            "US|Technology",
+            "US|Real Estate",
+            "US|Consumer Discretionary",
+            "US|Health Care",
+            "US|Communication Services"
+          ]
+        }
+      ]
+    },
+    "EU": {
+      "region": "EU",
+      "benchmark": "EXSA.DE",
+      "top_n": 5,
+      "start": "2015-01-30",
+      "end": "2026-06-25",
+      "metrics": {
+        "total_return": 2.0779351425204062,
+        "cagr": 0.10348707919219313,
+        "ann_vol": 0.14004673405050305,
+        "sharpe": 0.7752741637266309,
+        "max_drawdown": -0.18547961932106116,
+        "hit_rate": 0.5401459854014599,
+        "avg_turnover": 0.37080291970802925,
+        "benchmark_total_return": 1.411393976290435,
+        "benchmark_cagr": 0.08014819317104394
+      },
+      "equity_curve": [
+        {
+          "date": "2015-01-30",
+          "strategy": 1.0,
+          "benchmark": 1.0
+        },
+        {
+          "date": "2015-02-27",
+          "strategy": 1.05501057718,
+          "benchmark": 1.0676044505
+        },
+        {
+          "date": "2015-03-31",
+          "strategy": 1.0801537885257515,
+          "benchmark": 1.0849229239551124
+        },
+        {
+          "date": "2015-04-30",
+          "strategy": 1.1028155503090853,
+          "benchmark": 1.0865496829914718
+        },
+        {
+          "date": "2015-05-29",
+          "strategy": 1.1087975901943556,
+          "benchmark": 1.1041709837118732
+        },
+        {
+          "date": "2015-06-30",
+          "strategy": 1.0581392583219076,
+          "benchmark": 1.0556755087894656
+        },
+        {
+          "date": "2015-07-31",
+          "strategy": 1.1136920149239238,
+          "benchmark": 1.1006445605542736
+        },
+        {
+          "date": "2015-08-31",
+          "strategy": 1.0309840151292913,
+          "benchmark": 1.008512906323957
+        },
+        {
+          "date": "2015-09-30",
+          "strategy": 1.0004879628731538,
+          "benchmark": 0.9672997775060432
+        },
+        {
+          "date": "2015-10-30",
+          "strategy": 1.0858212628867925,
+          "benchmark": 1.0482084380730459
+        },
+        {
+          "date": "2015-11-30",
+          "strategy": 1.1086374217312265,
+          "benchmark": 1.0753625960022308
+        },
+        {
+          "date": "2015-12-30",
+          "strategy": 1.0472482807849952,
+          "benchmark": 1.0274814277565136
+        },
+        {
+          "date": "2016-01-29",
+          "strategy": 1.016420348672481,
+          "benchmark": 0.9545274619111319
+        },
+        {
+          "date": "2016-02-29",
+          "strategy": 0.9910807465165979,
+          "benchmark": 0.9344791450675287
+        },
+        {
+          "date": "2016-03-31",
+          "strategy": 1.0286744905907232,
+          "benchmark": 0.9464855961792357
+        },
+        {
+          "date": "2016-04-29",
+          "strategy": 1.0443259103753995,
+          "benchmark": 0.9632473001219306
+        },
+        {
+          "date": "2016-05-31",
+          "strategy": 1.03327614655083,
+          "benchmark": 0.990066112942647
+        },
+        {
+          "date": "2016-06-30",
+          "strategy": 1.0159355380833883,
+          "benchmark": 0.9409618831443195
+        },
+        {
+          "date": "2016-07-29",
+          "strategy": 1.0539503441422378,
+          "benchmark": 0.9775013782232183
+        },
+        {
+          "date": "2016-08-31",
+          "strategy": 1.0397804749086115,
+          "benchmark": 0.9828831230074326
+        },
+        {
+          "date": "2016-09-30",
+          "strategy": 1.0396296992325347,
+          "benchmark": 0.9853978868780217
+        },
+        {
+          "date": "2016-10-31",
+          "strategy": 1.0326128813004052,
+          "benchmark": 0.9741968841744669
+        },
+        {
+          "date": "2016-11-30",
+          "strategy": 1.0336454801588228,
+          "benchmark": 0.9848236687975584
+        },
+        {
+          "date": "2016-12-30",
+          "strategy": 1.096596543113204,
+          "benchmark": 1.0435275220880764
+        },
+        {
+          "date": "2017-01-31",
+          "strategy": 1.1124707101379654,
+          "benchmark": 1.0371735577226526
+        },
+        {
+          "date": "2017-02-28",
+          "strategy": 1.1454555758046834,
+          "benchmark": 1.0677889589179714
+        },
+        {
+          "date": "2017-03-31",
+          "strategy": 1.194300526618719,
+          "benchmark": 1.1073837645264546
+        },
+        {
+          "date": "2017-04-28",
+          "strategy": 1.2192461049807446,
+          "benchmark": 1.1276449256411327
+        },
+        {
+          "date": "2017-05-31",
+          "strategy": 1.238648201247234,
+          "benchmark": 1.146668244341619
+        },
+        {
+          "date": "2017-06-30",
+          "strategy": 1.1853287205273677,
+          "benchmark": 1.1175459256595448
+        },
+        {
+          "date": "2017-07-31",
+          "strategy": 1.1814299710816776,
+          "benchmark": 1.1151756535532298
+        },
+        {
+          "date": "2017-08-31",
+          "strategy": 1.1862426652413294,
+          "benchmark": 1.1071761836646878
+        },
+        {
+          "date": "2017-09-29",
+          "strategy": 1.1831584793177485,
+          "benchmark": 1.1482727961062615
+        },
+        {
+          "date": "2017-10-31",
+          "strategy": 1.2115043815034137,
+          "benchmark": 1.1651056645017581
+        },
+        {
+          "date": "2017-11-30",
+          "strategy": 1.1768355495253537,
+          "benchmark": 1.1452665147355623
+        },
+        {
+          "date": "2017-12-29",
+          "strategy": 1.182724767188905,
+          "benchmark": 1.1548290779521857
+        },
+        {
+          "date": "2018-01-31",
+          "strategy": 1.191487626106372,
+          "benchmark": 1.1743060607168703
+        },
+        {
+          "date": "2018-02-28",
+          "strategy": 1.1551210834376104,
+          "benchmark": 1.12763598508707
+        },
+        {
+          "date": "2018-03-29",
+          "strategy": 1.116497591508088,
+          "benchmark": 1.1067931072719137
+        },
+        {
+          "date": "2018-04-30",
+          "strategy": 1.1867493881853424,
+          "benchmark": 1.1552754596990815
+        },
+        {
+          "date": "2018-05-31",
+          "strategy": 1.1878281845119367,
+          "benchmark": 1.1584474307898873
+        },
+        {
+          "date": "2018-06-29",
+          "strategy": 1.176361645038181,
+          "benchmark": 1.1521692453273964
+        },
+        {
+          "date": "2018-07-31",
+          "strategy": 1.2168186606079807,
+          "benchmark": 1.1895918422889764
+        },
+        {
+          "date": "2018-08-31",
+          "strategy": 1.2092220028401184,
+          "benchmark": 1.1630142818394553
+        },
+        {
+          "date": "2018-09-28",
+          "strategy": 1.2027677408100308,
+          "benchmark": 1.1669305590281203
+        },
+        {
+          "date": "2018-10-31",
+          "strategy": 1.1373251096161554,
+          "benchmark": 1.1013559162775366
+        },
+        {
+          "date": "2018-11-30",
+          "strategy": 1.1648642437502732,
+          "benchmark": 1.0911724130545213
+        },
+        {
+          "date": "2018-12-28",
+          "strategy": 1.1105147386779022,
+          "benchmark": 1.0279511704800035
+        },
+        {
+          "date": "2019-01-31",
+          "strategy": 1.1773014845417205,
+          "benchmark": 1.0964602813234494
+        },
+        {
+          "date": "2019-02-28",
+          "strategy": 1.195829151067236,
+          "benchmark": 1.1406352768427948
+        },
+        {
+          "date": "2019-03-29",
+          "strategy": 1.2267329172526795,
+          "benchmark": 1.1664034233605707
+        },
+        {
+          "date": "2019-04-30",
+          "strategy": 1.2344874543758535,
+          "benchmark": 1.211032227156509
+        },
+        {
+          "date": "2019-05-31",
+          "strategy": 1.1703088105802397,
+          "benchmark": 1.152875121277016
+        },
+        {
+          "date": "2019-06-28",
+          "strategy": 1.2008081139663511,
+          "benchmark": 1.2053594798716227
+        },
+        {
+          "date": "2019-07-31",
+          "strategy": 1.2193540089559756,
+          "benchmark": 1.207248833485694
+        },
+        {
+          "date": "2019-08-30",
+          "strategy": 1.2187438345769974,
+          "benchmark": 1.192451613145457
+        },
+        {
+          "date": "2019-09-30",
+          "strategy": 1.2295588387631842,
+          "benchmark": 1.2343311782331643
+        },
+        {
+          "date": "2019-10-31",
+          "strategy": 1.2216672281563512,
+          "benchmark": 1.2481734113141971
+        },
+        {
+          "date": "2019-11-29",
+          "strategy": 1.2563881618842836,
+          "benchmark": 1.283176202401175
+        },
+        {
+          "date": "2019-12-30",
+          "strategy": 1.290413488707553,
+          "benchmark": 1.3200379200929713
+        },
+        {
+          "date": "2020-01-31",
+          "strategy": 1.2919576635831191,
+          "benchmark": 1.2968631283098997
+        },
+        {
+          "date": "2020-02-28",
+          "strategy": 1.2103363903250486,
+          "benchmark": 1.191055074912298
+        },
+        {
+          "date": "2020-03-31",
+          "strategy": 1.0523258479627946,
+          "benchmark": 1.0167761245179192
+        },
+        {
+          "date": "2020-04-30",
+          "strategy": 1.1182638455795604,
+          "benchmark": 1.0812263409892493
+        },
+        {
+          "date": "2020-05-29",
+          "strategy": 1.178665795051896,
+          "benchmark": 1.1179407548793603
+        },
+        {
+          "date": "2020-06-30",
+          "strategy": 1.2350701038082004,
+          "benchmark": 1.151095290420788
+        },
+        {
+          "date": "2020-07-31",
+          "strategy": 1.2420580739634406,
+          "benchmark": 1.1409104172482314
+        },
+        {
+          "date": "2020-08-31",
+          "strategy": 1.2775912693981584,
+          "benchmark": 1.1766393447158918
+        },
+        {
+          "date": "2020-09-30",
+          "strategy": 1.2772828598877988,
+          "benchmark": 1.1590795468351471
+        },
+        {
+          "date": "2020-10-30",
+          "strategy": 1.2039845866219694,
+          "benchmark": 1.1010196340273113
+        },
+        {
+          "date": "2020-11-30",
+          "strategy": 1.4063980166067274,
+          "benchmark": 1.252592958594657
+        },
+        {
+          "date": "2020-12-30",
+          "strategy": 1.4735898073341904,
+          "benchmark": 1.2962310846918925
+        },
+        {
+          "date": "2021-01-29",
+          "strategy": 1.470412525168045,
+          "benchmark": 1.274200403136315
+        },
+        {
+          "date": "2021-02-26",
+          "strategy": 1.5430852593647908,
+          "benchmark": 1.3079809257410437
+        },
+        {
+          "date": "2021-03-31",
+          "strategy": 1.6192838760836172,
+          "benchmark": 1.3926658419638511
+        },
+        {
+          "date": "2021-04-30",
+          "strategy": 1.6626949394254185,
+          "benchmark": 1.4217714330654283
+        },
+        {
+          "date": "2021-05-31",
+          "strategy": 1.7286672145536501,
+          "benchmark": 1.4637952014923563
+        },
+        {
+          "date": "2021-06-30",
+          "strategy": 1.7379660171531632,
+          "benchmark": 1.4861770184680414
+        },
+        {
+          "date": "2021-07-30",
+          "strategy": 1.7613231339570388,
+          "benchmark": 1.5122563560379947
+        },
+        {
+          "date": "2021-08-31",
+          "strategy": 1.795878603256879,
+          "benchmark": 1.5482387210946336
+        },
+        {
+          "date": "2021-09-30",
+          "strategy": 1.6751266683054724,
+          "benchmark": 1.4946198418095442
+        },
+        {
+          "date": "2021-10-29",
+          "strategy": 1.7521524814009777,
+          "benchmark": 1.563334082101418
+        },
+        {
+          "date": "2021-11-30",
+          "strategy": 1.6749126965870604,
+          "benchmark": 1.5246616017603387
+        },
+        {
+          "date": "2021-12-30",
+          "strategy": 1.7662370476367166,
+          "benchmark": 1.6147516958202657
+        },
+        {
+          "date": "2022-01-31",
+          "strategy": 1.6859197551215972,
+          "benchmark": 1.5499276318970863
+        },
+        {
+          "date": "2022-02-28",
+          "strategy": 1.6776088864355023,
+          "benchmark": 1.4951281589845447
+        },
+        {
+          "date": "2022-03-31",
+          "strategy": 1.7309572741973474,
+          "benchmark": 1.5140539961257504
+        },
+        {
+          "date": "2022-04-29",
+          "strategy": 1.7540719478601956,
+          "benchmark": 1.501664035939579
+        },
+        {
+          "date": "2022-05-31",
+          "strategy": 1.7615049535412934,
+          "benchmark": 1.4904463055586359
+        },
+        {
+          "date": "2022-06-30",
+          "strategy": 1.5969023480024818,
+          "benchmark": 1.3697258131387406
+        },
+        {
+          "date": "2022-07-29",
+          "strategy": 1.6833518938595973,
+          "benchmark": 1.478009190750785
+        },
+        {
+          "date": "2022-08-31",
+          "strategy": 1.6051523767962452,
+          "benchmark": 1.4005670369098173
+        },
+        {
+          "date": "2022-09-30",
+          "strategy": 1.4884834111676157,
+          "benchmark": 1.3100824022248838
+        },
+        {
+          "date": "2022-10-31",
+          "strategy": 1.5602831635392314,
+          "benchmark": 1.393245972100122
+        },
+        {
+          "date": "2022-11-30",
+          "strategy": 1.6954987912513246,
+          "benchmark": 1.4911257921411267
+        },
+        {
+          "date": "2022-12-30",
+          "strategy": 1.6349993710625756,
+          "benchmark": 1.4478676421270738
+        },
+        {
+          "date": "2023-01-31",
+          "strategy": 1.7591807151749697,
+          "benchmark": 1.539958991595023
+        },
+        {
+          "date": "2023-02-28",
+          "strategy": 1.7685448569560116,
+          "benchmark": 1.567105434743634
+        },
+        {
+          "date": "2023-03-31",
+          "strategy": 1.7260752017185799,
+          "benchmark": 1.5610134159517373
+        },
+        {
+          "date": "2023-04-28",
+          "strategy": 1.7593369302157564,
+          "benchmark": 1.60271863908402
+        },
+        {
+          "date": "2023-05-31",
+          "strategy": 1.6986802518014954,
+          "benchmark": 1.5601518004311226
+        },
+        {
+          "date": "2023-06-30",
+          "strategy": 1.7484428436732256,
+          "benchmark": 1.5995256863831944
+        },
+        {
+          "date": "2023-07-31",
+          "strategy": 1.7743773650653731,
+          "benchmark": 1.6340364553297069
+        },
+        {
+          "date": "2023-08-31",
+          "strategy": 1.7507533606488046,
+          "benchmark": 1.5918566587336542
+        },
+        {
+          "date": "2023-09-29",
+          "strategy": 1.7525632120197145,
+          "benchmark": 1.5648283182203926
+        },
+        {
+          "date": "2023-10-31",
+          "strategy": 1.6972533930871334,
+          "benchmark": 1.5099222789491205
+        },
+        {
+          "date": "2023-11-30",
+          "strategy": 1.7989323232542702,
+          "benchmark": 1.6095277815448987
+        },
+        {
+          "date": "2023-12-29",
+          "strategy": 1.9034754187580132,
+          "benchmark": 1.671666633097016
+        },
+        {
+          "date": "2024-01-31",
+          "strategy": 1.859777476863215,
+          "benchmark": 1.6963927654628104
+        },
+        {
+          "date": "2024-02-29",
+          "strategy": 1.8921927898401416,
+          "benchmark": 1.7273004670813132
+        },
+        {
+          "date": "2024-03-28",
+          "strategy": 1.9662744570879926,
+          "benchmark": 1.8001533462262345
+        },
+        {
+          "date": "2024-04-30",
+          "strategy": 1.9541931371486307,
+          "benchmark": 1.7838621060554614
+        },
+        {
+          "date": "2024-05-31",
+          "strategy": 2.0234971708610425,
+          "benchmark": 1.8447763819476006
+        },
+        {
+          "date": "2024-06-28",
+          "strategy": 1.977166853570674,
+          "benchmark": 1.8229729649084656
+        },
+        {
+          "date": "2024-07-31",
+          "strategy": 2.0127317407981398,
+          "benchmark": 1.847341472707015
+        },
+        {
+          "date": "2024-08-30",
+          "strategy": 2.0534605562925563,
+          "benchmark": 1.8774435096294468
+        },
+        {
+          "date": "2024-09-30",
+          "strategy": 2.0649508400149523,
+          "benchmark": 1.870210120621034
+        },
+        {
+          "date": "2024-10-31",
+          "strategy": 1.9894032246057713,
+          "benchmark": 1.8098107953036442
+        },
+        {
+          "date": "2024-11-29",
+          "strategy": 2.0121062065120783,
+          "benchmark": 1.8286178088599172
+        },
+        {
+          "date": "2024-12-30",
+          "strategy": 1.9826862564998957,
+          "benchmark": 1.813834215609398
+        },
+        {
+          "date": "2025-01-31",
+          "strategy": 2.1389039367482443,
+          "benchmark": 1.9388947990149845
+        },
+        {
+          "date": "2025-02-28",
+          "strategy": 2.2180100737702593,
+          "benchmark": 2.0064166209606595
+        },
+        {
+          "date": "2025-03-31",
+          "strategy": 2.2005218366496884,
+          "benchmark": 1.927077038196692
+        },
+        {
+          "date": "2025-04-30",
+          "strategy": 2.1903673878890917,
+          "benchmark": 1.9176126776241098
+        },
+        {
+          "date": "2025-05-30",
+          "strategy": 2.2823594987224647,
+          "benchmark": 2.0140758429257177
+        },
+        {
+          "date": "2025-06-30",
+          "strategy": 2.279872880784173,
+          "benchmark": 1.9853247038251793
+        },
+        {
+          "date": "2025-07-31",
+          "strategy": 2.3332944692134157,
+          "benchmark": 2.0074085965819988
+        },
+        {
+          "date": "2025-08-29",
+          "strategy": 2.357043298445107,
+          "benchmark": 2.025811552028223
+        },
+        {
+          "date": "2025-09-30",
+          "strategy": 2.397021743026146,
+          "benchmark": 2.0546776212053923
+        },
+        {
+          "date": "2025-10-31",
+          "strategy": 2.5001684006706486,
+          "benchmark": 2.1100589549149795
+        },
+        {
+          "date": "2025-11-28",
+          "strategy": 2.5314065258874128,
+          "benchmark": 2.127528193139401
+        },
+        {
+          "date": "2025-12-30",
+          "strategy": 2.6256366781029348,
+          "benchmark": 2.185470724373788
+        },
+        {
+          "date": "2026-01-30",
+          "strategy": 2.8038504717724453,
+          "benchmark": 2.2578224965976044
+        },
+        {
+          "date": "2026-02-27",
+          "strategy": 3.027422498316785,
+          "benchmark": 2.344719205358064
+        },
+        {
+          "date": "2026-03-31",
+          "strategy": 2.9411525557152833,
+          "benchmark": 2.1653504502090364
+        },
+        {
+          "date": "2026-04-30",
+          "strategy": 3.0230100103575523,
+          "benchmark": 2.282366211785964
+        },
+        {
+          "date": "2026-05-29",
+          "strategy": 3.106613448288672,
+          "benchmark": 2.3519027000359825
+        },
+        {
+          "date": "2026-06-25",
+          "strategy": 3.0779351425204062,
+          "benchmark": 2.411393976290435
+        }
+      ],
+      "holdings": [
+        {
+          "date": "2015-01-30",
+          "sectors": [
+            "EU|Communication Services",
+            "EU|Consumer Discretionary",
+            "EU|Industrials",
+            "EU|Utilities",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2015-02-27",
+          "sectors": [
+            "EU|Consumer Discretionary",
+            "EU|Industrials",
+            "EU|Financials",
+            "EU|Health Care",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2015-03-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Health Care",
+            "EU|Energy",
+            "EU|Communication Services",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2015-04-30",
+          "sectors": [
+            "EU|Energy",
+            "EU|Financials",
+            "EU|Communication Services",
+            "EU|Materials",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2015-05-29",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Technology",
+            "EU|Communication Services",
+            "EU|Health Care",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2015-06-30",
+          "sectors": [
+            "EU|Communication Services",
+            "EU|Financials",
+            "EU|Consumer Staples",
+            "EU|Utilities",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2015-07-31",
+          "sectors": [
+            "EU|Consumer Discretionary",
+            "EU|Health Care",
+            "EU|Financials",
+            "EU|Communication Services",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2015-08-31",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Technology",
+            "EU|Communication Services",
+            "EU|Health Care",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2015-09-30",
+          "sectors": [
+            "EU|Consumer Discretionary",
+            "EU|Real Estate",
+            "EU|Technology",
+            "EU|Consumer Staples",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2015-10-30",
+          "sectors": [
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Consumer Staples",
+            "EU|Real Estate",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2015-11-30",
+          "sectors": [
+            "EU|Technology",
+            "EU|Industrials",
+            "EU|Consumer Staples",
+            "EU|Energy",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2015-12-30",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Health Care",
+            "EU|Technology",
+            "EU|Consumer Staples",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2016-01-29",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Consumer Discretionary",
+            "EU|Consumer Staples",
+            "EU|Technology",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2016-02-29",
+          "sectors": [
+            "EU|Materials",
+            "EU|Real Estate",
+            "EU|Energy",
+            "EU|Technology",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2016-03-31",
+          "sectors": [
+            "EU|Materials",
+            "EU|Real Estate",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2016-04-29",
+          "sectors": [
+            "EU|Materials",
+            "EU|Energy",
+            "EU|Utilities",
+            "EU|Industrials",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2016-05-31",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2016-06-30",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Energy",
+            "EU|Materials",
+            "EU|Consumer Discretionary",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2016-07-29",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Technology",
+            "EU|Materials",
+            "EU|Industrials",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2016-08-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Real Estate",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2016-09-30",
+          "sectors": [
+            "EU|Materials",
+            "EU|Technology",
+            "EU|Energy",
+            "EU|Real Estate",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2016-10-31",
+          "sectors": [
+            "EU|Materials",
+            "EU|Financials",
+            "EU|Energy",
+            "EU|Real Estate",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2016-11-30",
+          "sectors": [
+            "EU|Materials",
+            "EU|Energy",
+            "EU|Technology",
+            "EU|Financials",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2016-12-30",
+          "sectors": [
+            "EU|Energy",
+            "EU|Materials",
+            "EU|Technology",
+            "EU|Financials",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2017-01-31",
+          "sectors": [
+            "EU|Materials",
+            "EU|Financials",
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2017-02-28",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Consumer Discretionary",
+            "EU|Technology",
+            "EU|Utilities",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2017-03-31",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Financials",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2017-04-28",
+          "sectors": [
+            "EU|Financials",
+            "EU|Industrials",
+            "EU|Consumer Discretionary",
+            "EU|Technology",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2017-05-31",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Real Estate",
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2017-06-30",
+          "sectors": [
+            "EU|Financials",
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Consumer Staples",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2017-07-31",
+          "sectors": [
+            "EU|Materials",
+            "EU|Financials",
+            "EU|Real Estate",
+            "EU|Technology",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2017-08-31",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Materials",
+            "EU|Utilities",
+            "EU|Consumer Staples",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2017-09-29",
+          "sectors": [
+            "EU|Energy",
+            "EU|Financials",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2017-10-31",
+          "sectors": [
+            "EU|Energy",
+            "EU|Technology",
+            "EU|Industrials",
+            "EU|Materials",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2017-11-30",
+          "sectors": [
+            "EU|Energy",
+            "EU|Real Estate",
+            "EU|Consumer Staples",
+            "EU|Industrials",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2017-12-29",
+          "sectors": [
+            "EU|Materials",
+            "EU|Real Estate",
+            "EU|Energy",
+            "EU|Industrials",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2018-01-31",
+          "sectors": [
+            "EU|Materials",
+            "EU|Financials",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2018-02-28",
+          "sectors": [
+            "EU|Technology",
+            "EU|Materials",
+            "EU|Industrials",
+            "EU|Energy",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2018-03-29",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Real Estate",
+            "EU|Consumer Discretionary",
+            "EU|Energy",
+            "EU|Materials"
+          ]
+        },
+        {
+          "date": "2018-04-30",
+          "sectors": [
+            "EU|Energy",
+            "EU|Real Estate",
+            "EU|Communication Services",
+            "EU|Materials",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2018-05-31",
+          "sectors": [
+            "EU|Consumer Discretionary",
+            "EU|Energy",
+            "EU|Materials",
+            "EU|Technology",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2018-06-29",
+          "sectors": [
+            "EU|Energy",
+            "EU|Consumer Staples",
+            "EU|Utilities",
+            "EU|Real Estate",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2018-07-31",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Energy",
+            "EU|Real Estate",
+            "EU|Consumer Discretionary",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2018-08-31",
+          "sectors": [
+            "EU|Energy",
+            "EU|Real Estate",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2018-09-28",
+          "sectors": [
+            "EU|Energy",
+            "EU|Materials",
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2018-10-31",
+          "sectors": [
+            "EU|Consumer Staples",
+            "EU|Energy",
+            "EU|Utilities",
+            "EU|Health Care",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2018-11-30",
+          "sectors": [
+            "EU|Communication Services",
+            "EU|Health Care",
+            "EU|Consumer Staples",
+            "EU|Utilities",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2018-12-28",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Communication Services",
+            "EU|Materials",
+            "EU|Health Care",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2019-01-31",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Materials",
+            "EU|Consumer Staples",
+            "EU|Real Estate",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2019-02-28",
+          "sectors": [
+            "EU|Materials",
+            "EU|Health Care",
+            "EU|Consumer Staples",
+            "EU|Financials",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2019-03-29",
+          "sectors": [
+            "EU|Consumer Staples",
+            "EU|Materials",
+            "EU|Health Care",
+            "EU|Utilities",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2019-04-30",
+          "sectors": [
+            "EU|Technology",
+            "EU|Industrials",
+            "EU|Consumer Staples",
+            "EU|Financials",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2019-05-31",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Consumer Staples",
+            "EU|Utilities",
+            "EU|Health Care",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2019-06-28",
+          "sectors": [
+            "EU|Technology",
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Consumer Discretionary",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2019-07-31",
+          "sectors": [
+            "EU|Consumer Staples",
+            "EU|Health Care",
+            "EU|Consumer Discretionary",
+            "EU|Technology",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2019-08-30",
+          "sectors": [
+            "EU|Consumer Staples",
+            "EU|Health Care",
+            "EU|Utilities",
+            "EU|Real Estate",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2019-09-30",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Communication Services",
+            "EU|Health Care",
+            "EU|Real Estate",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2019-10-31",
+          "sectors": [
+            "EU|Industrials",
+            "EU|Health Care",
+            "EU|Utilities",
+            "EU|Communication Services",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2019-11-29",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Technology",
+            "EU|Industrials",
+            "EU|Consumer Discretionary",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2019-12-30",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Utilities",
+            "EU|Financials",
+            "EU|Industrials",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2020-01-31",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Consumer Discretionary",
+            "EU|Real Estate",
+            "EU|Health Care",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2020-02-28",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Real Estate",
+            "EU|Health Care",
+            "EU|Technology",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2020-03-31",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Technology",
+            "EU|Consumer Staples",
+            "EU|Consumer Discretionary",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2020-04-30",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Materials",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2020-05-29",
+          "sectors": [
+            "EU|Technology",
+            "EU|Utilities",
+            "EU|Industrials",
+            "EU|Materials",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2020-06-30",
+          "sectors": [
+            "EU|Technology",
+            "EU|Utilities",
+            "EU|Consumer Discretionary",
+            "EU|Industrials",
+            "EU|Materials"
+          ]
+        },
+        {
+          "date": "2020-07-31",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Technology",
+            "EU|Industrials",
+            "EU|Consumer Staples",
+            "EU|Materials"
+          ]
+        },
+        {
+          "date": "2020-08-31",
+          "sectors": [
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Industrials",
+            "EU|Materials",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2020-09-30",
+          "sectors": [
+            "EU|Consumer Discretionary",
+            "EU|Utilities",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2020-10-30",
+          "sectors": [
+            "EU|Consumer Discretionary",
+            "EU|Industrials",
+            "EU|Materials",
+            "EU|Communication Services",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2020-11-30",
+          "sectors": [
+            "EU|Financials",
+            "EU|Energy",
+            "EU|Materials",
+            "EU|Industrials",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2020-12-30",
+          "sectors": [
+            "EU|Materials",
+            "EU|Consumer Discretionary",
+            "EU|Industrials",
+            "EU|Energy",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2021-01-29",
+          "sectors": [
+            "EU|Technology",
+            "EU|Materials",
+            "EU|Communication Services",
+            "EU|Industrials",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2021-02-26",
+          "sectors": [
+            "EU|Financials",
+            "EU|Materials",
+            "EU|Energy",
+            "EU|Industrials",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2021-03-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Communication Services",
+            "EU|Technology",
+            "EU|Materials",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2021-04-30",
+          "sectors": [
+            "EU|Financials",
+            "EU|Consumer Staples",
+            "EU|Materials",
+            "EU|Consumer Discretionary",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2021-05-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Consumer Discretionary",
+            "EU|Real Estate",
+            "EU|Technology",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2021-06-30",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Technology",
+            "EU|Consumer Staples",
+            "EU|Communication Services",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2021-07-30",
+          "sectors": [
+            "EU|Materials",
+            "EU|Technology",
+            "EU|Industrials",
+            "EU|Health Care",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2021-08-31",
+          "sectors": [
+            "EU|Technology",
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Utilities",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2021-09-30",
+          "sectors": [
+            "EU|Energy",
+            "EU|Financials",
+            "EU|Health Care",
+            "EU|Consumer Staples",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2021-10-29",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Financials",
+            "EU|Technology",
+            "EU|Energy",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2021-11-30",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Consumer Discretionary",
+            "EU|Utilities",
+            "EU|Consumer Staples",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2021-12-30",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Materials",
+            "EU|Consumer Staples",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2022-01-31",
+          "sectors": [
+            "EU|Energy",
+            "EU|Financials",
+            "EU|Communication Services",
+            "EU|Utilities",
+            "EU|Materials"
+          ]
+        },
+        {
+          "date": "2022-02-28",
+          "sectors": [
+            "EU|Materials",
+            "EU|Energy",
+            "EU|Utilities",
+            "EU|Consumer Staples",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2022-03-31",
+          "sectors": [
+            "EU|Materials",
+            "EU|Health Care",
+            "EU|Energy",
+            "EU|Communication Services",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2022-04-29",
+          "sectors": [
+            "EU|Consumer Staples",
+            "EU|Energy",
+            "EU|Utilities",
+            "EU|Communication Services",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2022-05-31",
+          "sectors": [
+            "EU|Energy",
+            "EU|Financials",
+            "EU|Materials",
+            "EU|Communication Services",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2022-06-30",
+          "sectors": [
+            "EU|Consumer Staples",
+            "EU|Health Care",
+            "EU|Consumer Discretionary",
+            "EU|Communication Services",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2022-07-29",
+          "sectors": [
+            "EU|Consumer Discretionary",
+            "EU|Consumer Staples",
+            "EU|Technology",
+            "EU|Energy",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2022-08-31",
+          "sectors": [
+            "EU|Energy",
+            "EU|Health Care",
+            "EU|Consumer Discretionary",
+            "EU|Consumer Staples",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2022-09-30",
+          "sectors": [
+            "EU|Energy",
+            "EU|Consumer Staples",
+            "EU|Materials",
+            "EU|Consumer Discretionary",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2022-10-31",
+          "sectors": [
+            "EU|Energy",
+            "EU|Industrials",
+            "EU|Financials",
+            "EU|Technology",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2022-11-30",
+          "sectors": [
+            "EU|Consumer Discretionary",
+            "EU|Materials",
+            "EU|Financials",
+            "EU|Industrials",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2022-12-30",
+          "sectors": [
+            "EU|Financials",
+            "EU|Materials",
+            "EU|Energy",
+            "EU|Real Estate",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2023-01-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Materials",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2023-02-28",
+          "sectors": [
+            "EU|Financials",
+            "EU|Communication Services",
+            "EU|Energy",
+            "EU|Consumer Discretionary",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2023-03-31",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Utilities",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2023-04-28",
+          "sectors": [
+            "EU|Industrials",
+            "EU|Utilities",
+            "EU|Consumer Discretionary",
+            "EU|Consumer Staples",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2023-05-31",
+          "sectors": [
+            "EU|Technology",
+            "EU|Industrials",
+            "EU|Financials",
+            "EU|Utilities",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2023-06-30",
+          "sectors": [
+            "EU|Financials",
+            "EU|Technology",
+            "EU|Utilities",
+            "EU|Industrials",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2023-07-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Energy",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2023-08-31",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Energy",
+            "EU|Real Estate",
+            "EU|Utilities",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2023-09-29",
+          "sectors": [
+            "EU|Energy",
+            "EU|Financials",
+            "EU|Materials",
+            "EU|Communication Services",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2023-10-31",
+          "sectors": [
+            "EU|Energy",
+            "EU|Utilities",
+            "EU|Materials",
+            "EU|Real Estate",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2023-11-30",
+          "sectors": [
+            "EU|Technology",
+            "EU|Utilities",
+            "EU|Real Estate",
+            "EU|Industrials",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2023-12-29",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Materials",
+            "EU|Industrials",
+            "EU|Utilities",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2024-01-31",
+          "sectors": [
+            "EU|Technology",
+            "EU|Consumer Discretionary",
+            "EU|Real Estate",
+            "EU|Industrials",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2024-02-29",
+          "sectors": [
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Financials",
+            "EU|Health Care",
+            "EU|Consumer Discretionary"
+          ]
+        },
+        {
+          "date": "2024-03-28",
+          "sectors": [
+            "EU|Financials",
+            "EU|Industrials",
+            "EU|Technology",
+            "EU|Real Estate",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2024-04-30",
+          "sectors": [
+            "EU|Financials",
+            "EU|Materials",
+            "EU|Real Estate",
+            "EU|Industrials",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2024-05-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Health Care",
+            "EU|Industrials",
+            "EU|Communication Services",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2024-06-28",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Technology",
+            "EU|Communication Services",
+            "EU|Financials",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2024-07-31",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Financials",
+            "EU|Communication Services",
+            "EU|Utilities",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2024-08-30",
+          "sectors": [
+            "EU|Real Estate",
+            "EU|Utilities",
+            "EU|Communication Services",
+            "EU|Health Care",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2024-09-30",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Materials",
+            "EU|Communication Services",
+            "EU|Consumer Discretionary",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2024-10-31",
+          "sectors": [
+            "EU|Communication Services",
+            "EU|Financials",
+            "EU|Materials",
+            "EU|Utilities",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2024-11-29",
+          "sectors": [
+            "EU|Communication Services",
+            "EU|Utilities",
+            "EU|Financials",
+            "EU|Industrials",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2024-12-30",
+          "sectors": [
+            "EU|Financials",
+            "EU|Consumer Discretionary",
+            "EU|Communication Services",
+            "EU|Technology",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2025-01-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Consumer Discretionary",
+            "EU|Industrials",
+            "EU|Health Care",
+            "EU|Technology"
+          ]
+        },
+        {
+          "date": "2025-02-28",
+          "sectors": [
+            "EU|Financials",
+            "EU|Communication Services",
+            "EU|Health Care",
+            "EU|Consumer Staples",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2025-03-31",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Financials",
+            "EU|Communication Services",
+            "EU|Energy",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2025-04-30",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Financials",
+            "EU|Real Estate",
+            "EU|Communication Services",
+            "EU|Consumer Staples"
+          ]
+        },
+        {
+          "date": "2025-05-30",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Financials",
+            "EU|Real Estate",
+            "EU|Communication Services",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2025-06-30",
+          "sectors": [
+            "EU|Financials",
+            "EU|Utilities",
+            "EU|Industrials",
+            "EU|Real Estate",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2025-07-31",
+          "sectors": [
+            "EU|Financials",
+            "EU|Energy",
+            "EU|Industrials",
+            "EU|Real Estate",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2025-08-29",
+          "sectors": [
+            "EU|Health Care",
+            "EU|Energy",
+            "EU|Financials",
+            "EU|Materials",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2025-09-30",
+          "sectors": [
+            "EU|Materials",
+            "EU|Financials",
+            "EU|Technology",
+            "EU|Utilities",
+            "EU|Industrials"
+          ]
+        },
+        {
+          "date": "2025-10-31",
+          "sectors": [
+            "EU|Utilities",
+            "EU|Materials",
+            "EU|Energy",
+            "EU|Technology",
+            "EU|Financials"
+          ]
+        },
+        {
+          "date": "2025-11-28",
+          "sectors": [
+            "EU|Materials",
+            "EU|Financials",
+            "EU|Utilities",
+            "EU|Consumer Discretionary",
+            "EU|Energy"
+          ]
+        },
+        {
+          "date": "2025-12-30",
+          "sectors": [
+            "EU|Materials",
+            "EU|Financials",
+            "EU|Utilities",
+            "EU|Communication Services",
+            "EU|Health Care"
+          ]
+        },
+        {
+          "date": "2026-01-30",
+          "sectors": [
+            "EU|Materials",
+            "EU|Utilities",
+            "EU|Financials",
+            "EU|Energy",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2026-02-27",
+          "sectors": [
+            "EU|Materials",
+            "EU|Utilities",
+            "EU|Communication Services",
+            "EU|Energy",
+            "EU|Real Estate"
+          ]
+        },
+        {
+          "date": "2026-03-31",
+          "sectors": [
+            "EU|Energy",
+            "EU|Materials",
+            "EU|Communication Services",
+            "EU|Health Care",
+            "EU|Utilities"
+          ]
+        },
+        {
+          "date": "2026-04-30",
+          "sectors": [
+            "EU|Energy",
+            "EU|Technology",
+            "EU|Materials",
+            "EU|Utilities",
+            "EU|Communication Services"
+          ]
+        },
+        {
+          "date": "2026-05-29",
+          "sectors": [
+            "EU|Technology",
+            "EU|Materials",
+            "EU|Industrials",
+            "EU|Financials",
+            "EU|Communication Services"
+          ]
+        }
+      ]
+    }
+  }
+}

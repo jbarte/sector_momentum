@@ -1,0 +1,49 @@
+name: Build Dashboard
+
+# Rebuilds docs/ on main whenever dashboard source changes, so the published
+# dashboard is a CI-owned artifact. Feature branches should NOT commit docs/ —
+# that's what caused recurring merge conflicts (the cron and every branch each
+# regenerating the same generated tree). See CLAUDE.md → Generated artifacts.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dashboard/**"
+      - "src/**"
+      - "config/**"
+      - "backtests/**"
+      - "requirements.txt"
+  workflow_dispatch: {}
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # needed to commit the rebuilt docs/ back to main
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build dashboard
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python dashboard/build.py
+
+      - name: Commit rebuilt docs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          # [skip ci] + the docs/-excluded paths filter both prevent a rebuild loop.
+          git diff --staged --quiet || git commit -m "build: rebuild dashboard [skip ci]"
+          git push
