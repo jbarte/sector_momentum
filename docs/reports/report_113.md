@@ -40,7 +40,7 @@
 - **Real Estate** (US): rank 14 (Δ-3)
 - **Utilities** (US): rank 8 (Δ-2)
 - **Energy** (US): rank 20 (Δ-2)
-- **Consumer Staples** (US): rank 16 (Δ-1)
+- **Consumer Discretionary** (EU): rank 13 (Δ-1)
 
 ## 🇸🇪 Swedish Expression
 

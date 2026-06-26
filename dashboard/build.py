@@ -942,6 +942,67 @@ def _build_history_figure(history_df) -> str:
 
 
 
+def _build_backtest_figures(summary) -> dict:
+    """Per-track equity curves (strategy vs benchmark). Returns {region: fig_json}."""
+    if not summary or not summary.get("tracks"):
+        return {}
+    figs: dict[str, str] = {}
+    for region, track in summary["tracks"].items():
+        if not track or not track.get("equity_curve"):
+            continue
+        dates = [p["date"] for p in track["equity_curve"]]
+        strat = [p["strategy"] for p in track["equity_curve"]]
+        bench = [p["benchmark"] for p in track["equity_curve"]]
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=dates, y=strat, mode="lines",
+                                 name=f"Top {track['top_n']} strategy",
+                                 line=dict(color=_WARM_PALETTE[0])))
+        fig.add_trace(go.Scatter(x=dates, y=bench, mode="lines",
+                                 name=f"Benchmark ({track['benchmark']})",
+                                 line=dict(color=_WARM_PALETTE[3], dash="dash")))
+        fig.update_layout(
+            title=dict(text=f"{region} — growth of 1.0", font=dict(size=13, color="#3E392B")),
+            xaxis=dict(title="Date", gridcolor="#DFD5BE"),
+            yaxis=dict(title="Equity (×)", gridcolor="#DFD5BE"),
+            paper_bgcolor="#F5F0E6", plot_bgcolor="#FAF7F0",
+            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
+            legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
+            margin=dict(l=50, r=20, t=50, b=50), hovermode="x unified",
+        )
+        figs[region] = pio.to_json(fig)
+    return figs
+
+
+def _build_backtest_context(backtests_dir: str) -> dict:
+    """Load summary.json and shape it for the template."""
+    import json as _json
+    from src.backtest.results import load_summary
+
+    summary = load_summary(backtests_dir)
+    figs = _build_backtest_figures(summary)
+    rows: list[dict] = []
+    if summary:
+        for region, track in summary["tracks"].items():
+            if not track:
+                continue
+            m = track["metrics"]
+            rows.append({
+                "region": region, "start": track["start"], "end": track["end"],
+                "benchmark": track["benchmark"], "top_n": track["top_n"],
+                "cagr": f"{100 * m['cagr']:.1f}%",
+                "benchmark_cagr": f"{100 * m['benchmark_cagr']:.1f}%",
+                "sharpe": f"{m['sharpe']:.2f}",
+                "max_drawdown": f"{100 * m['max_drawdown']:.1f}%",
+                "hit_rate": f"{100 * m['hit_rate']:.0f}%",
+                "avg_turnover": f"{100 * m['avg_turnover']:.0f}%",
+            })
+    return {
+        "backtest_json": _json.dumps({k: _json.loads(v) for k, v in figs.items()}),
+        "backtest_metrics": rows,
+        "has_backtest": bool(figs),
+    }
+
+
 def build_scan_index(all_scores_df) -> list[dict]:
     """One row per scan (newest first) for the history list."""
     import pandas as pd
@@ -1197,6 +1258,9 @@ def main() -> None:
     logger.info("Building composite leaderboard rows …")
     composite_rows = _build_composite_rows(history_df, split_breakdowns)
 
+    logger.info("Building backtest context …")
+    backtest_ctx = _build_backtest_context(str(project_root / "backtests"))
+
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
     import shutil
     docs_assets = out_dir / "assets"
@@ -1231,6 +1295,9 @@ def main() -> None:
             rescore_data_json=rescore_data_json,
             signals_list=signals_list,
             plotly_bundle=plotly_bundle_rel,
+            backtest_json=backtest_ctx["backtest_json"],
+            backtest_metrics=backtest_ctx["backtest_metrics"],
+            has_backtest=backtest_ctx["has_backtest"],
         ),
     )
     print(f"Dashboard built: {out_path}")

@@ -167,14 +167,20 @@ Carried over from earlier planning — not started:
   maintaining.
 - **Multilingual sentiment polarity (FinBERT)** — replace/augment VADER with a
   finance-tuned, multilingual sentiment model
-- **Backtest against past rotations** — validate signals against historical sector
-  rotations (e.g. energy 2021–22)
+- **Backtest against past rotations — Phase 2 (rotation event-study)** — the early-flag
+  half: per-rotation rank-over-time vs forward return for a curated list of historical
+  rotations (e.g. energy 2021–22). Phase 1 (edge / strategy backtest) shipped 2026-06-26.
 - **Streamlit live drill-down** (optional) — interactive drill-down UI
 
 ---
 
 ## Done
 
+- ~~Backtest against past rotations (Phase 1 — edge)~~ — US/EU monthly top-5 rotation
+  backtest vs RSP/EXSA.DE; `backtest.py` CLI + committed `backtests/` artifact + dashboard
+  Backtest tab (equity curves + metrics). Point-in-time (no look-ahead), price-pillars-only,
+  each region scored within its own cohort. Phase 2 (rotation event-study) still pending.
+  *(2026-06-26)*
 - ~~Fetch history & per-scan export~~ — dashboard History tab now lists every scan
   (scan index with active-scan marker) with a per-scan report link; `write_report`
   refactored into `build_report_markdown`, per-scan reports generated to
