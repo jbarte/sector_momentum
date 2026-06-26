@@ -19,7 +19,7 @@ def build_symbol_map(
     sector_etfs: dict,
     blocklist: set[str] | None = None,
 ) -> dict[str, list[str]]:
-    block = {b.upper() for b in (blocklist or set())}
+    block = {str(b).upper() for b in (blocklist or set())}
     out: dict[str, list[str]] = {}
     for region, key in (("US", "us_sectors"), ("EU", "eu_sectors")):
         for sector, primary in universe.get(key, {}).items():
