@@ -582,8 +582,8 @@ select.sector-select:focus {
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active">
   <details class="tab-guide">
-    <summary>How to read this tab</summary>
-    <div class="tab-guide-body">
+    <summary data-i18n="guide_summary">How to read this tab</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_leaderboard">
       <p>Every sector is ranked by <strong>composite score</strong> — a cross-sectional z-score blending level momentum (how strong the sector is now) and change momentum (whether it's accelerating or decelerating). A score of <strong>0</strong> means average across all sectors; <strong>+1.0</strong> means one standard deviation above average.</p>
       <h4>Trend badge — the most actionable signal</h4>
       <p>Computed as the linear slope of rank over the last 3–5 scans. A falling rank number means the sector is climbing the leaderboard.</p>
@@ -693,8 +693,8 @@ select.sector-select:focus {
 <section id="tab-rrg" class="tab-panel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
-    <summary>How to read this tab</summary>
-    <div class="tab-guide-body">
+    <summary data-i18n="guide_summary">How to read this tab</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_rrg">
       <p>Sectors are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
       <h4>Four quadrants</h4>
       <ul>
@@ -716,8 +716,8 @@ select.sector-select:focus {
      ============================================================ -->
 <section id="tab-drilldown" class="tab-panel">
   <details class="tab-guide">
-    <summary>How to read this tab</summary>
-    <div class="tab-guide-body">
+    <summary data-i18n="guide_summary">How to read this tab</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_drilldown">
       <p>Select a sector to see its score component history across all stored scans.</p>
       <h4>Key patterns</h4>
       <ul>
@@ -747,8 +747,8 @@ select.sector-select:focus {
 <section id="tab-movers" class="tab-panel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
-    <summary>How to read this tab</summary>
-    <div class="tab-guide-body">
+    <summary data-i18n="guide_summary">How to read this tab</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_movers">
       <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = sectors that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = sectors that slipped.</p>
       <h4>How to use</h4>
       <ul>
@@ -767,8 +767,8 @@ select.sector-select:focus {
 <section id="tab-history" class="tab-panel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
-    <summary>How to read this tab</summary>
-    <div class="tab-guide-body">
+    <summary data-i18n="guide_summary">How to read this tab</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_history">
       <p>Composite score trend across all stored scans for every sector. The composite is a cross-sectional z-score — 0 = sector-average for that scan.</p>
       <h4>Key patterns</h4>
       <ul>
@@ -834,8 +834,8 @@ select.sector-select:focus {
 <section id="tab-sentiment" class="tab-panel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
-    <summary>How is the sentiment score calculated?</summary>
-    <div class="tab-guide-body">
+    <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
       <h4>Source — Google Trends only</h4>
       <p>Sentiment measures <strong>search attention</strong> using Google Trends.
          Reddit and news-headline sources were evaluated and dropped — no reliable
@@ -867,7 +867,7 @@ select.sector-select:focus {
      Tab: Guide
      ============================================================ -->
 <section id="tab-guide" class="tab-panel">
-  <div class="guide">
+  <div class="guide" data-i18n-html="guide_tab">
     <h2>Leaderboard</h2>
     <p>
       The leaderboard ranks every sector by its <strong>composite score</strong> — a
@@ -1260,15 +1260,125 @@ function sortTable(col) {
     si_run: "Körning (UTC)",
     si_sectors: "Sektorer",
     si_top: "Topp-sektor",
-    si_report: "Rapport"
+    si_report: "Rapport",
+    guide_summary: "Hur du läser den här fliken",
+    guide_summary_sentiment: "Hur beräknas sentimentpoängen?"
   };
+
+  // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
+  var SV_HTML = {
+    guide_body_leaderboard: `
+      <p>Varje sektor rankas efter <strong>kompositpoäng</strong> — ett tvärsnitts-z-värde som väger samman nivåmomentum (hur stark sektorn är just nu) och förändringsmomentum (om den accelererar eller bromsar in). Poängen <strong>0</strong> betyder genomsnitt över alla sektorer; <strong>+1,0</strong> betyder en standardavvikelse över genomsnittet.</p>
+      <h4>Trend-märke — den mest handlingsbara signalen</h4>
+      <p>Beräknas som den linjära lutningen av rangen över de senaste 3–5 skanningarna. Ett sjunkande rangnummer betyder att sektorn klättrar på topplistan.</p>
+      <ul>
+        <li><span class="signal-hi">↑↑ Stiger snabbt</span> — rangen förbättras 1,5+ platser per skanning. Stark insteg-signal.</li>
+        <li><span class="signal-hi">↑ Stiger</span> — rangen förbättras 0,3–1,5 platser per skanning. Framväxande momentum.</li>
+        <li>→ Platt — rangen stabil. Momentum varken byggs upp eller avvecklas.</li>
+        <li><span class="signal-lo">↓ Faller</span> — rangen försämras även om den fortfarande är hög. Momentum mattas av.</li>
+        <li><span class="signal-lo">↓↓ Faller snabbt</span> — undvik eller överväg att gå ur.</li>
+      </ul>
+      <h4>Insteg-läge</h4>
+      <p>Komposit &gt; 0 med <span class="signal-hi">↑</span>- eller <span class="signal-hi">↑↑</span>-bana och positiv förändringspoäng. Klicka på en rad för att se hela signaluppdelningen.</p>
+      <h4>Ur-/undvik-signal</h4>
+      <p><span class="signal-lo">↓</span>- eller <span class="signal-lo">↓↓</span>-bana även när rangen fortfarande är hög — sektorn toppar. Rang-Δ som vänder negativt bekräftar vändningen.</p>`,
+    guide_body_rrg: `
+      <p>Sektorer plottas efter <strong>relativ styrka mot jämförelseindex</strong> (x-axel) och om den relativa styrkan <strong>accelererar eller bromsar in</strong> (y-axel). Båda axlarna är centrerade kring 100.</p>
+      <h4>Fyra kvadranter</h4>
+      <ul>
+        <li><strong>Ledande (uppe till höger):</strong> Överpresterar OCH accelererar. Starkt just nu — men håll utkik efter rotation in i Försvagas.</li>
+        <li><strong>Försvagas (nere till höger):</strong> Överpresterar men bromsar in. <span class="signal-lo">Främsta ur-/minska-signal.</span></li>
+        <li><strong>Eftersläpar (nere till vänster):</strong> Underpresterar OCH bromsar in. Undvik.</li>
+        <li><strong>Förbättras (uppe till vänster):</strong> Underpresterar men accelererar. <span class="signal-hi">Främsta insteg-signal</span> — sektorer roterar vanligtvis moturs härifrån in i Ledande.</li>
+      </ul>
+      <h4>Så använder du den</h4>
+      <p>Sektorer roterar Ledande → Försvagas → Eftersläpar → Förbättras → Ledande. Köp i <span class="signal-hi">Förbättras</span> före rörelsen till Ledande; sälj i <span class="signal-lo">Försvagas</span> före fallet till Eftersläpar. Prickade svanslinjer visar de senaste 3 skanningspositionerna — svansens riktning betyder mer än nuvarande position.</p>
+      <p><em>Obs: nuvarande axlar är kompositbaserade approximationer. Äkta JdK RS-Ratio/Momentum kräver daglig prisdata relativt ett jämförelseindex.</em></p>`,
+    guide_body_drilldown: `
+      <p>Välj en sektor för att se historiken för dess poängkomponenter över alla lagrade skanningar.</p>
+      <h4>Viktiga mönster</h4>
+      <ul>
+        <li><span class="signal-hi">Komposit stiger + förändringspoäng stiger:</span> ihållande acceleration. Insteg-läge med högst övertygelse.</li>
+        <li><span class="signal-lo">Komposit nära topp + förändringspoäng vänder negativt:</span> sektorn toppar. Minska eller gå ur.</li>
+        <li>Komposit faller men förändringspoäng stiger: bottenprocess. Invänta en andra skanning i rad som bekräftar innan insteg.</li>
+        <li>Nivåpoäng och förändringspoäng divergerar: momentumstrukturen bryts ned — hantera med försiktighet.</li>
+      </ul>
+      <h4>Så använder du den</h4>
+      <p>Kombinera med topplistans Trend-märke. En sektor som visar <span class="signal-hi">↑</span> på topplistan och som även har stigande komposit och change_score i detaljvyn är läget med högst övertygelse. En sektor med hög rang men platt eller fallande change_score halkar sannolikt i nästa skanning.</p>`,
+    guide_body_movers: `
+      <p>Rangförändring mellan de två senaste skanningarna. <span class="signal-hi">Gröna staplar</span> = sektorer som klättrade på topplistan; <span class="signal-lo">terrakotta-staplar</span> = sektorer som halkade.</p>
+      <h4>Så använder du den</h4>
+      <ul>
+        <li>En enskild stor positiv rörelse kan vara en datahändelse snarare än ihållande momentum — bekräfta i Detaljvy-fliken innan du agerar.</li>
+        <li>Sektorer med 2+ stora positiva rörelser i rad i Historik-fliken bär mer övertygelse än enstaka hopp.</li>
+        <li><span class="signal-lo">Varningsflagga:</span> en högt rankad sektor med en stor negativ stapel här är en tidig topp-signal. Kolla topplistans Trend-märke — om det visar <span class="signal-lo">↓</span> eller <span class="signal-lo">↓↓</span> är vändningen sannolikt verklig.</li>
+      </ul>`,
+    guide_body_history: `
+      <p>Kompositpoängens trend över alla lagrade skanningar för varje sektor. Kompositen är ett tvärsnitts-z-värde — 0 = sektorgenomsnitt för den skanningen.</p>
+      <h4>Viktiga mönster</h4>
+      <ul>
+        <li><span class="signal-hi">Konsekvent uppåtlutning:</span> kvalitetsmomentum. Sektorn har överpresterat under flera skanningar — detta är signalen med högst kvalitet.</li>
+        <li><span class="signal-lo">Skarp spik följt av vändning:</span> sannolikt en engångs-datahändelse, inte hållbart momentum. Hantera med försiktighet.</li>
+        <li>Gradvis återhämtning från negativt territorium: möjlig framväxande chans — dubbelkolla topplistans Trend-märke för bekräftelse.</li>
+        <li>Platt kring noll: sektorn i linje med genomsnittet; ingen edge.</li>
+      </ul>
+      <h4>Så använder du den</h4>
+      <p>Använd som kontext för nuvarande rang. En sektor rankad #1 efter att stadigt ha stigit under 10 skanningar har en annan riskprofil än en som hoppade från #8 förra skanningen. Långa, jämna uppgångar är de insteg värda att behålla; V-formade vändningar är de att handla snabbt eller hoppa över.</p>`,
+    guide_body_sentiment: `
+      <h4>Källa — endast Google Trends</h4>
+      <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
+      <h4>Metod</h4>
+      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Poängen är <strong>trenden (lutningen)</strong> i det intresset, sedan standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>.</p>
+      <h4>Den styr inte rankningen som standard</h4>
+      <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`,
+    guide_tab: `
+    <h2>Topplista</h2>
+    <p>Topplistan rankar varje sektor efter dess <strong>kompositpoäng</strong> — en viktad blandning av delpoängen nivå, momentumförändring och datakvalitet. En högre komposit (mer positivt z-värde) betyder att sektorn uppvisar starkare relativt momentum mot sitt jämförelseindex.</p>
+    <ul>
+      <li><strong>Nivåpoäng</strong> — fångar den nuvarande absoluta momentumnivån (avkastning, MA-struktur, OBV-trend).</li>
+      <li><strong>Förändringspoäng</strong> — fångar hur momentum accelererar eller bromsar in mot föregående skanning.</li>
+      <li><strong>Datapoäng</strong> — speglar datafullständighet; sektorer med saknade signaler straffas.</li>
+      <li><strong>Rang-Δ</strong> — hur många placeringar sektorn klättrade (▲) eller föll (▼) mot föregående skanning.</li>
+    </ul>
+    <p>Klicka på en kolumnrubrik för att sortera tabellen.</p>
+    <h2>Relativ rotationsgraf (RRG)</h2>
+    <p>RRG:n plottar sektorer på två axlar härledda från deras relativa styrka mot jämförelseindexet:</p>
+    <ul>
+      <li><strong>X-axel (RS-Ratio)</strong> — om sektorn överpresterar (&gt; 100) eller underpresterar (&lt; 100) jämförelseindexet.</li>
+      <li><strong>Y-axel (RS-Momentum)</strong> — om den relativa styrkan accelererar (&gt; 100) eller bromsar in (&lt; 100).</li>
+    </ul>
+    <p>Tolkning av kvadranter:</p>
+    <ul>
+      <li><strong>Ledande</strong> (uppe till höger) — överpresterar och accelererar.</li>
+      <li><strong>Försvagas</strong> (nere till höger) — överpresterar men bromsar in.</li>
+      <li><strong>Eftersläpar</strong> (nere till vänster) — underpresterar och bromsar in.</li>
+      <li><strong>Förbättras</strong> (uppe till vänster) — underpresterar men accelererar.</li>
+    </ul>
+    <p>Prickade svanslinjer visar de senaste 5 skanningspositionerna per sektor och anger rotationsriktning. Sektorer som roterar medurs från Förbättras → Ledande är de starkaste tidiga trendlägena.</p>
+    <h2>Detaljvy</h2>
+    <p>Välj en sektor i rullistan för att se hur varje poängkomponent har utvecklats över tid. Användbart för att upptäcka trender över flera skanningar — en stigande <em>change_score</em> tillsammans med en stigande <em>komposit</em> är en stark signal om ihållande momentum.</p>
+    <h2>Rörelser</h2>
+    <p>Rörelsepanelen visar rangförändringen mellan de två senaste skanningarna. <span style="color:var(--up)">Gröna staplar</span> anger sektorer som klättrade på topplistan; <span style="color:var(--down)">terrakotta-staplar</span> anger sektorer som halkade. Stora rörelser kan spegla datauppdateringar, makrohändelser eller äkta momentumskiften.</p>
+    <h2>Historik</h2>
+    <p>Ett linjediagram över kompositpoängen för alla lagrade skanningar. Ihållande uppåtgående trender i en sektors kompositpoäng indikerar uthålligt momentum, medan vändningar kan signalera rotation in i eller ut ur sektorn.</p>
+    <h2>Ansvarsfriskrivning</h2>
+    <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning eller en rekommendation att köpa, sälja eller behålla något värdepapper. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys och rådgör med en kvalificerad finansiell rådgivare innan du fattar investeringsbeslut.</p>`
+  };
+
   var els = document.querySelectorAll("[data-i18n]");
   els.forEach(function (el) { el.setAttribute("data-en", el.textContent); });
+  var htmlEls = document.querySelectorAll("[data-i18n-html]");
+  var enHtml = new Map();
+  htmlEls.forEach(function (el) { enHtml.set(el, el.innerHTML); });
 
   function apply(lang) {
     els.forEach(function (el) {
       var key = el.getAttribute("data-i18n");
       el.textContent = (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en");
+    });
+    htmlEls.forEach(function (el) {
+      var key = el.getAttribute("data-i18n-html");
+      el.innerHTML = (lang === "sv" && SV_HTML[key] != null) ? SV_HTML[key] : enHtml.get(el);
     });
     document.documentElement.lang = (lang === "sv") ? "sv" : "en";
     var btn = document.getElementById("lang-toggle");
