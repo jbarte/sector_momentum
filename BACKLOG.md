@@ -121,42 +121,6 @@ we later decide it should influence the composite.
 
 ---
 
-## Fetch history & per-scan export
-
-**What:** Replace the single "Last scan: <date>" line at the top of the dashboard
-with a browsable **history of every data fetch/scan**, and let the user export any
-individual scan's data in the same Markdown report format `scan.py` already produces
-after each fetch.
-
-**Why:** Right now only the latest scan is visible and only the latest scan's report
-is generated. There's no way to see what fetches have happened over time or to pull
-the full data for a past scan. A history list gives traceability; per-scan export
-gives the full report for any fetch, not just the most recent.
-
-**Possible scope:**
-- A **history list/table** in the dashboard: one row per scan with `scan_id`,
-  `run_at` (UTC), sector count, and maybe the top sector — newest first. The data is
-  already in the `scans`/`scores` tables and reachable via `get_scan_history`.
-- An **export/download** action per row that yields that scan's report in the existing
-  format (the `src/report.py` builders: `build_ranked_table`, `build_movers`,
-  `build_swedish_overlay`, `write_report`).
-
-**Possible delivery (static dashboard — no server at runtime):**
-- Generalize report generation to **all** scans (today `scan.py` writes a report only
-  for the latest fetch) and publish them as downloadable artifacts, e.g.
-  `docs/reports/report_<scan_id>.md`, each linked from the history list. `build.py`
-  would render them at build time.
-- Or embed each scan's data client-side and generate the Markdown on a "Download"
-  click in JS.
-
-**Notes:**
-- Reports are currently gitignored and only produced for the latest scan, so this
-  generalizes both: produce one per scan and surface/serve them.
-- Read-only on the DB — no schema change. Builds on `get_scan_history` and
-  `src/report.py`.
-
----
-
 ## Unify regional benchmarks for true cross-region scoring
 
 **What:** Re-base US and EU scoring onto a common footing so sector scores are
@@ -206,6 +170,11 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Fetch history & per-scan export~~ — dashboard History tab now lists every scan
+  (scan index with active-scan marker) with a per-scan report link; `write_report`
+  refactored into `build_report_markdown`, per-scan reports generated to
+  `docs/reports/report_<scan_id>.md`, and `get_scan_history(n_scans=None)` loads all
+  scans. *(2026-06-25, PR #27)*
 - ~~Data persistence & sync strategy~~ — migrated from a git-committed SQLite blob to
   Supabase (Postgres) so the DB stays in sync across local dev and CI. *(2026-06-22)*
 - ~~Data inventory & coverage statistics~~ — `stats.py` CLI script: scan count + date
