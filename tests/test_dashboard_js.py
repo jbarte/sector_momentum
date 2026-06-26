@@ -164,6 +164,9 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
+            backtest_json=json.dumps({}),
+            backtest_metrics=[],
+            has_backtest=False,
         ),
     )
     html = out.read_text()
@@ -222,6 +225,9 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
+            backtest_json=json.dumps({}),
+            backtest_metrics=[],
+            has_backtest=False,
         ),
     )
     html = out.read_text()
