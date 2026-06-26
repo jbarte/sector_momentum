@@ -159,7 +159,12 @@ sector-view-toggle design discussion (2026-06-25).
 
 Carried over from earlier planning — not started:
 
-- **Swedish overlay polish** — refine the Swedish-market overlay view
+- ~~**Swedish overlay polish**~~ — **dropped (2026-06-26):** the overlay is a
+  hand-maintained list of 30 individual Swedish stocks (`config/swedish_tickers.csv`)
+  with static market caps and no live data source — not tied to any real watchlist or
+  broker. The project has moved to an ETF-native sector/theme model, so the
+  single-market expression layer is a vestige of the original thesis. Not worth
+  maintaining.
 - **Multilingual sentiment polarity (FinBERT)** — replace/augment VADER with a
   finance-tuned, multilingual sentiment model
 - **Backtest against past rotations** — validate signals against historical sector
