@@ -111,6 +111,56 @@ we later decide it should influence the composite.
 
 ---
 
+## Symbol-based Google Trends sentiment (tickers, not theme words)
+
+**What:** Replace the current single generic theme word per sector (`semiconductor`,
+`oil`, `bank` …) with the **actual instrument symbols** as the Google Trends queries,
+aggregated to a sector-level attention signal:
+- the sector **benchmark** ticker(s),
+- the **related/linked sector ETFs** we already map (`config/universe.yaml` primaries +
+  the alternates in `config/sector_etfs.yaml`),
+- and, where feasible, the **underlying constituent stock symbols** (US S&P 500
+  constituents are already fetched for breadth via `src/data/constituents.py`; EU has no
+  constituent list, so EU stays ETF-only).
+
+**Why:** The current keywords measure *consumer* search, not financial attention —
+"oil"/"bank"/"food"/"retail" are dominated by cooking, banking-app, grocery, and shopping
+queries. Finance-intent search (ticker symbols, fund/stock names) is the form Google
+Trends has actually been shown to track investor attention (Da/Engelberg/Gao, "In Search
+of Attention", 2011). Querying the symbols we already trade/benchmark makes the Trends
+signal defensible instead of near-noise. Stays a confirmer (toggle-only, out of the
+canonical composite) — see [[the existing Google-Trends-only item above]].
+
+**Scope / things to resolve when designing:**
+- **Payload normalization.** Trends scales 0–100 *within each ≤5-term request*, so values
+  from different batches aren't directly comparable. Aggregating many symbols per sector
+  needs a normalization scheme (shared anchor term across payloads, or pairwise scaling),
+  not naive concatenation.
+- **Low search volume.** Most individual tickers/stocks have near-zero global search and
+  return flat/zero series — Trends only resolves high-attention names. Likely need a volume
+  floor (drop dead terms) and a fallback; **ETF symbols may be the practical sweet spot**,
+  with constituent symbols only for the few liquid mega-caps.
+- **Ambiguous symbols.** Many tickers collide with common words (`ALL`, `KEY`, `IT`, `ON`,
+  `A`). Prefer Trends **Topics** (entity mids) over raw strings, or filter these out.
+- **Aggregation rule.** How to combine per-symbol interest into one sector number — mean of
+  normalized momentum, market-cap-weighted, or max — and whether to weight ETFs vs
+  constituents.
+- **Rate limits.** Many more terms = many more batches = heavier pytrends 429 risk; needs a
+  batching + caching strategy (today's cache is one full fetch/day).
+- **Region/geo.** Still worldwide (`geo=""`) today; decide whether to pull per-region geos.
+
+**Possible delivery:** extend `config/sentiment_keywords.yaml` (or a new symbol map) +
+`fetch_trends` to take per-sector **symbol lists**, fetch + normalize + aggregate into the
+existing `sentiment_score` input. No composite change — keep it behind the sentiment toggle.
+
+**Notes:** This is the concrete "Option A" upgrade from the 2026-06-26 sentiment-quality
+discussion. Honest caveat to keep visible: ticker search is a better *proxy* than theme
+words, but individual-name search volume is often too thin to register — validate that the
+symbol series aren't mostly zeros before trusting the signal. Reuses
+`src/data/constituents.py` (US breadth pipeline) for the underlying-symbol list.
+
+---
+
 ## Unify regional benchmarks for true cross-region scoring
 
 **What:** Re-base US and EU scoring onto a common footing so sector scores are
