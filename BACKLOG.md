@@ -166,6 +166,11 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Language support: Swedish (UI chrome)~~ — client-side EN⇄SV toggle (English default,
+  persisted in `localStorage`) translating the dashboard chrome: tab names, table headers,
+  controls, tab-notes, disclaimer. `data-i18n`-tagged elements + a Swedish dictionary in
+  the template; help prose, Plotly chart labels, and GICS sector names stay English.
+  Template-only. *(2026-06-26)*
 - ~~Backtest against past rotations (Phase 1 — edge)~~ — US/EU monthly top-5 rotation
   backtest vs RSP/EXSA.DE; `backtest.py` CLI + committed `backtests/` artifact + dashboard
   Backtest tab (equity curves + metrics). Point-in-time (no look-ahead), price-pillars-only,

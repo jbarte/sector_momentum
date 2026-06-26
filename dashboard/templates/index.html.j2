@@ -104,6 +104,21 @@ header h1 {
   border-radius: var(--radius-pill);
   padding: 3px 10px;
 }
+.lang-toggle {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--fg3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 3px 12px;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+.lang-toggle:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
 
 /* =========================================================
    Tab bar
@@ -544,21 +559,22 @@ select.sector-select:focus {
 
 <!-- Header -->
 <header>
-  <h1>Sector momentum</h1>
-  <span class="scan-date">Last scan: {% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
-  <span class="disclaimer">Analytical tooling, not investment advice.</span>
+  <h1 data-i18n="title">Sector momentum</h1>
+  <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> {% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
+  <span class="disclaimer" data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
+  <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
 </header>
 
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
-  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab">Leaderboard</button>
-  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab">RRG</button>
-  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab">Drill-down</button>
-  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab">Movers</button>
-  <button class="tab-btn" onclick="switchTab('history', this)" role="tab">History</button>
-  <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab">Backtest</button>
-  <button class="tab-btn" onclick="switchTab('sentiment', this)" role="tab">Data ⇄ Sentiment</button>
-  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab">Guide</button>
+  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" data-i18n="tab_leaderboard">Leaderboard</button>
+  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab" data-i18n="tab_rrg">RRG</button>
+  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab" data-i18n="tab_drilldown">Drill-down</button>
+  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" data-i18n="tab_movers">Movers</button>
+  <button class="tab-btn" onclick="switchTab('history', this)" role="tab" data-i18n="tab_history">History</button>
+  <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" data-i18n="tab_backtest">Backtest</button>
+  <button class="tab-btn" onclick="switchTab('sentiment', this)" role="tab" data-i18n="tab_sentiment">Data ⇄ Sentiment</button>
+  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" data-i18n="tab_guide">Guide</button>
 </nav>
 
 <!-- ============================================================
@@ -586,33 +602,33 @@ select.sector-select:focus {
   </details>
   <div id="sentiment-control" class="sentiment-control">
     <span class="sw-view">
-      Sector view:
+      <span data-i18n="sectorView">Sector view:</span>
       <select id="sector-view-toggle">
-        <option value="split">Region-split</option>
-        <option value="composite">Composite (US+EU)</option>
+        <option value="split" data-i18n="view_split">Region-split</option>
+        <option value="composite" data-i18n="view_composite">Composite (US+EU)</option>
       </select>
     </span>
     <label>
-      <input type="checkbox" id="sentiment-toggle"> Include sentiment in ranking
+      <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>
     </label>
     <span class="sw-weight">
-      Weight: <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
+      <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
     </span>
   </div>
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
         <tr>
-          <th onclick="sortTable(0)" data-col="0">#</th>
-          <th onclick="sortTable(1)" data-col="1">Sector</th>
-          <th onclick="sortTable(2)" data-col="2">Region</th>
-          <th onclick="sortTable(3)" data-col="3">Composite</th>
-          <th onclick="sortTable(4)" data-col="4">Level</th>
-          <th onclick="sortTable(5)" data-col="5">Change</th>
-          <th onclick="sortTable(6)" data-col="6">Data</th>
-          <th onclick="sortTable(7)" data-col="7">Sentiment</th>
-          <th onclick="sortTable(8)" data-col="8">Rank Δ</th>
-          <th data-col="9" title="Rank slope over last 3–5 scans">Trend</th>
+          <th onclick="sortTable(0)" data-col="0" data-i18n="col_rank">#</th>
+          <th onclick="sortTable(1)" data-col="1" data-i18n="col_sector">Sector</th>
+          <th onclick="sortTable(2)" data-col="2" data-i18n="col_region">Region</th>
+          <th onclick="sortTable(3)" data-col="3" data-i18n="col_composite">Composite</th>
+          <th onclick="sortTable(4)" data-col="4" data-i18n="col_level">Level</th>
+          <th onclick="sortTable(5)" data-col="5" data-i18n="col_change">Change</th>
+          <th onclick="sortTable(6)" data-col="6" data-i18n="col_data">Data</th>
+          <th onclick="sortTable(7)" data-col="7" data-i18n="col_sentiment">Sentiment</th>
+          <th onclick="sortTable(8)" data-col="8" data-i18n="col_rankdelta">Rank Δ</th>
+          <th data-col="9" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
         </tr>
       </thead>
       <tbody>
@@ -675,7 +691,7 @@ select.sector-select:focus {
      Tab: RRG
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel">
-  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
+  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -729,7 +745,7 @@ select.sector-select:focus {
      Tab: Movers
      ============================================================ -->
 <section id="tab-movers" class="tab-panel">
-  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
+  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -749,7 +765,7 @@ select.sector-select:focus {
      Tab: History
      ============================================================ -->
 <section id="tab-history" class="tab-panel">
-  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
+  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How to read this tab</summary>
     <div class="tab-guide-body">
@@ -768,7 +784,7 @@ select.sector-select:focus {
   <div class="table-wrap scan-index">
     <table>
       <thead>
-        <tr><th></th><th>Scan</th><th>Run (UTC)</th><th>Sectors</th><th>Top sector</th><th>Report</th></tr>
+        <tr><th></th><th data-i18n="si_scan">Scan</th><th data-i18n="si_run">Run (UTC)</th><th data-i18n="si_sectors">Sectors</th><th data-i18n="si_top">Top sector</th><th data-i18n="si_report">Report</th></tr>
       </thead>
       <tbody>
         {% for s in scan_index %}
@@ -793,11 +809,11 @@ select.sector-select:focus {
      Tab: Backtest
      ============================================================ -->
 <section id="tab-backtest" class="tab-panel">
-  <p class="tab-note">Monthly top-{{ backtest_metrics[0].top_n if backtest_metrics else 5 }} rotation, equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded). Each region scored within its own cohort.</p>
+  <p class="tab-note" data-i18n="note_backtest">Monthly top-{{ backtest_metrics[0].top_n if backtest_metrics else 5 }} rotation, equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded). Each region scored within its own cohort.</p>
   {% if has_backtest %}
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Track</th><th>Window</th><th>Strategy CAGR</th><th>Bench CAGR</th><th>Sharpe</th><th>Max DD</th><th>Hit rate</th><th>Turnover</th></tr></thead>
+      <thead><tr><th data-i18n="bt_track">Track</th><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_hitrate">Hit rate</th><th data-i18n="bt_turnover">Turnover</th></tr></thead>
       <tbody>
         {% for r in backtest_metrics %}
         <tr><td>{{ r.region }}</td><td>{{ r.start }} → {{ r.end }}</td><td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td><td>{{ r.max_drawdown }}</td><td>{{ r.hit_rate }}</td><td>{{ r.avg_turnover }}</td></tr>
@@ -816,7 +832,7 @@ select.sector-select:focus {
      Tab: Data ⇄ Sentiment
      ============================================================ -->
 <section id="tab-sentiment" class="tab-panel">
-  <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
+  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary>How is the sentiment score calculated?</summary>
     <div class="tab-guide-body">
@@ -1196,6 +1212,79 @@ function sortTable(col) {
   weightInput.addEventListener("input", applyRanking);
   viewSel.addEventListener("change", applyRanking);
   applyRanking();
+})();
+
+// ----- Language toggle (EN default ⇄ SV), chrome only -----
+// English is the source text in the DOM. Swedish overrides live here; any
+// chrome string without an entry simply stays English. Long help prose and
+// Plotly chart labels are intentionally not translated.
+(function () {
+  var SV = {
+    title: "Sektormomentum",
+    lastScan: "Senaste skanning:",
+    disclaimer: "Analysverktyg, inte investeringsrådgivning.",
+    tab_leaderboard: "Topplista",
+    tab_rrg: "RRG",
+    tab_drilldown: "Detaljvy",
+    tab_movers: "Rörelser",
+    tab_history: "Historik",
+    tab_backtest: "Backtest",
+    tab_sentiment: "Data ⇄ Sentiment",
+    tab_guide: "Guide",
+    sectorView: "Sektorvy:",
+    view_split: "Regionuppdelad",
+    view_composite: "Sammansatt (US+EU)",
+    includeSentiment: "Inkludera sentiment i rankningen",
+    weight: "Vikt:",
+    col_rank: "#",
+    col_sector: "Sektor",
+    col_region: "Region",
+    col_composite: "Komposit",
+    col_level: "Nivå",
+    col_change: "Förändring",
+    col_data: "Data",
+    col_sentiment: "Sentiment",
+    col_rankdelta: "Rank Δ",
+    col_trend: "Trend",
+    note_sentiment: "Sentimentvikten påverkar endast topplistans rankning.",
+    note_backtest: "Månatlig topp-5-rotation, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje region poängsätts inom sin egen kohort.",
+    bt_track: "Spår",
+    bt_window: "Period",
+    bt_stratcagr: "Strategi CAGR",
+    bt_benchcagr: "Index CAGR",
+    bt_sharpe: "Sharpe",
+    bt_maxdd: "Max nedgång",
+    bt_hitrate: "Träffsäkerhet",
+    bt_turnover: "Omsättning",
+    si_scan: "Skanning",
+    si_run: "Körning (UTC)",
+    si_sectors: "Sektorer",
+    si_top: "Topp-sektor",
+    si_report: "Rapport"
+  };
+  var els = document.querySelectorAll("[data-i18n]");
+  els.forEach(function (el) { el.setAttribute("data-en", el.textContent); });
+
+  function apply(lang) {
+    els.forEach(function (el) {
+      var key = el.getAttribute("data-i18n");
+      el.textContent = (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en");
+    });
+    document.documentElement.lang = (lang === "sv") ? "sv" : "en";
+    var btn = document.getElementById("lang-toggle");
+    if (btn) btn.textContent = (lang === "sv") ? "EN" : "SV";
+    try { localStorage.setItem("lang", lang); } catch (e) {}
+  }
+
+  window.toggleLang = function () {
+    var cur = "en";
+    try { cur = localStorage.getItem("lang") || "en"; } catch (e) {}
+    apply(cur === "sv" ? "en" : "sv");
+  };
+
+  var saved = "en";
+  try { saved = localStorage.getItem("lang") || "en"; } catch (e) {}
+  apply(saved);
 })();
 </script>
 
