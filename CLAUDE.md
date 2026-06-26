@@ -6,9 +6,13 @@ Always branch before making changes. Never commit directly to `main`.
 
 1. **Create a branch** from `main` using the pattern `feature/<short-slug>` or `fix/<short-slug>`.
 2. **Implement** the feature on that branch with regular commits.
-3. **Run a code review** when the implementation is complete (`/code-review`).
-4. **Address review findings**, then push: `git push -u origin feature/<short-slug>`.
-5. **Stop there.** Do not merge. Jonas reviews and merges manually.
+3. **Update `BACKLOG.md` in the same branch** — if the work completes (or partially
+   completes) a backlog item, move it to Done in the *same* branch/PR that ships the
+   code. Never defer backlog hygiene to a separate sync PR; that's how the backlog
+   drifts out of sync with what's actually shipped.
+4. **Run a code review** when the implementation is complete (`/code-review`).
+5. **Address review findings**, then push: `git push -u origin feature/<short-slug>`.
+6. **Stop there.** Do not merge. Jonas reviews and merges manually.
 
 ## Commit style
 
@@ -32,7 +36,9 @@ Sector momentum scanner: US SPDR + STOXX Europe 600 sectors → GICS 11 → data
 
 ## Backlog
 
-All queued and completed work lives in `BACKLOG.md` in the project root. When asked about the backlog, read that file — not memory. When finishing a task that appears in `BACKLOG.md`, move it to the Done section with the completion date.
+All queued and completed work lives in `BACKLOG.md` in the project root. When asked about the backlog, read that file — not memory. When finishing a task that appears in `BACKLOG.md`, move it to the Done section with the completion date — in the same branch that ships the work (see Git workflow step 3).
+
+To catch drift after the fact, run `/backlog-sync`: it audits each queued item against git history, merged PRs, and the actual code, then offers to move anything already shipped to Done.
 
 ## Dev commands
 
