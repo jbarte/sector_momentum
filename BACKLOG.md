@@ -51,16 +51,6 @@ engine, not a rewrite. Biggest design decision is the benchmark/RS question abov
 
 ---
 
-## Sentiment methodology explanation
-
-Surface a plain-English explanation of how the sentiment score is calculated and which data sources feed it, accessible from the dashboard (e.g. an info tooltip or expandable panel near the Data ↔ Sentiment tab or the leaderboard sentiment column header).
-
-**Why:** Users need to understand what they're looking at — is it Google Trends? News sentiment? — before trusting it enough to act on. Currently no in-dashboard explanation exists.
-
-**Notes:** Pure static HTML — no pipeline changes needed. Write explanation based on `src/signals/sentiment.py` and `src/data/trends.py`, render as a collapsible `<details>` block or an `ℹ` tooltip in the template.
-
----
-
 ## Sentiment module — Google Trends only, as a dedicated tab
 
 **What:** Build a search-interest ("attention") feature powered **solely by Google
@@ -181,6 +171,11 @@ Carried over from earlier planning — not started:
   Backtest tab (equity curves + metrics). Point-in-time (no look-ahead), price-pillars-only,
   each region scored within its own cohort. Phase 2 (rotation event-study) still pending.
   *(2026-06-26)*
+- ~~Sentiment methodology explanation~~ — collapsible "How is the sentiment score
+  calculated?" guide in the Data ⇄ Sentiment tab (reuses the `tab-guide` pattern):
+  states it's Google Trends search-attention only, the 13-week slope→z-score method,
+  and that it doesn't affect the ranking unless the toggle is on. Template-only, no
+  pipeline change. *(2026-06-26)*
 - ~~Fetch history & per-scan export~~ — dashboard History tab now lists every scan
   (scan index with active-scan marker) with a per-scan report link; `write_report`
   refactored into `build_report_markdown`, per-scan reports generated to
