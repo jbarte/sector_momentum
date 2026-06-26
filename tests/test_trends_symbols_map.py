@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import yaml
+
 from src.data.trends_symbols import build_symbol_map
 
 
@@ -26,3 +30,17 @@ def test_build_symbol_map_combines_and_dedups():
     assert m["EU|Technology"] == ["EXV3.DE"]
     # benchmark tickers never appear
     assert all("RSP" not in v and "EXSA.DE" not in v and "SPY" not in v for v in m.values())
+
+
+def test_blocklist_config_entries_are_all_strings():
+    """YAML 1.1 parses bare ON/OFF/YES/NO as booleans — entries must stay strings
+    or build_symbol_map crashes on `b.upper()`. Catches the unquoted-`ON` regression."""
+    raw = yaml.safe_load(Path("config/trends_blocklist.yaml").read_text())
+    assert all(isinstance(b, str) for b in raw), f"non-string blocklist entries: {raw}"
+    assert "ON" in raw  # the ticker that YAML would coerce to True if unquoted
+
+
+def test_build_symbol_map_tolerates_non_string_blocklist_entry():
+    """Defensive: a stray non-string (e.g. a YAML-coerced bool) must not crash."""
+    m = build_symbol_map(_universe(), _sector_etfs(), blocklist={True, "ALL"})
+    assert m["US|Financials"] == ["XLF"]  # "ALL" still blocked; True ignored, no crash
