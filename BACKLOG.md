@@ -216,6 +216,11 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Symbol-based Google Trends sentiment (Phase 1 — ETF symbols)~~ — Trends now queries the
+  sector ETF symbols (primary + linked, both regions) instead of generic theme words;
+  anchor-normalized (SPY) and aggregated to a region-aware sentiment z per region|sector via
+  `src/data/trends_symbols.py`. Toggle-only (composite unchanged). Phase 2 (US constituents)
+  pending; live coverage of EU `.DE` tickers to be validated. *(2026-06-26)*
 - ~~Language support: Swedish (UI chrome)~~ — client-side EN⇄SV toggle (English default,
   persisted in `localStorage`) translating the dashboard chrome: tab names, table headers,
   controls, tab-notes, disclaimer. `data-i18n`-tagged elements + a Swedish dictionary in
