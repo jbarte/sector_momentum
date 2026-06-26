@@ -82,3 +82,19 @@ def _aggregate(
             arr = np.array(live, dtype=float)
             out[sector_key] = pd.Series(arr.mean(axis=0), dtype=float)
     return out
+
+
+def score_symbol_sentiment(trends_by_key: dict[str, pd.Series]) -> pd.Series:
+    """Score symbol sentiment: slope of each sector key's series, cross-sectionally z-scored.
+
+    Args:
+        trends_by_key: dict mapping region|sector to a pd.Series of search interest.
+
+    Returns:
+        pd.Series indexed by region|sector with cross-sectional z-scores of slopes.
+    """
+    from src.signals.sentiment import _cross_zscore
+
+    slopes = {key: _slope(list(series)) for key, series in trends_by_key.items()}
+    z = _cross_zscore(slopes)
+    return pd.Series(z, dtype=float)
