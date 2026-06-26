@@ -125,10 +125,26 @@ expands the per-sector symbol set.
 finance-intent terms Trends tracks best (Da/Engelberg/Gao 2011). Stays a confirmer
 (toggle-only, composite unchanged).
 
-**Gated on Phase 1 validation:** only worth doing if the Phase 1 live `scan.py --dry-run`
-shows real signal (non-neutral US sector-keys). If even ETF tickers come back mostly
-neutral, individual names won't rescue it (beyond a few mega-caps) — pivot to the
-news-sentiment/FinBERT direction instead.
+**Phase 1 validation result (2026-06-26) — DO NOT build Phase 2 on this as-is.** A live
+Trends run over the Phase 1 symbol map found:
+- **Mechanism works for liquid US ETFs** — `XLK/VGT`, `XLV/VHT`, `XLY/VCR`, `XLP/VDC`,
+  `XLI/VIS`, `XLC/VOX` all returned full 13/13 coverage.
+- **Signal is contaminated by ambiguous-ticker false positives** that the blocklist didn't
+  catch: `US|Communication Services` z **+4.16** (driven by **`VOX`** — Vox Media/party,
+  not the ETF) and `EU|Energy` z **+1.27** (driven by **`LOGS`** — the English word). These
+  outliers dominate the cross-sectional z.
+- **EU `.DE` tickers are dead** (0/13) as predicted; EU's only "signal" is those false
+  positives. The EU "alternate" tickers (`LTUG`, `LBNK`, `LOGS`, `LUTI`, `LBRE`…) are
+  noise-/collision-prone.
+- **Unreliable:** a Google **429** mid-run zeroed a whole batch (US Financials/Materials/
+  Real Estate/Utilities → 0), so single runs need the deferred day-cache + gentler batching.
+
+**Conclusion:** adding constituents (more, lower-volume, more-ambiguous tickers) makes the
+contamination worse, not better. The real disambiguation fix is **Trends Topics (entity
+mids)**, not a growing blocklist — and the better path overall is signed **news sentiment
+(FinBERT)**, which sidesteps search-term ambiguity entirely. **Recommended:** park Phase 2;
+pursue the FinBERT pivot (below) or Topics first. Quick stopgap if kept: expand the
+blocklist (`VOX`, `LOGS`, the `L*` EU alternates) — but it's whack-a-mole.
 
 **Scope / things to resolve when designing:**
 - **Top-N liquidity ranking.** Add the top-N (≈10) most liquid constituents per US sector.
@@ -194,7 +210,15 @@ Carried over from earlier planning — not started:
   single-market expression layer is a vestige of the original thesis. Not worth
   maintaining.
 - **Multilingual sentiment polarity (FinBERT)** — replace/augment VADER with a
-  finance-tuned, multilingual sentiment model
+  finance-tuned, multilingual sentiment model. **Now the recommended sentiment direction**
+  after the 2026-06-26 Trends validation showed search-attention is noisy, directionless,
+  and ambiguous-ticker-contaminated (see the symbol-Trends Phase 2 item above). FinBERT
+  gives **signed** polarity (positive/negative), not just attention, and sidesteps
+  search-term ambiguity. It's the *scorer*, paired with a free news feed — **GDELT**
+  (free global news tone) or **Alpha Vantage** `NEWS_SENTIMENT` (free tier). Free + local
+  (`transformers` + `torch`, ~400 MB model, CPU inference, no API key) — fits "free only",
+  but a heavier dependency than the current stack. Base FinBERT is English-only; EU/Swedish
+  needs a multilingual model or translate-then-score.
 - **Backtest against past rotations — Phase 2 (rotation event-study)** — the early-flag
   half: per-rotation rank-over-time vs forward return for a curated list of historical
   rotations (e.g. energy 2021–22). Phase 1 (edge / strategy backtest) shipped 2026-06-26.
