@@ -6,8 +6,8 @@ import pandas as pd
 
 
 def equity_curve(returns: pd.Series, initial: float = 1.0) -> pd.Series:
-    curve = (1.0 + returns.fillna(0.0)).cumprod()
-    return pd.concat([pd.Series([initial], index=[curve.index[0] - 1]), initial * curve])
+    growth = initial * (1.0 + returns.fillna(0.0)).cumprod()
+    return pd.concat([pd.Series([initial]), growth], ignore_index=True)
 
 
 def total_return(equity: pd.Series) -> float:

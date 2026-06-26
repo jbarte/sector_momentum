@@ -26,7 +26,7 @@ def test_sharpe_zero_vol_is_zero():
 def test_hit_rate():
     strat = pd.Series([0.02, -0.01, 0.03])
     bench = pd.Series([0.01, 0.00, 0.04])
-    # strat beats bench in periods 0 only (2/-? -> 1 of 3)
+    # strat beats bench only in period 0 -> 1 of 3
     assert m.hit_rate(strat, bench) == pytest.approx(1 / 3)
 
 
