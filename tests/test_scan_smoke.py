@@ -203,7 +203,6 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     # Patch inside run()'s local imports by replacing the module attributes after import
     import src.data.prices as _prices_mod
     import src.scoring as _scoring_mod
-    import src.data.trends as _trends_mod
     import src.state as _state_mod
     import src.report as _report_mod
 
@@ -217,7 +216,6 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
         )
         return z
     monkeypatch.setattr(_scoring_mod, "zscore_cross_section", _fake_zscore)
-    monkeypatch.setattr(_trends_mod, "fetch_trends", lambda *a, **k: {})
     monkeypatch.setattr(_state_mod, "init_db", lambda: fake_conn)
     monkeypatch.setattr(_state_mod, "save_scan", lambda *a, **k: 42)
     monkeypatch.setattr(_state_mod, "load_last_scan", lambda *a, **k: None)
@@ -227,16 +225,18 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     monkeypatch.setattr(_report_mod, "build_swedish_overlay", lambda *a, **k: {})
     monkeypatch.setattr(_report_mod, "write_report", lambda *a, **k: "/tmp/report.html")
 
-    # Also patch sentiment helper to avoid opening config file
-    monkeypatch.setattr("scan._compute_sentiment_for_scan", lambda *a, **k: pd.Series({"US|Technology": 0.0, "EU|Technology": 0.0}))
+    # Patch symbol-based sentiment to avoid network calls and config file reads
+    import src.data.trends_symbols as _trends_sym_mod
+    monkeypatch.setattr(_trends_sym_mod, "build_symbol_map", lambda *a, **k: {"US|Technology": ["XLK"]})
+    monkeypatch.setattr(_trends_sym_mod, "fetch_symbol_trends", lambda *a, **k: {"US|Technology": pd.Series([0.0] * 13)})
+    monkeypatch.setattr(_trends_sym_mod, "score_symbol_sentiment", lambda *a, **k: pd.Series({"US|Technology": 0.0}))
 
-    # Also patch open() for sentiment_keywords.yaml by patching yaml.safe_load via the trends call above
-    import yaml as _yaml
+    # Stub open() for sector_etfs.yaml and trends_blocklist.yaml
     import builtins
     original_open = builtins.open
 
     def fake_open(path, *a, **k):
-        if isinstance(path, str) and "sentiment_keywords" in path:
+        if isinstance(path, str) and ("sector_etfs" in path or "trends_blocklist" in path):
             import io
             return io.StringIO("{}")
         return original_open(path, *a, **k)
@@ -283,30 +283,19 @@ def test_backup_failure_is_non_fatal(monkeypatch, tmp_path):
     assert rc in (0, None)  # scan still completes despite backup failure
 
 
-def test_compute_sentiment_for_scan_trends_only_returns_series():
-    """scan.py's sentiment helper returns a per-sector Series from Trends only."""
+def test_score_symbol_sentiment_returns_series():
+    """score_symbol_sentiment returns a per-sector-key Series with no NaNs."""
     import pandas as pd
-    from scan import _compute_sentiment_for_scan
+    from src.data.trends_symbols import score_symbol_sentiment
 
-    keywords = {"Technology": ["AI"], "Energy": ["oil"]}
-    sector_keys = ["US|Technology", "US|Energy", "EU|Technology", "EU|Energy"]
-    us_sectors = {"Technology": "XLK", "Energy": "XLE"}
-    eu_sectors = {"Technology": "EXV3.DE", "Energy": "EXV4.DE"}
-
-    # Trends present for Technology, absent for Energy -> Energy sentiment = 0.0
-    trends = {
-        "Technology": pd.Series([float(i) for i in range(13)]),  # rising slope
-        "Energy": pd.Series([5.0] * 13),                          # flat slope
+    # Rising slope -> positive score; flat -> neutral (z-score collapses to 0)
+    trends_by_key = {
+        "US|Technology": pd.Series([float(i) for i in range(13)]),  # rising
+        "US|Energy": pd.Series([5.0] * 13),                          # flat
     }
 
-    result = _compute_sentiment_for_scan(
-        trends_data=trends,
-        sector_keys=sector_keys,
-        us_sectors=us_sectors,
-        eu_sectors=eu_sectors,
-    )
+    result = score_symbol_sentiment(trends_by_key)
 
     assert isinstance(result, pd.Series)
-    assert set(result.index) == set(sector_keys)
-    # No NaNs in the output (all-NaN sector collapses to 0.0 inside compute_sentiment_score)
+    assert set(result.index) == {"US|Technology", "US|Energy"}
     assert not result.isna().any()
