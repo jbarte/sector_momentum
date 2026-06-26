@@ -793,6 +793,27 @@ select.sector-select:focus {
      ============================================================ -->
 <section id="tab-sentiment" class="tab-panel">
   <p class="tab-note">Sentiment weighting affects the leaderboard ranking only.</p>
+  <details class="tab-guide">
+    <summary>How is the sentiment score calculated?</summary>
+    <div class="tab-guide-body">
+      <h4>Source — Google Trends only</h4>
+      <p>Sentiment measures <strong>search attention</strong> using Google Trends.
+         Reddit and news-headline sources were evaluated and dropped — no reliable
+         free access.</p>
+      <h4>Method</h4>
+      <p>For each sector we pull ~13 weeks of worldwide search interest for its primary
+         keyword (e.g. Technology&nbsp;→&nbsp;<em>semiconductor</em>,
+         Energy&nbsp;→&nbsp;<em>oil</em>). The score is the <strong>trend (slope)</strong>
+         of that interest, then standardized across the 11 sectors (z-score):
+         <span class="signal-hi">positive = rising attention vs peers</span>,
+         <span class="signal-lo">negative = fading</span>.</p>
+      <h4>It does not drive the ranking by default</h4>
+      <p>The leaderboard composite is built from price/momentum signals only. Sentiment
+         changes the ranking <em>only</em> when you enable the <strong>Sentiment
+         toggle</strong>, at the weight you choose. Treat it as a confirmer, not a
+         driver — search interest is noisy and can lag price.</p>
+    </div>
+  </details>
   <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
   <p style="color:var(--text-muted);font-size:0.8rem;padding:8px 0 0 4px">
     Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
