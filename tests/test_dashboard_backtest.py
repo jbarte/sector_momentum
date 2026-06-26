@@ -35,3 +35,15 @@ def test_build_backtest_figures_returns_valid_plotly_json():
 def test_build_backtest_figures_empty_when_none():
     figs = _build_backtest_figures(None)
     assert figs == {}
+
+
+def test_build_backtest_context_json_is_not_double_encoded(tmp_path):
+    from dashboard.build import _build_backtest_context
+    # write a minimal summary.json
+    (tmp_path / "summary.json").write_text(json.dumps(_summary()))
+    ctx = _build_backtest_context(str(tmp_path))
+    assert ctx["has_backtest"] is True
+    parsed = json.loads(ctx["backtest_json"])
+    # values must be objects with Plotly keys, NOT strings
+    assert isinstance(parsed["US"], dict)
+    assert "data" in parsed["US"] and "layout" in parsed["US"]

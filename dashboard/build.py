@@ -997,7 +997,7 @@ def _build_backtest_context(backtests_dir: str) -> dict:
                 "avg_turnover": f"{100 * m['avg_turnover']:.0f}%",
             })
     return {
-        "backtest_json": _json.dumps(figs),
+        "backtest_json": _json.dumps({k: _json.loads(v) for k, v in figs.items()}),
         "backtest_metrics": rows,
         "has_backtest": bool(figs),
     }
