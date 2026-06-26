@@ -1,0 +1,5 @@
+# Auto-combine concurrent additions instead of conflicting. The backlog is an
+# append/move-heavy file edited by every feature branch (move items to Done);
+# union merge keeps both sides' lines so stacked PRs don't collide. Re-order or
+# de-dupe by hand if union ever interleaves awkwardly (or run /backlog-sync).
+BACKLOG.md merge=union
