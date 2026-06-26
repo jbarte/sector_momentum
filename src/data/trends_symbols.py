@@ -36,3 +36,49 @@ def build_symbol_map(
             if symbols:
                 out[f"{region}|{sector}"] = symbols
     return out
+
+
+def _slope(series: list[float]) -> float:
+    vals = [float(v) for v in series]
+    if len(vals) < 3 or len(set(vals)) <= 1:
+        return 0.0
+    x = np.arange(len(vals))
+    slope, _ = np.polyfit(x, np.array(vals, dtype=float), 1)
+    return float(slope)
+
+
+def _normalize_by_anchor(raw: dict[str, list[float]], anchor: str) -> dict[str, list[float]]:
+    anchor_series = raw.get(anchor)
+    out: dict[str, list[float]] = {}
+    anchor_dead = not anchor_series or all(a == 0 for a in anchor_series)
+    for term, series in raw.items():
+        if term == anchor:
+            continue
+        if anchor_dead:
+            out[term] = [float(v) for v in series]
+            continue
+        norm = []
+        for v, a in zip(series, anchor_series):
+            norm.append(float(v) / a * 100.0 if a else 0.0)
+        out[term] = norm
+    return out
+
+
+def _aggregate(
+    norm_by_symbol: dict[str, list[float]],
+    symbol_map: dict[str, list[str]],
+    window: int = 13,
+) -> dict[str, pd.Series]:
+    out: dict[str, pd.Series] = {}
+    for sector_key, symbols in symbol_map.items():
+        live = [
+            norm_by_symbol[s]
+            for s in symbols
+            if s in norm_by_symbol and any(v != 0 for v in norm_by_symbol[s])
+        ]
+        if not live:
+            out[sector_key] = pd.Series([0.0] * window, dtype=float)
+        else:
+            arr = np.array(live, dtype=float)
+            out[sector_key] = pd.Series(arr.mean(axis=0), dtype=float)
+    return out
