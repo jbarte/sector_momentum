@@ -1,0 +1,17 @@
+# Curated historical sector rotations for the backtest event-study.
+# gics_sector must match config/universe.yaml exactly. Dates: YYYY-MM-DD.
+- name: "Energy 2021–22"
+  region: US
+  gics_sector: Energy
+  start: "2021-01-01"
+  end: "2022-06-30"
+- name: "Technology / AI 2023"
+  region: US
+  gics_sector: Technology
+  start: "2022-10-01"
+  end: "2023-12-31"
+- name: "Utilities defensive 2022"
+  region: US
+  gics_sector: Utilities
+  start: "2022-01-01"
+  end: "2022-09-30"
