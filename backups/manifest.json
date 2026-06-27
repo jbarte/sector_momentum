@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-06-26T09:44:25.516809Z",
+  "generated_at": "2026-06-27T08:51:01.507029Z",
   "row_counts": {
-    "scans": 4,
-    "scores": 88,
-    "signals": 968
+    "scans": 5,
+    "scores": 110,
+    "signals": 1210
   },
-  "max_scan_id": 113
+  "max_scan_id": 114
 }

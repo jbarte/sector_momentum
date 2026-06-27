@@ -967,3 +967,245 @@ scan_id,region,gics_sector,signal_name,raw_value,z_value
 113,US,Utilities,return_6m,0.0940753,-0.146463
 113,US,Utilities,rs_momentum,100.168,0.732876
 113,US,Utilities,rs_ratio,101.133,0.753975
+114,EU,Communication Services,above_200dma,0.076944,0.138379
+114,EU,Communication Services,above_50dma,-0.0418705,-1.06631
+114,EU,Communication Services,acceleration,-0.0889197,-0.111505
+114,EU,Communication Services,breadth_above_50dma,,-0.878369
+114,EU,Communication Services,ma50_slope,1.68006e-05,-0.429249
+114,EU,Communication Services,obv_slope,0.00118089,-0.0861898
+114,EU,Communication Services,return_1m,-0.0770342,-1.49945
+114,EU,Communication Services,return_3m,0.0118855,-0.617892
+114,EU,Communication Services,return_6m,0.198988,0.850439
+114,EU,Communication Services,rs_momentum,99.5496,-1.22929
+114,EU,Communication Services,rs_ratio,94.1922,-1.56911
+114,EU,Consumer Discretionary,above_200dma,0.0150196,-0.772828
+114,EU,Consumer Discretionary,above_50dma,0.0580324,0.998846
+114,EU,Consumer Discretionary,acceleration,-0.0628287,0.172389
+114,EU,Consumer Discretionary,breadth_above_50dma,,-0.878369
+114,EU,Consumer Discretionary,ma50_slope,0.00116847,0.271332
+114,EU,Consumer Discretionary,obv_slope,0.00531398,0.11037
+114,EU,Consumer Discretionary,return_1m,0.0392468,0.789667
+114,EU,Consumer Discretionary,return_3m,0.102075,0.227487
+114,EU,Consumer Discretionary,return_6m,-0.0333425,-1.33052
+114,EU,Consumer Discretionary,rs_momentum,100.025,0.0393778
+114,EU,Consumer Discretionary,rs_ratio,100.691,0.587133
+114,EU,Consumer Staples,above_200dma,0.0840189,0.242484
+114,EU,Consumer Staples,above_50dma,0.0670249,1.18474
+114,EU,Consumer Staples,acceleration,-0.0818069,-0.0341108
+114,EU,Consumer Staples,breadth_above_50dma,,-0.878369
+114,EU,Consumer Staples,ma50_slope,0.00109286,0.225339
+114,EU,Consumer Staples,obv_slope,-0.00420377,-0.342271
+114,EU,Consumer Staples,return_1m,0.0503116,1.00749
+114,EU,Consumer Staples,return_3m,0.132118,0.50909
+114,EU,Consumer Staples,return_6m,0.0995268,-0.083238
+114,EU,Consumer Staples,rs_momentum,100.647,1.69653
+114,EU,Consumer Staples,rs_ratio,101.119,0.728972
+114,EU,Energy,above_200dma,0.0600028,-0.110908
+114,EU,Energy,above_50dma,-0.0879134,-2.0181
+114,EU,Energy,acceleration,0.034344,1.22971
+114,EU,Energy,breadth_above_50dma,,-0.878369
+114,EU,Energy,ma50_slope,-0.00160983,-1.41876
+114,EU,Energy,obv_slope,-0.00397218,-0.331257
+114,EU,Energy,return_1m,-0.0729486,-1.41902
+114,EU,Energy,return_3m,-0.107293,-1.73499
+114,EU,Energy,return_6m,0.214529,0.996322
+114,EU,Energy,rs_momentum,99.611,-1.0656
+114,EU,Energy,rs_ratio,93.1168,-1.92591
+114,EU,Financials,above_200dma,0.168556,1.48644
+114,EU,Financials,above_50dma,0.0706907,1.26051
+114,EU,Financials,acceleration,-0.161792,-0.904417
+114,EU,Financials,breadth_above_50dma,,-0.878369
+114,EU,Financials,ma50_slope,0.00247791,1.06789
+114,EU,Financials,obv_slope,-0.00688357,-0.469715
+114,EU,Financials,return_1m,0.0677875,1.35152
+114,EU,Financials,return_3m,0.229579,1.42262
+114,EU,Financials,return_6m,0.161135,0.495096
+114,EU,Financials,rs_momentum,99.7689,-0.64469
+114,EU,Financials,rs_ratio,104.797,1.94956
+114,EU,Health Care,above_200dma,0.0435355,-0.353222
+114,EU,Health Care,above_50dma,0.0492614,0.817536
+114,EU,Health Care,acceleration,-0.0229291,0.606531
+114,EU,Health Care,breadth_above_50dma,,-0.878369
+114,EU,Health Care,ma50_slope,-0.000118505,-0.511557
+114,EU,Health Care,obv_slope,0.00173921,-0.0596373
+114,EU,Health Care,return_1m,0.0422988,0.84975
+114,EU,Health Care,return_3m,0.0652279,-0.117896
+114,EU,Health Care,return_6m,0.0436264,-0.607993
+114,EU,Health Care,rs_momentum,100.607,1.59068
+114,EU,Health Care,rs_ratio,100.161,0.4113
+114,EU,Industrials,above_200dma,0.0476373,-0.292864
+114,EU,Industrials,above_50dma,0.00952136,-0.003958
+114,EU,Industrials,acceleration,-0.111748,-0.359896
+114,EU,Industrials,breadth_above_50dma,,-0.878369
+114,EU,Industrials,ma50_slope,0.00100308,0.170721
+114,EU,Industrials,obv_slope,-0.00091173,-0.185709
+114,EU,Industrials,return_1m,-0.00568668,-0.094897
+114,EU,Industrials,return_3m,0.106061,0.264848
+114,EU,Industrials,return_6m,0.0864143,-0.206329
+114,EU,Industrials,rs_momentum,100.02,0.0240635
+114,EU,Industrials,rs_ratio,100.354,0.475346
+114,EU,Materials,above_200dma,0.104229,0.539877
+114,EU,Materials,above_50dma,-0.0595511,-1.4318
+114,EU,Materials,acceleration,-0.18785,-1.18796
+114,EU,Materials,breadth_above_50dma,,-0.878369
+114,EU,Materials,ma50_slope,0.000597472,-0.076016
+114,EU,Materials,obv_slope,-0.0227405,-1.22383
+114,EU,Materials,return_1m,-0.0943461,-1.84025
+114,EU,Materials,return_3m,0.0935043,0.147147
+114,EU,Materials,return_6m,0.210351,0.957102
+114,EU,Materials,rs_momentum,99.1974,-2.16831
+114,EU,Materials,rs_ratio,94.237,-1.55426
+114,EU,Real Estate,above_200dma,-0.0138929,-1.19827
+114,EU,Real Estate,above_50dma,-0.0121398,-0.45173
+114,EU,Real Estate,acceleration,-0.0586659,0.217684
+114,EU,Real Estate,breadth_above_50dma,,-0.878369
+114,EU,Real Estate,ma50_slope,-0.000994962,-1.04472
+114,EU,Real Estate,obv_slope,-0.00832036,-0.538045
+114,EU,Real Estate,return_1m,-0.0290901,-0.555618
+114,EU,Real Estate,return_3m,0.0295758,-0.452075
+114,EU,Real Estate,return_6m,0.011304,-0.911413
+114,EU,Real Estate,rs_momentum,100.367,0.949833
+114,EU,Real Estate,rs_ratio,97.3498,-0.521454
+114,EU,Technology,above_200dma,0.15605,1.3024
+114,EU,Technology,above_50dma,0.0413764,0.654539
+114,EU,Technology,acceleration,-0.2483,-1.8457
+114,EU,Technology,breadth_above_50dma,,-0.878369
+114,EU,Technology,ma50_slope,0.00411547,2.06404
+114,EU,Technology,obv_slope,0.00401412,0.0485515
+114,EU,Technology,return_1m,0.0172775,0.357178
+114,EU,Technology,return_3m,0.265577,1.76004
+114,EU,Technology,return_6m,0.229941,1.141
+114,EU,Technology,rs_momentum,99.381,-1.67889
+114,EU,Technology,rs_ratio,98.5376,-0.127359
+114,EU,Utilities,above_200dma,0.103183,0.524485
+114,EU,Utilities,above_50dma,0.0206042,0.225142
+114,EU,Utilities,acceleration,-0.021211,0.625225
+114,EU,Utilities,breadth_above_50dma,,-0.878369
+114,EU,Utilities,ma50_slope,-0.000466968,-0.723534
+114,EU,Utilities,obv_slope,0.00575168,0.131186
+114,EU,Utilities,return_1m,0.0352524,0.711033
+114,EU,Utilities,return_3m,0.0564634,-0.200048
+114,EU,Utilities,return_6m,0.186335,0.731658
+114,EU,Utilities,rs_momentum,100.362,0.936186
+114,EU,Utilities,rs_ratio,99.4061,0.160805
+114,US,Communication Services,above_200dma,-0.0786363,-2.15096
+114,US,Communication Services,above_50dma,-0.0755775,-1.7631
+114,US,Communication Services,acceleration,-0.0337863,0.488395
+114,US,Communication Services,breadth_above_50dma,0.173913,-0.375293
+114,US,Communication Services,ma50_slope,-0.000718293,-0.876419
+114,US,Communication Services,obv_slope,-0.030571,-1.59623
+114,US,Communication Services,return_1m,-0.0839059,-1.63473
+114,US,Communication Services,return_3m,-0.0501196,-1.19909
+114,US,Communication Services,return_6m,-0.0897269,-1.85982
+114,US,Communication Services,rs_momentum,100.26,0.66535
+114,US,Communication Services,rs_ratio,95.5366,-1.12305
+114,US,Consumer Discretionary,above_200dma,-0.0320905,-1.46605
+114,US,Consumer Discretionary,above_50dma,-0.0354493,-0.933576
+114,US,Consumer Discretionary,acceleration,-0.0748774,0.041288
+114,US,Consumer Discretionary,breadth_above_50dma,0.510638,0.598748
+114,US,Consumer Discretionary,ma50_slope,0.000872047,0.0910131
+114,US,Consumer Discretionary,obv_slope,-0.00216224,-0.245181
+114,US,Consumer Discretionary,return_1m,-0.0491765,-0.951041
+114,US,Consumer Discretionary,return_3m,0.0257009,-0.488395
+114,US,Consumer Discretionary,return_6m,-0.0697725,-1.6725
+114,US,Consumer Discretionary,rs_momentum,100.174,0.434267
+114,US,Consumer Discretionary,rs_ratio,98.1631,-0.251635
+114,US,Consumer Staples,above_200dma,0.0423893,-0.370088
+114,US,Consumer Staples,above_50dma,0.00876785,-0.0195342
+114,US,Consumer Staples,acceleration,-0.0262865,0.569999
+114,US,Consumer Staples,breadth_above_50dma,0.628571,0.939891
+114,US,Consumer Staples,ma50_slope,0.000486265,-0.143665
+114,US,Consumer Staples,obv_slope,-0.0121918,-0.722161
+114,US,Consumer Staples,return_1m,0.0106712,0.227126
+114,US,Consumer Staples,return_3m,0.0369578,-0.382881
+114,US,Consumer Staples,return_6m,0.0913995,-0.159532
+114,US,Consumer Staples,rs_momentum,99.8171,-0.516239
+114,US,Consumer Staples,rs_ratio,99.2703,0.115742
+114,US,Energy,above_200dma,0.0733749,0.0858598
+114,US,Energy,above_50dma,-0.0484024,-1.20134
+114,US,Energy,acceleration,0.0422908,1.31618
+114,US,Energy,breadth_above_50dma,0.285714,-0.051887
+114,US,Energy,ma50_slope,-0.00122396,-1.18403
+114,US,Energy,obv_slope,-0.00484282,-0.372662
+114,US,Energy,return_1m,-0.0582526,-1.12971
+114,US,Energy,return_3m,-0.100543,-1.67172
+114,US,Energy,return_6m,0.240354,1.23875
+114,US,Energy,rs_momentum,100.438,1.13939
+114,US,Energy,rs_ratio,94.299,-1.53368
+114,US,Financials,above_200dma,0.0255269,-0.618215
+114,US,Financials,above_50dma,0.0288134,0.394842
+114,US,Financials,acceleration,-0.052625,0.283414
+114,US,Financials,breadth_above_50dma,0.605263,0.872468
+114,US,Financials,ma50_slope,0.00124649,0.318795
+114,US,Financials,obv_slope,0.0297477,1.27238
+114,US,Financials,return_1m,0.0344694,0.695619
+114,US,Financials,return_3m,0.0870943,0.0870646
+114,US,Financials,return_6m,-0.0254348,-1.25629
+114,US,Financials,rs_momentum,99.9158,-0.252997
+114,US,Financials,rs_ratio,101.723,0.929381
+114,US,Health Care,above_200dma,0.0490366,-0.272273
+114,US,Health Care,above_50dma,0.0538923,0.913263
+114,US,Health Care,acceleration,-0.0163383,0.678245
+114,US,Health Care,breadth_above_50dma,0.728814,1.22986
+114,US,Health Care,ma50_slope,0.000570839,-0.0922172
+114,US,Health Care,obv_slope,0.0785879,3.59509
+114,US,Health Care,return_1m,0.0525646,1.05184
+114,US,Health Care,return_3m,0.0689029,-0.0834493
+114,US,Health Care,return_6m,0.0106824,-0.917248
+114,US,Health Care,rs_momentum,99.8128,-0.527631
+114,US,Health Care,rs_ratio,99.6414,0.23888
+114,US,Industrials,above_200dma,0.130772,0.930442
+114,US,Industrials,above_50dma,0.0595912,1.03107
+114,US,Industrials,acceleration,-0.059008,0.213961
+114,US,Industrials,breadth_above_50dma,0.810127,1.46507
+114,US,Industrials,ma50_slope,0.00133003,0.369611
+114,US,Industrials,obv_slope,0.0059637,0.141269
+114,US,Industrials,return_1m,0.0589385,1.17732
+114,US,Industrials,return_3m,0.117947,0.376252
+114,US,Industrials,return_6m,0.178552,0.658598
+114,US,Industrials,rs_momentum,99.9626,-0.128276
+114,US,Industrials,rs_ratio,102.391,1.15116
+114,US,Materials,above_200dma,0.0849477,0.256152
+114,US,Materials,above_50dma,0.0135665,0.0796617
+114,US,Materials,acceleration,-0.032632,0.500955
+114,US,Materials,breadth_above_50dma,0.692308,1.12426
+114,US,Materials,ma50_slope,0.000285248,-0.265947
+114,US,Materials,obv_slope,0.0149815,0.570134
+114,US,Materials,return_1m,0.0204713,0.420051
+114,US,Materials,return_3m,0.0531033,-0.231544
+114,US,Materials,return_6m,0.144411,0.338102
+114,US,Materials,rs_momentum,99.9483,-0.166459
+114,US,Materials,rs_ratio,100.613,0.561203
+114,US,Real Estate,above_200dma,0.0731162,0.0820533
+114,US,Real Estate,above_50dma,0.0161796,0.133678
+114,US,Real Estate,acceleration,-0.110923,-0.350925
+114,US,Real Estate,breadth_above_50dma,0.774194,1.36113
+114,US,Real Estate,ma50_slope,0.0010518,0.200361
+114,US,Real Estate,obv_slope,0.0018438,-0.0546632
+114,US,Real Estate,return_1m,0.00605535,0.136258
+114,US,Real Estate,return_3m,0.116979,0.367181
+114,US,Real Estate,return_6m,0.126725,0.172079
+114,US,Real Estate,rs_momentum,99.9446,-0.176288
+114,US,Real Estate,rs_ratio,99.3545,0.14366
+114,US,Technology,above_200dma,0.230305,2.39506
+114,US,Technology,above_50dma,0.0532558,0.900106
+114,US,Technology,acceleration,-0.35309,-2.98591
+114,US,Technology,breadth_above_50dma,0.567568,0.763426
+114,US,Technology,ma50_slope,0.00539471,2.84223
+114,US,Technology,obv_slope,-0.00336101,-0.302191
+114,US,Technology,return_1m,-0.00189003,-0.0201557
+114,US,Technology,return_3m,0.3512,2.56261
+114,US,Technology,return_6m,0.274593,1.56016
+114,US,Technology,rs_momentum,100.261,0.667012
+114,US,Technology,rs_ratio,100.019,0.36423
+114,US,Utilities,above_200dma,0.0418546,-0.377956
+114,US,Utilities,above_50dma,0.0240083,0.295511
+114,US,Utilities,acceleration,-0.0017997,0.836438
+114,US,Utilities,breadth_above_50dma,0.903226,1.73438
+114,US,Utilities,ma50_slope,-0.000683452,-0.855225
+114,US,Utilities,obv_slope,0.0168872,0.660763
+114,US,Utilities,return_1m,0.0179301,0.370025
+114,US,Utilities,return_3m,0.0197298,-0.544365
+114,US,Utilities,return_6m,0.0940753,-0.134413
+114,US,Utilities,rs_momentum,100.165,0.411969
+114,US,Utilities,rs_ratio,101.3,0.78908
