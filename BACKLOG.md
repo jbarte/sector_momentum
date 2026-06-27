@@ -219,15 +219,13 @@ Carried over from earlier planning — not started:
   (`transformers` + `torch`, ~400 MB model, CPU inference, no API key) — fits "free only",
   but a heavier dependency than the current stack. Base FinBERT is English-only; EU/Swedish
   needs a multilingual model or translate-then-score.
-- **Backtest against past rotations — Phase 2 (rotation event-study)** — the early-flag
-  half: per-rotation rank-over-time vs forward return for a curated list of historical
-  rotations (e.g. energy 2021–22). Phase 1 (edge / strategy backtest) shipped 2026-06-26.
 - **Streamlit live drill-down** (optional) — interactive drill-down UI
 
 ---
 
 ## Done
 
+- ~~Backtest against past rotations (Phase 2 — rotation event-study)~~ — curated rotations in `config/rotations.yaml` → `src/backtest/rotations.py` recovers each sector's point-in-time rank-over-time vs the ETF's indexed price (reusing `score_as_of`); persisted in `backtests/summary.json` and rendered as dual-axis small-multiples in the Backtest tab. Visual-only. *(2026-06-27)*
 - ~~Symbol-based Google Trends sentiment (Phase 1 — ETF symbols)~~ — Trends now queries the
   sector ETF symbols (primary + linked, both regions) instead of generic theme words;
   anchor-normalized (SPY) and aggregated to a region-aware sentiment z per region|sector via
