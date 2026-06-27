@@ -34,6 +34,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--top-n", type=int, default=5, help="Number of sectors to hold (default 5).")
     p.add_argument("--start", default=DEFAULT_START, help="History start date (YYYY-MM-DD).")
     p.add_argument("--out", default="backtests", help="Output directory.")
+    p.add_argument("--no-rotations", action="store_true",
+                   help="Skip the rotation event-study.")
     return p.parse_args()
 
 
@@ -54,6 +56,7 @@ def run(args: argparse.Namespace) -> int:
     from src.data.prices import load_universe, fetch_prices
     from src.backtest.engine import run_all
     from src.backtest.results import write_results
+    from src.backtest.rotations import load_rotations, event_study
 
     universe = load_universe("config/universe.yaml")
     tickers = build_ticker_list(universe)
@@ -66,8 +69,15 @@ def run(args: argparse.Namespace) -> int:
     logger.info("Running tracks (top_n=%d) …", args.top_n)
     tracks = run_all(universe, prices, top_n=args.top_n)
 
+    rotations_data = []
+    if not args.no_rotations:
+        rots = load_rotations("config/rotations.yaml")
+        rotations_data = event_study(universe, prices, rots)
+        logger.info("Rotation event-study: %d/%d rotations produced", len(rotations_data), len(rots))
+
     path = write_results(tracks, out_dir=args.out,
-                         generated_at=datetime.utcnow().isoformat() + "Z", top_n=args.top_n)
+                         generated_at=datetime.utcnow().isoformat() + "Z",
+                         top_n=args.top_n, rotations=rotations_data)
 
     for region, tr in tracks.items():
         if not tr:
