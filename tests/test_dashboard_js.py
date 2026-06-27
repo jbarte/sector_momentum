@@ -167,6 +167,8 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
             backtest_json=json.dumps({}),
             backtest_metrics=[],
             has_backtest=False,
+            rotation_json=json.dumps([]),
+            has_rotations=False,
         ),
     )
     html = out.read_text()
@@ -228,6 +230,8 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
             backtest_json=json.dumps({}),
             backtest_metrics=[],
             has_backtest=False,
+            rotation_json=json.dumps([]),
+            has_rotations=False,
         ),
     )
     html = out.read_text()

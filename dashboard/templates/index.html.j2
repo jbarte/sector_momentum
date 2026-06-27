@@ -823,6 +823,11 @@ select.sector-select:focus {
   </div>
   <div class="chart-container" id="backtest-chart-US" style="height:420px"></div>
   <div class="chart-container" id="backtest-chart-EU" style="height:420px"></div>
+  {% if has_rotations %}
+  <h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">Rotation event-study — did rank lead price?</h3>
+  <p class="tab-note">Scanner rank (inverted: up = better) vs the sector ETF's indexed price across each curated rotation.</p>
+  <div id="rotation-charts"></div>
+  {% endif %}
   {% else %}
   <p style="text-align:center;padding:24px;color:var(--fg4)">No backtest run yet. Run <code>python backtest.py</code>.</p>
   {% endif %}
@@ -973,6 +978,7 @@ var DRILLDOWN_DATA = {{ drilldown_data | safe }};
 var SENTIMENT_DATA = {{ sentiment_scatter_json | safe }};
 var RESCORE_DATA = {{ rescore_data_json | safe }};
 var BACKTEST_DATA = {{ backtest_json | safe }};
+var ROTATION_DATA = {{ rotation_json | safe }};
 
 // ----- Render helpers -----
 var _rendered = {};
@@ -1011,6 +1017,19 @@ function renderBacktest() {
       Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
     }
   });
+  var rc = document.getElementById('rotation-charts');
+  if (rc && !rc.dataset.rendered && ROTATION_DATA && ROTATION_DATA.length) {
+    rc.dataset.rendered = '1';
+    ROTATION_DATA.forEach(function (r, i) {
+      var d = document.createElement('div');
+      d.className = 'chart-container';
+      d.style.height = '360px';
+      d.style.marginBottom = '16px';
+      d.id = 'rotation-chart-' + i;
+      rc.appendChild(d);
+      Plotly.newPlot(d, r.fig.data, r.fig.layout, {responsive: true, displayModeBar: true});
+    });
+  }
 }
 
 function renderDrilldown() {
