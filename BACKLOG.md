@@ -75,13 +75,12 @@ dormant — see below.
   (`src/data/trends_symbols.py` → `score_symbol_sentiment`, shipped Phase 1), passed to
   `score_all(..., blend_sentiment=False)` — toggle-only, never blended into the canonical
   composite. (`config/weights.yaml` declares `sentiment: 0.30`, never applied.)
-- The old multi-source engine has been removed: **Finnhub** (US-only free tier),
-  **StockTwits** (Cloudflare-blocked), **Reddit** (`src/data/reddit.py`), and the
-  orphaned `compute_sentiment_score` + its `_mention_velocity`/`_search_momentum`
-  helpers. Only `_cross_zscore` survived (moved into `trends_symbols.py`).
-- **Still dead (last sibling to remove):** the original generic-keyword Trends path
-  `fetch_trends` (`src/data/trends.py`) + `config/sentiment_keywords.yaml` — superseded by
-  the symbol-based path; referenced only by `tests/test_trends.py`.
+- The old multi-source engine has been fully removed: **Finnhub** (US-only free tier),
+  **StockTwits** (Cloudflare-blocked), **Reddit** (`src/data/reddit.py`), the orphaned
+  `compute_sentiment_score` (+ `_mention_velocity`/`_search_momentum`), and the original
+  generic-keyword Trends path (`fetch_trends`/`src/data/trends.py` +
+  `config/sentiment_keywords.yaml`). Only `_cross_zscore` survived (moved into
+  `trends_symbols.py`). Symbol-based Trends (`trends_symbols.py`) is now the sole source.
 
 **Getting the most out of Google Trends (ideas to explore):**
 - **Use all keywords, not just the first.** Each sector lists several terms; combine
