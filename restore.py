@@ -12,6 +12,12 @@ import logging
 import sys
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 sys.path.insert(0, str(Path(__file__).parent))
 from src.state import init_db
 from src.backup import restore_database, restore_from_storage
