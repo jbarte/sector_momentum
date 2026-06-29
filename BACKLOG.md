@@ -226,6 +226,10 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~EU-available instruments reference~~ — the per-sector "Instruments" panel now lists one
+  EU-available UCITS ETF per sector (US → iShares S&P 500 sector UCITS ETFs, Real Estate →
+  iShares US Property Yield; EU → existing iShares/Amundi primary). Reference-only
+  (`config/sector_etfs.yaml`); scanned instruments/benchmarks unchanged. *(2026-06-29)*
 - ~~Stop publishing internal design docs~~ — moved `docs/superpowers/` (specs + plans) to
   repo-root `design/` so they're versioned but no longer served on the public Pages site
   (`docs/` is the published web root; static `.nojekyll` serving has no per-folder exclude).
