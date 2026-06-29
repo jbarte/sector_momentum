@@ -32,8 +32,8 @@ def _parse_args(argv=None):
     return p.parse_args(argv)
 
 
-def main():
-    args = _parse_args()
+def main(argv=None):
+    args = _parse_args(argv)
     if args.list:
         for name in storage_backup.list_objects():
             print(name)
