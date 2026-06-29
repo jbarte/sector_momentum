@@ -97,7 +97,9 @@ US:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00BDDRF478
 
 EU:
-  # iShares STOXX Europe 600 sector ETFs (Xetra-listed, TER 0.46–0.47%)
+  # iShares STOXX Europe 600 sector ETFs (Xetra-listed, TER 0.46–0.47%).
+  # Energy/Industrials/Consumer Discretionary use Amundi (TER 0.30%) — no iShares
+  # STOXX 600 listing for those; Real Estate uses iShares European Property Yield.
   # Note: EU sector ETFs track STOXX sub-sectors, not GICS — see name for closest proxy.
 
   Technology:
