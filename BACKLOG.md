@@ -75,8 +75,9 @@ dormant — see below.
   **not wired into the live scan** — `scan.py` calls `score_all(wide_df, ...)` without
   a `sentiment_score`, so composite = pure data pillar and `sentiment_score` is stored
   as `NaN`. (`config/weights.yaml` declares `sentiment: 0.30`, never applied.)
-- The Reddit + Finnhub fetchers can be removed; only `fetch_trends`
-  (`src/data/trends.py`) is relevant going forward.
+- The Finnhub fetcher has been removed (free tier is US-only and the news path
+  was superseded by symbol-based Trends). The Reddit fetcher can still be removed;
+  only `fetch_trends` (`src/data/trends.py`) is relevant going forward.
 - `fetch_trends` today is thin: pulls only the **primary keyword** per sector
   (`config/sentiment_keywords.yaml`), `today 3-m` (~13 weeks), worldwide (`geo=""`),
   and the engine reduces each series to a single OLS slope.
