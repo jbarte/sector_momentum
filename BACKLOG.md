@@ -226,6 +226,11 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Published History tab stale (GitHub Pages frozen)~~ — the daily scan committed
+  current `docs/`, but Pages' legacy **Jekyll** build hard-failed on Liquid brace syntax
+  in `docs/superpowers/` plan snippets, freezing the published site at the last good
+  deploy (scan 113 / 06-26) while `docs/` and the DB kept advancing to scan 116. Fix:
+  `build.py` now emits `docs/.nojekyll` so Pages serves the static artifact as-is. *(2026-06-29)*
 - ~~DB backup → Supabase Storage (pre-run)~~ — replaced the git-committed `backups/` CSV dump with a pre-run zip uploaded to a private `db-backups` Supabase Storage bucket (`src/storage_backup.py` + `backup_to_storage`/`restore_from_storage`); `scan.py` backs up before writing; `scan.yml` no longer commits `backups/`; `restore.py` pulls latest from Storage (`--list`/`--local`). One new secret `SUPABASE_SERVICE_KEY`. *(2026-06-29)*
 - ~~Backtest against past rotations (Phase 2 — rotation event-study)~~ — curated rotations in `config/rotations.yaml` → `src/backtest/rotations.py` recovers each sector's point-in-time rank-over-time vs the ETF's indexed price (reusing `score_as_of`); persisted in `backtests/summary.json` and rendered as dual-axis small-multiples in the Backtest tab. Visual-only. *(2026-06-27)*
 - ~~Symbol-based Google Trends sentiment (Phase 1 — ETF symbols)~~ — Trends now queries the

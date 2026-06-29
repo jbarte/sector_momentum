@@ -1161,6 +1161,22 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
 # ---------------------------------------------------------------------------
 
 
+def _disable_jekyll(out_dir: Path) -> Path:
+    """Write an empty ``.nojekyll`` so GitHub Pages serves the site as-is.
+
+    The dashboard is a generated static site. Pages' legacy Jekyll build
+    otherwise renders every ``.md`` under ``docs/`` (including the
+    ``docs/superpowers/`` plans) as a Liquid template and hard-fails on brace
+    syntax in code snippets — which silently freezes the *published* site at the
+    last good deploy even though ``docs/`` keeps updating. ``.nojekyll`` skips
+    Jekyll entirely.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    nojekyll = out_dir / ".nojekyll"
+    nojekyll.write_text("", encoding="utf-8")
+    return nojekyll
+
+
 def _render(
     template_path: Path,
     out_path: Path,
@@ -1334,6 +1350,10 @@ def main() -> None:
             has_rotations=backtest_ctx["has_rotations"],
         ),
     )
+
+    # 6. Disable Jekyll on GitHub Pages (the published artifact is static).
+    _disable_jekyll(out_dir)
+
     print(f"Dashboard built: {out_path}")
 
 
