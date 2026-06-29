@@ -30,3 +30,6 @@ dashboard/assets/plotly.min.js
 
 # Claude Code internal files
 .claude/
+
+# DB backups now live in Supabase Storage, not git.
+backups/

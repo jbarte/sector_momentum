@@ -1,34 +1,50 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 import restore
 
 
-def test_main_passes_dir_and_force(monkeypatch, capsys):
-    captured = {}
-    class _Conn:
-        def close(self): pass
-    monkeypatch.setattr(restore, "init_db", lambda: _Conn())
-    def fake_restore(conn, backup_dir, *, force):
-        captured["dir"] = backup_dir
-        captured["force"] = force
-        return {"scans": 2, "signals": 4, "scores": 6}
-    monkeypatch.setattr(restore, "restore_database", fake_restore)
-    monkeypatch.setattr(sys, "argv", ["restore.py", "mybackups", "--force"])
-    restore.main()
-    assert captured == {"dir": "mybackups", "force": True}
+class _Conn:
+    def __init__(self): self.closed = False
+    def close(self): self.closed = True
+
+
+def test_main_list_lists_without_db(monkeypatch, capsys):
+    called = {"init": False}
+    monkeypatch.setattr(restore, "init_db", lambda: called.__setitem__("init", True) or _Conn())
+    monkeypatch.setattr(restore.storage_backup, "list_objects",
+                        lambda: ["backup_a.zip", "backup_b.zip"])
+    restore.main(["--list"])
     out = capsys.readouterr().out
-    assert "scans" in out and "2" in out
+    assert "backup_a.zip" in out and "backup_b.zip" in out
+    assert called["init"] is False   # --list must not open a DB connection
 
 
-def test_main_defaults(monkeypatch):
-    captured = {}
-    class _Conn:
-        def close(self): pass
+def test_main_local_routes_to_restore_database(monkeypatch):
+    cap = {}
     monkeypatch.setattr(restore, "init_db", lambda: _Conn())
     monkeypatch.setattr(restore, "restore_database",
-                        lambda conn, backup_dir, *, force: captured.update(dir=backup_dir, force=force) or {})
-    monkeypatch.setattr(sys, "argv", ["restore.py"])
-    restore.main()
-    assert captured == {"dir": "backups", "force": False}
+                        lambda conn, d, force=False: cap.update(dir=d, force=force) or {"scans": 1})
+    restore.main(["--local", "somedir"])
+    assert cap == {"dir": "somedir", "force": False}
+
+
+def test_main_default_routes_to_storage(monkeypatch):
+    cap = {}
+    monkeypatch.setattr(restore, "init_db", lambda: _Conn())
+    monkeypatch.setattr(restore, "restore_from_storage",
+                        lambda conn, name, force=False: cap.update(name=name, force=force) or {"scans": 1})
+    restore.main(["backup_x.zip", "--force"])
+    assert cap == {"name": "backup_x.zip", "force": True}
+
+
+def test_parse_args_defaults():
+    ns = restore._parse_args([])
+    assert ns.object_name is None and ns.list is False and ns.local is None and ns.force is False
+
+
+def test_parse_args_object_and_force():
+    ns = restore._parse_args(["backup_x.zip", "--force"])
+    assert ns.object_name == "backup_x.zip" and ns.force is True
+
+
+def test_parse_args_local_and_list():
+    ns = restore._parse_args(["--local", "backups", "--list"])
+    assert ns.local == "backups" and ns.list is True

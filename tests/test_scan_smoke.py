@@ -256,31 +256,57 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
 
 
 def test_backup_called_after_successful_save(monkeypatch, tmp_path):
-    """run() invokes backup_database once after save_scan, by default."""
+    """run() invokes backup_to_storage once (pre-run), by default."""
     import scan
     calls = []
-    monkeypatch.setattr(scan, "backup_database", lambda conn, *a, **k: calls.append(conn) or tmp_path)
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
     _run_minimal_scan(monkeypatch)
     assert len(calls) == 1
 
 
 def test_no_backup_flag_skips_backup(monkeypatch, tmp_path):
-    """run() skips backup_database when --no-backup is passed."""
+    """run() skips backup_to_storage when --no-backup is passed."""
     import scan
     calls = []
-    monkeypatch.setattr(scan, "backup_database", lambda conn, *a, **k: calls.append(conn) or tmp_path)
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
     _run_minimal_scan(monkeypatch, extra_argv=["--no-backup"])
     assert calls == []
 
 
 def test_backup_failure_is_non_fatal(monkeypatch, tmp_path):
-    """A backup_database that raises must not abort the scan."""
+    """A backup_to_storage that raises must not abort the scan."""
     import scan
     def boom(conn, *a, **k):
         raise RuntimeError("disk full")
-    monkeypatch.setattr(scan, "backup_database", boom)
+    monkeypatch.setattr(scan, "backup_to_storage", boom)
     rc = _run_minimal_scan(monkeypatch)
     assert rc in (0, None)  # scan still completes despite backup failure
+
+
+def test_pre_run_backup_is_called_and_nonfatal(monkeypatch):
+    """backup_to_storage runs before save_scan; a failure does not abort the scan."""
+    import scan
+    calls = []
+
+    def boom(conn, *a, **k):
+        calls.append("backup")
+        raise RuntimeError("storage down")
+
+    monkeypatch.setattr(scan, "backup_to_storage", boom)
+    rc = _run_minimal_scan(monkeypatch)
+    # backup was attempted
+    assert calls == ["backup"]
+    # scan still completed despite the error
+    assert rc in (0, None)
+
+
+def test_pre_run_backup_skipped_with_no_backup_flag(monkeypatch):
+    """backup_to_storage is NOT called when --no-backup is passed."""
+    import scan
+    calls = []
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append("backup"))
+    _run_minimal_scan(monkeypatch, extra_argv=["--no-backup"])
+    assert calls == []
 
 
 def test_score_symbol_sentiment_returns_series():

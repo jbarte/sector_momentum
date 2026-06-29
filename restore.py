@@ -1,39 +1,60 @@
-"""Restore the database from a CSV backup written by src/backup.py.
+"""Restore the database from a Supabase Storage backup (or a local CSV dir).
 
 Usage:
-    python restore.py [backup_dir]        # restore into an EMPTY db (default: backups/)
-    python restore.py [backup_dir] --force  # delete existing rows first, then restore
+    python restore.py                       # restore the LATEST Storage backup (empty DB)
+    python restore.py backup_<ts>.zip       # restore a specific Storage object
+    python restore.py --list                # list Storage backups and exit
+    python restore.py --local backups       # restore from a local CSV dir (old git backups)
+    add --force to delete existing rows first
 """
 import argparse
 import logging
 import sys
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 sys.path.insert(0, str(Path(__file__).parent))
 from src.state import init_db
-from src.backup import restore_database
+from src.backup import restore_database, restore_from_storage
+from src import storage_backup
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s")
 
 
-def _parse_args():
-    p = argparse.ArgumentParser(description="Restore the DB from a CSV backup")
-    p.add_argument("backup_dir", nargs="?", default="backups",
-                   help="Directory holding scans.csv/scores.csv/signals.csv (default: backups)")
+def _parse_args(argv=None):
+    p = argparse.ArgumentParser(description="Restore the DB from a Supabase Storage backup")
+    p.add_argument("object_name", nargs="?", default=None,
+                   help="Storage object to restore (default: latest)")
+    p.add_argument("--list", action="store_true", help="List Storage backups and exit")
+    p.add_argument("--local", metavar="DIR", default=None,
+                   help="Restore from a local CSV backup dir instead of Storage")
     p.add_argument("--force", action="store_true",
-                   help="Delete all existing rows before restoring (otherwise refuses a non-empty DB)")
-    return p.parse_args()
+                   help="Delete existing rows before restoring (else refuses a non-empty DB)")
+    return p.parse_args(argv)
 
 
-def main():
-    args = _parse_args()
+def main(argv=None):
+    args = _parse_args(argv)
+    if args.list:
+        for name in storage_backup.list_objects():
+            print(name)
+        return
     conn = init_db()
     try:
-        counts = restore_database(conn, args.backup_dir, force=args.force)
+        if args.local:
+            counts = restore_database(conn, args.local, force=args.force)
+            src = args.local
+        else:
+            counts = restore_from_storage(conn, args.object_name, force=args.force)
+            src = args.object_name or "latest"
     finally:
         conn.close()
-    print(f"Restored from {args.backup_dir}: " +
-          ", ".join(f"{k}={v}" for k, v in counts.items()))
+    print(f"Restored from {src}: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
 if __name__ == "__main__":

@@ -6,12 +6,17 @@ ones so the serialization logic is testable without a live database.
 """
 from __future__ import annotations
 
+import io
 import json
 import logging
-from datetime import datetime
+import tempfile
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+
+from src import storage_backup
 
 logger = logging.getLogger(__name__)
 
@@ -123,3 +128,39 @@ def backup_database(conn, backup_dir: str | Path = "backups") -> Path:
 def restore_database(conn, backup_dir: str | Path = "backups", *, force: bool = False) -> dict[str, int]:
     """Load a CSV backup into the DB. Returns per-table inserted counts."""
     return load_tables(conn, read_backup(backup_dir), force=force)
+
+
+_ARCHIVE_MEMBERS = ("scans.csv", "scores.csv", "signals.csv", "manifest.json")
+
+
+def backup_to_storage(conn, bucket: str = storage_backup.DEFAULT_BUCKET) -> str:
+    """Dump the DB, zip the CSV backup, and upload it to Supabase Storage."""
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    object_name = f"backup_{ts}.zip"
+    with tempfile.TemporaryDirectory() as tmp:
+        write_backup(dump_tables(conn), tmp)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for member in _ARCHIVE_MEMBERS:
+                zf.write(Path(tmp) / member, arcname=member)
+        storage_backup.upload(object_name, buf.getvalue(), bucket=bucket)
+    logger.info("Backup uploaded to Storage: %s/%s", bucket, object_name)
+    return object_name
+
+
+def restore_from_storage(conn, object_name: str | None = None,
+                         bucket: str = storage_backup.DEFAULT_BUCKET, *,
+                         force: bool = False) -> dict[str, int]:
+    """Download a backup object (latest if unspecified) and load it into the DB."""
+    if object_name is None:
+        names = storage_backup.list_objects(bucket=bucket)
+        if not names:
+            raise RuntimeError(f"no backups found in bucket '{bucket}'")
+        object_name = names[-1]  # ISO-ish timestamps sort chronologically
+    data = storage_backup.download(object_name, bucket=bucket)
+    with tempfile.TemporaryDirectory() as tmp:
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            zf.extractall(tmp)
+        tables = read_backup(tmp)
+    logger.info("Restoring from Storage object %s/%s", bucket, object_name)
+    return load_tables(conn, tables, force=force)
