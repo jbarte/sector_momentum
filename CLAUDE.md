@@ -55,6 +55,13 @@ All queued and completed work lives in `BACKLOG.md` in the project root. When as
 
 To catch drift after the fact, run `/backlog-sync`: it audits each queued item against git history, merged PRs, and the actual code, then offers to move anything already shipped to Done.
 
+## Backups
+
+The DB is backed up to a **private Supabase Storage bucket `db-backups`** (one
+`backup_<UTC>.zip` per scan, taken *before* each run) — not git. Requires the
+`SUPABASE_SERVICE_KEY` secret (CI) / env var (local) and the bucket to exist.
+Restore with `python restore.py` (latest) / `--list` / `--local <dir>` (old git backups).
+
 ## Dev commands
 
 ```bash
