@@ -1165,10 +1165,11 @@ def _disable_jekyll(out_dir: Path) -> Path:
     """Write an empty ``.nojekyll`` so GitHub Pages serves the site as-is.
 
     The dashboard is a generated static site. Pages' legacy Jekyll build
-    otherwise renders every ``.md`` under ``docs/`` (including the
-    ``docs/superpowers/`` plans) as a Liquid template and hard-fails on brace
-    syntax in code snippets — which silently freezes the *published* site at the
-    last good deploy even though ``docs/`` keeps updating. ``.nojekyll`` skips
+    otherwise processes every ``.md`` under ``docs/`` (e.g. the per-scan reports
+    in ``docs/reports/``) as a Liquid template — rewriting their URLs to ``.html``
+    (breaking the dashboard's ``report_<id>.md`` links) and hard-failing on any
+    brace syntax in the content, which silently freezes the *published* site at
+    the last good deploy even though ``docs/`` keeps updating. ``.nojekyll`` skips
     Jekyll entirely.
     """
     out_dir.mkdir(parents=True, exist_ok=True)

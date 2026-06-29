@@ -162,7 +162,7 @@ blocklist (`VOX`, `LOGS`, the `L*` EU alternates) — but it's whack-a-mole.
 
 **Notes:** Reuses `src/data/constituents.py`. Trends *Topics* (entity disambiguation) and
 regional geo are tracked separately under [[the Google-Trends-only tab item above]], not
-here. Phase 1 design + plan: `docs/superpowers/{specs,plans}/2026-06-26-symbol-trends-*`.
+here. Phase 1 design + plan: `design/{specs,plans}/2026-06-26-symbol-trends-*`.
 
 ---
 
@@ -226,6 +226,10 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Stop publishing internal design docs~~ — moved `docs/superpowers/` (specs + plans) to
+  repo-root `design/` so they're versioned but no longer served on the public Pages site
+  (`docs/` is the published web root; static `.nojekyll` serving has no per-folder exclude).
+  CLAUDE.md now points spec/plan output at `design/{specs,plans}`. *(2026-06-29)*
 - ~~Published History tab stale (GitHub Pages frozen)~~ — the daily scan committed
   current `docs/`, but Pages' legacy **Jekyll** build hard-failed on Liquid brace syntax
   in `docs/superpowers/` plan snippets, freezing the published site at the last good

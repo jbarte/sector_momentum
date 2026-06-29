@@ -49,6 +49,14 @@ regenerating the same large tree). Feature PRs should be **source-only**
 `BACKLOG.md` uses a `merge=union` driver (`.gitattributes`) so concurrent Done-list
 additions auto-combine instead of conflicting.
 
+## Design docs (specs & plans) — `design/`, NOT `docs/`
+
+Brainstorming/writing-plans output lives in `design/specs/` and `design/plans/`
+(repo root) — **never** under `docs/`. `docs/` is the published Pages web root, so
+anything there is public; `design/` keeps internal specs/plans versioned but private.
+The brainstorming/writing-plans skills default to `docs/superpowers/` — override that
+default and write to `design/specs/` and `design/plans/` instead.
+
 ## Backlog
 
 All queued and completed work lives in `BACKLOG.md` in the project root. When asked about the backlog, read that file — not memory. When finishing a task that appears in `BACKLOG.md`, move it to the Done section with the completion date — in the same branch that ships the work (see Git workflow step 3).
