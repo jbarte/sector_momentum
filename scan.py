@@ -46,7 +46,7 @@ logger = logging.getLogger("scan")
 from src.data.prices import fetch_prices
 from src.data.constituents import fetch_sp500_constituents
 from src.signals.breadth import compute_constituent_breadth
-from src.backup import backup_database
+from src.backup import backup_to_storage
 from src.pipeline import SIGNAL_COLUMNS, build_signals_rows
 
 # ---------------------------------------------------------------------------
@@ -302,6 +302,13 @@ def run(args: argparse.Namespace) -> int:
     logger.info("Connecting to Supabase …")
     conn = init_db()
 
+    if not args.no_backup:
+        try:
+            name = backup_to_storage(conn)
+            logger.info("Pre-run DB backup uploaded to Storage (%s)", name)
+        except Exception as exc:  # non-fatal: a backup failure must not fail the scan
+            logger.warning("Pre-run backup failed (%s) — continuing", exc)
+
     prior_scan = load_last_scan(conn)
     if prior_scan is not None:
         logger.info("Prior scan found (%d sectors) — computing deltas …", len(prior_scan))
@@ -333,13 +340,6 @@ def run(args: argparse.Namespace) -> int:
             scores_df=scored_with_deltas,
         )
         logger.info("Saved scan_id=%d", scan_id)
-
-        if not args.no_backup:
-            try:
-                backup_database(conn)
-                logger.info("Database backup written to backups/")
-            except Exception as exc:  # non-fatal: a backup failure must not fail the scan
-                logger.warning("Database backup failed (%s) — continuing", exc)
 
         logger.info("Writing report …")
         ranked_table = build_ranked_table(scored_with_deltas)
