@@ -97,9 +97,9 @@ US:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00BDDRF478
 
 EU:
-  # iShares STOXX Europe 600 sector ETFs (Xetra-listed, TER 0.46–0.47%).
-  # Energy/Industrials/Consumer Discretionary use Amundi (TER 0.30%) — no iShares
-  # STOXX 600 listing for those; Real Estate uses iShares European Property Yield.
+  # iShares STOXX Europe 600 sector ETFs (Xetra-listed, TER 0.46–0.47%); Real Estate
+  # uses iShares European Property Yield. Each entry is the SAME instrument the scanner
+  # uses for that sector (config/universe.yaml eu_sectors) — reference == signal source.
   # Note: EU sector ETFs track STOXX sub-sectors, not GICS — see name for closest proxy.
 
   Technology:
@@ -119,13 +119,12 @@ EU:
       url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0F5UJ7
 
   Energy:
-    # No iShares STOXX 600 Oil & Gas with confirmed ISIN available
-    - ticker: LOGS
-      name: Amundi STOXX Europe 600 Oil & Gas Screened
-      isin: LU1834988278
-      ter: "0.30%"
-      issuer: Amundi
-      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834988278
+    - ticker: EXH1.DE
+      name: iShares STOXX Europe 600 Oil & Gas
+      isin: DE000A0H08M3
+      ter: "0.47%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08M3
 
   Health Care:
     - ticker: EXV4.DE
@@ -136,22 +135,22 @@ EU:
       url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0Q4R36
 
   Industrials:
-    # No iShares STOXX 600 Industrials with confirmed ISIN available
-    - ticker: LIGS
-      name: Amundi STOXX Europe 600 Industrial Goods & Services
-      isin: LU1834987890
-      ter: "0.30%"
-      issuer: Amundi
-      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834987890
+    - ticker: EXH4.DE
+      name: iShares STOXX Europe 600 Industrial Goods & Services
+      isin: DE000A0H08J9
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08J9
 
   Consumer Discretionary:
-    # No iShares STOXX 600 Consumer Discretionary with confirmed ISIN available
-    - ticker: LTVL
-      name: Amundi STOXX Europe 600 Travel & Leisure
-      isin: LU1834988781
-      ter: "0.30%"
-      issuer: Amundi
-      url: https://www.justetf.com/en/etf-profile.html?isin=LU1834988781
+    # Personal & Household Goods — the STOXX sub-sector the scanner uses as the GICS
+    # Consumer Discretionary proxy (imperfect; see config/universe.yaml).
+    - ticker: EXH7.DE
+      name: iShares STOXX Europe 600 Personal & Household Goods
+      isin: DE000A0H08N1
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08N1
 
   Consumer Staples:
     - ticker: EXH3.DE
