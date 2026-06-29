@@ -15,6 +15,16 @@ def test_base_url_explicit_override(monkeypatch):
     assert storage_backup._base_url() == "https://xyz.supabase.co"
 
 
+def test_base_url_derives_from_pooler_url(monkeypatch):
+    # Supavisor pooler URL: ref is in the username (postgres.<ref>), not the host.
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql://postgres.cwhqolfpailtxkiszuvn:pw@aws-0-eu-west-1.pooler.supabase.com:6543/postgres",
+    )
+    assert storage_backup._base_url() == "https://cwhqolfpailtxkiszuvn.supabase.co"
+
+
 class _Resp:
     def __init__(self, content=b"", payload=None):
         self.content = content

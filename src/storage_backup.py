@@ -21,12 +21,22 @@ def _base_url() -> str:
     explicit = os.environ.get("SUPABASE_URL")
     if explicit:
         return explicit.rstrip("/")
-    host = urlparse(os.environ.get("DATABASE_URL", "")).hostname or ""
+    parsed = urlparse(os.environ.get("DATABASE_URL", ""))
+    host = parsed.hostname or ""
+    # Direct connection: db.<ref>.supabase.co — ref is in the host.
     if host.startswith("db.") and host.endswith(".supabase.co"):
         ref = host[len("db."):-len(".supabase.co")]
         return f"https://{ref}.supabase.co"
+    # Pooler (Supavisor): host is *.pooler.supabase.com and the ref lives in
+    # the username as postgres.<ref>.
+    if host.endswith(".pooler.supabase.com"):
+        user = parsed.username or ""
+        ref = user.split(".", 1)[1] if "." in user else ""
+        if ref:
+            return f"https://{ref}.supabase.co"
     raise RuntimeError(
-        "cannot resolve Supabase URL: set SUPABASE_URL or a db.<ref>.supabase.co DATABASE_URL"
+        "cannot resolve Supabase URL: set SUPABASE_URL, or use a Supabase DATABASE_URL "
+        "(direct db.<ref>.supabase.co or a *.pooler.supabase.com pooler URL with user postgres.<ref>)"
     )
 
 
