@@ -242,7 +242,7 @@ sector-momentum/
 
 ## 9. Tech stack (all free)
 
-`Python 3.11+`, `pandas`, `numpy`, `requests`, `pandas-datareader`/`stooq`, `yfinance`, `praw` (Reddit), `pytrends` (Google Trends), `PyYAML`, `sqlite3` (stdlib). Optional sentiment polarity in v3: `vaderSentiment` (light) and/or `transformers` + FinBERT (heavier).
+`Python 3.11+`, `pandas`, `numpy`, `requests`, `pandas-datareader`/`stooq`, `yfinance`, `praw` (Reddit), `pytrends` (Google Trends), `PyYAML`, `sqlite3` (stdlib). Optional sentiment polarity in v3: `transformers` + FinBERT.
 
 **Dashboard (§11), all free:** `plotly` (figures, incl. RRG scatter and time series) + `jinja2` (templating) for the static GitHub Pages build; `streamlit` for the optional live app. No paid hosting — GitHub Pages and Streamlit Community Cloud are both free.
 
