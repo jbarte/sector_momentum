@@ -1198,6 +1198,16 @@ def main() -> None:
     # Resolve paths relative to project root (parent of dashboard/)
     project_root = Path(__file__).parent.parent
     out_dir = project_root / args.out
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Disable Jekyll on GitHub Pages. The dashboard is a static site (raw HTML +
+    # markdown report downloads); Pages serves docs/ in legacy "deploy from a
+    # branch" mode, where it otherwise runs Jekyll over every .md file and treats
+    # them as Liquid templates. Stray docs/superpowers/ plan files contain Liquid
+    # syntax (e.g. `endif`) that crashes the Jekyll build, which silently blocks
+    # the Pages deploy and freezes the published dashboard. .nojekyll makes Pages
+    # copy files verbatim and skip Jekyll entirely.
+    (out_dir / ".nojekyll").touch()
 
     # 1. Ensure plotly bundle
     _ensure_plotly_bundle()

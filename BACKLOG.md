@@ -225,6 +225,12 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Published dashboard frozen / History tab stale~~ — GitHub Pages serves `docs/`
+  in legacy "deploy from a branch" mode, which ran Jekyll over every committed `.md`;
+  stray `docs/superpowers/plans/*.md` contain Liquid syntax (`endif`) that crashed the
+  Jekyll build, silently blocking every Pages deploy while scans kept pushing fresh
+  `docs/`. `dashboard/build.py` now emits `docs/.nojekyll`, so Pages copies the static
+  site verbatim and skips Jekyll. *(2026-06-29)*
 - ~~Backtest against past rotations (Phase 2 — rotation event-study)~~ — curated rotations in `config/rotations.yaml` → `src/backtest/rotations.py` recovers each sector's point-in-time rank-over-time vs the ETF's indexed price (reusing `score_as_of`); persisted in `backtests/summary.json` and rendered as dual-axis small-multiples in the Backtest tab. Visual-only. *(2026-06-27)*
 - ~~Symbol-based Google Trends sentiment (Phase 1 — ETF symbols)~~ — Trends now queries the
   sector ETF symbols (primary + linked, both regions) instead of generic theme words;
