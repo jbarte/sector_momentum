@@ -9,8 +9,8 @@ merges manually.
 Reserve Important for things that break behaviour or correctness:
 - Wrong scoring/ranking logic (composite, z-scores, deltas, trajectory)
 - A signal computed or stored incorrectly (NaN/None handling, wrong column)
-- Secrets exposure — `DATABASE_URL`, Finnhub or any API token logged, printed,
-  written to a tracked file, or echoed in CI output
+- Secrets exposure — `DATABASE_URL`, `SUPABASE_SERVICE_KEY`, or any API token
+  logged, printed, written to a tracked file, or echoed in CI output
 - Data-loss or wrong-write paths against Supabase (`scans`, `signals`, `scores`)
 - Client-side dashboard JS that throws and kills interactivity (a single JS
   syntax error blanks the whole page — e.g. an empty `var X = ;` from a missing
@@ -30,7 +30,7 @@ Treat naming, formatting, and style preferences as Nit at most.
 ## Always check
 
 - **No secrets in tracked files.** `.env` is gitignored and holds `DATABASE_URL`
-  and the Finnhub token; they must never appear in committed code, logs, or
+  and `SUPABASE_SERVICE_KEY`; they must never appear in committed code, logs, or
   workflow files.
 - **Scan resilience.** External fetches (yfinance/stooq prices, Google Trends)
   must fail soft — a fetch error (e.g. Trends 429) should fall back to neutral

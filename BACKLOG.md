@@ -71,15 +71,17 @@ Trends.
 dormant — see below.
 
 **Current state of the code:**
-- `compute_sentiment_score` (`src/signals/sentiment.py`) is built and unit-tested but
-  **not wired into the live scan** — `scan.py` calls `score_all(wide_df, ...)` without
-  a `sentiment_score`, so composite = pure data pillar and `sentiment_score` is stored
-  as `NaN`. (`config/weights.yaml` declares `sentiment: 0.30`, never applied.)
-- The Reddit + Finnhub fetchers can be removed; only `fetch_trends`
-  (`src/data/trends.py`) is relevant going forward.
-- `fetch_trends` today is thin: pulls only the **primary keyword** per sector
-  (`config/sentiment_keywords.yaml`), `today 3-m` (~13 weeks), worldwide (`geo=""`),
-  and the engine reduces each series to a single OLS slope.
+- The live scan computes `sentiment_score` from **symbol-based Google Trends**
+  (`src/data/trends_symbols.py` → `score_symbol_sentiment`, shipped Phase 1), passed to
+  `score_all(..., blend_sentiment=False)` — toggle-only, never blended into the canonical
+  composite. (`config/weights.yaml` declares `sentiment: 0.30`, never applied.)
+- The old multi-source engine has been removed: **Finnhub** (US-only free tier),
+  **StockTwits** (Cloudflare-blocked), **Reddit** (`src/data/reddit.py`), and the
+  orphaned `compute_sentiment_score` + its `_mention_velocity`/`_search_momentum`
+  helpers. Only `_cross_zscore` survived (moved into `trends_symbols.py`).
+- **Still dead (last sibling to remove):** the original generic-keyword Trends path
+  `fetch_trends` (`src/data/trends.py`) + `config/sentiment_keywords.yaml` — superseded by
+  the symbol-based path; referenced only by `tests/test_trends.py`.
 
 **Getting the most out of Google Trends (ideas to explore):**
 - **Use all keywords, not just the first.** Each sector lists several terms; combine
