@@ -219,7 +219,7 @@ sector-momentum/
 │   ├── swedish_tickers.csv  # Swedish expression layer
 │   └── weights.yaml         # pillar/signal weights (versioned)
 ├── src/
-│   ├── data/                # stooq, yfinance, FRED, reddit, pytrends loaders
+│   ├── data/                # stooq, yfinance, FRED, pytrends (symbol Trends) loaders
 │   ├── signals/             # data-pillar + sentiment-pillar calculators
 │   ├── scoring.py           # normalize, composite, rank, level vs change
 │   ├── state.py             # SQLite read/write, delta-vs-last-scan
@@ -242,7 +242,7 @@ sector-momentum/
 
 ## 9. Tech stack (all free)
 
-`Python 3.11+`, `pandas`, `numpy`, `requests`, `pandas-datareader`/`stooq`, `yfinance`, `praw` (Reddit), `pytrends` (Google Trends), `PyYAML`, `sqlite3` (stdlib). Optional sentiment polarity in v3: `transformers` + FinBERT.
+`Python 3.11+`, `pandas`, `numpy`, `requests`, `pandas-datareader`/`stooq`, `yfinance`, `pytrends` (Google Trends), `PyYAML`, `sqlite3` (stdlib). Optional sentiment polarity in v3: `transformers` + FinBERT.
 
 **Dashboard (§11), all free:** `plotly` (figures, incl. RRG scatter and time series) + `jinja2` (templating) for the static GitHub Pages build; `streamlit` for the optional live app. No paid hosting — GitHub Pages and Streamlit Community Cloud are both free.
 

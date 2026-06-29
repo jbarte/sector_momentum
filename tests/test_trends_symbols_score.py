@@ -1,5 +1,24 @@
+import math
+
 import pandas as pd
-from src.data.trends_symbols import score_symbol_sentiment
+from src.data.trends_symbols import _cross_zscore, score_symbol_sentiment
+
+
+def test_cross_zscore_centers_and_scales():
+    z = _cross_zscore({"a": 1.0, "b": 2.0, "c": 3.0})
+    assert abs(sum(z.values())) < 1e-9          # mean ~0
+    assert z["a"] < z["b"] < z["c"]             # order preserved
+
+
+def test_cross_zscore_excludes_nan_and_handles_degenerate():
+    # NaN inputs pass through as NaN, excluded from the mean/std.
+    z = _cross_zscore({"a": 1.0, "b": 2.0, "c": float("nan")})
+    assert math.isnan(z["c"])
+    assert abs(z["a"] + z["b"]) < 1e-9
+    # all-equal → all 0.0 (std == 0)
+    assert _cross_zscore({"a": 5.0, "b": 5.0}) == {"a": 0.0, "b": 0.0}
+    # fewer than two valid values → 0.0
+    assert _cross_zscore({"a": 7.0}) == {"a": 0.0}
 
 
 def test_rising_key_scores_above_falling():

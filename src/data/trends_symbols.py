@@ -7,11 +7,28 @@ per region|sector, and scores it as a cross-sectional z. Region-aware; toggle-on
 from __future__ import annotations
 
 import logging
+import math
 
 import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+def _cross_zscore(values: dict[str, float]) -> dict[str, float]:
+    """Z-score a dict of {key: float}. NaN inputs excluded from mean/std."""
+    valid = {k: v for k, v in values.items() if not math.isnan(v)}
+    if len(valid) < 2:
+        return {k: 0.0 if not math.isnan(v) else float("nan") for k, v in values.items()}
+    arr = list(valid.values())
+    mean = sum(arr) / len(arr)
+    std = (sum((x - mean) ** 2 for x in arr) / (len(arr) - 1)) ** 0.5
+    if std == 0.0:
+        return {k: 0.0 for k in values}
+    return {
+        k: (v - mean) / std if not math.isnan(v) else float("nan")
+        for k, v in values.items()
+    }
 
 
 def build_symbol_map(
@@ -147,8 +164,6 @@ def score_symbol_sentiment(trends_by_key: dict[str, pd.Series]) -> pd.Series:
     Returns:
         pd.Series indexed by region|sector with cross-sectional z-scores of slopes.
     """
-    from src.signals.sentiment import _cross_zscore
-
     slopes = {key: _slope(list(series)) for key, series in trends_by_key.items()}
     z = _cross_zscore(slopes)
     return pd.Series(z, dtype=float)
