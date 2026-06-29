@@ -23,7 +23,7 @@ Treat naming, formatting, and style preferences as Nit at most.
 - `docs/index.html` and anything under `docs/assets/` — generated build output
   from `dashboard/build.py`, not hand-edited source. Review the template
   (`dashboard/templates/index.html.j2`) and `dashboard/build.py` instead.
-- `docs/superpowers/` — design specs and implementation plans, not code.
+- `design/` — design specs and implementation plans, not code.
 - Plotly JSON blobs embedded in the dashboard.
 - Pre-existing issues unrelated to the PR's diff.
 
