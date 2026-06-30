@@ -1,4 +1,6 @@
 # tests/test_pipeline_composite.py
+import math
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -44,10 +46,13 @@ def _rows_equal_nan_safe(rows_a: list[dict], rows_b: list[dict]) -> bool:
             return False
         for k in da:
             va, vb = da[k], db[k]
-            if isinstance(va, float) and isinstance(vb, float):
-                if not (va == vb or (va != va and vb != vb)):  # NaN-safe
-                    return False
-            elif va != vb:
+            try:
+                # pd.isna handles float, numpy.float64, and None uniformly
+                if pd.isna(va) and pd.isna(vb):
+                    continue
+            except (TypeError, ValueError):
+                pass
+            if va != vb:
                 return False
     return True
 
