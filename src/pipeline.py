@@ -28,6 +28,40 @@ SIGNAL_COLUMNS = [
 ]
 
 
+def build_composite_series(
+    tickers: list[str],
+    prices: dict[str, pd.DataFrame],
+) -> pd.DataFrame | None:
+    """Equal-weight composite of component ETFs.
+
+    Close = mean of each component's Close rebased to 100 at the common
+    (inner-join) start date; Volume = summed component volumes on that index.
+    Returns None if no component has usable Close data.
+    """
+    closes, vols = [], []
+    for t in tickers:
+        df = prices.get(t)
+        if df is None or "Close" not in df.columns:
+            continue
+        c = df["Close"].dropna()
+        if c.empty:
+            continue
+        closes.append(c.rename(t))
+        if "Volume" in df.columns:
+            vols.append(df["Volume"].rename(t))
+    if not closes:
+        return None
+    close_df = pd.concat(closes, axis=1, join="inner").dropna()
+    if close_df.empty:
+        return None
+    rebased = close_df / close_df.iloc[0] * 100.0
+    out = pd.DataFrame({"Close": rebased.mean(axis=1)})
+    if vols:
+        vol_df = pd.concat(vols, axis=1, join="inner").reindex(out.index)
+        out["Volume"] = vol_df.sum(axis=1)
+    return out
+
+
 def compute_signals_for_sector(
     sector_key: str,
     region: str,
@@ -35,25 +69,29 @@ def compute_signals_for_sector(
     sector_ticker: str,
     benchmark_ticker: str,
     prices: dict[str, pd.DataFrame],
+    sector_df: pd.DataFrame | None = None,
 ) -> dict | None:
     """
     Compute all signal-pillar values for one sector ETF vs its benchmark.
 
     Returns a flat signal dict or None if the sector should be skipped.
     Errors are caught per-signal so partial data is still returned.
+    When sector_df is provided, signals are computed from it instead of
+    prices[sector_ticker].
     """
     from src.signals.relative_strength import latest_rrg
     from src.signals.momentum import compute_returns, compute_acceleration
     from src.signals.technical import compute_ma_structure, compute_obv
 
-    if sector_ticker not in prices:
-        logger.warning("Skipping %s (%s) — ticker %s not in price data", gics_sector, region, sector_ticker)
-        return None
+    if sector_df is None:
+        if sector_ticker not in prices:
+            logger.warning("Skipping %s (%s) — ticker %s not in price data", gics_sector, region, sector_ticker)
+            return None
+        sector_df = prices[sector_ticker]
     if benchmark_ticker not in prices:
         logger.warning("Skipping %s (%s) — benchmark ticker %s not in price data", gics_sector, region, benchmark_ticker)
         return None
 
-    sector_df = prices[sector_ticker]
     bench_df = prices[benchmark_ticker]
 
     if "Close" not in sector_df.columns:
@@ -143,16 +181,24 @@ def build_signals_rows(
         rows.append(row)
 
     # EU sectors
-    for gics_sector, ticker in universe.get("eu_sectors", {}).items():
+    for gics_sector, value in universe.get("eu_sectors", {}).items():
         sector_key = f"EU|{gics_sector}"
-        sig = compute_signals_for_sector(
-            sector_key=sector_key,
-            region="EU",
-            gics_sector=gics_sector,
-            sector_ticker=ticker,
-            benchmark_ticker=eu_benchmark,
-            prices=prices,
-        )
+        tickers = value if isinstance(value, list) else [value]
+        if len(tickers) == 1:
+            sig = compute_signals_for_sector(
+                sector_key=sector_key, region="EU", gics_sector=gics_sector,
+                sector_ticker=tickers[0], benchmark_ticker=eu_benchmark, prices=prices,
+            )
+        else:
+            comp = build_composite_series(tickers, prices)
+            if comp is None:
+                logger.warning("Skipping EU %s — no composite data for %s", gics_sector, tickers)
+                continue
+            sig = compute_signals_for_sector(
+                sector_key=sector_key, region="EU", gics_sector=gics_sector,
+                sector_ticker="+".join(tickers), benchmark_ticker=eu_benchmark,
+                prices=prices, sector_df=comp,
+            )
         if sig is None:
             continue
         row = {"region": "EU", "gics_sector": gics_sector, "sector_key": sector_key}
