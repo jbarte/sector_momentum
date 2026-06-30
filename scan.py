@@ -217,7 +217,7 @@ def run(args: argparse.Namespace) -> int:
     # Step 4: Collect all tickers and fetch prices
     # ------------------------------------------------------------------
     us_sectors: dict[str, str] = universe.get("us_sectors", {})
-    eu_sectors: dict[str, str] = universe.get("eu_sectors", {})
+    eu_sectors: dict[str, str | list[str]] = universe.get("eu_sectors", {})
     us_benchmark: str = universe["us_benchmark"]
     eu_benchmark: str = universe["eu_benchmark"]
 
