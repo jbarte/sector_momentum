@@ -58,7 +58,8 @@ def build_composite_series(
     out = pd.DataFrame({"Close": rebased.mean(axis=1)})
     if vols:
         vol_df = pd.concat(vols, axis=1, join="inner").reindex(out.index)
-        out["Volume"] = vol_df.sum(axis=1)
+        # min_count=1 ensures a row with no component volume stays NaN, not 0.
+        out["Volume"] = vol_df.sum(axis=1, min_count=1)
     return out
 
 

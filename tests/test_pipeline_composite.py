@@ -1,6 +1,4 @@
 # tests/test_pipeline_composite.py
-import math
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -37,26 +35,6 @@ def test_composite_all_missing_returns_none():
     assert build_composite_series(["X", "Y"], {}) is None
 
 
-def _rows_equal_nan_safe(rows_a: list[dict], rows_b: list[dict]) -> bool:
-    """Compare two lists of signal dicts, treating NaN == NaN as equal."""
-    if len(rows_a) != len(rows_b):
-        return False
-    for da, db in zip(rows_a, rows_b):
-        if set(da.keys()) != set(db.keys()):
-            return False
-        for k in da:
-            va, vb = da[k], db[k]
-            try:
-                # pd.isna handles float, numpy.float64, and None uniformly
-                if pd.isna(va) and pd.isna(vb):
-                    continue
-            except (TypeError, ValueError):
-                pass
-            if va != vb:
-                return False
-    return True
-
-
 def test_build_signals_rows_single_element_list_matches_string():
     # Single-element list must behave exactly like the bare-string path.
     idx = pd.date_range("2026-01-01", periods=300, freq="D")
@@ -72,4 +50,19 @@ def test_build_signals_rows_single_element_list_matches_string():
               "us_benchmark": "EXSA.DE", "eu_benchmark": "EXSA.DE"}
     r_str = build_signals_rows(u_str, prices)
     r_list = build_signals_rows(u_list, prices)
-    assert _rows_equal_nan_safe(r_str, r_list)
+
+    assert len(r_str) == len(r_list), (
+        f"Row count mismatch: str={len(r_str)}, list={len(r_list)}"
+    )
+    for i, (da, db) in enumerate(zip(r_str, r_list)):
+        assert set(da.keys()) == set(db.keys()), (
+            f"Row {i} key mismatch: str={set(da.keys())}, list={set(db.keys())}"
+        )
+        for k in da:
+            va, vb = da[k], db[k]
+            if isinstance(va, str):
+                assert va == vb, f"Row {i}[{k!r}]: {va!r} != {vb!r}"
+            else:
+                assert va == pytest.approx(vb, nan_ok=True), (
+                    f"Row {i}[{k!r}]: {va} != {vb}"
+                )
