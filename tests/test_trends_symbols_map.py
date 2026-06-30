@@ -44,3 +44,13 @@ def test_build_symbol_map_tolerates_non_string_blocklist_entry():
     """Defensive: a stray non-string (e.g. a YAML-coerced bool) must not crash."""
     m = build_symbol_map(_universe(), _sector_etfs(), blocklist={True, "ALL"})
     assert m["US|Financials"] == ["XLF"]  # "ALL" still blocked; True ignored, no crash
+
+
+def test_build_symbol_map_handles_list_valued_eu_sector():
+    universe = {
+        "us_sectors": {}, "eu_sectors": {"Financials": ["EXV1.DE", "EXH2.DE", "EXH5.DE"]},
+        "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE",
+    }
+    sector_etfs = {"EU": {"Financials": []}}
+    m = build_symbol_map(universe, sector_etfs, blocklist=set())
+    assert m["EU|Financials"] == ["EXV1.DE", "EXH2.DE", "EXH5.DE"]

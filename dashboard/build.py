@@ -348,6 +348,8 @@ def _build_breakdown_html(
         benchmark = universe.get("us_benchmark", "RSP")
     else:
         ticker = universe.get("eu_sectors", {}).get(sector_name, "—")
+        if isinstance(ticker, list):
+            ticker = " + ".join(ticker)
         benchmark = universe.get("eu_benchmark", "EXSA.DE")
 
     # Weights
