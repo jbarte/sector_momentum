@@ -226,6 +226,13 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~EU sector composites (Phase 1: Financials, Materials)~~ — EU Financials (Banks +
+  Financial Services + Insurance) and Materials (Basic Resources + Chemicals) are now
+  equal-weight composites of their STOXX supersector ETFs instead of a single sub-sector,
+  making them truer GICS proxies. `eu_sectors` values are lists; `build_composite_series`
+  blends a rebased-mean Close + summed Volume; single-component sectors and all US sectors
+  unchanged. Phase 2 (Consumer Discretionary/Staples/Comm + Media/P&HG crosswalk) pending. *(2026-06-29)*
+
 - ~~EU-available instruments reference~~ — the per-sector "Instruments" panel now lists one
   EU-available UCITS ETF per sector (US → iShares S&P 500 sector UCITS ETFs, Real Estate →
   iShares US Property Yield). For EU, the reference is the **same instrument the scanner
