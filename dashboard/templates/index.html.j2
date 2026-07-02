@@ -16,6 +16,10 @@
 <header>
   <h1 data-i18n="title">Sector momentum</h1>
   <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> {% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
+  <div class="segment-toggle" role="tablist" aria-label="Dashboard segment">
+    <span class="segment-btn active" aria-current="page" data-i18n="segment_sectors">Sectors</span>
+    <a class="segment-btn" href="sentiment.html" data-i18n="segment_sentiment">Sentiment</a>
+  </div>
   <span class="disclaimer" data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
   <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
 </header>
@@ -28,7 +32,6 @@
   <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" data-i18n="tab_movers">Movers</button>
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab" data-i18n="tab_history">History</button>
   <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" data-i18n="tab_backtest">Backtest</button>
-  <a class="tab-btn" href="sentiment.html" data-i18n="tab_sentiment_link">Sentiment ↗</a>
   <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" data-i18n="tab_guide">Guide</button>
 </nav>
 
