@@ -217,13 +217,19 @@ def run(args: argparse.Namespace) -> int:
     # Step 4: Collect all tickers and fetch prices
     # ------------------------------------------------------------------
     us_sectors: dict[str, str] = universe.get("us_sectors", {})
-    eu_sectors: dict[str, str] = universe.get("eu_sectors", {})
+    eu_sectors: dict[str, str | list[str]] = universe.get("eu_sectors", {})
     us_benchmark: str = universe["us_benchmark"]
     eu_benchmark: str = universe["eu_benchmark"]
 
+    def _flatten(values) -> list[str]:
+        out: list[str] = []
+        for v in values:
+            out.extend(v if isinstance(v, list) else [v])
+        return out
+
     all_tickers: list[str] = (
-        list(us_sectors.values())
-        + list(eu_sectors.values())
+        _flatten(us_sectors.values())
+        + _flatten(eu_sectors.values())
         + [us_benchmark, eu_benchmark]
     )
     # Deduplicate while preserving order

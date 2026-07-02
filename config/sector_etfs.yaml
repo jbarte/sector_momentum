@@ -101,6 +101,8 @@ EU:
   # uses iShares European Property Yield. Each entry is the SAME instrument the scanner
   # uses for that sector (config/universe.yaml eu_sectors) — reference == signal source.
   # Note: EU sector ETFs track STOXX sub-sectors, not GICS — see name for closest proxy.
+  # Composites: Financials (Banks + Financial Services + Insurance) and Materials
+  # (Basic Resources + Chemicals) are equal-weight blends of the listed components.
 
   Technology:
     - ticker: EXV3.DE
@@ -117,6 +119,18 @@ EU:
       ter: "0.47%"
       issuer: iShares
       url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0F5UJ7
+    - ticker: EXH2.DE
+      name: iShares STOXX Europe 600 Financial Services
+      isin: DE000A0H08G5
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08G5
+    - ticker: EXH5.DE
+      name: iShares STOXX Europe 600 Insurance
+      isin: DE000A0H08K7
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08K7
 
   Energy:
     - ticker: EXH1.DE
@@ -175,6 +189,12 @@ EU:
       ter: "0.46%"
       issuer: iShares
       url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0F5UK5
+    - ticker: EXV7.DE
+      name: iShares STOXX Europe 600 Chemicals
+      isin: DE000A0H08E0
+      ter: "0.46%"
+      issuer: iShares
+      url: https://www.justetf.com/en/etf-profile.html?isin=DE000A0H08E0
 
   Real Estate:
     - ticker: IPRP.L

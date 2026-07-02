@@ -41,7 +41,8 @@ def build_symbol_map(
     for region, key in (("US", "us_sectors"), ("EU", "eu_sectors")):
         for sector, primary in universe.get(key, {}).items():
             symbols: list[str] = []
-            candidates = [primary] + [
+            prims = primary if isinstance(primary, list) else [primary]
+            candidates = prims + [
                 e.get("ticker")
                 for e in sector_etfs.get(region, {}).get(sector, [])
                 if e.get("ticker")
