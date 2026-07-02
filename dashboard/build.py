@@ -1342,7 +1342,6 @@ def main() -> None:
             sector_keys=sector_keys,
             movers_json=movers_json,
             history_json=history_json,
-            sentiment_scatter_json=sentiment_scatter_json,
             rescore_data_json=rescore_data_json,
             signals_list=signals_list,
             plotly_bundle=plotly_bundle_rel,
@@ -1351,6 +1350,17 @@ def main() -> None:
             has_backtest=backtest_ctx["has_backtest"],
             rotation_json=backtest_ctx["rotation_json"],
             has_rotations=backtest_ctx["has_rotations"],
+        ),
+    )
+
+    _render(
+        template_path=Path(__file__).parent / "templates" / "sentiment.html.j2",
+        out_path=out_dir / "sentiment.html",
+        context=dict(
+            scan_date=scan_date,
+            active_scan_id=active_scan_id,
+            sentiment_scatter_json=sentiment_scatter_json,
+            plotly_bundle=plotly_bundle_rel,
         ),
     )
 

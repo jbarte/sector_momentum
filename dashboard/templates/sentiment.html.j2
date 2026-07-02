@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sector Momentum — Sentiment</title>
+<script src="{{ plotly_bundle }}"></script>
+<style>
+{% include "_style.html.j2" %}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <h1 data-i18n="title">Sector momentum</h1>
+  <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> {% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
+  <div class="segment-toggle" role="tablist" aria-label="Dashboard segment">
+    <a class="segment-btn" href="index.html" data-i18n="segment_sectors">Sectors</a>
+    <span class="segment-btn active" aria-current="page" data-i18n="segment_sentiment">Sentiment</span>
+  </div>
+  <span class="disclaimer" data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
+  <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
+</header>
+
+<section class="tab-panel active">
+  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
+  <details class="tab-guide">
+    <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
+      <h4>Source — Google Trends only</h4>
+      <p>Sentiment measures <strong>search attention</strong> using Google Trends.
+         Reddit and news-headline sources were evaluated and dropped — no reliable
+         free access.</p>
+      <h4>Method</h4>
+      <p>For each sector we pull ~13 weeks of worldwide search interest for its primary
+         keyword (e.g. Technology&nbsp;→&nbsp;<em>semiconductor</em>,
+         Energy&nbsp;→&nbsp;<em>oil</em>). The score is the <strong>trend (slope)</strong>
+         of that interest, then standardized across the 11 sectors (z-score):
+         <span class="signal-hi">positive = rising attention vs peers</span>,
+         <span class="signal-lo">negative = fading</span>.</p>
+      <h4>It does not drive the ranking by default</h4>
+      <p>The leaderboard composite is built from price/momentum signals only. Sentiment
+         changes the ranking <em>only</em> when you enable the <strong>Sentiment
+         toggle</strong>, at the weight you choose. Treat it as a confirmer, not a
+         driver — search interest is noisy and can lag price.</p>
+    </div>
+  </details>
+  <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
+  <p style="color:var(--text-muted);font-size:0.8rem;padding:8px 0 0 4px">
+    Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
+    Hollow points = no sentiment data this scan (source unavailable or EU-only).
+    Sentiment is a confirming signal — noisy, gameable, retail-biased.
+    This is analytical tooling, not investment advice.
+  </p>
+</section>
+
+<script>
+var SENTIMENT_DATA = {{ sentiment_scatter_json | safe }};
+Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
+
+{% include "_i18n.html.j2" %}
+</script>
+
+</body>
+</html>
