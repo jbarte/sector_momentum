@@ -14,6 +14,13 @@ Always branch before making changes. Never commit directly to `main`.
 5. **Address review findings**, then push: `git push -u origin feature/<short-slug>`.
 6. **Stop there.** Do not merge. Jonas reviews and merges manually.
 
+**Branch deletion:** only delete a branch (local or remote) once its PR is confirmed
+`MERGED` — check with `gh pr list --head <branch> --state all --json state`, don't infer
+merge status from `git branch --merged`, since squash-merges leave the original branch
+tip unreachable from `main` even though its PR merged. Verify and delete inline (one
+command), never a blind bulk delete. `delete-branch-on-merge` is enabled, so this mostly
+matters for manual cleanup of stray/duplicate branches.
+
 ## Commit style
 
 Follow conventional commits:
@@ -47,7 +54,12 @@ regenerating the same large tree). Feature PRs should be **source-only**
 (`dashboard/templates/`, `dashboard/build.py`, `src/`, `config/`, tests).
 
 `BACKLOG.md` uses a `merge=union` driver (`.gitattributes`) so concurrent Done-list
-additions auto-combine instead of conflicting.
+additions auto-combine instead of conflicting. This only works cleanly for pure
+*additions* (new Done bullets). If two branches both *edit* the same existing paragraph
+(e.g. rewording a queued item's "To activate" section), union merge concatenates both
+versions verbatim instead of picking one — silently, with no conflict markers to flag
+it. Check the diff after any merge/rebase that touches `BACKLOG.md` alongside another
+branch's edits, and hand-dedupe if a paragraph got doubled.
 
 ## Design docs (specs & plans) — `design/`, NOT `docs/`
 
