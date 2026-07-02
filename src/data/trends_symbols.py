@@ -65,6 +65,99 @@ def _slope(series: list[float]) -> float:
     return float(slope)
 
 
+def _acceleration(series: list[float]) -> float:
+    """Second derivative proxy: slope of the recent half minus the earlier half.
+
+    Positive = attention is picking up speed; negative = decelerating. Needs at
+    least 6 points (3 per half) for both halves to yield a real slope.
+    """
+    vals = [float(v) for v in series]
+    if len(vals) < 6:
+        return 0.0
+    mid = len(vals) // 2
+    return _slope(vals[mid:]) - _slope(vals[:mid])
+
+
+def _range_position(series: list[float]) -> float:
+    """Latest value's percentile within the window's min–max, in [0, 1].
+
+    0 = at the window low, 1 = at the window high. Flat series → 0.5 (neutral).
+    """
+    vals = [float(v) for v in series]
+    if not vals:
+        return 0.5
+    lo, hi = min(vals), max(vals)
+    if hi == lo:
+        return 0.5
+    return (vals[-1] - lo) / (hi - lo)
+
+
+def _spike_z(series: list[float]) -> float:
+    """Z-score of the latest point vs the trailing mean/std (interest breakout).
+
+    Uses all-but-last as the trailing baseline. Flat/short series → 0.0.
+    """
+    vals = [float(v) for v in series]
+    if len(vals) < 3:
+        return 0.0
+    trailing = vals[:-1]
+    mean = sum(trailing) / len(trailing)
+    var = sum((x - mean) ** 2 for x in trailing) / (len(trailing) - 1)
+    std = var ** 0.5
+    if std == 0.0:
+        return 0.0
+    return (vals[-1] - mean) / std
+
+
+def _volatility(series: list[float]) -> float:
+    """Stability of interest: std of week-over-week percentage changes.
+
+    Higher = choppier attention. Zero-valued prior weeks are skipped to avoid
+    divide-by-zero blowups. Short/flat series → 0.0.
+    """
+    vals = [float(v) for v in series]
+    if len(vals) < 3:
+        return 0.0
+    changes = [
+        (b - a) / a
+        for a, b in zip(vals[:-1], vals[1:])
+        if a != 0
+    ]
+    if len(changes) < 2:
+        return 0.0
+    mean = sum(changes) / len(changes)
+    var = sum((c - mean) ** 2 for c in changes) / (len(changes) - 1)
+    return var ** 0.5
+
+
+# Derived-signal names, in display order. Kept as a module constant so scan.py,
+# state.py, and the dashboard agree on the set without duplicating the list.
+DERIVED_SIGNAL_NAMES = (
+    "momentum",
+    "acceleration",
+    "range_position",
+    "spike",
+    "volatility",
+)
+
+
+def derived_signals(series) -> dict[str, float]:
+    """Compute all derived Trends signals for one sector's interest series.
+
+    Returns a dict keyed by DERIVED_SIGNAL_NAMES. These are raw per-sector
+    values (not cross-sectionally z-scored) — the page displays them as-is and
+    only ``momentum`` feeds ``score_symbol_sentiment`` for the composite toggle.
+    """
+    vals = list(series)
+    return {
+        "momentum": _slope(vals),
+        "acceleration": _acceleration(vals),
+        "range_position": _range_position(vals),
+        "spike": _spike_z(vals),
+        "volatility": _volatility(vals),
+    }
+
+
 def _normalize_by_anchor(raw: dict[str, list[float]], anchor: str) -> dict[str, list[float]]:
     anchor_series = raw.get(anchor)
     out: dict[str, list[float]] = {}

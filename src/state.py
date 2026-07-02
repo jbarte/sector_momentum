@@ -54,6 +54,15 @@ _DDL_STATEMENTS = [
         rank            REAL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS sentiment_signals (
+        scan_id     INTEGER NOT NULL REFERENCES scans(scan_id),
+        region      TEXT NOT NULL,
+        gics_sector TEXT NOT NULL,
+        signal_name TEXT NOT NULL,
+        value       REAL
+    )
+    """,
 ]
 
 
@@ -93,6 +102,7 @@ def save_scan(
     region_sector_signals: pd.DataFrame,
     scores_df: pd.DataFrame,
     weights_path: str = "config/weights.yaml",
+    sentiment_signals_df: pd.DataFrame | None = None,
 ) -> int:
     """
     Insert a new scan row and all its signals/scores.
@@ -153,6 +163,24 @@ def save_scan(
                     "data_score, sentiment_score, composite, rank) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     scores_rows,
+                )
+
+            if sentiment_signals_df is not None and not sentiment_signals_df.empty:
+                sent_rows = [
+                    (
+                        scan_id,
+                        row["region"],
+                        row["gics_sector"],
+                        row["signal_name"],
+                        _to_float_or_none(row.get("value")),
+                    )
+                    for _, row in sentiment_signals_df.iterrows()
+                ]
+                cur.executemany(
+                    "INSERT INTO sentiment_signals "
+                    "(scan_id, region, gics_sector, signal_name, value) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    sent_rows,
                 )
 
     logger.info("Saved scan_id=%d at %s", scan_id, run_at_str)
@@ -231,6 +259,24 @@ def get_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.Data
         SELECT s.region, s.gics_sector, s.signal_name, s.raw_value, s.z_value
         FROM signals s
         JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON s.scan_id = m.max_id
+        """,
+        conn,
+    )
+
+
+def get_sentiment_signals_for_latest_scan(
+    conn: psycopg2.extensions.connection,
+) -> pd.DataFrame:
+    """
+    Return all derived sentiment-signal rows for the most recent scan.
+    Columns: region, gics_sector, signal_name, value
+    Returns empty DataFrame if no scans (or no sentiment rows) exist.
+    """
+    return pd.read_sql_query(
+        """
+        SELECT ss.region, ss.gics_sector, ss.signal_name, ss.value
+        FROM sentiment_signals ss
+        JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON ss.scan_id = m.max_id
         """,
         conn,
     )
