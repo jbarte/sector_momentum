@@ -97,9 +97,6 @@ above lines, compute the derived signals in a Trends-only scorer, surface them o
 `docs/sentiment.html`, and (optionally) feed a single blended Trends score back into
 `score_all(..., sentiment_score=...)` if we later decide it should influence the
 composite.
-above lines, compute the derived signals in a Trends-only scorer, surface them on the
-dedicated tab, and (optionally) feed a single blended Trends score back into
-`score_all(..., sentiment_score=...)` if we later decide it should influence the composite.
 
 ---
 
