@@ -83,10 +83,10 @@ dormant — see below.
   `trends_symbols.py`). Symbol-based Trends (`trends_symbols.py`) is now the sole source.
 
 **Getting the most out of Google Trends (ideas to explore):**
-- **Use all keywords, not just the first.** Each sector lists several terms; combine
-  them (mean or max normalized interest) instead of discarding all but `keywords[s][0]`.
-  Prefer Trends *topics* (entity mids) over raw strings for ambiguous terms (e.g. "AI",
-  "auto", "cloud").
+- **Trends *topics* (entity mids) over raw ticker strings.** The current symbol-based
+  queries suffer from ticker-name collisions (e.g. `VOX` → Vox Media, `LOGS` → the word).
+  Trends Topics disambiguate via Google Knowledge Graph entity IDs — use those where
+  available to eliminate false-positive search interest.
 - **Region-aware pulls.** Fetch `geo="US"` for `US|` sectors and per-country geos for
   `EU|` sectors (DE/FR/GB…). This gives genuine region-specific attention and finally
   fills the EU gap that Finnhub couldn't.
@@ -105,10 +105,10 @@ dormant — see below.
 - **Rising / breakout queries.** `pytrends.related_queries()` surfaces "rising" search
   terms per topic — could flag emerging themes within a sector for the tab.
 
-**To activate:** enrich `fetch_trends` along the above lines, compute the derived
-signals in a Trends-only scorer, surface them on the dedicated tab, and (optionally)
-feed a single blended Trends score back into `score_all(..., sentiment_score=...)` if
-we later decide it should influence the composite.
+**To activate:** enrich `fetch_symbol_trends` (`src/data/trends_symbols.py`) along the
+above lines, compute the derived signals in a Trends-only scorer, surface them on the
+dedicated tab, and (optionally) feed a single blended Trends score back into
+`score_all(..., sentiment_score=...)` if we later decide it should influence the composite.
 
 ---
 
