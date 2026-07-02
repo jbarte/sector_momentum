@@ -51,24 +51,11 @@ engine, not a rewrite. Biggest design decision is the benchmark/RS question abov
 
 ---
 
-## Sentiment module — Google Trends only, as a dedicated tab
+## Sentiment page — enrichment (get more out of Google Trends)
 
-**What:** Build a search-interest ("attention") feature powered **solely by Google
-Trends**, presented as its own dashboard tab and kept out of the core momentum score.
-
-**Why Google Trends only:** We tried the other free sentiment sources and they don't
-work for us:
-- **Reddit** — free scraping / public JSON is unreliable and rate-limited; no usable
-  free access.
-- **Finnhub (news)** — free tier is too limited (US-only ETF news, tight quotas).
-- **Google Trends** — the **only** free source that reliably returns useful data, and
-  it needs no API key.
-
-So we drop Reddit + Finnhub entirely and focus all effort on getting the most out of
-Trends.
-
-**Status:** Not started (tab/UI). A Trends-based scoring engine partly exists but is
-dormant — see below.
+**What:** Improve the Google-Trends-only sentiment signal shown on its dedicated
+page (`docs/sentiment.html`, relocated from a dashboard tab — see Done). Still kept
+out of the core momentum score.
 
 **Current state of the code:**
 - The live scan computes `sentiment_score` from **symbol-based Google Trends**
@@ -83,10 +70,10 @@ dormant — see below.
   `trends_symbols.py`). Symbol-based Trends (`trends_symbols.py`) is now the sole source.
 
 **Getting the most out of Google Trends (ideas to explore):**
-- **Use all keywords, not just the first.** Each sector lists several terms; combine
-  them (mean or max normalized interest) instead of discarding all but `keywords[s][0]`.
-  Prefer Trends *topics* (entity mids) over raw strings for ambiguous terms (e.g. "AI",
-  "auto", "cloud").
+- **Trends *topics* (entity mids) over raw ticker strings.** The current symbol-based
+  queries suffer from ticker-name collisions (e.g. `VOX` → Vox Media, `LOGS` → the word).
+  Trends Topics disambiguate via Google Knowledge Graph entity IDs — use those where
+  available to eliminate false-positive search interest.
 - **Region-aware pulls.** Fetch `geo="US"` for `US|` sectors and per-country geos for
   `EU|` sectors (DE/FR/GB…). This gives genuine region-specific attention and finally
   fills the EU gap that Finnhub couldn't.
@@ -103,12 +90,13 @@ dormant — see below.
 - **Longer window for a seasonal baseline.** Pull 12 months to compute current interest
   vs its seasonal norm (YoY), reducing false momentum from recurring seasonality.
 - **Rising / breakout queries.** `pytrends.related_queries()` surfaces "rising" search
-  terms per topic — could flag emerging themes within a sector for the tab.
+  terms per topic — could flag emerging themes within a sector on the page.
 
-**To activate:** enrich `fetch_trends` along the above lines, compute the derived
-signals in a Trends-only scorer, surface them on the dedicated tab, and (optionally)
-feed a single blended Trends score back into `score_all(..., sentiment_score=...)` if
-we later decide it should influence the composite.
+**To activate:** enrich `fetch_symbol_trends` (`src/data/trends_symbols.py`) along the
+above lines, compute the derived signals in a Trends-only scorer, surface them on
+`docs/sentiment.html`, and (optionally) feed a single blended Trends score back into
+`score_all(..., sentiment_score=...)` if we later decide it should influence the
+composite.
 
 ---
 
@@ -226,6 +214,14 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Sentiment moved to its own page~~ — sentiment is no longer a dashboard tab; it now
+  lives on `docs/sentiment.html`, linked from the main nav ("Sentiment ↗"), decoupled
+  from the Leaderboard/RRG/History/etc. tab bar. The leaderboard's "include sentiment in
+  ranking" toggle and Sentiment column are unchanged — this only moves the read-only
+  scatter/explainer view. Shared CSS and the EN⇄SV language toggle were extracted into
+  `dashboard/templates/_style.html.j2` / `_i18n.html.j2` so both pages stay in sync.
+  Enrichment ideas (region-aware Trends, more derived signals) remain queued above.
+  *(2026-07-02)*
 - ~~EU sector composites (Phase 1: Financials, Materials)~~ — EU Financials (Banks +
   Financial Services + Insurance) and Materials (Basic Resources + Chemicals) are now
   equal-weight composites of their STOXX supersector ETFs instead of a single sub-sector,
