@@ -617,10 +617,25 @@ select.sector-select:focus {
       <h4>Method</h4>
       <p>For each sector we pull ~13 weeks of worldwide search interest for its primary
          keyword (e.g. Technology&nbsp;→&nbsp;<em>semiconductor</em>,
-         Energy&nbsp;→&nbsp;<em>oil</em>). The score is the <strong>trend (slope)</strong>
-         of that interest, then standardized across the 11 sectors (z-score):
+         Energy&nbsp;→&nbsp;<em>oil</em>). The headline score is the
+         <strong>trend (slope)</strong> of that interest, standardized across the
+         11 sectors (z-score):
          <span class="signal-hi">positive = rising attention vs peers</span>,
          <span class="signal-lo">negative = fading</span>.</p>
+      <h4>Derived signals</h4>
+      <p>From the same interest series we read out a few complementary views (shown
+         in the table below, information-only — only Momentum can affect the ranking):</p>
+      <ul>
+        <li><strong>Momentum</strong> — the trend/slope, same series the headline
+            score is built from.</li>
+        <li><strong>Acceleration</strong> — recent-half slope minus earlier-half
+            slope; positive means attention is picking up speed.</li>
+        <li><strong>Range position</strong> — where the latest reading sits within
+            its own 13-week min–max (0% = window low, 100% = window high).</li>
+        <li><strong>Spike</strong> — z-score of the latest point vs the trailing
+            weeks; a breakout in interest.</li>
+        <li><strong>Volatility</strong> — how choppy week-to-week interest has been.</li>
+      </ul>
       <h4>It does not drive the ranking by default</h4>
       <p>The leaderboard composite is built from price/momentum signals only. Sentiment
          changes the ranking <em>only</em> when you enable the <strong>Sentiment
@@ -635,6 +650,8 @@ select.sector-select:focus {
     Sentiment is a confirming signal — noisy, gameable, retail-biased.
     This is analytical tooling, not investment advice.
   </p>
+
+  
 </section>
 
 <script>
@@ -690,7 +707,15 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
     si_top: "Topp-sektor",
     si_report: "Rapport",
     guide_summary: "Hur du läser den här fliken",
-    guide_summary_sentiment: "Hur beräknas sentimentpoängen?"
+    guide_summary_sentiment: "Hur beräknas sentimentpoängen?",
+    sent_derived_heading: "Härledda Trends-signaler",
+    sent_col_sector: "Sektor",
+    sent_col_region: "Region",
+    sent_col_momentum: "Momentum",
+    sent_col_acceleration: "Acceleration",
+    sent_col_range: "Intervallpos.",
+    sent_col_spike: "Spik",
+    sent_col_volatility: "Volatilitet"
   };
 
   // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
@@ -756,7 +781,16 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
       <h4>Källa — endast Google Trends</h4>
       <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
       <h4>Metod</h4>
-      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Poängen är <strong>trenden (lutningen)</strong> i det intresset, sedan standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>.</p>
+      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>.</p>
+      <h4>Härledda signaler</h4>
+      <p>Ur samma intresseserie läser vi också ut några kompletterande vyer (visas i tabellen nedan, endast information — bara Momentum kan påverka rankningen):</p>
+      <ul>
+        <li><strong>Momentum</strong> — trenden/lutningen, samma serie som huvudpoängen bygger på.</li>
+        <li><strong>Acceleration</strong> — senaste halvans lutning minus tidigare halvans; positivt betyder att uppmärksamheten tar fart.</li>
+        <li><strong>Intervallposition</strong> — var senaste värdet ligger inom sitt eget 13-veckors min–max (0% = lägsta, 100% = högsta).</li>
+        <li><strong>Spik</strong> — z-värde för senaste punkten mot föregående veckor; ett genombrott i intresse.</li>
+        <li><strong>Volatilitet</strong> — hur ryckigt intresset varit vecka för vecka.</li>
+      </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`,
     guide_tab: `
