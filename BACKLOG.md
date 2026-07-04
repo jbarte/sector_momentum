@@ -70,10 +70,7 @@ out of the core momentum score.
   `trends_symbols.py`). Symbol-based Trends (`trends_symbols.py`) is now the sole source.
 
 **Getting the most out of Google Trends (ideas to explore):**
-- **Trends *topics* (entity mids) over raw ticker strings.** The current symbol-based
-  queries suffer from ticker-name collisions (e.g. `VOX` → Vox Media, `LOGS` → the word).
-  Trends Topics disambiguate via Google Knowledge Graph entity IDs — use those where
-  available to eliminate false-positive search interest.
+- ~~**Trends *topics* (entity mids) over raw ticker strings.**~~ *(shipped — see Done)*
 - **Region-aware pulls.** Fetch `geo="US"` for `US|` sectors and per-country geos for
   `EU|` sectors (DE/FR/GB…). This gives genuine region-specific attention and finally
   fills the EU gap that Finnhub couldn't.
@@ -214,6 +211,15 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Sentiment — Trends entity-mid resolution~~ — `fetch_symbol_trends` now queries a
+  ticker's Google Knowledge Graph **entity mid** instead of the ambiguous raw string
+  where one is curated in `config/trends_entities.yaml`, killing collision false-positives
+  (the `VOX`→Vox Media / `LOGS`→the-word class). Per-ticker term substitution +
+  column re-keying keep `_aggregate`/scoring unchanged (ticker-keyed); tickers without a
+  curated mid fall back to strings, so the change is strictly additive. A dev-only
+  `scripts/resolve_trends_entities.py` proposes candidates for human review; the scan
+  path never calls `suggestions()`. Toggle-only. The committed config ships empty —
+  real mids are added after running the script and eyeballing each entity. *(2026-07-04)*
 - ~~Sentiment moved to its own page~~ — sentiment is no longer a dashboard tab; it now
   lives on `docs/sentiment.html`, linked from the main nav ("Sentiment ↗"), decoupled
   from the Leaderboard/RRG/History/etc. tab bar. The leaderboard's "include sentiment in
