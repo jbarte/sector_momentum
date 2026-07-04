@@ -102,6 +102,43 @@ def _aggregate(
     return out
 
 
+def _resolve_query_terms(
+    tickers: list[str],
+    entities: dict[str, str],
+) -> tuple[list[str], dict[str, str]]:
+    """Map a batch of tickers to Trends query terms.
+
+    Each ticker becomes its approved entity mid if present in ``entities``,
+    otherwise the raw ticker string (fallback). Returns the query-term list
+    (aligned with ``tickers``) plus a term->ticker map for re-keying the
+    fetched columns back to tickers.
+    """
+    terms: list[str] = []
+    term_to_ticker: dict[str, str] = {}
+    for t in tickers:
+        term = entities.get(t, t)
+        terms.append(term)
+        term_to_ticker[term] = t
+    return terms, term_to_ticker
+
+
+def _rekey_by_ticker(
+    raw_by_term: dict[str, list[float]],
+    anchor: str,
+    term_to_ticker: dict[str, str],
+) -> dict[str, list[float]]:
+    """Re-key a {query-term: series} dict to {ticker: series}.
+
+    The ``anchor`` key is left as-is (it is normalized/dropped downstream).
+    Any term missing from ``term_to_ticker`` passes through unchanged.
+    """
+    out: dict[str, list[float]] = {}
+    for term, series in raw_by_term.items():
+        key = anchor if term == anchor else term_to_ticker.get(term, term)
+        out[key] = series
+    return out
+
+
 import random
 import time
 
