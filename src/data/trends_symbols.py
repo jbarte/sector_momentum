@@ -157,6 +157,7 @@ def fetch_symbol_trends(
     batch_size: int = 4,
     sleep_s: float = 20.0,
     max_retries: int = 3,
+    entities: dict[str, str] | None = None,
 ) -> dict[str, pd.Series]:
     if client is None:
         try:
@@ -165,12 +166,14 @@ def fetch_symbol_trends(
             logger.warning("Trends client init failed (%s) — sentiment neutral", exc)
             return _aggregate({}, symbol_map, window=window)
 
+    entities = entities or {}
     symbols = sorted({s for syms in symbol_map.values() for s in syms})
     batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
     norm_by_symbol: dict[str, list[float]] = {}
 
     for bi, batch in enumerate(batches):
-        terms = [anchor] + batch
+        query_terms, term_to_ticker = _resolve_query_terms(batch, entities)
+        terms = [anchor] + query_terms
         df = None
         for attempt in range(max_retries):
             try:
@@ -184,8 +187,9 @@ def fetch_symbol_trends(
                     logger.warning("Trends batch %d failed (%s) — %d symbols neutral",
                                    bi + 1, exc, len(batch))
         if df is not None and not df.empty:
-            raw = {t: [float(v) for v in df[t].tolist()[-window:]]
-                   for t in terms if t in df.columns}
+            raw_by_term = {t: [float(v) for v in df[t].tolist()[-window:]]
+                           for t in terms if t in df.columns}
+            raw = _rekey_by_ticker(raw_by_term, anchor, term_to_ticker)
             norm_by_symbol.update(_normalize_by_anchor(raw, anchor))
         if bi < len(batches) - 1 and sleep_s:
             time.sleep(sleep_s)
