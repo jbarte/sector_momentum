@@ -75,3 +75,27 @@ def test_fetch_without_entities_uses_raw_ticker_terms():
     )
     assert fake.calls == [["SPY", "XLF"]]
     assert list(out["US|Financials"]) == [100.0, 200.0]
+
+
+from src.data.trends_symbols import load_entities
+
+
+def test_load_entities_flattens_and_skips_midless(tmp_path):
+    p = tmp_path / "ents.yaml"
+    p.write_text(
+        "XLK:\n  mid: /m/abc\n  title: Tech Fund\n"
+        "VOX:\n  mid: /m/def\n  title: Comm Fund\n"
+        "XLF:\n  title: no mid here\n"  # skipped: no mid
+    )
+    ents = load_entities(str(p))
+    assert ents == {"XLK": "/m/abc", "VOX": "/m/def"}
+
+
+def test_load_entities_missing_file_returns_empty():
+    assert load_entities("config/does_not_exist_xyz.yaml") == {}
+
+
+def test_load_entities_empty_file_returns_empty(tmp_path):
+    p = tmp_path / "empty.yaml"
+    p.write_text("")
+    assert load_entities(str(p)) == {}

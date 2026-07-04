@@ -11,6 +11,7 @@ import math
 
 import numpy as np
 import pandas as pd
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,25 @@ def _cross_zscore(values: dict[str, float]) -> dict[str, float]:
     return {
         k: (v - mean) / std if not math.isnan(v) else float("nan")
         for k, v in values.items()
+    }
+
+
+def load_entities(path: str = "config/trends_entities.yaml") -> dict[str, str]:
+    """Load {ticker: entity mid} from the entities config.
+
+    The on-disk shape is ``{ticker: {mid: ..., title: ...}}``; this flattens to
+    ``{ticker: mid}`` and skips any entry lacking a ``mid``. A missing or empty
+    file yields ``{}`` (every ticker then falls back to a raw-string query).
+    """
+    try:
+        with open(path, "r") as fh:
+            cfg = yaml.safe_load(fh) or {}
+    except FileNotFoundError:
+        return {}
+    return {
+        ticker: entry["mid"]
+        for ticker, entry in cfg.items()
+        if isinstance(entry, dict) and entry.get("mid")
     }
 
 
