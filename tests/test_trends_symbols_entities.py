@@ -1,4 +1,13 @@
-from src.data.trends_symbols import _resolve_query_terms, _rekey_by_ticker
+import logging
+
+import pandas as pd
+
+from src.data.trends_symbols import (
+    _rekey_by_ticker,
+    _resolve_query_terms,
+    fetch_symbol_trends,
+    load_entities,
+)
 
 
 def test_resolve_query_terms_substitutes_mid_else_ticker():
@@ -24,10 +33,6 @@ def test_rekey_by_ticker_passes_through_unmapped_term():
     raw = {"SPY": [1.0], "VOX": [2.0]}
     out = _rekey_by_ticker(raw, "SPY", {"VOX": "VOX"})
     assert out == {"SPY": [1.0], "VOX": [2.0]}
-
-
-import pandas as pd
-from src.data.trends_symbols import fetch_symbol_trends
 
 
 class _FakeClient:
@@ -77,9 +82,6 @@ def test_fetch_without_entities_uses_raw_ticker_terms():
     assert list(out["US|Financials"]) == [100.0, 200.0]
 
 
-from src.data.trends_symbols import load_entities
-
-
 def test_load_entities_flattens_and_skips_midless(tmp_path):
     p = tmp_path / "ents.yaml"
     p.write_text(
@@ -99,3 +101,18 @@ def test_load_entities_empty_file_returns_empty(tmp_path):
     p = tmp_path / "empty.yaml"
     p.write_text("")
     assert load_entities(str(p)) == {}
+
+
+def test_load_entities_warns_on_duplicate_mid(tmp_path, caplog):
+    # Two tickers sharing a mid collapse to one Trends payload column,
+    # silently dropping one ticker's signal — this must warn, not raise.
+    p = tmp_path / "dup.yaml"
+    p.write_text(
+        "XLK:\n  mid: /m/dup\n  title: Tech Fund\n"
+        "VOX:\n  mid: /m/dup\n  title: Comm Fund\n"
+    )
+    with caplog.at_level(logging.WARNING):
+        ents = load_entities(str(p))
+    assert any("/m/dup" in r.message for r in caplog.records)
+    # Graceful degradation: no drop at load time, both tickers still present.
+    assert ents == {"XLK": "/m/dup", "VOX": "/m/dup"}

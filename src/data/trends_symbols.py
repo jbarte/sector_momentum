@@ -44,11 +44,32 @@ def load_entities(path: str = "config/trends_entities.yaml") -> dict[str, str]:
             cfg = yaml.safe_load(fh) or {}
     except FileNotFoundError:
         return {}
-    return {
+    # Intentionally no broader except here: a malformed YAML should fail
+    # loud (propagate yaml.YAMLError) rather than silently returning {},
+    # so a broken hand-edit is caught instead of silently disabling all
+    # entities.
+    result = {
         ticker: entry["mid"]
         for ticker, entry in cfg.items()
         if isinstance(entry, dict) and entry.get("mid")
     }
+
+    # Two tickers resolving to the same mid collapse to a single Trends
+    # payload column, silently dropping one ticker's signal. Warn (don't
+    # raise) so a config typo degrades gracefully instead of aborting the
+    # scan.
+    tickers_by_mid: dict[str, list[str]] = {}
+    for ticker, mid in result.items():
+        tickers_by_mid.setdefault(mid, []).append(ticker)
+    for mid, tickers in tickers_by_mid.items():
+        if len(tickers) > 1:
+            logger.warning(
+                "Duplicate entity mid %s shared by tickers %s — Trends will "
+                "collapse them into one column, dropping all but one signal",
+                mid, tickers,
+            )
+
+    return result
 
 
 def build_symbol_map(
@@ -150,7 +171,10 @@ def _rekey_by_ticker(
     """Re-key a {query-term: series} dict to {ticker: series}.
 
     The ``anchor`` key is left as-is (it is normalized/dropped downstream).
-    Any term missing from ``term_to_ticker`` passes through unchanged.
+    Any term missing from ``term_to_ticker`` passes through unchanged. In
+    the normal fetch_symbol_trends flow, every non-anchor term is a key in
+    term_to_ticker by construction (it is built from the same batch), so
+    this fallback is defensive-only and never actually triggers.
     """
     out: dict[str, list[float]] = {}
     for term, series in raw_by_term.items():
