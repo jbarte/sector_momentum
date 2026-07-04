@@ -38,7 +38,11 @@
          Energy&nbsp;→&nbsp;<em>oil</em>). The score is the <strong>trend (slope)</strong>
          of that interest, then standardized across the 11 sectors (z-score):
          <span class="signal-hi">positive = rising attention vs peers</span>,
-         <span class="signal-lo">negative = fading</span>.</p>
+         <span class="signal-lo">negative = fading</span>.
+         Where a ticker maps to a known Google Knowledge&nbsp;Graph <strong>entity</strong>,
+         we query that entity rather than the raw ticker string, to avoid name
+         collisions (e.g. a ticker that is also a common word); tickers without a
+         known entity fall back to the plain string.</p>
       <h4>It does not drive the ranking by default</h4>
       <p>The leaderboard composite is built from price/momentum signals only. Sentiment
          changes the ranking <em>only</em> when you enable the <strong>Sentiment
