@@ -277,7 +277,7 @@ def run(args: argparse.Namespace) -> int:
     logger.info("Fetching symbol-based Google Trends sentiment …")
     from src.data.trends_symbols import (
         build_symbol_map, fetch_symbol_trends, score_symbol_sentiment,
-        load_entities,
+        load_entities, derived_signals,
     )
     with open("config/sector_etfs.yaml", "r") as _fh:
         _sector_etfs = yaml.safe_load(_fh) or {}
@@ -297,6 +297,18 @@ def run(args: argparse.Namespace) -> int:
     sentiment_score = sentiment_score.reindex(wide_df.index, fill_value=0.0)
     _live = int((sentiment_score != 0).sum())
     logger.info("Symbol sentiment: %d/%d sector-keys non-neutral", _live, len(wide_df.index))
+
+    # Derived Trends signals (info-only; not blended into the composite). One long
+    # row per sector-key × signal, keyed for the sentiment_signals table.
+    _sent_signal_rows = []
+    for _key, _series in _trends_by_key.items():
+        _region, _, _sector = _key.partition("|")
+        for _name, _val in derived_signals(_series).items():
+            _sent_signal_rows.append(
+                {"region": _region, "gics_sector": _sector,
+                 "signal_name": _name, "value": _val}
+            )
+    sentiment_signals_df = pd.DataFrame(_sent_signal_rows)
 
     logger.info("Scoring sectors …")
     # Canonical composite stays pure-data; sentiment is stored but not blended.
@@ -350,6 +362,7 @@ def run(args: argparse.Namespace) -> int:
             run_at=run_at,
             region_sector_signals=long_signals_df,
             scores_df=scored_with_deltas,
+            sentiment_signals_df=sentiment_signals_df,
         )
         logger.info("Saved scan_id=%d", scan_id)
 

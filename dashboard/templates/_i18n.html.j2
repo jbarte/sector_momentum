@@ -47,7 +47,15 @@
     si_top: "Topp-sektor",
     si_report: "Rapport",
     guide_summary: "Hur du läser den här fliken",
-    guide_summary_sentiment: "Hur beräknas sentimentpoängen?"
+    guide_summary_sentiment: "Hur beräknas sentimentpoängen?",
+    sent_derived_heading: "Härledda Trends-signaler",
+    sent_col_sector: "Sektor",
+    sent_col_region: "Region",
+    sent_col_momentum: "Momentum",
+    sent_col_acceleration: "Acceleration",
+    sent_col_range: "Intervallpos.",
+    sent_col_spike: "Spik",
+    sent_col_volatility: "Volatilitet"
   };
 
   // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
@@ -113,7 +121,16 @@
       <h4>Källa — endast Google Trends</h4>
       <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
       <h4>Metod</h4>
-      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Poängen är <strong>trenden (lutningen)</strong> i det intresset, sedan standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>. Där en ticker motsvarar en känd Google Knowledge&nbsp;Graph-<strong>entitet</strong> frågar vi efter den entiteten i stället för den råa ticker-strängen, för att undvika namnkrockar; tickers utan känd entitet faller tillbaka på strängen.</p>
+      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>. Där en ticker motsvarar en känd Google Knowledge&nbsp;Graph-<strong>entitet</strong> frågar vi efter den entiteten i stället för den råa ticker-strängen, för att undvika namnkrockar; tickers utan känd entitet faller tillbaka på strängen.</p>
+      <h4>Härledda signaler</h4>
+      <p>Ur samma intresseserie läser vi också ut några kompletterande vyer (visas i tabellen nedan, endast information — bara Momentum kan påverka rankningen):</p>
+      <ul>
+        <li><strong>Momentum</strong> — trenden/lutningen, samma serie som huvudpoängen bygger på.</li>
+        <li><strong>Acceleration</strong> — senaste halvans lutning minus tidigare halvans; positivt betyder att uppmärksamheten tar fart.</li>
+        <li><strong>Intervallposition</strong> — var senaste värdet ligger inom sitt eget 13-veckors min–max (0% = lägsta, 100% = högsta).</li>
+        <li><strong>Spik</strong> — z-värde för senaste punkten mot föregående veckor; ett genombrott i intresse.</li>
+        <li><strong>Volatilitet</strong> — hur ryckigt intresset varit vecka för vecka.</li>
+      </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`,
     guide_tab: `

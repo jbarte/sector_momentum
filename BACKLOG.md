@@ -77,13 +77,8 @@ out of the core momentum score.
 - **Comparative (cross-sector) interest.** Trends normalizes 0–100 *within a payload*,
   so putting sectors in the same `build_payload` yields a true head-to-head attention
   ranking — more meaningful than independently-scaled series.
-- **Multiple derived signals from one series**, not just slope:
-  - *Momentum* — OLS slope (current)
-  - *Acceleration* — recent slope vs earlier slope (2nd derivative)
-  - *Level / range position* — latest value vs its own 13-week min–max (percentile)
-  - *Attention spike* — z-score of the latest point vs trailing mean (breakout in
-    interest)
-  - *Volatility* — stability of interest over the window
+- ~~**Multiple derived signals from one series**, not just slope~~ *(shipped — see Done:
+  momentum, acceleration, range position, spike, volatility)*
 - **Longer window for a seasonal baseline.** Pull 12 months to compute current interest
   vs its seasonal norm (YoY), reducing false momentum from recurring seasonality.
 - **Rising / breakout queries.** `pytrends.related_queries()` surfaces "rising" search
@@ -220,6 +215,17 @@ Carried over from earlier planning — not started:
   `scripts/resolve_trends_entities.py` proposes candidates for human review; the scan
   path never calls `suggestions()`. Toggle-only. The committed config ships empty —
   real mids are added after running the script and eyeballing each entity. *(2026-07-04)*
+- ~~Sentiment enrichment — derived Trends signals~~ — the sentiment page now surfaces
+  four complementary read-outs alongside the headline slope, all computed from the same
+  ~13-week interest series in `derived_signals()` (`src/data/trends_symbols.py`):
+  **acceleration** (recent-half vs earlier-half slope), **range position** (percentile in
+  the window min–max), **spike** (z of the latest point vs trailing weeks), and
+  **volatility** (std of week-over-week changes). Stored per sector-key in a new additive
+  `sentiment_signals` table (no schema migration; old scans simply lack rows), rendered as
+  an info-only table on `docs/sentiment.html` (EN+SV). Still **toggle-only** — only
+  `momentum`/slope feeds the composite via the existing toggle; the new signals never touch
+  the ranking. Region-aware pulls, Trends topics/entity-mids, seasonal baseline, and rising
+  queries remain queued above. *(2026-07-02)*
 - ~~Sentiment moved to its own page~~ — sentiment is no longer a dashboard tab; it now
   lives on `docs/sentiment.html`, linked from the main nav ("Sentiment ↗"), decoupled
   from the Leaderboard/RRG/History/etc. tab bar. The leaderboard's "include sentiment in

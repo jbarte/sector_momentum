@@ -12,7 +12,10 @@ Always branch before making changes. Never commit directly to `main`.
    drifts out of sync with what's actually shipped.
 4. **Run a code review** when the implementation is complete (`/code-review`).
 5. **Address review findings**, then push: `git push -u origin feature/<short-slug>`.
-6. **Stop there.** Do not merge. Jonas reviews and merges manually.
+6. **Open a pull request** against `main` with `gh pr create` — Claude creates the PR
+   (title = the conventional-commit subject; body = summary, tests, and any post-merge
+   manual steps). End the PR body with the Claude Code attribution line.
+7. **Stop there.** Do not merge. Jonas reviews and merges the PR manually.
 
 **Branch deletion:** only delete a branch (local or remote) once its PR is confirmed
 `MERGED` — check with `gh pr list --head <branch> --state all --json state`, don't infer

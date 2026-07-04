@@ -35,14 +35,29 @@
       <h4>Method</h4>
       <p>For each sector we pull ~13 weeks of worldwide search interest for its primary
          keyword (e.g. Technology&nbsp;→&nbsp;<em>semiconductor</em>,
-         Energy&nbsp;→&nbsp;<em>oil</em>). The score is the <strong>trend (slope)</strong>
-         of that interest, then standardized across the 11 sectors (z-score):
+         Energy&nbsp;→&nbsp;<em>oil</em>). The headline score is the
+         <strong>trend (slope)</strong> of that interest, standardized across the
+         11 sectors (z-score):
          <span class="signal-hi">positive = rising attention vs peers</span>,
          <span class="signal-lo">negative = fading</span>.
          Where a ticker maps to a known Google Knowledge&nbsp;Graph <strong>entity</strong>,
          we query that entity rather than the raw ticker string, to avoid name
          collisions (e.g. a ticker that is also a common word); tickers without a
          known entity fall back to the plain string.</p>
+      <h4>Derived signals</h4>
+      <p>From the same interest series we read out a few complementary views (shown
+         in the table below, information-only — only Momentum can affect the ranking):</p>
+      <ul>
+        <li><strong>Momentum</strong> — the trend/slope, same series the headline
+            score is built from.</li>
+        <li><strong>Acceleration</strong> — recent-half slope minus earlier-half
+            slope; positive means attention is picking up speed.</li>
+        <li><strong>Range position</strong> — where the latest reading sits within
+            its own 13-week min–max (0% = window low, 100% = window high).</li>
+        <li><strong>Spike</strong> — z-score of the latest point vs the trailing
+            weeks; a breakout in interest.</li>
+        <li><strong>Volatility</strong> — how choppy week-to-week interest has been.</li>
+      </ul>
       <h4>It does not drive the ranking by default</h4>
       <p>The leaderboard composite is built from price/momentum signals only. Sentiment
          changes the ranking <em>only</em> when you enable the <strong>Sentiment
@@ -57,6 +72,38 @@
     Sentiment is a confirming signal — noisy, gameable, retail-biased.
     This is analytical tooling, not investment advice.
   </p>
+
+  {% if sentiment_signal_rows %}
+  <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
+  <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th data-i18n="sent_col_sector">Sector</th>
+          <th data-i18n="sent_col_region">Region</th>
+          <th data-i18n="sent_col_momentum">Momentum</th>
+          <th data-i18n="sent_col_acceleration">Acceleration</th>
+          <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
+          <th data-i18n="sent_col_spike">Spike</th>
+          <th data-i18n="sent_col_volatility">Volatility</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in sentiment_signal_rows %}
+        <tr>
+          <td>{{ r.sector }}</td>
+          <td>{{ r.region }}</td>
+          <td>{{ r.momentum }}</td>
+          <td>{{ r.acceleration }}</td>
+          <td>{{ r.range_position }}</td>
+          <td>{{ r.spike }}</td>
+          <td>{{ r.volatility }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </section>
 
 <script>
