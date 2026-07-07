@@ -236,6 +236,21 @@ def _aggregate(
     return out
 
 
+def _symbols_by_region(symbol_map: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Group unique symbols by the region prefix of each 'REGION|Sector' key.
+
+    Preserves first-seen order and de-dupes within each region.
+    """
+    out: dict[str, list[str]] = {}
+    for key, symbols in symbol_map.items():
+        region = key.split("|", 1)[0]
+        bucket = out.setdefault(region, [])
+        for s in symbols:
+            if s not in bucket:
+                bucket.append(s)
+    return out
+
+
 def _resolve_query_terms(
     tickers: list[str],
     entities: dict[str, str],
