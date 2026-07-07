@@ -204,6 +204,14 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Sentiment — durable Trends day-cache~~ — successfully-fetched Trends batches are
+  cached per UTC day in Supabase Storage (bucket `trends-cache`, one
+  `trends_cache_<date>.json` object) so a re-triggered CI run or same-day re-run
+  reuses them and re-fetches only the batches that 429'd/failed. Cache is per
+  `(geo, batch)` (`src/data/trends_cache.py`), read/written in `_fetch_geo`, and
+  loaded/saved around the fetch in `scan.py`. Fully **fail-open** — any Storage error
+  logs a warning and the scan runs live/uncached; `--no-cache` bypasses it. Cuts the
+  429 exposure from the ~4× region-aware call volume. *(2026-07-07)*
 - ~~Sentiment — region-aware Trends pulls~~ — `fetch_symbol_trends` now queries US
   sectors in `geo="US"` and EU sectors averaged across `DE`/`FR`/`GB`, normalized
   against a stable ubiquitous anchor (`YouTube`, configurable in
