@@ -24,3 +24,22 @@ def cache_object_name(date_str: str) -> str:
 def batch_key(tickers: list[str]) -> str:
     """Deterministic, order-independent key for a batch: sorted tickers joined by '|'."""
     return "|".join(sorted(tickers))
+
+
+def load_cache(date_str: str, bucket: str = DEFAULT_CACHE_BUCKET) -> dict:
+    """Download + parse the day's cache object. Any error -> {} (fail-open)."""
+    try:
+        data = storage_backup.download(cache_object_name(date_str), bucket=bucket)
+        return json.loads(data)
+    except Exception as exc:
+        logger.warning("Trends cache load skipped (%s) — proceeding uncached", exc)
+        return {}
+
+
+def save_cache(date_str: str, cache: dict, bucket: str = DEFAULT_CACHE_BUCKET) -> None:
+    """Serialize + upload the day's cache. Any error is logged and swallowed."""
+    try:
+        payload = json.dumps(cache).encode("utf-8")
+        storage_backup.upload(cache_object_name(date_str), payload, bucket=bucket)
+    except Exception as exc:
+        logger.warning("Trends cache save skipped (%s)", exc)
