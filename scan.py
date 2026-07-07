@@ -277,7 +277,7 @@ def run(args: argparse.Namespace) -> int:
     logger.info("Fetching symbol-based Google Trends sentiment …")
     from src.data.trends_symbols import (
         build_symbol_map, fetch_symbol_trends, score_symbol_sentiment,
-        derived_signals,
+        load_entities, derived_signals,
     )
     with open("config/sector_etfs.yaml", "r") as _fh:
         _sector_etfs = yaml.safe_load(_fh) or {}
@@ -287,7 +287,12 @@ def run(args: argparse.Namespace) -> int:
     except FileNotFoundError:
         _blocklist = set()
     _symbol_map = build_symbol_map(universe, _sector_etfs, blocklist=_blocklist)
-    _trends_by_key = fetch_symbol_trends(_symbol_map)
+    _entities = load_entities("config/trends_entities.yaml")
+    _resolved = sum(1 for syms in _symbol_map.values() for s in syms if s in _entities)
+    _total = sum(len(syms) for syms in _symbol_map.values())
+    logger.info("Trends entities: %d/%d ticker-slots resolved to a mid (rest fall back to strings)",
+                _resolved, _total)
+    _trends_by_key = fetch_symbol_trends(_symbol_map, entities=_entities)
     sentiment_score = score_symbol_sentiment(_trends_by_key)
     sentiment_score = sentiment_score.reindex(wide_df.index, fill_value=0.0)
     _live = int((sentiment_score != 0).sum())

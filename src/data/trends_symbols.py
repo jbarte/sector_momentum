@@ -11,6 +11,7 @@ import math
 
 import numpy as np
 import pandas as pd
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,46 @@ def _cross_zscore(values: dict[str, float]) -> dict[str, float]:
         k: (v - mean) / std if not math.isnan(v) else float("nan")
         for k, v in values.items()
     }
+
+
+def load_entities(path: str = "config/trends_entities.yaml") -> dict[str, str]:
+    """Load {ticker: entity mid} from the entities config.
+
+    The on-disk shape is ``{ticker: {mid: ..., title: ...}}``; this flattens to
+    ``{ticker: mid}`` and skips any entry lacking a ``mid``. A missing or empty
+    file yields ``{}`` (every ticker then falls back to a raw-string query).
+    """
+    try:
+        with open(path, "r") as fh:
+            cfg = yaml.safe_load(fh) or {}
+    except FileNotFoundError:
+        return {}
+    # Intentionally no broader except here: a malformed YAML should fail
+    # loud (propagate yaml.YAMLError) rather than silently returning {},
+    # so a broken hand-edit is caught instead of silently disabling all
+    # entities.
+    result = {
+        ticker: entry["mid"]
+        for ticker, entry in cfg.items()
+        if isinstance(entry, dict) and entry.get("mid")
+    }
+
+    # Two tickers resolving to the same mid collapse to a single Trends
+    # payload column, silently dropping one ticker's signal. Warn (don't
+    # raise) so a config typo degrades gracefully instead of aborting the
+    # scan.
+    tickers_by_mid: dict[str, list[str]] = {}
+    for ticker, mid in result.items():
+        tickers_by_mid.setdefault(mid, []).append(ticker)
+    for mid, tickers in tickers_by_mid.items():
+        if len(tickers) > 1:
+            logger.warning(
+                "Duplicate entity mid %s shared by tickers %s — Trends will "
+                "collapse them into one column, dropping all but one signal",
+                mid, tickers,
+            )
+
+    return result
 
 
 def build_symbol_map(
@@ -195,6 +236,46 @@ def _aggregate(
     return out
 
 
+def _resolve_query_terms(
+    tickers: list[str],
+    entities: dict[str, str],
+) -> tuple[list[str], dict[str, str]]:
+    """Map a batch of tickers to Trends query terms.
+
+    Each ticker becomes its approved entity mid if present in ``entities``,
+    otherwise the raw ticker string (fallback). Returns the query-term list
+    (aligned with ``tickers``) plus a term->ticker map for re-keying the
+    fetched columns back to tickers.
+    """
+    terms: list[str] = []
+    term_to_ticker: dict[str, str] = {}
+    for t in tickers:
+        term = entities.get(t, t)
+        terms.append(term)
+        term_to_ticker[term] = t
+    return terms, term_to_ticker
+
+
+def _rekey_by_ticker(
+    raw_by_term: dict[str, list[float]],
+    anchor: str,
+    term_to_ticker: dict[str, str],
+) -> dict[str, list[float]]:
+    """Re-key a {query-term: series} dict to {ticker: series}.
+
+    The ``anchor`` key is left as-is (it is normalized/dropped downstream).
+    Any term missing from ``term_to_ticker`` passes through unchanged. In
+    the normal fetch_symbol_trends flow, every non-anchor term is a key in
+    term_to_ticker by construction (it is built from the same batch), so
+    this fallback is defensive-only and never actually triggers.
+    """
+    out: dict[str, list[float]] = {}
+    for term, series in raw_by_term.items():
+        key = anchor if term == anchor else term_to_ticker.get(term, term)
+        out[key] = series
+    return out
+
+
 import random
 import time
 
@@ -213,6 +294,7 @@ def fetch_symbol_trends(
     batch_size: int = 4,
     sleep_s: float = 20.0,
     max_retries: int = 3,
+    entities: dict[str, str] | None = None,
 ) -> dict[str, pd.Series]:
     if client is None:
         try:
@@ -221,12 +303,14 @@ def fetch_symbol_trends(
             logger.warning("Trends client init failed (%s) — sentiment neutral", exc)
             return _aggregate({}, symbol_map, window=window)
 
+    entities = entities or {}
     symbols = sorted({s for syms in symbol_map.values() for s in syms})
     batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
     norm_by_symbol: dict[str, list[float]] = {}
 
     for bi, batch in enumerate(batches):
-        terms = [anchor] + batch
+        query_terms, term_to_ticker = _resolve_query_terms(batch, entities)
+        terms = [anchor] + query_terms
         df = None
         for attempt in range(max_retries):
             try:
@@ -240,8 +324,9 @@ def fetch_symbol_trends(
                     logger.warning("Trends batch %d failed (%s) — %d symbols neutral",
                                    bi + 1, exc, len(batch))
         if df is not None and not df.empty:
-            raw = {t: [float(v) for v in df[t].tolist()[-window:]]
-                   for t in terms if t in df.columns}
+            raw_by_term = {t: [float(v) for v in df[t].tolist()[-window:]]
+                           for t in terms if t in df.columns}
+            raw = _rekey_by_ticker(raw_by_term, anchor, term_to_ticker)
             norm_by_symbol.update(_normalize_by_anchor(raw, anchor))
         if bi < len(batches) - 1 and sleep_s:
             time.sleep(sleep_s)
