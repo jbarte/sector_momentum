@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from src.data.trends_cache import batch_key
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_ANCHOR = "YouTube"
@@ -354,11 +356,18 @@ def _fetch_geo(
     sleep_s: float,
     max_retries: int,
     entities: dict[str, str],
+    cache: dict | None = None,
 ) -> dict[str, list[float]]:
     """Fetch + anchor-normalize one geo's symbols. Returns {ticker: series}."""
     batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
     norm_by_symbol: dict[str, list[float]] = {}
     for bi, batch in enumerate(batches):
+        if cache is not None:
+            key = batch_key(batch)
+            cached = cache.get(geo, {}).get(key)
+            if cached is not None:
+                norm_by_symbol.update(cached)
+                continue                      # skip API call and inter-batch sleep
         query_terms, term_to_ticker = _resolve_query_terms(batch, entities)
         terms = [anchor] + query_terms
         df = None
@@ -377,7 +386,10 @@ def _fetch_geo(
             raw_by_term = {t: [float(v) for v in df[t].tolist()[-window:]]
                            for t in terms if t in df.columns}
             raw = _rekey_by_ticker(raw_by_term, anchor, term_to_ticker)
-            norm_by_symbol.update(_normalize_by_anchor(raw, anchor))
+            normalized = _normalize_by_anchor(raw, anchor)
+            norm_by_symbol.update(normalized)
+            if cache is not None:
+                cache.setdefault(geo, {})[batch_key(batch)] = normalized
         if bi < len(batches) - 1 and sleep_s:
             time.sleep(sleep_s)
     return norm_by_symbol
@@ -394,6 +406,7 @@ def fetch_symbol_trends(
     max_retries: int = 3,
     entities: dict[str, str] | None = None,
     region_geos: dict[str, list[str]] | None = None,
+    cache: dict | None = None,
 ) -> dict[str, pd.Series]:
     if client is None:
         try:
@@ -411,7 +424,7 @@ def fetch_symbol_trends(
         geos = region_geos.get(region, [""])
         per_geo = [
             _fetch_geo(client, symbols, anchor, geo, timeframe, window,
-                       batch_size, sleep_s, max_retries, entities)
+                       batch_size, sleep_s, max_retries, entities, cache=cache)
             for geo in geos
         ]
         if len(per_geo) == 1:
