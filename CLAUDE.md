@@ -85,6 +85,13 @@ The DB is backed up to a **private Supabase Storage bucket `db-backups`** (one
 `SUPABASE_SERVICE_KEY` secret (CI) / env var (local) and the bucket to exist.
 Restore with `python restore.py` (latest) / `--list` / `--local <dir>` (old git backups).
 
+A second private bucket **`trends-cache`** holds the durable Google Trends day-cache
+(`trends_cache_<UTC-date>.json`, one per day) so re-triggered scans reuse
+already-fetched batches instead of re-hitting Google (429 mitigation). Same
+`SUPABASE_SERVICE_KEY` credential as the backups; the cache is **fail-open**, so a
+missing bucket or key only means scans run uncached. Bypass with `python3 scan.py
+--no-cache`.
+
 ## Dev commands
 
 ```bash

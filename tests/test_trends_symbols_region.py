@@ -136,3 +136,77 @@ def test_load_geo_config_partial_falls_back(tmp_path):
     anchor, region_geos = load_geo_config(str(p))
     assert anchor == "Bing"
     assert region_geos == DEFAULT_REGION_GEOS
+
+
+from src.data.trends_symbols import _fetch_geo as _fg_cache  # alias to avoid earlier-import clash
+from src.data.trends_cache import batch_key
+
+
+class _CountingClient:
+    """Counts build_payload calls; returns a fixed frame."""
+    def __init__(self, frame):
+        self._frame = frame
+        self.build_calls = 0
+
+    def build_payload(self, kw_list, timeframe="", geo="", **kwargs):
+        self.build_calls += 1
+
+    def interest_over_time(self):
+        return self._frame
+
+
+def test_fetch_geo_cache_miss_then_writes():
+    import pandas as pd
+    frame = pd.DataFrame({"SPY": [10.0, 10.0, 10.0], "XLK": [5.0, 10.0, 20.0]})
+    client = _CountingClient(frame)
+    cache = {}
+    out = _fg_cache(client, ["XLK"], anchor="SPY", geo="US", timeframe="today 3-m",
+                    window=3, batch_size=4, sleep_s=0.0, max_retries=3, entities={},
+                    cache=cache)
+    assert client.build_calls == 1                       # miss -> fetched
+    assert out["XLK"] == [50.0, 100.0, 200.0]
+    # the successful batch was written to the cache under [geo][batch_key]
+    assert cache["US"][batch_key(["XLK"])]["XLK"] == [50.0, 100.0, 200.0]
+
+
+def test_fetch_geo_cache_hit_skips_call():
+    import pandas as pd
+    frame = pd.DataFrame({"SPY": [10.0], "XLK": [5.0]})   # would give different values if used
+    client = _CountingClient(frame)
+    cache = {"US": {batch_key(["XLK"]): {"XLK": [42.0, 42.0, 42.0]}}}
+    out = _fg_cache(client, ["XLK"], anchor="SPY", geo="US", timeframe="today 3-m",
+                    window=3, batch_size=4, sleep_s=0.0, max_retries=3, entities={},
+                    cache=cache)
+    assert client.build_calls == 0                       # hit -> no API call
+    assert out["XLK"] == [42.0, 42.0, 42.0]              # served from cache
+
+
+def test_fetch_geo_cache_none_is_unchanged():
+    import pandas as pd
+    frame = pd.DataFrame({"SPY": [10.0, 10.0], "XLK": [10.0, 20.0]})
+    client = _CountingClient(frame)
+    out = _fg_cache(client, ["XLK"], anchor="SPY", geo="US", timeframe="today 3-m",
+                    window=2, batch_size=4, sleep_s=0.0, max_retries=3, entities={},
+                    cache=None)
+    assert client.build_calls == 1
+    assert out["XLK"] == [100.0, 200.0]
+
+
+def test_fetch_geo_multi_batch_mixes_hit_and_miss():
+    """One _fetch_geo call over two batches: batch 1 pre-seeded (hit), batch 2 not (miss).
+
+    Locks in that a hit skips the API call while a miss in the same run still
+    fetches — both batches' data end up in the returned dict, and only the
+    missing batch gets written into the cache.
+    """
+    import pandas as pd
+    frame = pd.DataFrame({"SPY": [10.0, 10.0, 10.0], "VGT": [5.0, 10.0, 20.0]})
+    client = _CountingClient(frame)
+    cache = {"US": {batch_key(["XLK"]): {"XLK": [42.0, 42.0, 42.0]}}}
+    out = _fg_cache(client, ["XLK", "VGT"], anchor="SPY", geo="US", timeframe="today 3-m",
+                    window=3, batch_size=1, sleep_s=0.0, max_retries=3, entities={},
+                    cache=cache)
+    assert client.build_calls == 1                        # batch 1 hit, batch 2 missed
+    assert out["XLK"] == [42.0, 42.0, 42.0]                # served from cache
+    assert out["VGT"] == [50.0, 100.0, 200.0]              # fetched + normalized
+    assert cache["US"][batch_key(["VGT"])]["VGT"] == [50.0, 100.0, 200.0]  # written

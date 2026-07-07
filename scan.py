@@ -73,6 +73,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip writing the database backup after the scan.",
     )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Bypass the durable Trends day-cache (always live-fetch, no save).",
+    )
     return parser.parse_args()
 
 
@@ -295,9 +300,16 @@ def run(args: argparse.Namespace) -> int:
     _anchor, _region_geos = load_geo_config("config/trends_geo.yaml")
     logger.info("Trends geos: %s (anchor=%s)",
                 ", ".join(f"{r}→{'/'.join(g)}" for r, g in _region_geos.items()), _anchor)
+    from src.data import trends_cache
+    _use_cache = not args.no_cache
+    _cache_date = datetime.utcnow().strftime("%Y-%m-%d")
+    _cache = trends_cache.load_cache(_cache_date) if _use_cache else None
     _trends_by_key = fetch_symbol_trends(
         _symbol_map, anchor=_anchor, entities=_entities, region_geos=_region_geos,
+        cache=_cache,
     )
+    if _use_cache:
+        trends_cache.save_cache(_cache_date, _cache)
     sentiment_score = score_symbol_sentiment(_trends_by_key)
     sentiment_score = sentiment_score.reindex(wide_df.index, fill_value=0.0)
     _live = int((sentiment_score != 0).sum())
