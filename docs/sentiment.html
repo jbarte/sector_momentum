@@ -621,7 +621,11 @@ select.sector-select:focus {
          <strong>trend (slope)</strong> of that interest, standardized across the
          11 sectors (z-score):
          <span class="signal-hi">positive = rising attention vs peers</span>,
-         <span class="signal-lo">negative = fading</span>.</p>
+         <span class="signal-lo">negative = fading</span>.
+         Where a ticker maps to a known Google Knowledge&nbsp;Graph <strong>entity</strong>,
+         we query that entity rather than the raw ticker string, to avoid name
+         collisions (e.g. a ticker that is also a common word); tickers without a
+         known entity fall back to the plain string.</p>
       <h4>Derived signals</h4>
       <p>From the same interest series we read out a few complementary views (shown
          in the table below, information-only — only Momentum can affect the ranking):</p>
@@ -1021,7 +1025,7 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
       <h4>Källa — endast Google Trends</h4>
       <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
       <h4>Metod</h4>
-      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>.</p>
+      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>. Där en ticker motsvarar en känd Google Knowledge&nbsp;Graph-<strong>entitet</strong> frågar vi efter den entiteten i stället för den råa ticker-strängen, för att undvika namnkrockar; tickers utan känd entitet faller tillbaka på strängen.</p>
       <h4>Härledda signaler</h4>
       <p>Ur samma intresseserie läser vi också ut några kompletterande vyer (visas i tabellen nedan, endast information — bara Momentum kan påverka rankningen):</p>
       <ul>

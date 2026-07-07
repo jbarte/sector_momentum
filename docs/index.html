@@ -2217,7 +2217,7 @@ function sortTable(col) {
       <h4>Källa — endast Google Trends</h4>
       <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
       <h4>Metod</h4>
-      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>.</p>
+      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>. Där en ticker motsvarar en känd Google Knowledge&nbsp;Graph-<strong>entitet</strong> frågar vi efter den entiteten i stället för den råa ticker-strängen, för att undvika namnkrockar; tickers utan känd entitet faller tillbaka på strängen.</p>
       <h4>Härledda signaler</h4>
       <p>Ur samma intresseserie läser vi också ut några kompletterande vyer (visas i tabellen nedan, endast information — bara Momentum kan påverka rankningen):</p>
       <ul>
