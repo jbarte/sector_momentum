@@ -35,6 +35,21 @@ def _cross_zscore(values: dict[str, float]) -> dict[str, float]:
     }
 
 
+def load_geo_config(path: str = "config/trends_geo.yaml") -> tuple[str, dict[str, list[str]]]:
+    """Load (anchor, region_geos) from the geo config.
+
+    Missing file or missing keys fall back to DEFAULT_ANCHOR / DEFAULT_REGION_GEOS.
+    """
+    try:
+        with open(path, "r") as fh:
+            cfg = yaml.safe_load(fh) or {}
+    except FileNotFoundError:
+        return DEFAULT_ANCHOR, DEFAULT_REGION_GEOS
+    anchor = cfg.get("anchor") or DEFAULT_ANCHOR
+    region_geos = cfg.get("region_geos") or DEFAULT_REGION_GEOS
+    return anchor, region_geos
+
+
 def load_entities(path: str = "config/trends_entities.yaml") -> dict[str, str]:
     """Load {ticker: entity mid} from the entities config.
 

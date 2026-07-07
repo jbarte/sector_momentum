@@ -111,3 +111,28 @@ def test_fetch_region_geos_override():
     fetch_symbol_trends(smap, client=client, window=3, batch_size=4, sleep_s=0.0,
                         region_geos={"US": ["DE"]})
     assert {geo for _, geo in client.calls} == {"DE"}    # override respected
+
+
+from src.data.trends_symbols import load_geo_config, DEFAULT_ANCHOR, DEFAULT_REGION_GEOS
+
+
+def test_load_geo_config_reads_file(tmp_path):
+    p = tmp_path / "geo.yaml"
+    p.write_text("anchor: Google\nregion_geos:\n  US: [US]\n  EU: [DE, FR]\n")
+    anchor, region_geos = load_geo_config(str(p))
+    assert anchor == "Google"
+    assert region_geos == {"US": ["US"], "EU": ["DE", "FR"]}
+
+
+def test_load_geo_config_missing_file_uses_defaults():
+    anchor, region_geos = load_geo_config("config/does_not_exist_geo.yaml")
+    assert anchor == DEFAULT_ANCHOR
+    assert region_geos == DEFAULT_REGION_GEOS
+
+
+def test_load_geo_config_partial_falls_back(tmp_path):
+    p = tmp_path / "geo.yaml"
+    p.write_text("anchor: Bing\n")   # no region_geos
+    anchor, region_geos = load_geo_config(str(p))
+    assert anchor == "Bing"
+    assert region_geos == DEFAULT_REGION_GEOS
