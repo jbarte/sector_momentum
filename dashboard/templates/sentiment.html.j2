@@ -43,7 +43,12 @@
          Where a ticker maps to a known Google Knowledge&nbsp;Graph <strong>entity</strong>,
          we query that entity rather than the raw ticker string, to avoid name
          collisions (e.g. a ticker that is also a common word); tickers without a
-         known entity fall back to the plain string.</p>
+         known entity fall back to the plain string.
+         Interest is pulled per region — <strong>US</strong> sectors in US search,
+         <strong>EU</strong> sectors averaged across Germany, France and the UK —
+         and normalized against a neutral, ubiquitous anchor term rather than a
+         market ticker. (This anchor change means sentiment values from before it
+         are not directly comparable to later ones.)</p>
       <h4>Derived signals</h4>
       <p>From the same interest series we read out a few complementary views (shown
          in the table below, information-only — only Momentum can affect the ranking):</p>
