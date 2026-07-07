@@ -71,9 +71,7 @@ out of the core momentum score.
 
 **Getting the most out of Google Trends (ideas to explore):**
 - ~~**Trends *topics* (entity mids) over raw ticker strings.**~~ *(shipped — see Done)*
-- **Region-aware pulls.** Fetch `geo="US"` for `US|` sectors and per-country geos for
-  `EU|` sectors (DE/FR/GB…). This gives genuine region-specific attention and finally
-  fills the EU gap that Finnhub couldn't.
+- ~~**Region-aware pulls.**~~ *(shipped — see Done)*
 - **Comparative (cross-sector) interest.** Trends normalizes 0–100 *within a payload*,
   so putting sectors in the same `build_payload` yields a true head-to-head attention
   ranking — more meaningful than independently-scaled series.
@@ -206,6 +204,15 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Sentiment — region-aware Trends pulls~~ — `fetch_symbol_trends` now queries US
+  sectors in `geo="US"` and EU sectors averaged across `DE`/`FR`/`GB`, normalized
+  against a stable ubiquitous anchor (`YouTube`, configurable in
+  `config/trends_geo.yaml`) instead of the worldwide `SPY` pull. Symbols are
+  partitioned by region (`_symbols_by_region`), fetched per geo (`_fetch_geo`), and
+  multi-geo regions averaged per symbol (`_average_geo_series`); `_aggregate`/scoring
+  and the entity-mid path are unchanged (ticker-keyed). Toggle-only. Costs ~4× the
+  Trends API calls (day-cache remains a separate backlog item), and the anchor change
+  breaks comparability with pre-change stored sentiment. *(2026-07-07)*
 - ~~Sentiment — Trends entity-mid resolution~~ — `fetch_symbol_trends` now queries a
   ticker's Google Knowledge Graph **entity mid** instead of the ambiguous raw string
   where one is curated in `config/trends_entities.yaml`, killing collision false-positives

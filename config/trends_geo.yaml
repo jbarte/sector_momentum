@@ -1,0 +1,10 @@
+# Region-aware Google Trends configuration.
+# anchor: a stable, ubiquitous term (same spelling in every geo) used to stitch
+#   Trends' per-payload 0–100 scaling across batches. NOT a finance term on
+#   purpose — it should be a flat, high-volume baseline.
+anchor: YouTube
+# region_geos: which Google Trends geographies each region is queried in.
+#   Multiple geos are averaged per symbol (Google Trends has no single "Europe").
+region_geos:
+  US: [US]
+  EU: [DE, FR, GB]

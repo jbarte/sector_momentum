@@ -15,6 +15,9 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_ANCHOR = "YouTube"
+DEFAULT_REGION_GEOS = {"US": ["US"], "EU": ["DE", "FR", "GB"]}
+
 
 def _cross_zscore(values: dict[str, float]) -> dict[str, float]:
     """Z-score a dict of {key: float}. NaN inputs excluded from mean/std."""
@@ -30,6 +33,21 @@ def _cross_zscore(values: dict[str, float]) -> dict[str, float]:
         k: (v - mean) / std if not math.isnan(v) else float("nan")
         for k, v in values.items()
     }
+
+
+def load_geo_config(path: str = "config/trends_geo.yaml") -> tuple[str, dict[str, list[str]]]:
+    """Load (anchor, region_geos) from the geo config.
+
+    Missing file or missing keys fall back to DEFAULT_ANCHOR / DEFAULT_REGION_GEOS.
+    """
+    try:
+        with open(path, "r") as fh:
+            cfg = yaml.safe_load(fh) or {}
+    except FileNotFoundError:
+        return DEFAULT_ANCHOR, DEFAULT_REGION_GEOS
+    anchor = cfg.get("anchor") or DEFAULT_ANCHOR
+    region_geos = cfg.get("region_geos") or DEFAULT_REGION_GEOS
+    return anchor, region_geos
 
 
 def load_entities(path: str = "config/trends_entities.yaml") -> dict[str, str]:
@@ -236,6 +254,46 @@ def _aggregate(
     return out
 
 
+def _symbols_by_region(symbol_map: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Group unique symbols by the region prefix of each 'REGION|Sector' key.
+
+    Preserves first-seen order and de-dupes within each region.
+    """
+    out: dict[str, list[str]] = {}
+    for key, symbols in symbol_map.items():
+        region = key.split("|", 1)[0]
+        bucket = out.setdefault(region, [])
+        for s in symbols:
+            if s not in bucket:
+                bucket.append(s)
+    return out
+
+
+def _average_geo_series(
+    per_geo: list[dict[str, list[float]]],
+    window: int,
+) -> dict[str, list[float]]:
+    """Average each ticker's series across the geos where it is live.
+
+    A series is live if it has any non-zero value. Tickers live in no geo
+    yield an all-zero series of length `window`.
+    """
+    tickers: list[str] = []
+    for m in per_geo:
+        for t in m:
+            if t not in tickers:
+                tickers.append(t)
+    out: dict[str, list[float]] = {}
+    for t in tickers:
+        live = [m[t] for m in per_geo if t in m and any(v != 0 for v in m[t])]
+        if not live:
+            out[t] = [0.0] * window
+        else:
+            arr = np.array(live, dtype=float)
+            out[t] = [float(v) for v in arr.mean(axis=0)]
+    return out
+
+
 def _resolve_query_terms(
     tickers: list[str],
     entities: dict[str, str],
@@ -285,9 +343,49 @@ def _new_client(timeout=(10, 25)):
     return TrendReq(hl="en-US", tz=0, timeout=timeout)
 
 
+def _fetch_geo(
+    client,
+    symbols: list[str],
+    anchor: str,
+    geo: str,
+    timeframe: str,
+    window: int,
+    batch_size: int,
+    sleep_s: float,
+    max_retries: int,
+    entities: dict[str, str],
+) -> dict[str, list[float]]:
+    """Fetch + anchor-normalize one geo's symbols. Returns {ticker: series}."""
+    batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
+    norm_by_symbol: dict[str, list[float]] = {}
+    for bi, batch in enumerate(batches):
+        query_terms, term_to_ticker = _resolve_query_terms(batch, entities)
+        terms = [anchor] + query_terms
+        df = None
+        for attempt in range(max_retries):
+            try:
+                client.build_payload(terms, timeframe=timeframe, geo=geo)
+                df = client.interest_over_time()
+                break
+            except Exception as exc:
+                if attempt < max_retries - 1:
+                    time.sleep(sleep_s * (2 ** attempt) + random.uniform(0, 3))
+                else:
+                    logger.warning("Trends batch %d (geo=%s) failed (%s) — %d symbols neutral",
+                                   bi + 1, geo or "world", exc, len(batch))
+        if df is not None and not df.empty:
+            raw_by_term = {t: [float(v) for v in df[t].tolist()[-window:]]
+                           for t in terms if t in df.columns}
+            raw = _rekey_by_ticker(raw_by_term, anchor, term_to_ticker)
+            norm_by_symbol.update(_normalize_by_anchor(raw, anchor))
+        if bi < len(batches) - 1 and sleep_s:
+            time.sleep(sleep_s)
+    return norm_by_symbol
+
+
 def fetch_symbol_trends(
     symbol_map: dict[str, list[str]],
-    anchor: str = "SPY",
+    anchor: str = DEFAULT_ANCHOR,
     client=None,
     timeframe: str = "today 3-m",
     window: int = 13,
@@ -295,6 +393,7 @@ def fetch_symbol_trends(
     sleep_s: float = 20.0,
     max_retries: int = 3,
     entities: dict[str, str] | None = None,
+    region_geos: dict[str, list[str]] | None = None,
 ) -> dict[str, pd.Series]:
     if client is None:
         try:
@@ -304,32 +403,21 @@ def fetch_symbol_trends(
             return _aggregate({}, symbol_map, window=window)
 
     entities = entities or {}
-    symbols = sorted({s for syms in symbol_map.values() for s in syms})
-    batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
-    norm_by_symbol: dict[str, list[float]] = {}
+    region_geos = region_geos if region_geos is not None else DEFAULT_REGION_GEOS
+    by_region = _symbols_by_region(symbol_map)
 
-    for bi, batch in enumerate(batches):
-        query_terms, term_to_ticker = _resolve_query_terms(batch, entities)
-        terms = [anchor] + query_terms
-        df = None
-        for attempt in range(max_retries):
-            try:
-                client.build_payload(terms, timeframe=timeframe, geo="")
-                df = client.interest_over_time()
-                break
-            except Exception as exc:
-                if attempt < max_retries - 1:
-                    time.sleep(sleep_s * (2 ** attempt) + random.uniform(0, 3))
-                else:
-                    logger.warning("Trends batch %d failed (%s) — %d symbols neutral",
-                                   bi + 1, exc, len(batch))
-        if df is not None and not df.empty:
-            raw_by_term = {t: [float(v) for v in df[t].tolist()[-window:]]
-                           for t in terms if t in df.columns}
-            raw = _rekey_by_ticker(raw_by_term, anchor, term_to_ticker)
-            norm_by_symbol.update(_normalize_by_anchor(raw, anchor))
-        if bi < len(batches) - 1 and sleep_s:
-            time.sleep(sleep_s)
+    norm_by_symbol: dict[str, list[float]] = {}
+    for region, symbols in by_region.items():
+        geos = region_geos.get(region, [""])
+        per_geo = [
+            _fetch_geo(client, symbols, anchor, geo, timeframe, window,
+                       batch_size, sleep_s, max_retries, entities)
+            for geo in geos
+        ]
+        if len(per_geo) == 1:
+            norm_by_symbol.update(per_geo[0])
+        else:
+            norm_by_symbol.update(_average_geo_series(per_geo, window))
 
     return _aggregate(norm_by_symbol, symbol_map, window=window)
 
