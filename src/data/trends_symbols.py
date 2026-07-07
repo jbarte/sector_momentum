@@ -365,7 +365,7 @@ def _fetch_geo(
         if cache is not None:
             key = batch_key(batch)
             cached = cache.get(geo, {}).get(key)
-            if cached is not None:
+            if isinstance(cached, dict):
                 norm_by_symbol.update(cached)
                 continue                      # skip API call and inter-batch sleep
         query_terms, term_to_ticker = _resolve_query_terms(batch, entities)
@@ -389,7 +389,7 @@ def _fetch_geo(
             normalized = _normalize_by_anchor(raw, anchor)
             norm_by_symbol.update(normalized)
             if cache is not None:
-                cache.setdefault(geo, {})[batch_key(batch)] = normalized
+                cache.setdefault(geo, {})[key] = normalized
         if bi < len(batches) - 1 and sleep_s:
             time.sleep(sleep_s)
     return norm_by_symbol

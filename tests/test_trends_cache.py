@@ -1,5 +1,4 @@
 import json
-import pytest
 from src.data import trends_cache
 from src.data.trends_cache import cache_object_name, batch_key, DEFAULT_CACHE_BUCKET, load_cache, save_cache
 

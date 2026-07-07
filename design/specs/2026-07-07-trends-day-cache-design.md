@@ -185,3 +185,9 @@ Full suite must stay green.
   geo + tickers. Acceptable for a day-cache; noted so it isn't surprising.
 - **No pruning:** day-cache objects accumulate in the bucket. They're small; pruning
   old objects is a deferred follow-up.
+- **`window` is a crash edge, not just staleness:** `window` (fixed at 13, not
+  config-driven) is not part of the cache key. A same-day change to `window` would
+  mix cached series of the old length with freshly-fetched series of the new length
+  inside one run, which can raise a ragged-array error in `_average_geo_series`
+  (`np.array` over unequal-length lists). Bump the UTC day or clear the cache if
+  `window` ever changes.
