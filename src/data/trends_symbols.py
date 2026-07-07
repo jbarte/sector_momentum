@@ -251,6 +251,31 @@ def _symbols_by_region(symbol_map: dict[str, list[str]]) -> dict[str, list[str]]
     return out
 
 
+def _average_geo_series(
+    per_geo: list[dict[str, list[float]]],
+    window: int,
+) -> dict[str, list[float]]:
+    """Average each ticker's series across the geos where it is live.
+
+    A series is live if it has any non-zero value. Tickers live in no geo
+    yield an all-zero series of length `window`.
+    """
+    tickers: list[str] = []
+    for m in per_geo:
+        for t in m:
+            if t not in tickers:
+                tickers.append(t)
+    out: dict[str, list[float]] = {}
+    for t in tickers:
+        live = [m[t] for m in per_geo if t in m and any(v != 0 for v in m[t])]
+        if not live:
+            out[t] = [0.0] * window
+        else:
+            arr = np.array(live, dtype=float)
+            out[t] = [float(v) for v in arr.mean(axis=0)]
+    return out
+
+
 def _resolve_query_terms(
     tickers: list[str],
     entities: dict[str, str],
