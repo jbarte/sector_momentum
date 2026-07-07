@@ -15,6 +15,9 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_ANCHOR = "YouTube"
+DEFAULT_REGION_GEOS = {"US": ["US"], "EU": ["DE", "FR", "GB"]}
+
 
 def _cross_zscore(values: dict[str, float]) -> dict[str, float]:
     """Z-score a dict of {key: float}. NaN inputs excluded from mean/std."""
@@ -367,7 +370,7 @@ def _fetch_geo(
 
 def fetch_symbol_trends(
     symbol_map: dict[str, list[str]],
-    anchor: str = "SPY",
+    anchor: str = DEFAULT_ANCHOR,
     client=None,
     timeframe: str = "today 3-m",
     window: int = 13,
@@ -375,6 +378,7 @@ def fetch_symbol_trends(
     sleep_s: float = 20.0,
     max_retries: int = 3,
     entities: dict[str, str] | None = None,
+    region_geos: dict[str, list[str]] | None = None,
 ) -> dict[str, pd.Series]:
     if client is None:
         try:
@@ -384,11 +388,22 @@ def fetch_symbol_trends(
             return _aggregate({}, symbol_map, window=window)
 
     entities = entities or {}
-    symbols = sorted({s for syms in symbol_map.values() for s in syms})
-    norm_by_symbol = _fetch_geo(
-        client, symbols, anchor, "", timeframe, window, batch_size,
-        sleep_s, max_retries, entities,
-    )
+    region_geos = region_geos if region_geos is not None else DEFAULT_REGION_GEOS
+    by_region = _symbols_by_region(symbol_map)
+
+    norm_by_symbol: dict[str, list[float]] = {}
+    for region, symbols in by_region.items():
+        geos = region_geos.get(region, [""])
+        per_geo = [
+            _fetch_geo(client, symbols, anchor, geo, timeframe, window,
+                       batch_size, sleep_s, max_retries, entities)
+            for geo in geos
+        ]
+        if len(per_geo) == 1:
+            norm_by_symbol.update(per_geo[0])
+        else:
+            norm_by_symbol.update(_average_geo_series(per_geo, window))
+
     return _aggregate(norm_by_symbol, symbol_map, window=window)
 
 

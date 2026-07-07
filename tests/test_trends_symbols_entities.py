@@ -39,10 +39,10 @@ class _FakeClient:
     """Records the terms passed to build_payload; returns a fixed frame."""
     def __init__(self, frame):
         self._frame = frame
-        self.calls: list[list[str]] = []
+        self.calls = []   # list of (kw_list, geo)
 
     def build_payload(self, kw_list, timeframe="", geo="", **kwargs):
-        self.calls.append(list(kw_list))
+        self.calls.append((list(kw_list), geo))
 
     def interest_over_time(self):
         return self._frame
@@ -58,11 +58,11 @@ def test_fetch_substitutes_mid_and_rekeys_to_ticker():
     fake = _FakeClient(frame)
     smap = {"US|Technology": ["XLK"]}
     out = fetch_symbol_trends(
-        smap, client=fake, window=3, batch_size=4, sleep_s=0.0,
+        smap, anchor="SPY", client=fake, window=3, batch_size=4, sleep_s=0.0,
         entities={"XLK": "/m/abc"},
     )
-    # the client was queried with the mid, not "XLK"
-    assert fake.calls == [["SPY", "/m/abc"]]
+    # the client was queried with the mid, not "XLK", in the US geo
+    assert fake.calls == [(["SPY", "/m/abc"], "US")]
     # XLK normalized by SPY: [5/10,10/10,20/10]*100 = [50,100,200]; sector = mean
     assert list(out["US|Technology"]) == [50.0, 100.0, 200.0]
 
@@ -76,9 +76,9 @@ def test_fetch_without_entities_uses_raw_ticker_terms():
     fake = _FakeClient(frame)
     smap = {"US|Financials": ["XLF"]}
     out = fetch_symbol_trends(
-        smap, client=fake, window=2, batch_size=4, sleep_s=0.0,
+        smap, anchor="SPY", client=fake, window=2, batch_size=4, sleep_s=0.0,
     )
-    assert fake.calls == [["SPY", "XLF"]]
+    assert fake.calls == [(["SPY", "XLF"], "US")]
     assert list(out["US|Financials"]) == [100.0, 200.0]
 
 
