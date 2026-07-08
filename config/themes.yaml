@@ -1,0 +1,14 @@
+# Thematic / genre ETF universe (Phase 1). One ETF per theme.
+# benchmark: single global index for relative strength (SPY fallback if absent).
+benchmark: ACWI
+themes:
+  Artificial Intelligence & Robotics: BOTZ
+  Semiconductors: SOXX
+  Cybersecurity: CIBR
+  Clean Energy: ICLN
+  Defense: ITA
+  Blockchain & Crypto: BLOK
+  Uranium & Nuclear: URA
+  Space: UFO
+  Lithium & Battery: LIT
+  Biotech: XBI

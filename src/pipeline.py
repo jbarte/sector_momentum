@@ -207,3 +207,42 @@ def build_signals_rows(
         rows.append(row)
 
     return rows
+
+
+def build_theme_signals_rows(
+    themes_cfg: dict,
+    prices: dict[str, pd.DataFrame],
+) -> list[dict]:
+    """Compute signal rows for each theme ETF vs one global benchmark.
+
+    themes_cfg = {"benchmark": <ticker>, "themes": {name: etf_ticker, ...}}.
+    Rows use region="THEME", gics_sector=<name>, sector_key="THEME|<name>", and all
+    SIGNAL_COLUMNS. breadth_above_50dma stays NaN (themes have no constituent list).
+    A theme whose ETF has no price data is skipped. The benchmark falls back to "SPY"
+    when the configured benchmark ticker is absent from ``prices``.
+    """
+    benchmark = themes_cfg.get("benchmark") or "ACWI"
+    if benchmark not in prices and "SPY" in prices:
+        logger.warning("Themes benchmark %s unavailable — falling back to SPY", benchmark)
+        benchmark = "SPY"
+
+    rows: list[dict] = []
+    for name, ticker in themes_cfg.get("themes", {}).items():
+        if ticker not in prices:
+            logger.warning("Theme %s: ETF %s has no price data — skipping", name, ticker)
+            continue
+        sector_key = f"THEME|{name}"
+        sig = compute_signals_for_sector(
+            sector_key=sector_key,
+            region="THEME",
+            gics_sector=name,
+            sector_ticker=ticker,
+            benchmark_ticker=benchmark,
+            prices=prices,
+        )
+        if sig is None:
+            continue
+        row = {"region": "THEME", "gics_sector": name, "sector_key": sector_key}
+        row.update(sig)
+        rows.append(row)
+    return rows

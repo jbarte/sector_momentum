@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sector Momentum — Themes</title>
+<style>
+{% include "_style.html.j2" %}
+</style>
+</head>
+<body>
+<header>
+  <h1 data-i18n="title">Sector momentum</h1>
+  <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> {% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
+  <div class="segment-toggle" role="tablist" aria-label="Dashboard segment">
+    <a class="segment-btn" href="index.html" data-i18n="segment_sectors">Sectors</a>
+    <span class="segment-btn active" aria-current="page" data-i18n="segment_themes">Themes</span>
+    <a class="segment-btn" href="sentiment.html" data-i18n="segment_sentiment">Sentiment</a>
+  </div>
+  <span class="disclaimer" data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
+  <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
+</header>
+
+<section class="tab-panel active">
+  <p class="tab-note" data-i18n="note_themes">Thematic ETFs ranked by the same momentum pillars, vs a global benchmark (ACWI). Information-only; separate from the sector leaderboard.</p>
+  <div class="table-wrap">
+    <table id="themes-table">
+      <thead>
+        <tr>
+          <th data-i18n="col_rank">#</th>
+          <th data-i18n="col_theme">Theme</th>
+          <th data-i18n="col_composite">Composite</th>
+          <th data-i18n="col_level">Level</th>
+          <th data-i18n="col_change">Change</th>
+          <th data-i18n="col_data">Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in theme_rows %}
+        <tr class="leaderboard-row" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
+          <td class="rank-cell">
+            <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
+            <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
+          </td>
+          <td>{{ row.theme }}</td>
+          <td class="composite-cell">{{ row.composite }}</td>
+          <td>{{ row.level_score }}</td>
+          <td>{{ row.change_score }}</td>
+          <td>{{ row.data_score }}</td>
+        </tr>
+        <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
+          <td colspan="6">{{ row.breakdown_html | safe }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="themes_empty">No theme data yet — run a scan.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+function toggleBreakdown(id) {
+  var bd = document.getElementById("bd-" + id);
+  var chev = document.getElementById("chev-" + id);
+  if (!bd) return;
+  var open = bd.classList.toggle("open");
+  if (chev) chev.textContent = open ? "▼" : "▶";
+}
+{% include "_i18n.html.j2" %}
+</script>
+</body>
+</html>

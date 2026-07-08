@@ -63,6 +63,27 @@ _DDL_STATEMENTS = [
         value       REAL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS theme_scores (
+        scan_id      INTEGER NOT NULL REFERENCES scans(scan_id),
+        theme        TEXT NOT NULL,
+        level_score  REAL,
+        change_score REAL,
+        data_score   REAL,
+        sentiment_score REAL,
+        composite    REAL,
+        rank         REAL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS theme_signals (
+        scan_id     INTEGER NOT NULL REFERENCES scans(scan_id),
+        theme       TEXT NOT NULL,
+        signal_name TEXT NOT NULL,
+        raw_value   REAL,
+        z_value     REAL
+    )
+    """,
 ]
 
 
@@ -277,6 +298,76 @@ def get_sentiment_signals_for_latest_scan(
         SELECT ss.region, ss.gics_sector, ss.signal_name, ss.value
         FROM sentiment_signals ss
         JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON ss.scan_id = m.max_id
+        """,
+        conn,
+    )
+
+
+def save_theme_scan(
+    conn: psycopg2.extensions.connection,
+    scan_id: int,
+    scores_df: pd.DataFrame,
+    signals_df: pd.DataFrame,
+) -> None:
+    """Insert theme scores/signals for an existing scan_id (theme = gics_sector).
+
+    scores_df columns: region, gics_sector, level_score, change_score, data_score,
+    sentiment_score, composite, rank (region is "THEME"; gics_sector is the theme
+    name). signals_df columns: region, gics_sector, signal_name, raw_value, z_value.
+    """
+    score_cols = ["level_score", "change_score", "data_score",
+                  "sentiment_score", "composite", "rank"]
+    with conn:
+        with conn.cursor() as cur:
+            if not scores_df.empty:
+                rows = [
+                    (scan_id, row["gics_sector"],
+                     *(_to_float_or_none(row.get(c)) for c in score_cols))
+                    for _, row in scores_df.iterrows()
+                ]
+                cur.executemany(
+                    "INSERT INTO theme_scores "
+                    "(scan_id, theme, level_score, change_score, data_score, "
+                    "sentiment_score, composite, rank) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    rows,
+                )
+            if not signals_df.empty:
+                srows = [
+                    (scan_id, row["gics_sector"], row["signal_name"],
+                     _to_float_or_none(row.get("raw_value")),
+                     _to_float_or_none(row.get("z_value")))
+                    for _, row in signals_df.iterrows()
+                ]
+                cur.executemany(
+                    "INSERT INTO theme_signals "
+                    "(scan_id, theme, signal_name, raw_value, z_value) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    srows,
+                )
+    logger.info("Saved %d theme scores for scan_id=%d", len(scores_df), scan_id)
+
+
+def get_theme_scores_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
+    """Theme score rows for the most recent scan. Empty DataFrame if none."""
+    return pd.read_sql_query(
+        """
+        SELECT ts.theme, ts.level_score, ts.change_score, ts.data_score,
+               ts.sentiment_score, ts.composite, ts.rank
+        FROM theme_scores ts
+        JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON ts.scan_id = m.max_id
+        """,
+        conn,
+    )
+
+
+def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
+    """Theme signal rows for the most recent scan. Empty DataFrame if none."""
+    return pd.read_sql_query(
+        """
+        SELECT tsg.theme, tsg.signal_name, tsg.raw_value, tsg.z_value
+        FROM theme_signals tsg
+        JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON tsg.scan_id = m.max_id
         """,
         conn,
     )

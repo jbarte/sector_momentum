@@ -336,14 +336,18 @@ def _build_breakdown_html(
     universe: dict,
     weights: dict,
     sector_etfs: dict | None = None,
+    themes_cfg: dict | None = None,
 ) -> str:
-    """Pre-render the breakdown panel for one sector row."""
+    """Pre-render the breakdown panel for one sector (or theme) row."""
     import html as _html
 
     region, sector_name = sector_key.split("|", 1)
 
-    # Ticker + benchmark from universe
-    if region == "US":
+    # Ticker + benchmark from universe (or themes config for the THEME track)
+    if region == "THEME":
+        ticker = (themes_cfg or {}).get("themes", {}).get(sector_name, "—")
+        benchmark = (themes_cfg or {}).get("benchmark", "ACWI")
+    elif region == "US":
         ticker = universe.get("us_sectors", {}).get(sector_name, "—")
         benchmark = universe.get("us_benchmark", "RSP")
     else:
@@ -1243,6 +1247,46 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _build_theme_leaderboard_rows(scores_df, signals_df, themes_cfg: dict, weights: dict) -> list[dict]:
+    """Read-only leaderboard rows for the themes track, sorted by rank."""
+    import pandas as pd
+
+    if scores_df is None or scores_df.empty:
+        return []
+
+    def _fv(v):
+        f = _safe_float(v)
+        return f"{f:.3f}" if f is not None else "—"
+
+    rows = []
+    for _, s in scores_df.sort_values("rank").iterrows():
+        theme = s["theme"]
+        key = f"THEME|{theme}"
+        # _build_breakdown_html reads signal rows only via {s["signal_name"]: s},
+        # needing signal_name/raw_value/z_value — exactly what get_theme_signals
+        # returns. It takes the theme name from the sector_key ("THEME|<name>").
+        row_signals = (
+            signals_df[signals_df["theme"] == theme].to_dict("records")
+            if signals_df is not None and not signals_df.empty else []
+        )
+        score_row = s.to_dict()
+        breakdown = _build_breakdown_html(
+            key, score_row, row_signals, universe={}, weights=weights,
+            sector_etfs=None, themes_cfg=themes_cfg,
+        )
+        rows.append({
+            "rank": int(s["rank"]) if pd.notna(s["rank"]) else "—",
+            "theme": theme,
+            "sector_id": key.replace("|", "-").replace(" ", "_"),
+            "composite": _fv(s["composite"]),
+            "level_score": _fv(s["level_score"]),
+            "change_score": _fv(s["change_score"]),
+            "data_score": _fv(s["data_score"]),
+            "breakdown_html": breakdown,
+        })
+    return rows
+
+
 def main() -> None:
     args = _parse_args()
 
@@ -1258,12 +1302,15 @@ def main() -> None:
     from src.state import (
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
+        get_theme_scores_for_latest_scan, get_theme_signals_for_latest_scan,
     )
 
     conn = init_db()
     history_df = get_scan_history(conn, n_scans=20)
     signals_df = get_signals_for_latest_scan(conn)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
+    theme_scores_df = get_theme_scores_for_latest_scan(conn)
+    theme_signals_df = get_theme_signals_for_latest_scan(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
 
     logger.info("Building scan index + per-scan reports …")
@@ -1288,6 +1335,11 @@ def main() -> None:
         _weights = _yaml.safe_load(_fh)
     _etfs_path = project_root / "config/sector_etfs.yaml"
     _sector_etfs = _yaml.safe_load(_etfs_path.read_text()) if _etfs_path.exists() else {}
+
+    # Themes leaderboard rows (Phase 1 — read-only)
+    _themes_path = project_root / "config/themes.yaml"
+    _themes_cfg = _yaml.safe_load(_themes_path.read_text()) if _themes_path.exists() else {}
+    theme_rows = _build_theme_leaderboard_rows(theme_scores_df, theme_signals_df, _themes_cfg, _weights)
 
     # 3. Build figures
     logger.info("Building RRG figure …")
@@ -1398,6 +1450,17 @@ def main() -> None:
             active_scan_id=active_scan_id,
             sentiment_scatter_json=sentiment_scatter_json,
             sentiment_signal_rows=sentiment_signal_rows,
+            plotly_bundle=plotly_bundle_rel,
+        ),
+    )
+
+    _render(
+        template_path=Path(__file__).parent / "templates" / "themes.html.j2",
+        out_path=out_dir / "themes.html",
+        context=dict(
+            scan_date=scan_date,
+            active_scan_id=active_scan_id,
+            theme_rows=theme_rows,
             plotly_bundle=plotly_bundle_rel,
         ),
     )
