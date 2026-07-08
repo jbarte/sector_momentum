@@ -47,7 +47,7 @@ from src.data.prices import fetch_prices
 from src.data.constituents import fetch_sp500_constituents
 from src.signals.breadth import compute_constituent_breadth
 from src.backup import backup_to_storage
-from src.pipeline import SIGNAL_COLUMNS, build_signals_rows
+from src.pipeline import SIGNAL_COLUMNS, build_signals_rows, build_theme_signals_rows
 
 # ---------------------------------------------------------------------------
 # Pipeline
@@ -198,7 +198,7 @@ def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     from src.data.prices import fetch_prices, load_universe
     from src.scoring import score_all, zscore_cross_section
-    from src.state import init_db, save_scan, load_last_scan, compute_deltas
+    from src.state import init_db, save_scan, load_last_scan, compute_deltas, save_theme_scan
     from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
 
     # ------------------------------------------------------------------
@@ -382,6 +382,35 @@ def run(args: argparse.Namespace) -> int:
             sentiment_signals_df=sentiment_signals_df,
         )
         logger.info("Saved scan_id=%d", scan_id)
+
+        # Themes track (Phase 1): score a thematic-ETF universe vs a global
+        # benchmark and persist to theme tables under the same scan_id. Fully
+        # non-fatal — a themes failure must not affect the sector scan.
+        try:
+            with open("config/themes.yaml", "r") as _fh:
+                _themes_cfg = yaml.safe_load(_fh) or {}
+            _theme_tickers = sorted({
+                *_themes_cfg.get("themes", {}).values(),
+                _themes_cfg.get("benchmark", "ACWI"), "SPY",
+            })
+            _theme_prices = fetch_prices(
+                tickers=_theme_tickers, start=str(start_date), end=str(end_date),
+            )
+            _theme_rows = build_theme_signals_rows(_themes_cfg, _theme_prices)
+            if _theme_rows:
+                _theme_wide = pd.DataFrame(_theme_rows).set_index("sector_key")[SIGNAL_COLUMNS]
+                _theme_scored = score_all(_theme_wide, blend_sentiment=False)
+                _theme_scores_df = _build_scored_df_for_db(_theme_scored)
+                _theme_z = zscore_cross_section(_theme_wide)
+                _theme_signals_df = _build_long_signals_df(_theme_rows, z_wide_df=_theme_z)
+                save_theme_scan(conn, scan_id, _theme_scores_df, _theme_signals_df)
+                logger.info("Themes: scored and saved %d themes", len(_theme_rows))
+            else:
+                logger.warning("Themes: no themes with price data — skipping")
+        except FileNotFoundError:
+            logger.info("Themes: config/themes.yaml not found — skipping themes track")
+        except Exception as exc:  # non-fatal
+            logger.warning("Themes pass failed (%s) — sector scan unaffected", exc)
 
         logger.info("Writing report …")
         ranked_table = build_ranked_table(scored_with_deltas)
