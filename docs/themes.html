@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Sector Momentum — Sentiment</title>
-<script src="assets/plotly.min.js"></script>
+<title>Sector Momentum — Themes</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -592,322 +591,49 @@ select.sector-select:focus {
 </style>
 </head>
 <body>
-
-<!-- Header -->
 <header>
   <h1 data-i18n="title">Sector momentum</h1>
   <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> #125 · 2026-07-08 08:57 UTC</span>
   <div class="segment-toggle" role="tablist" aria-label="Dashboard segment">
     <a class="segment-btn" href="index.html" data-i18n="segment_sectors">Sectors</a>
-    <a class="segment-btn" href="themes.html" data-i18n="segment_themes">Themes</a>
-    <span class="segment-btn active" aria-current="page" data-i18n="segment_sentiment">Sentiment</span>
+    <span class="segment-btn active" aria-current="page" data-i18n="segment_themes">Themes</span>
+    <a class="segment-btn" href="sentiment.html" data-i18n="segment_sentiment">Sentiment</a>
   </div>
   <span class="disclaimer" data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
   <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
 </header>
 
 <section class="tab-panel active">
-  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
-      <h4>Source — Google Trends only</h4>
-      <p>Sentiment measures <strong>search attention</strong> using Google Trends.
-         Reddit and news-headline sources were evaluated and dropped — no reliable
-         free access.</p>
-      <h4>Method</h4>
-      <p>For each sector we pull ~13 weeks of worldwide search interest for its primary
-         keyword (e.g. Technology&nbsp;→&nbsp;<em>semiconductor</em>,
-         Energy&nbsp;→&nbsp;<em>oil</em>). The headline score is the
-         <strong>trend (slope)</strong> of that interest, standardized across the
-         11 sectors (z-score):
-         <span class="signal-hi">positive = rising attention vs peers</span>,
-         <span class="signal-lo">negative = fading</span>.
-         Where a ticker maps to a known Google Knowledge&nbsp;Graph <strong>entity</strong>,
-         we query that entity rather than the raw ticker string, to avoid name
-         collisions (e.g. a ticker that is also a common word); tickers without a
-         known entity fall back to the plain string.
-         Interest is pulled per region — <strong>US</strong> sectors in US search,
-         <strong>EU</strong> sectors averaged across Germany, France and the UK —
-         and normalized against a neutral, ubiquitous anchor term rather than a
-         market ticker. (This anchor change means sentiment values from before it
-         are not directly comparable to later ones.)</p>
-      <h4>Derived signals</h4>
-      <p>From the same interest series we read out a few complementary views (shown
-         in the table below, information-only — only Momentum can affect the ranking):</p>
-      <ul>
-        <li><strong>Momentum</strong> — the trend/slope, same series the headline
-            score is built from.</li>
-        <li><strong>Acceleration</strong> — recent-half slope minus earlier-half
-            slope; positive means attention is picking up speed.</li>
-        <li><strong>Range position</strong> — where the latest reading sits within
-            its own 13-week min–max (0% = window low, 100% = window high).</li>
-        <li><strong>Spike</strong> — z-score of the latest point vs the trailing
-            weeks; a breakout in interest.</li>
-        <li><strong>Volatility</strong> — how choppy week-to-week interest has been.</li>
-      </ul>
-      <h4>It does not drive the ranking by default</h4>
-      <p>The leaderboard composite is built from price/momentum signals only. Sentiment
-         changes the ranking <em>only</em> when you enable the <strong>Sentiment
-         toggle</strong>, at the weight you choose. Treat it as a confirmer, not a
-         driver — search interest is noisy and can lag price.</p>
-    </div>
-  </details>
-  <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
-  <p style="color:var(--text-muted);font-size:0.8rem;padding:8px 0 0 4px">
-    Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
-    Hollow points = no sentiment data this scan (source unavailable or EU-only).
-    Sentiment is a confirming signal — noisy, gameable, retail-biased.
-    This is analytical tooling, not investment advice.
-  </p>
-
-  
-  <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
-  <div style="overflow-x:auto">
-    <table>
+  <p class="tab-note" data-i18n="note_themes">Thematic ETFs ranked by the same momentum pillars, vs a global benchmark (ACWI). Information-only; separate from the sector leaderboard.</p>
+  <div class="table-wrap">
+    <table id="themes-table">
       <thead>
         <tr>
-          <th data-i18n="sent_col_sector">Sector</th>
-          <th data-i18n="sent_col_region">Region</th>
-          <th data-i18n="sent_col_momentum">Momentum</th>
-          <th data-i18n="sent_col_acceleration">Acceleration</th>
-          <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
-          <th data-i18n="sent_col_spike">Spike</th>
-          <th data-i18n="sent_col_volatility">Volatility</th>
+          <th data-i18n="col_rank">#</th>
+          <th data-i18n="col_theme">Theme</th>
+          <th data-i18n="col_composite">Composite</th>
+          <th data-i18n="col_level">Level</th>
+          <th data-i18n="col_change">Change</th>
+          <th data-i18n="col_data">Data</th>
         </tr>
       </thead>
       <tbody>
         
-        <tr>
-          <td>Communication Services</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Consumer Discretionary</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Consumer Staples</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Energy</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Financials</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Health Care</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Industrials</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Materials</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Real Estate</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Technology</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Utilities</td>
-          <td>EU</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Communication Services</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Consumer Discretionary</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Consumer Staples</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Financials</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Health Care</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Industrials</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Materials</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Real Estate</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Technology</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Utilities</td>
-          <td>US</td>
-          <td>+0.00</td>
-          <td>+0.00</td>
-          <td>50%</td>
-          <td>+0.00</td>
-          <td>0%</td>
-        </tr>
-        
-        <tr>
-          <td>Energy</td>
-          <td>US</td>
-          <td>-0.13</td>
-          <td>+0.16</td>
-          <td>0%</td>
-          <td>-0.81</td>
-          <td>54%</td>
-        </tr>
+        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="themes_empty">No theme data yet — run a scan.</td></tr>
         
       </tbody>
     </table>
   </div>
-  
 </section>
 
 <script>
-var SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text} (US)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#A55A3C","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"US","text":["Communication Services","Consumer Discretionary","Consumer Staples","Energy","Financials","Health Care","Industrials","Materials","Real Estate","Technology","Utilities"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[-0.363414,-0.300887,0.0230358,-0.19514,0.296628,1.19576,0.17039,-0.133026,0.00512407,-0.0306151,-0.0832919],"y":[0.213201,0.213201,0.213201,-4.47721,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{text} (EU)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#5A6F49","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"EU","text":["Communication Services","Consumer Discretionary","Consumer Staples","Energy","Financials","Health Care","Industrials","Materials","Real Estate","Technology","Utilities"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[-0.870603,0.0218435,0.404422,-0.388968,0.66587,0.193477,0.013452,-0.292297,-0.505218,0.0136748,0.159786],"y":[0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201],"type":"scatter"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":0,"x1":0,"y0":-3,"y1":3},{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":-3,"x1":3,"y0":0,"y1":0}],"annotations":[{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bullish)","x":1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Sentiment\u003cbr\u003eahead","x":-1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bearish)","x":-1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Data ahead","x":1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"}],"title":{"font":{"size":13,"color":"#3E392B"},"text":"Data \u21c4 Sentiment"},"xaxis":{"title":{"text":"Data Score"},"gridcolor":"#DFD5BE","zeroline":false},"yaxis":{"title":{"text":"Sentiment Score"},"gridcolor":"#DFD5BE","zeroline":false},"font":{"color":"#3E392B","family":"Inter, -apple-system, sans-serif"},"legend":{"font":{"size":9},"bgcolor":"#FAF7F0","bordercolor":"#DFD5BE"},"margin":{"l":50,"r":20,"t":50,"b":50},"paper_bgcolor":"#F5F0E6","plot_bgcolor":"#FAF7F0","height":520}};
-Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
-
+function toggleBreakdown(id) {
+  var bd = document.getElementById("bd-" + id);
+  var chev = document.getElementById("chev-" + id);
+  if (!bd) return;
+  var open = bd.classList.toggle("open");
+  if (chev) chev.textContent = open ? "▼" : "▶";
+}
 // ----- Language toggle (EN default ⇄ SV), chrome only -----
 // English is the source text in the DOM. Swedish overrides live here; any
 // chrome string without an entry simply stays English. Long help prose and
@@ -1114,6 +840,5 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
 })();
 
 </script>
-
 </body>
 </html>
