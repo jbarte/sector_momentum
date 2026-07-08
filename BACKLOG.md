@@ -204,6 +204,15 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Thematic ETF momentum — Phase 1 (universe + score + leaderboard)~~ — a thematic
+  ETF universe (`config/themes.yaml`, one ETF per theme) is scored by the existing
+  momentum pillars vs a single global benchmark (ACWI, SPY fallback) in its own
+  z-score cohort (`build_theme_signals_rows` + `score_all`), persisted to new
+  `theme_scores`/`theme_signals` tables under the daily `scan_id`, and shown as a
+  read-only **Themes** leaderboard (third header segment, reusing the breakdown panel).
+  Breadth is N/A for themes; the themes pass is fully non-fatal. Phases 2 (deltas /
+  trajectory / RRG / history) and 3 (Trends sentiment for themes) remain queued above.
+  *(2026-07-07)*
 - ~~Sentiment — durable Trends day-cache~~ — successfully-fetched Trends batches are
   cached per UTC day in Supabase Storage (bucket `trends-cache`, one
   `trends_cache_<date>.json` object) so a re-triggered CI run or same-day re-run
