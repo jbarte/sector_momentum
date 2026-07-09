@@ -308,8 +308,6 @@ def run(args: argparse.Namespace) -> int:
         _symbol_map, anchor=_anchor, entities=_entities, region_geos=_region_geos,
         cache=_cache,
     )
-    if _use_cache:
-        trends_cache.save_cache(_cache_date, _cache)
     sentiment_score = score_symbol_sentiment(_trends_by_key)
     sentiment_score = sentiment_score.reindex(wide_df.index, fill_value=0.0)
     _live = int((sentiment_score != 0).sum())
@@ -326,6 +324,37 @@ def run(args: argparse.Namespace) -> int:
                  "signal_name": _name, "value": _val}
             )
     sentiment_signals_df = pd.DataFrame(_sent_signal_rows)
+
+    # ------------------------------------------------------------------
+    # Step 8b: Comparative cross-sector interest (attention_level)
+    # ------------------------------------------------------------------
+    logger.info("Fetching comparative cross-sector interest …")
+    from src.data.trends_symbols import fetch_comparative_interest
+    try:
+        _attention = fetch_comparative_interest(
+            _symbol_map, sleep_s=20.0, max_retries=3,
+            entities=_entities, region_geos=_region_geos, cache=_cache,
+        )
+        if _attention:
+            _attn_rows = []
+            for _key, _val in _attention.items():
+                _region, _, _sector = _key.partition("|")
+                _attn_rows.append({
+                    "region": _region, "gics_sector": _sector,
+                    "signal_name": "attention_level", "value": _val,
+                })
+            sentiment_signals_df = pd.concat(
+                [sentiment_signals_df, pd.DataFrame(_attn_rows)],
+                ignore_index=True,
+            )
+            logger.info("Comparative interest: %d sectors scored", len(_attention))
+        else:
+            logger.info("Comparative interest: no results (skipped or failed)")
+    except Exception as exc:
+        logger.warning("Comparative interest failed (%s) — continuing without", exc)
+
+    if _use_cache:
+        trends_cache.save_cache(_cache_date, _cache)
 
     logger.info("Scoring sectors …")
     # Canonical composite stays pure-data; sentiment is stored but not blended.
