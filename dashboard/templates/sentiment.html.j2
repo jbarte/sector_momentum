@@ -63,6 +63,9 @@
         <li><strong>Spike</strong> — z-score of the latest point vs the trailing
             weeks; a breakout in interest.</li>
         <li><strong>Volatility</strong> — how choppy week-to-week interest has been.</li>
+        <li><strong>Attention</strong> — relative search interest compared
+            head-to-head against all other sectors in the same region.
+            Higher = more attention.</li>
       </ul>
       <h4>It does not drive the ranking by default</h4>
       <p>The leaderboard composite is built from price/momentum signals only. Sentiment
@@ -92,6 +95,7 @@
           <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
           <th data-i18n="sent_col_spike">Spike</th>
           <th data-i18n="sent_col_volatility">Volatility</th>
+          <th data-i18n="sent_col_attention">Attention</th>
         </tr>
       </thead>
       <tbody>
@@ -104,6 +108,7 @@
           <td>{{ r.range_position }}</td>
           <td>{{ r.spike }}</td>
           <td>{{ r.volatility }}</td>
+          <td>{{ r.attention }}</td>
         </tr>
         {% endfor %}
       </tbody>
