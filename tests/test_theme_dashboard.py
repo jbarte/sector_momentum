@@ -1,13 +1,22 @@
 import pandas as pd
-from dashboard.build import _build_theme_leaderboard_rows
+from dashboard.build import _build_theme_leaderboard_rows, _compute_rank_trajectories
 
 
-def _scores():
+def _history_two_scans():
+    # scan 1 (older): Space rank 1, Semis rank 2. scan 2 (newer): Semis rank 1, Space rank 2.
     return pd.DataFrame([
-        {"theme": "Space", "level_score": 1.0, "change_score": 0.5, "data_score": 0.8,
-         "sentiment_score": None, "composite": 0.8, "rank": 2.0},
-        {"theme": "Semiconductors", "level_score": 1.5, "change_score": 0.9, "data_score": 1.2,
-         "sentiment_score": None, "composite": 1.2, "rank": 1.0},
+        {"scan_id": 1, "run_at": "2026-07-06", "region": "THEME", "gics_sector": "Space",
+         "level_score": 1.0, "change_score": 0.5, "data_score": 0.8, "sentiment_score": None,
+         "composite": 1.0, "rank": 1.0},
+        {"scan_id": 1, "run_at": "2026-07-06", "region": "THEME", "gics_sector": "Semiconductors",
+         "level_score": 0.4, "change_score": 0.3, "data_score": 0.5, "sentiment_score": None,
+         "composite": 0.5, "rank": 2.0},
+        {"scan_id": 2, "run_at": "2026-07-07", "region": "THEME", "gics_sector": "Space",
+         "level_score": 0.9, "change_score": 0.2, "data_score": 0.6, "sentiment_score": None,
+         "composite": 0.6, "rank": 2.0},
+        {"scan_id": 2, "run_at": "2026-07-07", "region": "THEME", "gics_sector": "Semiconductors",
+         "level_score": 1.5, "change_score": 0.9, "data_score": 1.2, "sentiment_score": None,
+         "composite": 1.2, "rank": 1.0},
     ])
 
 
@@ -18,14 +27,41 @@ def _signals():
     ])
 
 
-def test_theme_rows_sorted_by_rank_with_breakdown():
+def test_theme_rows_deltas_and_trajectory():
     cfg = {"benchmark": "ACWI", "themes": {"Space": "UFO", "Semiconductors": "SOXX"}}
-    rows = _build_theme_leaderboard_rows(_scores(), _signals(), cfg, weights={})
-    assert [r["theme"] for r in rows] == ["Semiconductors", "Space"]   # rank 1 first
-    assert rows[0]["rank"] == 1
-    assert "SOXX" in rows[0]["breakdown_html"]      # theme ETF surfaced in breakdown
-    assert rows[0]["sector_id"] == "THEME-Semiconductors"
+    traj = {"THEME|Semiconductors": {"label": "↑↑", "state": "strong_up"},
+            "THEME|Space": {"label": "↓", "state": "down"}}
+    rows = _build_theme_leaderboard_rows(_history_two_scans(), _signals(), cfg, weights={}, trajectories=traj)
+    assert [r["theme"] for r in rows] == ["Semiconductors", "Space"]   # sorted by latest rank
+    semis = rows[0]
+    assert semis["rank"] == 1
+    assert semis["arrow"] == "▲"                       # 2 -> 1, improved
+    assert semis["delta_rank"] == "+1.0"
+    assert semis["emerging"] is True                    # rank up AND composite up (0.5 -> 1.2)
+    assert semis["trajectory_label"] == "↑↑"
+    assert semis["trajectory_state"] == "strong_up"
+    space = rows[1]
+    assert space["arrow"] == "▼"                         # 1 -> 2, dropped
+    assert "SOXX" in semis["breakdown_html"]            # breakdown still rendered
 
 
-def test_theme_rows_empty_input():
-    assert _build_theme_leaderboard_rows(pd.DataFrame(), pd.DataFrame(), {}, {}) == []
+def test_theme_rows_single_scan_no_delta():
+    hist = _history_two_scans()
+    hist = hist[hist["scan_id"] == 2]                    # only the latest scan
+    rows = _build_theme_leaderboard_rows(hist, _signals(), {}, {}, {})
+    assert all(r["delta_rank"] == "—" and r["arrow"] == "" for r in rows)
+    assert all(r["trajectory_label"] == "→" for r in rows)   # default flat when no traj passed
+
+
+def test_theme_rows_empty_history():
+    assert _build_theme_leaderboard_rows(pd.DataFrame(), pd.DataFrame(), {}, {}, {}) == []
+
+
+def test_compute_rank_trajectories_produces_theme_prefixed_keys():
+    # Locks the integration contract: _compute_rank_trajectories keys its output
+    # "region|gics_sector", and get_theme_scan_history aliases region="THEME", so
+    # the row-builder's lookup key f"THEME|{theme}" must match what this produces.
+    traj = _compute_rank_trajectories(_history_two_scans())
+    assert "THEME|Semiconductors" in traj
+    assert "THEME|Space" in traj
+    assert traj["THEME|Semiconductors"]["state"] == "up"   # rank 2 -> 1 over 2 scans (slope -1.0)

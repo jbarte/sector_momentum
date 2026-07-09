@@ -1247,20 +1247,40 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _build_theme_leaderboard_rows(scores_df, signals_df, themes_cfg: dict, weights: dict) -> list[dict]:
-    """Read-only leaderboard rows for the themes track, sorted by rank."""
+def _build_theme_leaderboard_rows(history_df, signals_df, themes_cfg: dict, weights: dict, trajectories: dict) -> list[dict]:
+    """Themes leaderboard rows with build-time deltas + trajectory, sorted by rank.
+
+    history_df: theme scores across scans (region="THEME", gics_sector=<theme>),
+    from get_theme_scan_history. Deltas are computed vs the previous scan_id;
+    trajectories is keyed "THEME|<theme>" (from _compute_rank_trajectories).
+    """
     import pandas as pd
 
-    if scores_df is None or scores_df.empty:
+    if history_df is None or history_df.empty:
         return []
 
     def _fv(v):
         f = _safe_float(v)
         return f"{f:.3f}" if f is not None else "—"
 
+    latest_id = history_df["scan_id"].max()
+    latest = history_df[history_df["scan_id"] == latest_id].copy()
+
+    scan_ids = sorted(history_df["scan_id"].unique())
+    if len(scan_ids) >= 2:
+        prev = history_df[history_df["scan_id"] == scan_ids[-2]][
+            ["region", "gics_sector", "rank", "composite"]
+        ].rename(columns={"rank": "rank_prev", "composite": "comp_prev"})
+        latest = latest.merge(prev, on=["region", "gics_sector"], how="left")
+        latest["delta_rank"] = (latest["rank_prev"] - latest["rank"]).fillna(0)
+        latest["delta_composite"] = (latest["composite"] - latest["comp_prev"]).fillna(0)
+    else:
+        latest["delta_rank"] = 0.0
+        latest["delta_composite"] = 0.0
+
     rows = []
-    for _, s in scores_df.sort_values("rank").iterrows():
-        theme = s["theme"]
+    for _, s in latest.sort_values("rank").iterrows():
+        theme = s["gics_sector"]
         key = f"THEME|{theme}"
         # _build_breakdown_html reads signal rows only via {s["signal_name"]: s},
         # needing signal_name/raw_value/z_value — exactly what get_theme_signals
@@ -1269,19 +1289,28 @@ def _build_theme_leaderboard_rows(scores_df, signals_df, themes_cfg: dict, weigh
             signals_df[signals_df["theme"] == theme].to_dict("records")
             if signals_df is not None and not signals_df.empty else []
         )
-        score_row = s.to_dict()
         breakdown = _build_breakdown_html(
-            key, score_row, row_signals, universe={}, weights=weights,
+            key, s.to_dict(), row_signals, universe={}, weights=weights,
             sector_etfs=None, themes_cfg=themes_cfg,
         )
+        delta = _safe_float(s.get("delta_rank", 0)) or 0.0
+        delta_comp = _safe_float(s.get("delta_composite", 0)) or 0.0
+        traj = trajectories.get(key, {"label": "→", "state": "flat"})
+        rank = _safe_float(s.get("rank"))
         rows.append({
-            "rank": int(s["rank"]) if pd.notna(s["rank"]) else "—",
+            "rank": int(rank) if rank is not None else "—",
             "theme": theme,
             "sector_id": key.replace("|", "-").replace(" ", "_"),
             "composite": _fv(s["composite"]),
             "level_score": _fv(s["level_score"]),
             "change_score": _fv(s["change_score"]),
             "data_score": _fv(s["data_score"]),
+            "delta_rank": f"{delta:+.1f}" if delta != 0 else "—",
+            "arrow": "▲" if delta > 0 else ("▼" if delta < 0 else ""),
+            "arrow_class": "up" if delta > 0 else ("down" if delta < 0 else ""),
+            "emerging": delta > 0 and delta_comp > 0,
+            "trajectory_label": traj["label"],
+            "trajectory_state": traj["state"],
             "breakdown_html": breakdown,
         })
     return rows
@@ -1302,15 +1331,15 @@ def main() -> None:
     from src.state import (
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
-        get_theme_scores_for_latest_scan, get_theme_signals_for_latest_scan,
+        get_theme_signals_for_latest_scan, get_theme_scan_history,
     )
 
     conn = init_db()
     history_df = get_scan_history(conn, n_scans=20)
     signals_df = get_signals_for_latest_scan(conn)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
-    theme_scores_df = get_theme_scores_for_latest_scan(conn)
     theme_signals_df = get_theme_signals_for_latest_scan(conn)
+    theme_history_df = get_theme_scan_history(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
 
     logger.info("Building scan index + per-scan reports …")
@@ -1339,7 +1368,10 @@ def main() -> None:
     # Themes leaderboard rows (Phase 1 — read-only)
     _themes_path = project_root / "config/themes.yaml"
     _themes_cfg = _yaml.safe_load(_themes_path.read_text()) if _themes_path.exists() else {}
-    theme_rows = _build_theme_leaderboard_rows(theme_scores_df, theme_signals_df, _themes_cfg, _weights)
+    theme_trajectories = _compute_rank_trajectories(theme_history_df)
+    theme_rows = _build_theme_leaderboard_rows(
+        theme_history_df, theme_signals_df, _themes_cfg, _weights, theme_trajectories,
+    )
 
     # 3. Build figures
     logger.info("Building RRG figure …")

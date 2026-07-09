@@ -373,6 +373,36 @@ def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> p
     )
 
 
+def get_theme_scan_history(
+    conn: psycopg2.extensions.connection,
+    n_scans: int | None = None,
+) -> pd.DataFrame:
+    """Theme scores across scans, aliased region="THEME"/gics_sector=theme for reuse.
+
+    Columns: scan_id, run_at, region, gics_sector, level_score, change_score,
+    data_score, sentiment_score, composite, rank. Ordered by run_at ASC, theme.
+    n_scans=None returns all scans. Empty DataFrame if no theme rows exist.
+    """
+    base = """
+        SELECT sc.scan_id, sc.run_at, 'THEME' AS region, ts.theme AS gics_sector,
+               ts.level_score, ts.change_score, ts.data_score, ts.sentiment_score,
+               ts.composite, ts.rank
+        FROM theme_scores ts
+        JOIN scans sc ON sc.scan_id = ts.scan_id
+        {scan_filter}
+        ORDER BY sc.run_at ASC, ts.theme
+    """
+    if n_scans is None:
+        return pd.read_sql_query(base.format(scan_filter=""), conn)
+    return pd.read_sql_query(
+        base.format(
+            scan_filter="WHERE sc.scan_id IN (SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s)"
+        ),
+        conn,
+        params=(n_scans,),
+    )
+
+
 def get_rrg_history(
     conn: psycopg2.extensions.connection,
     n_scans: int = 6,
