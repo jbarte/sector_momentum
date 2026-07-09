@@ -1331,15 +1331,15 @@ def main() -> None:
     from src.state import (
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
-        get_theme_scores_for_latest_scan, get_theme_signals_for_latest_scan,
+        get_theme_signals_for_latest_scan, get_theme_scan_history,
     )
 
     conn = init_db()
     history_df = get_scan_history(conn, n_scans=20)
     signals_df = get_signals_for_latest_scan(conn)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
-    theme_scores_df = get_theme_scores_for_latest_scan(conn)
     theme_signals_df = get_theme_signals_for_latest_scan(conn)
+    theme_history_df = get_theme_scan_history(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
 
     logger.info("Building scan index + per-scan reports …")
@@ -1368,7 +1368,10 @@ def main() -> None:
     # Themes leaderboard rows (Phase 1 — read-only)
     _themes_path = project_root / "config/themes.yaml"
     _themes_cfg = _yaml.safe_load(_themes_path.read_text()) if _themes_path.exists() else {}
-    theme_rows = _build_theme_leaderboard_rows(theme_scores_df, theme_signals_df, _themes_cfg, _weights)
+    theme_trajectories = _compute_rank_trajectories(theme_history_df)
+    theme_rows = _build_theme_leaderboard_rows(
+        theme_history_df, theme_signals_df, _themes_cfg, _weights, theme_trajectories,
+    )
 
     # 3. Build figures
     logger.info("Building RRG figure …")
