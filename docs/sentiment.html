@@ -652,6 +652,9 @@ select.sector-select:focus {
         <li><strong>Spike</strong> — z-score of the latest point vs the trailing
             weeks; a breakout in interest.</li>
         <li><strong>Volatility</strong> — how choppy week-to-week interest has been.</li>
+        <li><strong>Attention</strong> — relative search interest compared
+            head-to-head against all other sectors in the same region.
+            Higher = more attention.</li>
       </ul>
       <h4>It does not drive the ranking by default</h4>
       <p>The leaderboard composite is built from price/momentum signals only. Sentiment
@@ -681,6 +684,7 @@ select.sector-select:focus {
           <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
           <th data-i18n="sent_col_spike">Spike</th>
           <th data-i18n="sent_col_volatility">Volatility</th>
+          <th data-i18n="sent_col_attention">Attention</th>
         </tr>
       </thead>
       <tbody>
@@ -693,6 +697,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -703,6 +708,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -713,6 +719,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -723,6 +730,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -733,6 +741,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -743,6 +752,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -753,6 +763,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -763,6 +774,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -773,6 +785,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -783,6 +796,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -793,6 +807,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -803,6 +818,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -813,6 +829,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -823,6 +840,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -833,6 +851,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -843,6 +862,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -853,6 +873,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -863,6 +884,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -873,6 +895,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -883,6 +906,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -893,6 +917,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
         <tr>
@@ -903,6 +928,7 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
+          <td>—</td>
         </tr>
         
       </tbody>
@@ -977,6 +1003,7 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
     sent_col_range: "Intervallpos.",
     sent_col_spike: "Spik",
     sent_col_volatility: "Volatilitet",
+    sent_col_attention: "Uppmärksamhet",
     badge_entry: "▲ Insteg",
     badge_exit: "▼ Ursteg"
   };
@@ -1053,6 +1080,9 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
         <li><strong>Intervallposition</strong> — var senaste värdet ligger inom sitt eget 13-veckors min–max (0% = lägsta, 100% = högsta).</li>
         <li><strong>Spik</strong> — z-värde för senaste punkten mot föregående veckor; ett genombrott i intresse.</li>
         <li><strong>Volatilitet</strong> — hur ryckigt intresset varit vecka för vecka.</li>
+        <li><strong>Uppmärksamhet</strong> — relativt sökintresse jämfört
+            head-to-head mot alla andra sektorer i samma region.
+            Högre = mer uppmärksamhet.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`,

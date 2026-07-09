@@ -2211,6 +2211,7 @@ function sortTable(col) {
     sent_col_range: "Intervallpos.",
     sent_col_spike: "Spik",
     sent_col_volatility: "Volatilitet",
+    sent_col_attention: "Uppmärksamhet",
     badge_entry: "▲ Insteg",
     badge_exit: "▼ Ursteg"
   };
@@ -2287,6 +2288,9 @@ function sortTable(col) {
         <li><strong>Intervallposition</strong> — var senaste värdet ligger inom sitt eget 13-veckors min–max (0% = lägsta, 100% = högsta).</li>
         <li><strong>Spik</strong> — z-värde för senaste punkten mot föregående veckor; ett genombrott i intresse.</li>
         <li><strong>Volatilitet</strong> — hur ryckigt intresset varit vecka för vecka.</li>
+        <li><strong>Uppmärksamhet</strong> — relativt sökintresse jämfört
+            head-to-head mot alla andra sektorer i samma region.
+            Högre = mer uppmärksamhet.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`,
