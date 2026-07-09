@@ -534,19 +534,26 @@ select.sector-select:focus {
   pointer-events: none;
 }
 .sig-tip:hover::after { display: block; }
-/* Emerging badge */
-.emerging-badge {
+/* Setup badges (entry / exit) */
+.setup-badge {
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--up);
-  background: color-mix(in srgb, var(--up) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--up) 30%, transparent);
   padding: 1px 6px;
   border-radius: var(--radius-pill);
   margin-left: 6px;
   vertical-align: middle;
+}
+.setup-badge.entry {
+  color: var(--up);
+  background: color-mix(in srgb, var(--up) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--up) 30%, transparent);
+}
+.setup-badge.exit {
+  color: var(--down);
+  background: color-mix(in srgb, var(--down) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--down) 30%, transparent);
 }
 .sig-info {
   font-size: 11px;
@@ -725,7 +732,7 @@ select.sector-select:focus {
             <span class="rank-badge top3">3</span>
             <span class="chevron" id="chev-US-Technology">▶</span>
           </td>
-          <td>Technology<span class="emerging-badge">⬆ Emerging</span></td>
+          <td>Technology</td>
           <td><span class="tag-region">US</span></td>
           <td class="composite-cell">0.463</td>
           <td>1.266</td>
@@ -748,7 +755,7 @@ select.sector-select:focus {
             <span class="rank-badge">4</span>
             <span class="chevron" id="chev-EU-Utilities">▶</span>
           </td>
-          <td>Utilities<span class="emerging-badge">⬆ Emerging</span></td>
+          <td>Utilities</td>
           <td><span class="tag-region">EU</span></td>
           <td class="composite-cell">0.306</td>
           <td>0.323</td>
@@ -771,7 +778,7 @@ select.sector-select:focus {
             <span class="rank-badge">5</span>
             <span class="chevron" id="chev-US-Industrials">▶</span>
           </td>
-          <td>Industrials<span class="emerging-badge">⬆ Emerging</span></td>
+          <td>Industrials</td>
           <td><span class="tag-region">US</span></td>
           <td class="composite-cell">0.247</td>
           <td>0.614</td>
@@ -817,7 +824,7 @@ select.sector-select:focus {
             <span class="rank-badge">7</span>
             <span class="chevron" id="chev-EU-Energy">▶</span>
           </td>
-          <td>Energy<span class="emerging-badge">⬆ Emerging</span></td>
+          <td>Energy<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span></td>
           <td><span class="tag-region">EU</span></td>
           <td class="composite-cell">0.209</td>
           <td>-0.078</td>
@@ -840,7 +847,7 @@ select.sector-select:focus {
             <span class="rank-badge">8</span>
             <span class="chevron" id="chev-EU-Consumer_Staples">▶</span>
           </td>
-          <td>Consumer Staples</td>
+          <td>Consumer Staples<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">EU</span></td>
           <td class="composite-cell">0.182</td>
           <td>0.647</td>
@@ -886,7 +893,7 @@ select.sector-select:focus {
             <span class="rank-badge">10</span>
             <span class="chevron" id="chev-US-Energy">▶</span>
           </td>
-          <td>Energy<span class="emerging-badge">⬆ Emerging</span></td>
+          <td>Energy<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span></td>
           <td><span class="tag-region">US</span></td>
           <td class="composite-cell">0.083</td>
           <td>-0.157</td>
@@ -909,7 +916,7 @@ select.sector-select:focus {
             <span class="rank-badge">11</span>
             <span class="chevron" id="chev-EU-Technology">▶</span>
           </td>
-          <td>Technology</td>
+          <td>Technology<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">EU</span></td>
           <td class="composite-cell">0.052</td>
           <td>0.351</td>
@@ -932,7 +939,7 @@ select.sector-select:focus {
             <span class="rank-badge">12</span>
             <span class="chevron" id="chev-EU-Industrials">▶</span>
           </td>
-          <td>Industrials</td>
+          <td>Industrials<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">EU</span></td>
           <td class="composite-cell">-0.043</td>
           <td>-0.083</td>
@@ -978,7 +985,7 @@ select.sector-select:focus {
             <span class="rank-badge">14</span>
             <span class="chevron" id="chev-US-Utilities">▶</span>
           </td>
-          <td>Utilities</td>
+          <td>Utilities<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">US</span></td>
           <td class="composite-cell">-0.094</td>
           <td>-0.110</td>
@@ -1024,7 +1031,7 @@ select.sector-select:focus {
             <span class="rank-badge">16</span>
             <span class="chevron" id="chev-US-Real_Estate">▶</span>
           </td>
-          <td>Real Estate</td>
+          <td>Real Estate<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">US</span></td>
           <td class="composite-cell">-0.194</td>
           <td>0.081</td>
@@ -1047,7 +1054,7 @@ select.sector-select:focus {
             <span class="rank-badge">17</span>
             <span class="chevron" id="chev-US-Materials">▶</span>
           </td>
-          <td>Materials</td>
+          <td>Materials<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">US</span></td>
           <td class="composite-cell">-0.287</td>
           <td>-0.320</td>
@@ -1070,7 +1077,7 @@ select.sector-select:focus {
             <span class="rank-badge">18</span>
             <span class="chevron" id="chev-US-Consumer_Discretionary">▶</span>
           </td>
-          <td>Consumer Discretionary</td>
+          <td>Consumer Discretionary<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">US</span></td>
           <td class="composite-cell">-0.347</td>
           <td>-0.585</td>
@@ -1116,7 +1123,7 @@ select.sector-select:focus {
             <span class="rank-badge">20</span>
             <span class="chevron" id="chev-EU-Materials">▶</span>
           </td>
-          <td>Materials</td>
+          <td>Materials<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">EU</span></td>
           <td class="composite-cell">-0.486</td>
           <td>-0.693</td>
@@ -1139,7 +1146,7 @@ select.sector-select:focus {
             <span class="rank-badge">21</span>
             <span class="chevron" id="chev-EU-Real_Estate">▶</span>
           </td>
-          <td>Real Estate</td>
+          <td>Real Estate<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">EU</span></td>
           <td class="composite-cell">-0.734</td>
           <td>-1.121</td>
@@ -1232,7 +1239,7 @@ select.sector-select:focus {
             <span class="rank-badge top3">3</span>
             <span class="chevron" id="chev-ALL-Technology">▶</span>
           </td>
-          <td>Technology<span class="emerging-badge">⬆ Emerging</span></td>
+          <td>Technology</td>
           <td><span class="tag-region">Global</span></td>
           <td class="composite-cell">0.258</td>
           <td>0.808</td>
@@ -1255,7 +1262,7 @@ select.sector-select:focus {
             <span class="rank-badge">4</span>
             <span class="chevron" id="chev-ALL-Energy">▶</span>
           </td>
-          <td>Energy<span class="emerging-badge">⬆ Emerging</span></td>
+          <td>Energy<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span></td>
           <td><span class="tag-region">Global</span></td>
           <td class="composite-cell">0.146</td>
           <td>-0.118</td>
@@ -1301,7 +1308,7 @@ select.sector-select:focus {
             <span class="rank-badge">6</span>
             <span class="chevron" id="chev-ALL-Industrials">▶</span>
           </td>
-          <td>Industrials</td>
+          <td>Industrials<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">Global</span></td>
           <td class="composite-cell">0.102</td>
           <td>0.265</td>
@@ -1324,7 +1331,7 @@ select.sector-select:focus {
             <span class="rank-badge">7</span>
             <span class="chevron" id="chev-ALL-Consumer_Staples">▶</span>
           </td>
-          <td>Consumer Staples</td>
+          <td>Consumer Staples<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">Global</span></td>
           <td class="composite-cell">0.065</td>
           <td>0.337</td>
@@ -1370,7 +1377,7 @@ select.sector-select:focus {
             <span class="rank-badge">9</span>
             <span class="chevron" id="chev-ALL-Materials">▶</span>
           </td>
-          <td>Materials</td>
+          <td>Materials<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span></td>
           <td><span class="tag-region">Global</span></td>
           <td class="composite-cell">-0.387</td>
           <td>-0.507</td>
@@ -2053,12 +2060,32 @@ function sortTable(col) {
       if (traj) { traj.className = "traj-badge traj-" + r.trajectory_state; traj.textContent = r.trajectory_label; }
       var sectorCell = tr.querySelectorAll("td")[1];
       if (sectorCell) {
-        var ebadge = sectorCell.querySelector(".emerging-badge");
-        if (r.emerging && !ebadge) {
+        var changeVal = parseFloat(tr.querySelectorAll("td")[5].textContent);
+        var setup = null;
+        if (r.composite > 0 && (r.trajectory_state === "up" || r.trajectory_state === "strong_up") && changeVal > 0) {
+          setup = "entry";
+        } else if ((r.trajectory_state === "down" || r.trajectory_state === "strong_down") && changeVal < 0) {
+          setup = "exit";
+        }
+        var sbadge = sectorCell.querySelector(".setup-badge");
+        var lang = "en"; try { lang = localStorage.getItem("lang") || "en"; } catch(e) {}
+        var entryText = lang === "sv" ? "▲ Insteg" : "▲ Entry";
+        var exitText = lang === "sv" ? "▼ Ursteg" : "▼ Exit";
+        var badgeText = setup === "entry" ? entryText : exitText;
+        var i18nKey = setup === "entry" ? "badge_entry" : "badge_exit";
+        if (setup && !sbadge) {
           var s = document.createElement("span");
-          s.className = "emerging-badge"; s.textContent = "⬆ Emerging";
+          s.className = "setup-badge " + setup;
+          s.setAttribute("data-i18n", i18nKey);
+          s.setAttribute("data-en", setup === "entry" ? "▲ Entry" : "▼ Exit");
+          s.textContent = badgeText;
           sectorCell.appendChild(s);
-        } else if (!r.emerging && ebadge) { ebadge.remove(); }
+        } else if (setup && sbadge) {
+          sbadge.className = "setup-badge " + setup;
+          sbadge.setAttribute("data-i18n", i18nKey);
+          sbadge.setAttribute("data-en", setup === "entry" ? "▲ Entry" : "▼ Exit");
+          sbadge.textContent = badgeText;
+        } else if (!setup && sbadge) { sbadge.remove(); }
       }
     });
   }
@@ -2183,7 +2210,9 @@ function sortTable(col) {
     sent_col_acceleration: "Acceleration",
     sent_col_range: "Intervallpos.",
     sent_col_spike: "Spik",
-    sent_col_volatility: "Volatilitet"
+    sent_col_volatility: "Volatilitet",
+    badge_entry: "▲ Insteg",
+    badge_exit: "▼ Ursteg"
   };
 
   // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
@@ -2302,7 +2331,8 @@ function sortTable(col) {
   htmlEls.forEach(function (el) { enHtml.set(el, el.innerHTML); });
 
   function apply(lang) {
-    els.forEach(function (el) {
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      if (!el.getAttribute("data-en")) el.setAttribute("data-en", el.textContent);
       var key = el.getAttribute("data-i18n");
       el.textContent = (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en");
     });

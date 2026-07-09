@@ -533,19 +533,26 @@ select.sector-select:focus {
   pointer-events: none;
 }
 .sig-tip:hover::after { display: block; }
-/* Emerging badge */
-.emerging-badge {
+/* Setup badges (entry / exit) */
+.setup-badge {
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--up);
-  background: color-mix(in srgb, var(--up) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--up) 30%, transparent);
   padding: 1px 6px;
   border-radius: var(--radius-pill);
   margin-left: 6px;
   vertical-align: middle;
+}
+.setup-badge.entry {
+  color: var(--up);
+  background: color-mix(in srgb, var(--up) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--up) 30%, transparent);
+}
+.setup-badge.exit {
+  color: var(--down);
+  background: color-mix(in srgb, var(--down) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--down) 30%, transparent);
 }
 .sig-info {
   font-size: 11px;
@@ -969,7 +976,9 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
     sent_col_acceleration: "Acceleration",
     sent_col_range: "Intervallpos.",
     sent_col_spike: "Spik",
-    sent_col_volatility: "Volatilitet"
+    sent_col_volatility: "Volatilitet",
+    badge_entry: "▲ Insteg",
+    badge_exit: "▼ Ursteg"
   };
 
   // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
@@ -1088,7 +1097,8 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
   htmlEls.forEach(function (el) { enHtml.set(el, el.innerHTML); });
 
   function apply(lang) {
-    els.forEach(function (el) {
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      if (!el.getAttribute("data-en")) el.setAttribute("data-en", el.textContent);
       var key = el.getAttribute("data-i18n");
       el.textContent = (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en");
     });
