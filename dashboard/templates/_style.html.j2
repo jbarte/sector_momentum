@@ -525,19 +525,26 @@ select.sector-select:focus {
   pointer-events: none;
 }
 .sig-tip:hover::after { display: block; }
-/* Emerging badge */
-.emerging-badge {
+/* Setup badges (entry / exit) */
+.setup-badge {
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--up);
-  background: color-mix(in srgb, var(--up) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--up) 30%, transparent);
   padding: 1px 6px;
   border-radius: var(--radius-pill);
   margin-left: 6px;
   vertical-align: middle;
+}
+.setup-badge.entry {
+  color: var(--up);
+  background: color-mix(in srgb, var(--up) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--up) 30%, transparent);
+}
+.setup-badge.exit {
+  color: var(--down);
+  background: color-mix(in srgb, var(--down) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--down) 30%, transparent);
 }
 .sig-info {
   font-size: 11px;

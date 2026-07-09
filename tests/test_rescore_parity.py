@@ -39,7 +39,7 @@ def _py_reference(data, W):
         out[k] = {
             "rank": rank_now, "composite": comp_now,
             "delta_rank": d_rank, "delta_composite": d_comp,
-            "emerging": bool(d_rank > 0 and d_comp > 0),
+            "setup": None,
             "trajectory_label": _traj(slope)[0],
             "trajectory_state": _traj(slope)[1],
         }
@@ -101,7 +101,7 @@ def test_rescore_parity_random(W, seed):
         assert js[k]["composite"] == pytest.approx(py[k]["composite"], abs=1e-6)
         assert js[k]["delta_rank"] == pytest.approx(py[k]["delta_rank"], abs=1e-6)
         assert js[k]["delta_composite"] == pytest.approx(py[k]["delta_composite"], abs=1e-6)
-        assert js[k]["emerging"] == py[k]["emerging"]
+        assert js[k]["setup"] == py[k]["setup"]
         assert js[k]["trajectory_label"] == py[k]["trajectory_label"]
         assert js[k]["trajectory_state"] == py[k]["trajectory_state"]
 

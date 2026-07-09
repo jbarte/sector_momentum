@@ -251,6 +251,7 @@ def _build_composite_rows(history_df, split_breakdowns: dict) -> list[dict]:
         traj = trajectories.get(key, {"label": "→", "state": "flat"})
         row["trajectory_label"] = traj["label"]
         row["trajectory_state"] = traj["state"]
+        _compute_setup(row)
 
         us_panel = split_breakdowns.get(f"US|{sector}", "")
         eu_panel = split_breakdowns.get(f"EU|{sector}", "")
@@ -1167,7 +1168,6 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
     rows = []
     for _, row in latest.iterrows():
         delta = _safe_float(row.get("delta_rank", 0)) or 0.0
-        delta_comp = _safe_float(row.get("delta_composite", 0)) or 0.0
         composite = _safe_float(row.get("composite"))
         rank = _safe_float(row.get("rank"))
         rows.append({
@@ -1189,9 +1189,25 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
             "delta_rank": f"{delta:+.1f}" if delta != 0 else "—",
             "arrow": "▲" if delta > 0 else ("▼" if delta < 0 else ""),
             "arrow_class": "up" if delta > 0 else ("down" if delta < 0 else ""),
-            "emerging": delta > 0 and delta_comp > 0,
+            "_raw_composite": composite,
+            "_raw_change": _safe_float(row.get("change_score")),
         })
     return rows, scan_date
+
+
+def _compute_setup(row: dict) -> None:
+    """Tag a leaderboard row with 'entry' or 'exit' setup, or None."""
+    comp = row.get("_raw_composite")
+    change = row.get("_raw_change")
+    traj = row.get("trajectory_state", "flat")
+    if (comp is not None and comp > 0
+            and traj in ("up", "strong_up")
+            and change is not None and change > 0):
+        row["setup"] = "entry"
+    elif traj in ("down", "strong_down") and change is not None and change < 0:
+        row["setup"] = "exit"
+    else:
+        row["setup"] = None
 
 
 # ---------------------------------------------------------------------------
@@ -1294,7 +1310,6 @@ def _build_theme_leaderboard_rows(history_df, signals_df, themes_cfg: dict, weig
             sector_etfs=None, themes_cfg=themes_cfg,
         )
         delta = _safe_float(s.get("delta_rank", 0)) or 0.0
-        delta_comp = _safe_float(s.get("delta_composite", 0)) or 0.0
         traj = trajectories.get(key, {"label": "→", "state": "flat"})
         rank = _safe_float(s.get("rank"))
         rows.append({
@@ -1308,11 +1323,13 @@ def _build_theme_leaderboard_rows(history_df, signals_df, themes_cfg: dict, weig
             "delta_rank": f"{delta:+.1f}" if delta != 0 else "—",
             "arrow": "▲" if delta > 0 else ("▼" if delta < 0 else ""),
             "arrow_class": "up" if delta > 0 else ("down" if delta < 0 else ""),
-            "emerging": delta > 0 and delta_comp > 0,
             "trajectory_label": traj["label"],
             "trajectory_state": traj["state"],
+            "_raw_composite": _safe_float(s.get("composite")),
+            "_raw_change": _safe_float(s.get("change_score")),
             "breakdown_html": breakdown,
         })
+        _compute_setup(rows[-1])
     return rows
 
 
@@ -1408,6 +1425,7 @@ def main() -> None:
         traj = trajectories.get(key, {"label": "→", "state": "flat"})
         row["trajectory_label"] = traj["label"]
         row["trajectory_state"] = traj["state"]
+        _compute_setup(row)
         mask = (
             (latest_scores["region"]      == row["region"]) &
             (latest_scores["gics_sector"] == row["sector"])

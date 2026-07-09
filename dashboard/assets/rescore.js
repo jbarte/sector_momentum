@@ -89,7 +89,7 @@
     if (nScans === 0) {
       sectors.forEach(function (s) {
         out[s] = { rank: null, composite: 0, delta_rank: 0, delta_composite: 0,
-                   emerging: false, trajectory_label: "→", trajectory_state: "flat" };
+                   setup: null, trajectory_label: "→", trajectory_state: "flat" };
       });
       return out;
     }
@@ -132,7 +132,7 @@
         composite: compNow,
         delta_rank: dRank,
         delta_composite: dComp,
-        emerging: dRank > 0 && dComp > 0,
+        setup: null,
         trajectory_label: traj.label,
         trajectory_state: traj.state
       };
