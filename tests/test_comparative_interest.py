@@ -1,6 +1,12 @@
 import math
 
-from src.data.trends_symbols import _build_chained_batches, _rescale_chain
+import pandas as pd
+
+from src.data.trends_symbols import (
+    _build_chained_batches,
+    _rescale_chain,
+    fetch_comparative_interest,
+)
 
 
 def test_chained_batches_11_terms():
@@ -114,3 +120,94 @@ def test_rescale_chain_zero_bridge_cascades():
     assert merged["A"] == 50.0
     assert math.isnan(merged["C"])
     assert math.isnan(merged["D"])
+
+
+class FakeComparativeClient:
+    """Returns deterministic interest for comparative batches (no anchor term)."""
+    def __init__(self):
+        self._terms = []
+        self._geo = ""
+
+    def build_payload(self, kw_list, timeframe=None, geo=None):
+        self._terms = list(kw_list)
+        self._geo = geo
+
+    def interest_over_time(self):
+        data = {}
+        for i, t in enumerate(self._terms):
+            data[t] = [float((i + 1) * 10)] * 13
+        return pd.DataFrame(data)
+
+
+def test_fetch_comparative_interest_basic():
+    smap = {
+        "US|Technology": ["XLK", "VGT"],
+        "US|Energy": ["XLE"],
+        "US|Financials": ["XLF"],
+    }
+    result = fetch_comparative_interest(
+        smap,
+        client=FakeComparativeClient(),
+        sleep_s=0.0,
+        region_geos={"US": ["US"]},
+    )
+    assert "US|Technology" in result
+    assert "US|Energy" in result
+    assert "US|Financials" in result
+    assert all(isinstance(v, float) for v in result.values())
+
+
+def test_fetch_comparative_interest_uses_first_symbol():
+    """Representative term is symbols[0] for each sector."""
+    smap = {
+        "US|Technology": ["XLK", "VGT"],
+        "US|Energy": ["XLE", "IYE"],
+    }
+
+    class CapturingClient:
+        def __init__(self):
+            self.payloads = []
+        def build_payload(self, kw_list, timeframe=None, geo=None):
+            self.payloads.append(list(kw_list))
+            self._terms = kw_list
+        def interest_over_time(self):
+            return pd.DataFrame({t: [10.0] * 13 for t in self._terms})
+
+    client = CapturingClient()
+    fetch_comparative_interest(
+        smap, client=client, sleep_s=0.0, region_geos={"US": ["US"]},
+    )
+    all_terms = [t for p in client.payloads for t in p]
+    assert "XLK" in all_terms
+    assert "XLE" in all_terms
+    assert "VGT" not in all_terms
+    assert "IYE" not in all_terms
+
+
+def test_fetch_comparative_interest_entity_resolution():
+    """If an entity mid exists for symbols[0], use the mid instead."""
+    smap = {"US|Technology": ["XLK"]}
+    entities = {"XLK": "/m/tech_entity"}
+
+    class CapturingClient:
+        def __init__(self):
+            self.payloads = []
+        def build_payload(self, kw_list, timeframe=None, geo=None):
+            self.payloads.append(list(kw_list))
+            self._terms = kw_list
+        def interest_over_time(self):
+            return pd.DataFrame({t: [10.0] * 13 for t in self._terms})
+
+    client = CapturingClient()
+    fetch_comparative_interest(
+        smap, client=client, sleep_s=0.0, entities=entities,
+        region_geos={"US": ["US"]},
+    )
+    all_terms = [t for p in client.payloads for t in p]
+    assert "/m/tech_entity" in all_terms
+    assert "XLK" not in all_terms
+
+
+def test_fetch_comparative_interest_empty_map():
+    result = fetch_comparative_interest({}, sleep_s=0.0)
+    assert result == {}

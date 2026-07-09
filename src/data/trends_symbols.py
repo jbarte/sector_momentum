@@ -394,6 +394,116 @@ def _rescale_chain(
     return merged
 
 
+def fetch_comparative_interest(
+    symbol_map: dict[str, list[str]],
+    client=None,
+    timeframe: str = "today 3-m",
+    window: int = 13,
+    sleep_s: float = 20.0,
+    max_retries: int = 3,
+    entities: dict[str, str] | None = None,
+    region_geos: dict[str, list[str]] | None = None,
+    cache: dict | None = None,
+) -> dict[str, float]:
+    """Comparative cross-sector interest via anchor-chained Google Trends batches.
+
+    Puts one representative term per sector into overlapping 5-term payloads
+    (no anchor term — sectors compare directly against each other) so Google's
+    0-100 normalization gives a true head-to-head ranking. Returns
+    {region|sector: attention_level} on a single common scale per region.
+    """
+    if not symbol_map:
+        return {}
+    if client is None:
+        try:
+            client = _new_client()
+        except Exception as exc:
+            logger.warning(
+                "Trends client init failed (%s) — comparative interest skipped", exc
+            )
+            return {}
+
+    entities = entities or {}
+    region_geos = region_geos if region_geos is not None else DEFAULT_REGION_GEOS
+
+    sectors_by_region: dict[str, list[str]] = {}
+    rep_term: dict[str, dict[str, str]] = {}
+    for key, symbols in sorted(symbol_map.items()):
+        region, _, sector = key.partition("|")
+        sectors_by_region.setdefault(region, []).append(sector)
+        ticker = symbols[0]
+        term = entities.get(ticker, ticker)
+        rep_term.setdefault(region, {})[sector] = term
+
+    result: dict[str, float] = {}
+    for region, sectors in sectors_by_region.items():
+        terms = [rep_term[region][s] for s in sectors]
+        term_to_sector = {rep_term[region][s]: s for s in sectors}
+        batches = _build_chained_batches(terms, batch_size=5)
+        geos = region_geos.get(region, [""])
+
+        per_geo_merged: list[dict[str, float]] = []
+        for geo in geos:
+            batch_results: list[dict[str, float]] = []
+            for bi, batch in enumerate(batches):
+                key = batch_key(batch) if cache is not None else None
+                if cache is not None:
+                    cached = cache.get(f"cmp_{geo}", {}).get(key)
+                    if isinstance(cached, dict):
+                        batch_results.append(cached)
+                        continue
+
+                df = None
+                for attempt in range(max_retries):
+                    try:
+                        client.build_payload(batch, timeframe=timeframe, geo=geo)
+                        df = client.interest_over_time()
+                        break
+                    except Exception as exc:
+                        if attempt < max_retries - 1:
+                            time.sleep(sleep_s * (2 ** attempt) + random.uniform(0, 3))
+                        else:
+                            logger.warning(
+                                "Comparative batch %d (geo=%s) failed (%s)",
+                                bi + 1, geo or "world", exc,
+                            )
+
+                means: dict[str, float] = {}
+                if df is not None and not df.empty:
+                    for t in batch:
+                        if t in df.columns:
+                            series = df[t].tolist()[-window:]
+                            means[t] = sum(series) / len(series) if series else 0.0
+                else:
+                    means = {t: 0.0 for t in batch}
+
+                batch_results.append(means)
+                if cache is not None:
+                    cache.setdefault(f"cmp_{geo}", {})[key] = means
+
+                if bi < len(batches) - 1 and sleep_s:
+                    time.sleep(sleep_s)
+
+            merged = _rescale_chain(batch_results, batches)
+            per_geo_merged.append(merged)
+
+        if len(per_geo_merged) == 1:
+            final = per_geo_merged[0]
+        else:
+            all_terms = list({t for m in per_geo_merged for t in m})
+            final = {}
+            for t in all_terms:
+                vals = [m[t] for m in per_geo_merged if t in m and not math.isnan(m[t])]
+                final[t] = sum(vals) / len(vals) if vals else float("nan")
+
+        for term, val in final.items():
+            sector = term_to_sector.get(term)
+            if sector:
+                result[f"{region}|{sector}"] = float(val)
+
+    return result
+
+
 import random
 import time
 
