@@ -97,7 +97,7 @@
             <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
-          <td>{{ row.sector }}{% if row.emerging %}<span class="emerging-badge">⬆ Emerging</span>{% endif %}</td>
+          <td>{{ row.sector }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
           <td><span class="tag-region">{{ row.region }}</span></td>
           <td class="composite-cell">{{ row.composite }}</td>
           <td>{{ row.level_score }}</td>
@@ -123,7 +123,7 @@
             <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
-          <td>{{ row.sector }}{% if row.emerging %}<span class="emerging-badge">⬆ Emerging</span>{% endif %}</td>
+          <td>{{ row.sector }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
           <td><span class="tag-region">Global</span></td>
           <td class="composite-cell">{{ row.composite }}</td>
           <td>{{ row.level_score }}</td>
@@ -580,12 +580,32 @@ function sortTable(col) {
       if (traj) { traj.className = "traj-badge traj-" + r.trajectory_state; traj.textContent = r.trajectory_label; }
       var sectorCell = tr.querySelectorAll("td")[1];
       if (sectorCell) {
-        var ebadge = sectorCell.querySelector(".emerging-badge");
-        if (r.emerging && !ebadge) {
+        var changeVal = parseFloat(tr.querySelectorAll("td")[5].textContent);
+        var setup = null;
+        if (r.composite > 0 && (r.trajectory_state === "up" || r.trajectory_state === "strong_up") && changeVal > 0) {
+          setup = "entry";
+        } else if ((r.trajectory_state === "down" || r.trajectory_state === "strong_down") && changeVal < 0) {
+          setup = "exit";
+        }
+        var sbadge = sectorCell.querySelector(".setup-badge");
+        var lang = "en"; try { lang = localStorage.getItem("lang") || "en"; } catch(e) {}
+        var entryText = lang === "sv" ? "▲ Insteg" : "▲ Entry";
+        var exitText = lang === "sv" ? "▼ Ursteg" : "▼ Exit";
+        var badgeText = setup === "entry" ? entryText : exitText;
+        var i18nKey = setup === "entry" ? "badge_entry" : "badge_exit";
+        if (setup && !sbadge) {
           var s = document.createElement("span");
-          s.className = "emerging-badge"; s.textContent = "⬆ Emerging";
+          s.className = "setup-badge " + setup;
+          s.setAttribute("data-i18n", i18nKey);
+          s.setAttribute("data-en", setup === "entry" ? "▲ Entry" : "▼ Exit");
+          s.textContent = badgeText;
           sectorCell.appendChild(s);
-        } else if (!r.emerging && ebadge) { ebadge.remove(); }
+        } else if (setup && sbadge) {
+          sbadge.className = "setup-badge " + setup;
+          sbadge.setAttribute("data-i18n", i18nKey);
+          sbadge.setAttribute("data-en", setup === "entry" ? "▲ Entry" : "▼ Exit");
+          sbadge.textContent = badgeText;
+        } else if (!setup && sbadge) { sbadge.remove(); }
       }
     });
   }

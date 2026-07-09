@@ -44,7 +44,7 @@
             <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
-          <td>{{ row.theme }}{% if row.emerging %}<span class="emerging-badge">⬆ Emerging</span>{% endif %}</td>
+          <td>{{ row.theme }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
           <td class="composite-cell">{{ row.composite }}</td>
           <td>{{ row.level_score }}</td>
           <td>{{ row.change_score }}</td>

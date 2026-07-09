@@ -37,7 +37,7 @@ def test_theme_rows_deltas_and_trajectory():
     assert semis["rank"] == 1
     assert semis["arrow"] == "▲"                       # 2 -> 1, improved
     assert semis["delta_rank"] == "+1.0"
-    assert semis["emerging"] is True                    # rank up AND composite up (0.5 -> 1.2)
+    assert semis["setup"] == "entry"                   # composite > 0, strong_up traj, change > 0
     assert semis["trajectory_label"] == "↑↑"
     assert semis["trajectory_state"] == "strong_up"
     space = rows[1]
@@ -49,7 +49,7 @@ def test_theme_rows_single_scan_no_delta():
     hist = _history_two_scans()
     hist = hist[hist["scan_id"] == 2]                    # only the latest scan
     rows = _build_theme_leaderboard_rows(hist, _signals(), {}, {}, {})
-    assert all(r["delta_rank"] == "—" and r["arrow"] == "" for r in rows)
+    assert all(r["delta_rank"] == "—" and r["arrow"] == "" and r["setup"] is None for r in rows)
     assert all(r["trajectory_label"] == "→" for r in rows)   # default flat when no traj passed
 
 

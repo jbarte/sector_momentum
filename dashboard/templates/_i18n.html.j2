@@ -59,7 +59,9 @@
     sent_col_acceleration: "Acceleration",
     sent_col_range: "Intervallpos.",
     sent_col_spike: "Spik",
-    sent_col_volatility: "Volatilitet"
+    sent_col_volatility: "Volatilitet",
+    badge_entry: "▲ Insteg",
+    badge_exit: "▼ Ursteg"
   };
 
   // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
@@ -178,7 +180,8 @@
   htmlEls.forEach(function (el) { enHtml.set(el, el.innerHTML); });
 
   function apply(lang) {
-    els.forEach(function (el) {
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      if (!el.getAttribute("data-en")) el.setAttribute("data-en", el.textContent);
       var key = el.getAttribute("data-i18n");
       el.textContent = (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en");
     });
