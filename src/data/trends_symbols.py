@@ -336,6 +336,28 @@ def _rekey_by_ticker(
     return out
 
 
+def _build_chained_batches(terms: list[str], batch_size: int = 5) -> list[list[str]]:
+    """Split terms into overlapping batches for anchor-chaining.
+
+    The last term of batch N becomes the first term of batch N+1 (the bridge).
+    With batch_size=5 and 11 terms: [[S0..S4], [S4..S8], [S8..S10]].
+    """
+    if not terms:
+        return []
+    if len(terms) <= batch_size:
+        return [list(terms)]
+    batches: list[list[str]] = []
+    stride = batch_size - 1
+    i = 0
+    while i < len(terms):
+        batch = terms[i : i + batch_size]
+        batches.append(batch)
+        i += stride
+        if i >= len(terms):
+            break
+    return batches
+
+
 import random
 import time
 
