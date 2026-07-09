@@ -204,6 +204,13 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Thematic ETF momentum — Phase 2 (leaderboard deltas + trajectory)~~ — the Themes
+  leaderboard now shows rank-Δ (vs the previous scan) and a trajectory badge (rank
+  slope over the last 5 scans), matching the sector board. Computed at dashboard-build
+  time from a new `get_theme_scan_history` loader (aliased region="THEME" so
+  `_compute_rank_trajectories` and the delta-merge reuse verbatim) — no schema or
+  `scan.py` change. Phase 3 (RRG scatter, composite-history chart, Trends sentiment
+  for themes) remains queued above. *(2026-07-08)*
 - ~~Thematic ETF momentum — Phase 1 (universe + score + leaderboard)~~ — a thematic
   ETF universe (`config/themes.yaml`, one ETF per theme) is scored by the existing
   momentum pillars vs a single global benchmark (ACWI, SPY fallback) in its own
