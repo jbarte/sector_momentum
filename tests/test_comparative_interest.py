@@ -1,5 +1,3 @@
-import math
-import pytest
 from src.data.trends_symbols import _build_chained_batches
 
 
@@ -42,3 +40,12 @@ def test_chained_batches_1_term():
 def test_chained_batches_empty():
     batches = _build_chained_batches([], batch_size=5)
     assert batches == []
+
+
+def test_chained_batches_9_terms_no_redundant_trailing():
+    terms = [f"S{i}" for i in range(9)]
+    batches = _build_chained_batches(terms, batch_size=5)
+    assert batches == [
+        ["S0", "S1", "S2", "S3", "S4"],
+        ["S4", "S5", "S6", "S7", "S8"],
+    ]

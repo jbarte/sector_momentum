@@ -352,9 +352,13 @@ def _build_chained_batches(terms: list[str], batch_size: int = 5) -> list[list[s
     while i < len(terms):
         batch = terms[i : i + batch_size]
         batches.append(batch)
-        i += stride
-        if i >= len(terms):
+        if i + batch_size >= len(terms):
+            # This batch's last element is already the last term overall —
+            # stop here instead of advancing the stride, which would produce
+            # a redundant single-element trailing batch that duplicates the
+            # bridge this batch already covers.
             break
+        i += stride
     return batches
 
 
