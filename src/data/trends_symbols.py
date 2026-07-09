@@ -362,6 +362,38 @@ def _build_chained_batches(terms: list[str], batch_size: int = 5) -> list[list[s
     return batches
 
 
+def _rescale_chain(
+    batch_results: list[dict[str, float]],
+    batches: list[list[str]],
+) -> dict[str, float]:
+    """Rescale per-batch mean-interest dicts onto batch 0's scale via bridge terms.
+
+    batch_results[i] maps each term in batches[i] to its Google-reported mean.
+    The bridge between batch i and i+1 is the last term of batch i (= first of
+    batch i+1). If the bridge is zero in either batch, downstream terms get NaN.
+    """
+    if not batch_results:
+        return {}
+    merged: dict[str, float] = dict(batch_results[0])
+    scale = 1.0
+    broken = False
+    for i in range(1, len(batch_results)):
+        bridge = batches[i][0]
+        bridge_prev = merged.get(bridge, 0.0)
+        bridge_cur = batch_results[i].get(bridge, 0.0)
+        if broken or bridge_prev == 0.0 or bridge_cur == 0.0:
+            broken = True
+            for term, val in batch_results[i].items():
+                if term not in merged:
+                    merged[term] = float("nan")
+            continue
+        scale = bridge_prev / bridge_cur
+        for term, val in batch_results[i].items():
+            if term not in merged:
+                merged[term] = val * scale
+    return merged
+
+
 import random
 import time
 
