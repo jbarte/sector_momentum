@@ -72,9 +72,7 @@ out of the core momentum score.
 **Getting the most out of Google Trends (ideas to explore):**
 - ~~**Trends *topics* (entity mids) over raw ticker strings.**~~ *(shipped — see Done)*
 - ~~**Region-aware pulls.**~~ *(shipped — see Done)*
-- **Comparative (cross-sector) interest.** Trends normalizes 0–100 *within a payload*,
-  so putting sectors in the same `build_payload` yields a true head-to-head attention
-  ranking — more meaningful than independently-scaled series.
+- ~~**Comparative (cross-sector) interest.**~~ *(shipped — see Done)*
 - ~~**Multiple derived signals from one series**, not just slope~~ *(shipped — see Done:
   momentum, acceleration, range position, spike, volatility)*
 - **Longer window for a seasonal baseline.** Pull 12 months to compute current interest
@@ -204,6 +202,14 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Comparative (cross-sector) interest~~ — `fetch_comparative_interest`
+  (`src/data/trends_symbols.py`) pulls each region's sectors through
+  anchor-chained Trends batches (`_rescale_chain`) so interest is scored
+  head-to-head against all other sectors in the same region, not
+  independently-scaled per-sector series. Wired into `scan.py`, persisted as
+  `attention_level` rows in `sentiment_signals`, and surfaced as an "Attention"
+  column (EN+SV) on `docs/sentiment.html`. Toggle-only/info-only — no composite
+  or ranking impact, sectors page unchanged. *(2026-07-09)*
 - ~~Thematic ETF momentum — Phase 2 (leaderboard deltas + trajectory)~~ — the Themes
   leaderboard now shows rank-Δ (vs the previous scan) and a trajectory badge (rank
   slope over the last 5 scans), matching the sector board. Computed at dashboard-build

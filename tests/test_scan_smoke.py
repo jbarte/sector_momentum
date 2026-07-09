@@ -230,6 +230,7 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     monkeypatch.setattr(_trends_sym_mod, "build_symbol_map", lambda *a, **k: {"US|Technology": ["XLK"]})
     monkeypatch.setattr(_trends_sym_mod, "fetch_symbol_trends", lambda *a, **k: {"US|Technology": pd.Series([0.0] * 13)})
     monkeypatch.setattr(_trends_sym_mod, "score_symbol_sentiment", lambda *a, **k: pd.Series({"US|Technology": 0.0}))
+    monkeypatch.setattr(_trends_sym_mod, "fetch_comparative_interest", lambda *a, **k: {})
 
     # Stub open() for sector_etfs.yaml and trends_blocklist.yaml
     import builtins

@@ -630,7 +630,7 @@ def _build_rrg_figure(rrg_df) -> str:
 def _build_sentiment_signal_rows(sent_df) -> list[dict]:
     """Pivot derived sentiment signals into one display row per sector-key.
 
-    Each row: region, sector, and the five derived metrics formatted for the
+    Each row: region, sector, and the six derived metrics formatted for the
     template. Sorted by momentum descending so the leaders sit on top. Returns
     [] when no sentiment_signals rows exist (older scans / dry runs).
     """
@@ -641,6 +641,11 @@ def _build_sentiment_signal_rows(sent_df) -> list[dict]:
         if v is None or (isinstance(v, float) and math.isnan(v)):
             return "—"
         return f"{v * 100:.0f}%" if pct else f"{v:+.2f}"
+
+    def _fmt_attn(v):
+        if v is None or (isinstance(v, float) and math.isnan(v)):
+            return "—"
+        return f"{v:.1f}"
 
     rows = []
     for (region, sector), grp in sent_df.groupby(["region", "gics_sector"]):
@@ -654,6 +659,7 @@ def _build_sentiment_signal_rows(sent_df) -> list[dict]:
             "range_position": _fmt(vals.get("range_position"), pct=True),
             "spike": _fmt(vals.get("spike")),
             "volatility": _fmt(vals.get("volatility"), pct=True),
+            "attention": _fmt_attn(vals.get("attention_level")),
         })
     rows.sort(key=lambda r: r["_momentum"], reverse=True)
     return rows
