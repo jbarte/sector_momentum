@@ -1,5 +1,5 @@
 import pandas as pd
-from dashboard.build import _build_theme_leaderboard_rows
+from dashboard.build import _build_theme_leaderboard_rows, _compute_rank_trajectories
 
 
 def _history_two_scans():
@@ -55,3 +55,13 @@ def test_theme_rows_single_scan_no_delta():
 
 def test_theme_rows_empty_history():
     assert _build_theme_leaderboard_rows(pd.DataFrame(), pd.DataFrame(), {}, {}, {}) == []
+
+
+def test_compute_rank_trajectories_produces_theme_prefixed_keys():
+    # Locks the integration contract: _compute_rank_trajectories keys its output
+    # "region|gics_sector", and get_theme_scan_history aliases region="THEME", so
+    # the row-builder's lookup key f"THEME|{theme}" must match what this produces.
+    traj = _compute_rank_trajectories(_history_two_scans())
+    assert "THEME|Semiconductors" in traj
+    assert "THEME|Space" in traj
+    assert traj["THEME|Semiconductors"]["state"] == "up"   # rank 2 -> 1 over 2 scans (slope -1.0)
