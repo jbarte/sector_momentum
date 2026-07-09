@@ -213,6 +213,42 @@ def test_fetch_comparative_interest_empty_map():
     assert result == {}
 
 
+def test_fetch_comparative_interest_multi_geo_averaging():
+    """EU path with 3 geos averages per-geo rescaled values."""
+    smap = {
+        "EU|Technology": ["EXV3.DE"],
+        "EU|Energy": ["EXH1.DE"],
+    }
+
+    class MultiGeoClient:
+        def __init__(self):
+            self._terms = []
+            self._geo = ""
+            self._call_count = 0
+
+        def build_payload(self, kw_list, timeframe=None, geo=None):
+            self._terms = list(kw_list)
+            self._geo = geo
+            self._call_count += 1
+
+        def interest_over_time(self):
+            base = 10.0 * self._call_count
+            data = {t: [base + i * 5.0] * 13 for i, t in enumerate(self._terms)}
+            return pd.DataFrame(data)
+
+    client = MultiGeoClient()
+    result = fetch_comparative_interest(
+        smap,
+        client=client,
+        sleep_s=0.0,
+        region_geos={"EU": ["DE", "FR", "GB"]},
+    )
+    assert "EU|Technology" in result
+    assert "EU|Energy" in result
+    assert all(isinstance(v, float) for v in result.values())
+    assert not any(math.isnan(v) for v in result.values())
+
+
 def test_fetch_comparative_interest_no_cache_on_failure():
     """Failed batches must not be cached — a retriggered scan should retry."""
     class FailingClient:
