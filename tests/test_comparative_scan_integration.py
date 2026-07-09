@@ -1,5 +1,4 @@
 import pandas as pd
-import pytest
 
 
 def test_attention_rows_appended_to_sentiment_signals():
