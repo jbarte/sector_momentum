@@ -474,12 +474,12 @@ def fetch_comparative_interest(
                         if t in df.columns:
                             series = df[t].tolist()[-window:]
                             means[t] = sum(series) / len(series) if series else 0.0
+                    if cache is not None:
+                        cache.setdefault(f"cmp_{geo}", {})[key] = means
                 else:
                     means = {t: 0.0 for t in batch}
 
                 batch_results.append(means)
-                if cache is not None:
-                    cache.setdefault(f"cmp_{geo}", {})[key] = means
 
                 if bi < len(batches) - 1 and sleep_s:
                     time.sleep(sleep_s)

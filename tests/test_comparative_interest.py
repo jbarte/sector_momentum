@@ -211,3 +211,18 @@ def test_fetch_comparative_interest_entity_resolution():
 def test_fetch_comparative_interest_empty_map():
     result = fetch_comparative_interest({}, sleep_s=0.0)
     assert result == {}
+
+
+def test_fetch_comparative_interest_no_cache_on_failure():
+    """Failed batches must not be cached — a retriggered scan should retry."""
+    class FailingClient:
+        def build_payload(self, kw_list, timeframe=None, geo=None):
+            raise Exception("rate limited")
+
+    smap = {"US|Technology": ["XLK"], "US|Energy": ["XLE"]}
+    cache = {}
+    fetch_comparative_interest(
+        smap, client=FailingClient(), sleep_s=0.0, max_retries=1,
+        region_geos={"US": ["US"]}, cache=cache,
+    )
+    assert cache.get("cmp_US", {}) == {}
