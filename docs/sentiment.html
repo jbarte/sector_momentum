@@ -428,17 +428,6 @@ select.sector-select:focus {
 }
 .breakdown-row { display: none; }
 .breakdown-row.open { display: table-row; }
-/* Sector-view toggle: show only rows matching the active view.
-   ID-prefixed selector beats .breakdown-row.open on specificity, so
-   wrong-view open breakdowns stay hidden. */
-#leaderboard-table[data-view="split"] tr[data-view="composite"],
-#leaderboard-table[data-view="composite"] tr[data-view="split"] { display: none; }
-.sw-view select { margin-left: 4px; }
-.composite-bd-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 700px) { .composite-bd-panels { grid-template-columns: 1fr; } }
-.composite-bd-header { font-weight: 600; margin-bottom: 8px; color: #3E392B; }
-.cbh-region-tag { font-weight: 600; opacity: 0.7; margin-bottom: 4px; }
-.cbh-note { opacity: 0.6; font-weight: 400; }
 .breakdown-inner {
   padding: 16px 20px;
   background: var(--bg-sunken);
@@ -1209,9 +1198,6 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
     col_theme: "Tema",
     note_themes: "Tematiska ETF:er rankade med samma momentumpelare, mot ett globalt jämförelseindex (ACWI). Endast information; separat från sektortopplistan.",
     themes_empty: "Ingen temadata än — kör en skanning.",
-    sectorView: "Sektorvy:",
-    view_split: "Regionuppdelad",
-    view_composite: "Sammansatt (US+EU)",
     includeSentiment: "Inkludera sentiment i rankningen",
     weight: "Vikt:",
     col_rank: "#",
