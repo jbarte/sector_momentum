@@ -18,6 +18,7 @@
     <a class="segment-btn" href="sentiment.html" data-i18n="segment_sentiment">Sentiment</a>
   </div>
   <span class="disclaimer" data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
+  <button id="guide-open-btn" class="guide-open-btn" type="button" aria-label="Open guide" data-i18n="guide_open_btn">Guide</button>
   <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
 </header>
 
@@ -77,5 +78,8 @@ function toggleBreakdown(id) {
 }
 {% include "_i18n.html.j2" %}
 </script>
+
+{% include "_guide_modal.html.j2" %}
+
 </body>
 </html>
