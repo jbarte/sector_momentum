@@ -373,6 +373,34 @@ def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> p
     )
 
 
+def get_theme_rrg_history(
+    conn: psycopg2.extensions.connection,
+    n_scans: int = 6,
+) -> pd.DataFrame:
+    """rs_ratio and rs_momentum for themes over the last n_scans, for RRG tail traces.
+
+    Columns: scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum
+    (aliased to match get_rrg_history output so _build_rrg_figure works as-is).
+    """
+    return pd.read_sql_query(
+        """
+        SELECT sc.scan_id, sc.run_at, 'THEME' AS region, tsg.theme AS gics_sector,
+               MAX(CASE WHEN tsg.signal_name = 'rs_ratio'    THEN tsg.raw_value END) AS rs_ratio,
+               MAX(CASE WHEN tsg.signal_name = 'rs_momentum' THEN tsg.raw_value END) AS rs_momentum
+        FROM theme_signals tsg
+        JOIN scans sc ON sc.scan_id = tsg.scan_id
+        WHERE tsg.scan_id IN (
+            SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s
+        )
+        AND tsg.signal_name IN ('rs_ratio', 'rs_momentum')
+        GROUP BY sc.scan_id, sc.run_at, tsg.theme
+        ORDER BY sc.scan_id ASC, tsg.theme
+        """,
+        conn,
+        params=(n_scans,),
+    )
+
+
 def get_theme_scan_history(
     conn: psycopg2.extensions.connection,
     n_scans: int | None = None,
