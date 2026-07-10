@@ -287,15 +287,23 @@ def _format_raw_value(name: str, value) -> str:
     return f"{v * 100:+.1f}%"
 
 
-def _build_instruments_html(sector_key: str, sector_etfs: dict) -> str:
+def _build_instruments_html(
+    sector_key: str,
+    sector_etfs: dict,
+    themes_cfg: dict | None = None,
+) -> str:
     """Render the Instruments table for a sector breakdown panel."""
     import html as _html
 
     region, sector_name = sector_key.split("|", 1)
-    etf_list = sector_etfs.get(region, {}).get(sector_name, [])
+    if region == "THEME" and themes_cfg:
+        etf_list = themes_cfg.get("ucits", {}).get(sector_name, [])
+    else:
+        etf_list = sector_etfs.get(region, {}).get(sector_name, [])
     if not etf_list:
         return ""
 
+    is_ucits = region == "THEME"
     rows = ""
     for etf in etf_list:
         ticker  = etf.get("ticker", "")
@@ -303,26 +311,35 @@ def _build_instruments_html(sector_key: str, sector_etfs: dict) -> str:
         ter     = etf.get("ter", "")
         isin    = etf.get("isin", "")
         url     = etf.get("url", "")
+        match   = etf.get("match", "")
         link    = (
             f'<a href="{_html.escape(url)}" target="_blank" rel="noopener">↗</a>'
             if url else ""
         )
+        match_cell = (
+            f'<td class="etf-match etf-match-{_html.escape(match)}">'
+            f'{_html.escape(match)}</td>'
+        ) if is_ucits else ""
         rows += (
             f"<tr>"
             f'<td class="etf-ticker">{_html.escape(ticker)}</td>'
             f'<td class="etf-name">{_html.escape(name)}</td>'
             f'<td class="etf-ter">{_html.escape(str(ter))}</td>'
             f'<td class="etf-isin">{_html.escape(isin)}</td>'
+            f'{match_cell}'
             f'<td class="etf-link">{link}</td>'
             f"</tr>"
         )
 
+    title = "UCITS Alternative" if is_ucits else "Instruments"
+    match_header = "<th>Match</th>" if is_ucits else ""
     return (
         f'<div class="bd-instruments">'
-        f'<div class="sig-title">Instruments</div>'
+        f'<div class="sig-title">{title}</div>'
         f'<table class="etf-table">'
         f"<thead><tr>"
-        f"<th>Ticker</th><th>Name</th><th>TER</th><th>ISIN</th><th></th>"
+        f"<th>Ticker</th><th>Name</th><th>TER</th><th>ISIN</th>"
+        f"{match_header}<th></th>"
         f"</tr></thead>"
         f"<tbody>{rows}</tbody>"
         f"</table>"
@@ -488,7 +505,9 @@ def _build_breakdown_html(
         f'{info_html}'
     )
 
-    instruments = _build_instruments_html(sector_key, sector_etfs or {})
+    instruments = _build_instruments_html(
+        sector_key, sector_etfs or {}, themes_cfg=themes_cfg,
+    )
     return (
         f'<div class="breakdown-inner">'
         f'<div class="breakdown-grid">'
