@@ -176,20 +176,6 @@ sector-view-toggle design discussion (2026-06-25).
 
 ---
 
-## Themes — EU-available ETF alternatives
-
-**What:** The themes universe (`config/themes.yaml`) currently lists US-domiciled
-ETFs (e.g. `ARKK`, `HACK`, `LIT`) that aren't purchasable from EU brokers. Add
-UCITS-listed equivalents so EU-based users have actionable instruments, similar
-to the sector-level EU instrument references in `config/sector_etfs.yaml`.
-
-**Why:** The dashboard is used from the EU. Showing only US-listed theme ETFs
-makes the Themes page informational but not actionable for EU investors.
-
-**To resolve:** Research UCITS equivalents per theme (iShares, VanEck, L&G, etc.);
-decide whether to score the UCITS ETF directly (different liquidity/tracking) or
-keep scoring the US ETF and show the UCITS as a reference instrument.
-
 ---
 
 ## Themes — full tab parity with sectors
@@ -273,6 +259,13 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Themes — EU-available ETF alternatives~~ — added a `ucits:` section to
+  `config/themes.yaml` with one UCITS-listed equivalent per theme (10 total:
+  Global X, VanEck, iShares, First Trust). Each entry has ticker, name, ISIN,
+  TER, issuer, match quality (exact/close/partial), and justETF URL.
+  `_build_instruments_html` now renders a "UCITS Alternative" table in theme
+  breakdown panels with a colour-coded Match column. Scoring stays on US ETFs;
+  UCITS shown as reference instruments only. *(2026-07-10)*
 - ~~Comparative (cross-sector) interest~~ — `fetch_comparative_interest`
   (`src/data/trends_symbols.py`) pulls each region's sectors through
   anchor-chained Trends batches (`_rescale_chain`) so interest is scored
