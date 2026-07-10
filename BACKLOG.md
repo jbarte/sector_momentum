@@ -176,6 +176,77 @@ sector-view-toggle design discussion (2026-06-25).
 
 ---
 
+## Themes — EU-available ETF alternatives
+
+**What:** The themes universe (`config/themes.yaml`) currently lists US-domiciled
+ETFs (e.g. `ARKK`, `HACK`, `LIT`) that aren't purchasable from EU brokers. Add
+UCITS-listed equivalents so EU-based users have actionable instruments, similar
+to the sector-level EU instrument references in `config/sector_etfs.yaml`.
+
+**Why:** The dashboard is used from the EU. Showing only US-listed theme ETFs
+makes the Themes page informational but not actionable for EU investors.
+
+**To resolve:** Research UCITS equivalents per theme (iShares, VanEck, L&G, etc.);
+decide whether to score the UCITS ETF directly (different liquidity/tracking) or
+keep scoring the US ETF and show the UCITS as a reference instrument.
+
+---
+
+## Themes — full tab parity with sectors
+
+**What:** Give the Themes page the same tab structure as the Sectors page:
+**Leaderboard** (done), **RRG**, **Drill-down**, **Movers**, **History**, and
+optionally **Backtest** and **Guide**. Currently Themes only has the leaderboard
+with rank-delta and trajectory badges.
+
+**Why:** The sector page's tabs (especially RRG for rotation timing and
+Drill-down/History for conviction) are where the real analytical value lives. The
+Themes leaderboard alone shows current state but not trajectory context.
+
+**Notes:** Phase 3 of the thematic ETF build (RRG scatter, composite-history
+chart, Trends sentiment for themes) was already noted in the Phase 1/2 Done
+entries. This formalizes it as a standalone item and expands scope to full tab
+parity including Movers and Drill-down.
+
+---
+
+## Remove region-split / composite view toggle
+
+**What:** Remove the Region-split vs Composite view toggle from the leaderboard
+and all supporting code. Keep US and EU sectors separate at all times — no
+merged "Global" composite rows.
+
+**What to remove:** The `<select id="sector-view-toggle">` control, the
+`data-view="split"` / `data-view="composite"` row attributes, the
+`mergeComposite` logic in `rescore.js`, the `composite_rows` generation in
+`dashboard/build.py`, the `view_split` / `view_composite` i18n keys, and the
+`localStorage` persistence of the view choice.
+
+**Why:** The composite view (simple-mean US+EU) is statistically questionable
+(different benchmarks, different cohorts) and adds UI complexity. Keeping regions
+separate is the defensible default for a rotation scanner.
+
+---
+
+## Renderable scan history (view past scans in the dashboard)
+
+**What:** In the History tab's scan index table, make the "Showing" indicator
+selectable — clicking any past scan renders the full leaderboard / dashboard
+view for that scan's data, not just a downloadable raw text report.
+
+**Why:** The per-scan Markdown reports (`docs/reports/report_<scan_id>.md`) are
+hard to read as raw text. Being able to flip through past scans in the actual
+dashboard UI — with the same leaderboard, scores, badges, and breakdowns — makes
+it practical to compare how sectors looked at different points in time.
+
+**To resolve:** Decide whether this is server-side (pre-render N historical
+dashboard snapshots at build time) or client-side (fetch historical scores via
+JSON and re-render the leaderboard dynamically). Client-side is more flexible but
+requires shipping the score data as JSON; server-side is simpler but multiplies
+the build output.
+
+---
+
 ## Phase 3 features
 
 Carried over from earlier planning — not started:

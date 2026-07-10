@@ -62,7 +62,24 @@
     sent_col_volatility: "Volatilitet",
     sent_col_attention: "Uppmärksamhet",
     badge_entry: "▲ Insteg",
-    badge_exit: "▼ Ursteg"
+    badge_exit: "▼ Ursteg",
+    guide_open_btn: "Guide",
+    guide_modal_eyebrow_1: "Kom igång",
+    guide_modal_title_1: "Sektormomentum",
+    guide_modal_eyebrow_2: "Sektorsidan",
+    guide_modal_title_2: "Topplistan",
+    guide_modal_eyebrow_3: "Mest handlingsbar signal",
+    guide_modal_title_3: "Trend-märken",
+    guide_modal_eyebrow_4: "RRG-fliken",
+    guide_modal_title_4: "Relativ rotation",
+    guide_modal_eyebrow_5: "Detaljvy, Rörelser, Historik & Backtest",
+    guide_modal_title_5: "Gå djupare",
+    guide_modal_eyebrow_6: "Sentimentsidan",
+    guide_modal_title_6: "Sökuppmärksamhet",
+    guide_modal_eyebrow_7: "Redo att utforska",
+    guide_modal_title_7: "Snabbstart",
+    guide_modal_hint: "eller svep för att navigera",
+    guide_modal_hint_close: "för att stänga"
   };
 
   // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
@@ -174,7 +191,28 @@
     <h2>Historik</h2>
     <p>Ett linjediagram över kompositpoängen för alla lagrade skanningar. Ihållande uppåtgående trender i en sektors kompositpoäng indikerar uthålligt momentum, medan vändningar kan signalera rotation in i eller ut ur sektorn.</p>
     <h2>Ansvarsfriskrivning</h2>
-    <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning eller en rekommendation att köpa, sälja eller behålla något värdepapper. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys och rådgör med en kvalificerad finansiell rådgivare innan du fattar investeringsbeslut.</p>`
+    <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning eller en rekommendation att köpa, sälja eller behålla något värdepapper. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys och rådgör med en kvalificerad finansiell rådgivare innan du fattar investeringsbeslut.</p>`,
+    guide_modal_body_1: `Denna dashboard spårar relativt momentum över de 11 GICS-sektorerna för både <strong>US</strong> (SPDR ETF:er) och <strong>EU</strong> (STOXX 600). Automatiska dagliga skanningar rankar sektorer efter momentumstyrka, upptäcker trendskiften och lyfter fram insteg- och utstegsupplägg.`,
+    guide_modal_body_1b: `Tre sidor &mdash; <strong>Sektorer</strong>, <strong>Teman</strong> och <strong>Sentiment</strong> &mdash; tillgängliga från toppnavigationen. Låt oss gå igenom vad varje sida visar.`,
+    guide_modal_body_2: `Din startsida. Varje sektor rankas efter <strong>kompositpoäng</strong> &mdash; ett tvärsnitts-z-värde som väger samman:`,
+    guide_modal_list_2: `<li><strong>Nivå</strong> &mdash; aktuell momentumstyrka (avkastning, MA-struktur, OBV-trend)</li><li><strong>Förändring</strong> &mdash; om momentum accelererar eller bromsar in</li><li><strong>Data</strong> &mdash; signalkomplettering; sektorer med luckor bestraffas</li>`,
+    guide_modal_body_2b: `Noll betyder genomsnitt bland sektorerna; +1,0 är en standardavvikelse över. Klicka på valfri rad för hela signaluppdelningen.`,
+    guide_modal_body_3: `Beräknas från ranglutningen över de senaste 3&ndash;5 skanningarna. Ett sjunkande rangnummer innebär att sektorn klättrar på topplistan.`,
+    guide_modal_list_3: `<li><span class="signal-hi">↑↑ Stiger snabbt</span> &mdash; rangen förbättras 1,5+ platser/skanning</li><li><span class="signal-hi">↑ Stiger</span> &mdash; framväxande momentum (0,3&ndash;1,5 platser)</li><li><strong>→ Platt</strong> &mdash; ingen riktningssignal</li><li><span class="signal-lo">↓ Faller</span> &mdash; momentum mattas av, även vid hög rang</li><li><span class="signal-lo">↓↓ Faller snabbt</span> &mdash; undvik eller överväg att gå ur</li>`,
+    guide_modal_tip_3: `<strong>Insteg:</strong> Komposit &gt; 0 med ↑ eller ↑↑ och positiv förändringspoäng. <strong>Ursteg:</strong> ↓ eller ↓↓ även vid hög rang &mdash; sektorn toppar.`,
+    guide_modal_body_4: `Sektorer plottas på två axlar: <strong>relativ styrka</strong> mot index (x) och om den styrkan <strong>accelererar</strong> (y). Sektorer roterar moturs genom fyra kvadranter:`,
+    guide_modal_list_4: `<li><span class="signal-hi">Ledande</span> (uppe till höger) &mdash; överpresterar och accelererar</li><li><span class="signal-lo">Försvagas</span> (nere till höger) &mdash; överpresterar men bromsar in</li><li><strong>Eftersläpande</strong> (nere till vänster) &mdash; underpresterar och bromsar in</li><li><span class="signal-hi">Förbättras</span> (uppe till vänster) &mdash; instegszonen</li>`,
+    guide_modal_tip_4: `<strong>Nyckel:</strong> Köp i Förbättras innan flytten till Ledande. Sälj i Försvagas innan fallet till Eftersläpande. Den prickade svansen visar de senaste 3 skanningarna &mdash; riktning betyder mer än position.`,
+    guide_modal_body_5a: `<strong>Detaljvy</strong> &mdash; välj en sektor för att se dess poängkomponenter över alla lagrade skanningar. Stigande komposit + stigande förändring = ihållande acceleration (starkaste insteg). Hög komposit + fallande förändring = sektorn toppar.`,
+    guide_modal_body_5b: `<strong>Rörelser</strong> &mdash; rangförändring mellan de två senaste skanningarna. Stora enstegshopp kräver detaljvybekräftelse innan du agerar.`,
+    guide_modal_body_5c: `<strong>Historik</strong> &mdash; alla sektorers komposittrender över tid. Långa, jämna uppåttrender är instegen värda att hålla; V-formade reversaler är de att handla snabbt eller hoppa över.`,
+    guide_modal_body_5d: `<strong>Backtest</strong> &mdash; månatlig topp-5-rotationsstrategi mot index, med CAGR, Sharpe, max nedgång och träffsäkerhet. Validerar om momentumsignalerna historiskt hade genererat edge.`,
+    guide_modal_body_6: `Google Trends-baserat sökintresse, hämtat per region (US direkt, EU genomsnitt av DE/FR/GB). Sex härledda signaler per sektor:`,
+    guide_modal_list_6: `<li><strong>Momentum</strong> &mdash; trendlutning för sökintresse</li><li><strong>Acceleration</strong> &mdash; ökar trenden i hastighet?</li><li><strong>Intervallposition</strong> &mdash; aktuellt vs. 13-veckors min/max</li><li><strong>Spik</strong> &amp; <strong>Volatilitet</strong> &mdash; utbrottsdetektering och hackighet</li><li><strong>Uppmärksamhet</strong> &mdash; head-to-head-jämförelse över alla sektorer i samma region</li>`,
+    guide_modal_tip_6: `<strong>Enbart information som standard.</strong> Aktivera sentimentväxlaren på topplistan för att blanda in det i kompositrankningen med den vikt du väljer.`,
+    guide_modal_body_7: `Viktiga åtgärder att prova:`,
+    guide_modal_list_7: `<li>Kolla <strong>Trend-märken</strong> först &mdash; de är den mest handlingsbara signalen</li><li><strong>Klicka på valfri rad</strong> för att expandera hela signaluppdelningen</li><li>Använd <strong>RRG</strong> för rotationstiming och <strong>Historik</strong> för övertygelse</li><li>Besök <strong>Teman</strong> för tematiska ETF:er rankade med samma momentumpelare</li><li>Öppna <strong>&ldquo;Hur du läser den här fliken&rdquo;</strong> på valfri flik för detaljerad signaltolkning</li><li>Byt språk med <strong>SV / EN</strong>-växlaren i rubriken</li>`,
+    guide_modal_body_7b: `Dashboarden uppdateras dagligen via automatiska skanningar. Använd Historik-fliken och skanningsarkivet för att följa hur signaler utvecklas över tid.`
   };
 
   var els = document.querySelectorAll("[data-i18n]");
@@ -189,7 +227,8 @@
       var key = el.getAttribute("data-i18n");
       el.textContent = (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en");
     });
-    htmlEls.forEach(function (el) {
+    document.querySelectorAll("[data-i18n-html]").forEach(function (el) {
+      if (!enHtml.has(el)) enHtml.set(el, el.innerHTML);
       var key = el.getAttribute("data-i18n-html");
       el.innerHTML = (lang === "sv" && SV_HTML[key] != null) ? SV_HTML[key] : enHtml.get(el);
     });
@@ -199,6 +238,7 @@
     try { localStorage.setItem("lang", lang); } catch (e) {}
   }
 
+  window.applyLang = apply;
   window.toggleLang = function () {
     var cur = "en";
     try { cur = localStorage.getItem("lang") || "en"; } catch (e) {}
