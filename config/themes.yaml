@@ -21,7 +21,7 @@ themes:
 
 ucits:
   Artificial Intelligence & Robotics:
-    - ticker: D6RP.DE
+    - ticker: BOTZ
       name: Global X Robotics & Artificial Intelligence UCITS ETF
       isin: IE00BLCHJB90
       ter: "0.50%"
@@ -30,7 +30,7 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00BLCHJB90
 
   Semiconductors:
-    - ticker: VVSM.DE
+    - ticker: VVSM
       name: VanEck Semiconductor UCITS ETF
       isin: IE00BMC38736
       ter: "0.35%"
@@ -39,16 +39,16 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00BMC38736
 
   Cybersecurity:
-    - ticker: CIBR.L
-      name: First Trust Nasdaq Cybersecurity UCITS ETF
-      isin: IE00BF16M727
-      ter: "0.60%"
-      issuer: First Trust
-      match: exact
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BF16M727
+    - ticker: ISPY
+      name: L&G Cyber Security UCITS ETF
+      isin: IE00BYPLS672
+      ter: "0.69%"
+      issuer: L&G
+      match: close
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BYPLS672
 
   Clean Energy:
-    - ticker: IQQH.DE
+    - ticker: IQQH
       name: iShares Global Clean Energy UCITS ETF
       isin: IE00B1XNHC34
       ter: "0.65%"
@@ -57,25 +57,25 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00B1XNHC34
 
   Defense:
-    - ticker: DFEN.L
-      name: iShares Global Aerospace & Defence UCITS ETF
-      isin: IE000U9ODG19
-      ter: "0.35%"
-      issuer: iShares
+    - ticker: DFEN
+      name: VanEck Defense UCITS ETF
+      isin: IE000YYE6WK5
+      ter: "0.55%"
+      issuer: VanEck
       match: close
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE000U9ODG19
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE000YYE6WK5
 
   Blockchain & Crypto:
-    - ticker: BLKC.L
-      name: iShares Blockchain Technology UCITS ETF
-      isin: IE000RDRMSD1
-      ter: "0.50%"
-      issuer: iShares
+    - ticker: BCHN
+      name: Invesco CoinShares Global Blockchain UCITS ETF
+      isin: IE00BGBN6P67
+      ter: "0.65%"
+      issuer: Invesco
       match: close
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE000RDRMSD1
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BGBN6P67
 
   Uranium & Nuclear:
-    - ticker: URNU.DE
+    - ticker: URNU
       name: Global X Uranium UCITS ETF
       isin: IE000NDWFGA5
       ter: "0.65%"
@@ -84,7 +84,7 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE000NDWFGA5
 
   Space:
-    - ticker: JEDI.DE
+    - ticker: JEDI
       name: VanEck Space Innovators UCITS ETF
       isin: IE000YU9K6K2
       ter: "0.55%"
@@ -93,7 +93,7 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE000YU9K6K2
 
   Lithium & Battery:
-    - ticker: LI7U.DE
+    - ticker: LI7U
       name: Global X Lithium & Battery Tech UCITS ETF
       isin: IE00BLCHJN13
       ter: "0.60%"
@@ -102,7 +102,7 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00BLCHJN13
 
   Biotech:
-    - ticker: BTEC.L
+    - ticker: 2B70
       name: iShares Nasdaq US Biotechnology UCITS ETF
       isin: IE00BYXG2H39
       ter: "0.35%"
