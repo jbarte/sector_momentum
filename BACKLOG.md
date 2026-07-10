@@ -178,22 +178,6 @@ sector-view-toggle design discussion (2026-06-25).
 
 ---
 
-## Themes — full tab parity with sectors
-
-**What:** Give the Themes page the same tab structure as the Sectors page:
-**Leaderboard** (done), **RRG**, **Drill-down**, **Movers**, **History**, and
-optionally **Backtest** and **Guide**. Currently Themes only has the leaderboard
-with rank-delta and trajectory badges.
-
-**Why:** The sector page's tabs (especially RRG for rotation timing and
-Drill-down/History for conviction) are where the real analytical value lives. The
-Themes leaderboard alone shows current state but not trajectory context.
-
-**Notes:** Phase 3 of the thematic ETF build (RRG scatter, composite-history
-chart, Trends sentiment for themes) was already noted in the Phase 1/2 Done
-entries. This formalizes it as a standalone item and expands scope to full tab
-parity including Movers and Drill-down.
-
 ---
 
 
@@ -244,6 +228,12 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Themes — full tab parity with sectors~~ — the Themes page now has the same
+  tab structure as Sectors: Leaderboard, RRG, Drill-down, Movers, History, and
+  Guide. Added `get_theme_rrg_history()` in `state.py`; all other build functions
+  (`_build_rrg_figure`, `_build_drilldown_data`, `_build_movers_figure`,
+  `_build_history_figure`) reused as-is with `theme_history_df`. Backtest tab
+  deferred (requires a separate theme backtest runner). *(2026-07-10)*
 - ~~Remove region-split / composite view toggle~~ — removed the Region-split vs
   Composite `<select>` toggle, `data-view` row attributes, `mergeComposite` in
   `rescore.js`, `_build_composite_rows`/`_build_composite_history` in

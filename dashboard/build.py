@@ -1303,6 +1303,7 @@ def main() -> None:
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
         get_theme_signals_for_latest_scan, get_theme_scan_history,
+        get_theme_rrg_history,
     )
 
     conn = init_db()
@@ -1312,6 +1313,7 @@ def main() -> None:
     theme_signals_df = get_theme_signals_for_latest_scan(conn)
     theme_history_df = get_theme_scan_history(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
+    theme_rrg_df = get_theme_rrg_history(conn, n_scans=6)
 
     logger.info("Building scan index + per-scan reports …")
     all_scores_df = get_scan_history(conn, n_scans=None)
@@ -1343,6 +1345,13 @@ def main() -> None:
     theme_rows = _build_theme_leaderboard_rows(
         theme_history_df, theme_signals_df, _themes_cfg, _weights, theme_trajectories,
     )
+
+    # Theme figures — reuse the same builders used for sectors
+    logger.info("Building theme figures …")
+    theme_rrg_json = _build_rrg_figure(theme_rrg_df)
+    theme_drilldown_data, theme_keys, _ = _build_drilldown_data(theme_history_df)
+    theme_movers_json = _build_movers_figure(theme_history_df)
+    theme_history_json = _build_history_figure(theme_history_df)
 
     # 3. Build figures
     logger.info("Building RRG figure …")
@@ -1460,6 +1469,11 @@ def main() -> None:
             active_scan_id=active_scan_id,
             theme_rows=theme_rows,
             plotly_bundle=plotly_bundle_rel,
+            theme_rrg_json=theme_rrg_json,
+            theme_drilldown_data=json.dumps(theme_drilldown_data),
+            theme_keys=theme_keys,
+            theme_movers_json=theme_movers_json,
+            theme_history_json=theme_history_json,
         ),
     )
 
