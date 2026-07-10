@@ -21,13 +21,13 @@ themes:
 
 ucits:
   Artificial Intelligence & Robotics:
-    - ticker: BOTZ
-      name: Global X Robotics & Artificial Intelligence UCITS ETF
-      isin: IE00BLCHJB90
-      ter: "0.50%"
-      issuer: Global X
-      match: exact
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BLCHJB90
+    - ticker: XAIX
+      name: Xtrackers Artificial Intelligence & Big Data UCITS ETF
+      isin: IE00BGV5VN51
+      ter: "0.35%"
+      issuer: DWS
+      match: close
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BGV5VN51
 
   Semiconductors:
     - ticker: VVSM
@@ -39,13 +39,13 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00BMC38736
 
   Cybersecurity:
-    - ticker: ISPY
-      name: L&G Cyber Security UCITS ETF
-      isin: IE00BYPLS672
-      ter: "0.69%"
-      issuer: L&G
+    - ticker: W1TB
+      name: WisdomTree Cybersecurity UCITS ETF
+      isin: IE00BLPK3577
+      ter: "0.45%"
+      issuer: WisdomTree
       match: close
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BYPLS672
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BLPK3577
 
   Clean Energy:
     - ticker: IQQH
@@ -66,13 +66,13 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE000YYE6WK5
 
   Blockchain & Crypto:
-    - ticker: BCHN
-      name: Invesco CoinShares Global Blockchain UCITS ETF
-      isin: IE00BGBN6P67
+    - ticker: DAVV
+      name: VanEck Crypto and Blockchain Innovators UCITS ETF
+      isin: IE00BMDKNW35
       ter: "0.65%"
-      issuer: Invesco
+      issuer: VanEck
       match: close
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BGBN6P67
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BMDKNW35
 
   Uranium & Nuclear:
     - ticker: URNU
