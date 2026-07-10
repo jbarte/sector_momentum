@@ -154,7 +154,6 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[],
-            composite_rows=[],
             rrg_data_json=_make_mock_plotly_json(),
             drilldown_data=json.dumps({}),
             sector_keys=[],
@@ -217,7 +216,6 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[],
-            composite_rows=[],
             rrg_data_json=_make_mock_plotly_json(),
             drilldown_data=json.dumps({}),
             sector_keys=[],
@@ -260,7 +258,7 @@ def test_history_tab_has_scan_index(tmp_path):
     out = tmp_path / "index.html"
     _render(_TEMPLATE, out, dict(
         scan_date="2026-06-02 06:00 UTC", active_scan_id=2, scan_index=scan_index,
-        leaderboard_rows=[], composite_rows=[], rrg_data_json="{}", drilldown_data="{}",
+        leaderboard_rows=[], rrg_data_json="{}", drilldown_data="{}",
         sector_keys=[], movers_json="{}", history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
@@ -271,41 +269,33 @@ def test_history_tab_has_scan_index(tmp_path):
     assert "● Showing" in html                         # active marker on MAX scan_id
 
 
-def test_built_html_has_both_row_sets_and_toggle(tmp_path):
-    """The rendered leaderboard contains split rows, composite rows, and the
-    view-toggle control."""
+def test_built_html_has_no_composite_toggle(tmp_path):
+    """The rendered leaderboard has no composite view toggle."""
     import json as _json
-    from dashboard.build import _render, _build_leaderboard_rows, _build_composite_rows
+    from dashboard.build import _render, _build_leaderboard_rows
 
-    # Minimal 1-scan, 1-sector × 2-region history
     import pandas as pd
     rows_df = pd.DataFrame([
         dict(scan_id=1, run_at="2026-06-01 00:00", region="US", gics_sector="Technology",
              composite=0.8, data_score=0.8, level_score=0.7, change_score=0.9,
              sentiment_score=0.0, rank=1.0),
-        dict(scan_id=1, run_at="2026-06-01 00:00", region="EU", gics_sector="Technology",
-             composite=0.2, data_score=0.2, level_score=0.1, change_score=0.3,
-             sentiment_score=0.0, rank=2.0),
     ])
     lb_rows, scan_date = _build_leaderboard_rows(rows_df)
     for r in lb_rows:
         r["key"] = f"{r['region']}|{r['sector']}"
         r["sector_id"] = r["key"].replace("|", "-").replace(" ", "_")
         r["trajectory_label"] = "→"; r["trajectory_state"] = "flat"
-        r["breakdown_html"] = f"<div>PANEL {r['key']}</div>"
-    split_breakdowns = {r["key"]: r["breakdown_html"] for r in lb_rows}
-    comp_rows = _build_composite_rows(rows_df, split_breakdowns)
+        r["breakdown_html"] = "<div>PANEL</div>"
 
     out = tmp_path / "index.html"
     _render(_TEMPLATE, out, dict(
-        scan_date=scan_date, leaderboard_rows=lb_rows, composite_rows=comp_rows,
+        scan_date=scan_date, leaderboard_rows=lb_rows,
         rrg_data_json="{}", drilldown_data="{}", sector_keys=[], movers_json="{}",
         history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
     ))
     html = out.read_text()
-    assert 'data-view="split"' in html
-    assert 'data-view="composite"' in html
-    assert 'id="sector-view-toggle"' in html
-    assert 'data-sector-key="ALL|Technology"' in html
+    assert 'data-view=' not in html
+    assert 'sector-view-toggle' not in html
+    assert 'data-sector-key="US|Technology"' in html

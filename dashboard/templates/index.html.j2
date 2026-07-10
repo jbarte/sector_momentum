@@ -61,13 +61,6 @@
     </div>
   </details>
   <div id="sentiment-control" class="sentiment-control">
-    <span class="sw-view">
-      <span data-i18n="sectorView">Sector view:</span>
-      <select id="sector-view-toggle">
-        <option value="split" data-i18n="view_split">Region-split</option>
-        <option value="composite" data-i18n="view_composite">Composite (US+EU)</option>
-      </select>
-    </span>
     <label>
       <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>
     </label>
@@ -93,7 +86,7 @@
       </thead>
       <tbody>
         {% for row in leaderboard_rows %}
-        <tr class="leaderboard-row" data-view="split" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
           <td class="rank-cell">
             <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
@@ -112,35 +105,11 @@
             <span class="traj-badge traj-{{ row.trajectory_state }}">{{ row.trajectory_label }}</span>
           </td>
         </tr>
-        <tr class="breakdown-row" data-view="split" id="bd-{{ row.sector_id }}">
+        <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
           <td colspan="10">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% else %}
         <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)">No data available yet.</td></tr>
-        {% endfor %}
-        {% for row in composite_rows %}
-        <tr class="leaderboard-row" data-view="composite" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
-          <td class="rank-cell">
-            <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
-            <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
-          </td>
-          <td>{{ row.sector }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
-          <td><span class="tag-region">Global</span></td>
-          <td class="composite-cell">{{ row.composite }}</td>
-          <td>{{ row.level_score }}</td>
-          <td>{{ row.change_score }}</td>
-          <td>{{ row.data_score }}</td>
-          <td class="sentiment-cell">{{ row.sentiment_score }}</td>
-          <td class="delta-cell">
-            {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
-          </td>
-          <td>
-            <span class="traj-badge traj-{{ row.trajectory_state }}">{{ row.trajectory_label }}</span>
-          </td>
-        </tr>
-        <tr class="breakdown-row" data-view="composite" id="bd-{{ row.sector_id }}">
-          <td colspan="10">{{ row.breakdown_html | safe }}</td>
-        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -484,9 +453,7 @@ function sortTable(col) {
   var table   = document.getElementById('leaderboard-table');
   var tbody   = table.querySelector('tbody');
   var headers = table.querySelectorAll('thead th');
-  // Only sort leaderboard rows — skip breakdown rows; scope to active view
-  var view = (table.getAttribute('data-view') || 'split');
-  var rows = Array.from(tbody.querySelectorAll('tr.leaderboard-row[data-view="' + view + '"]'));
+  var rows = Array.from(tbody.querySelectorAll('tr.leaderboard-row'));
 
   if (_sortCol === col) {
     _sortDir *= -1;
@@ -528,26 +495,17 @@ function sortTable(col) {
 
 }
 
-// ----- Sentiment + sector-view toggle wiring -----
+// ----- Sentiment toggle wiring -----
 (function () {
-  var LS_ENABLED = "sentimentEnabled", LS_WEIGHT = "sentimentWeight", LS_VIEW = "sectorView";
+  var LS_ENABLED = "sentimentEnabled", LS_WEIGHT = "sentimentWeight";
   var toggle = document.getElementById("sentiment-toggle");
   var weightInput = document.getElementById("sentiment-weight");
-  var viewSel = document.getElementById("sector-view-toggle");
   var table = document.getElementById("leaderboard-table");
   var weightWrap = weightInput ? weightInput.closest(".sw-weight") : null;
-  if (!toggle || !weightInput || !viewSel || !table || typeof Rescore === "undefined") { return; }
+  if (!toggle || !weightInput || !table || typeof Rescore === "undefined") { return; }
 
-  function readView() {
-    try { return localStorage.getItem(LS_VIEW) === "composite" ? "composite" : "split"; }
-    catch (e) { return "split"; }
-  }
   function fmt(n, d) { return (n === null || n === undefined) ? "—" : Number(n).toFixed(d); }
 
-  // Update every score-tree on the page whose key is in `scored`. A split
-  // breakdown row and a composite sub-panel can carry the SAME data-sector-key
-  // (the composite panel embeds the regional breakdowns verbatim), so update
-  // ALL matches, not just the first.
   function updateTrees(scored, W) {
     var dataPct = Math.round((1 - W) * 100), sentPct = Math.round(W * 100);
     Object.keys(scored).forEach(function (key) {
@@ -629,28 +587,21 @@ function sortTable(col) {
     var enabled = toggle.checked;
     var weight = Math.min(100, Math.max(0, parseInt(weightInput.value, 10) || 0));
     var W = enabled ? weight / 100 : 0;
-    var view = viewSel.value === "composite" ? "composite" : "split";
     try {
       localStorage.setItem(LS_ENABLED, enabled ? "true" : "false");
       localStorage.setItem(LS_WEIGHT, String(weight));
-      localStorage.setItem(LS_VIEW, view);
     } catch (e) {}
     weightInput.disabled = !enabled;
     if (weightWrap) { weightWrap.setAttribute("data-disabled", String(!enabled)); }
 
-    // Compute both maps so breakdown sub-panels stay live in either view.
-    var scoredSplit = Rescore.rescore(RESCORE_DATA, W);
-    var scoredComposite = Rescore.rescore(Rescore.mergeComposite(RESCORE_DATA), W);
-    updateTrees(scoredSplit, W);
-    updateTrees(scoredComposite, W);
+    var scored = Rescore.rescore(RESCORE_DATA, W);
+    updateTrees(scored, W);
 
-    table.setAttribute("data-view", view);
-    var activeScored = view === "composite" ? scoredComposite : scoredSplit;
     var tbody = table.querySelector("tbody");
     var rows = Array.prototype.slice.call(
-      tbody.querySelectorAll('tr.leaderboard-row[data-view="' + view + '"]'));
-    updateRows(rows, activeScored);
-    sortVisibleByRank(rows, activeScored, tbody);
+      tbody.querySelectorAll('tr.leaderboard-row'));
+    updateRows(rows, scored);
+    sortVisibleByRank(rows, scored, tbody);
   }
 
   // Init from persisted state.
@@ -662,11 +613,8 @@ function sortTable(col) {
   } catch (e) {}
   toggle.checked = enabled0;
   weightInput.value = weight0;
-  viewSel.value = readView();
-  table.setAttribute("data-view", viewSel.value);
   toggle.addEventListener("change", applyRanking);
   weightInput.addEventListener("input", applyRanking);
-  viewSel.addEventListener("change", applyRanking);
   applyRanking();
 })();
 

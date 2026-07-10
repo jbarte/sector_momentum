@@ -196,21 +196,6 @@ parity including Movers and Drill-down.
 
 ---
 
-## Remove region-split / composite view toggle
-
-**What:** Remove the Region-split vs Composite view toggle from the leaderboard
-and all supporting code. Keep US and EU sectors separate at all times — no
-merged "Global" composite rows.
-
-**What to remove:** The `<select id="sector-view-toggle">` control, the
-`data-view="split"` / `data-view="composite"` row attributes, the
-`mergeComposite` logic in `rescore.js`, the `composite_rows` generation in
-`dashboard/build.py`, the `view_split` / `view_composite` i18n keys, and the
-`localStorage` persistence of the view choice.
-
-**Why:** The composite view (simple-mean US+EU) is statistically questionable
-(different benchmarks, different cohorts) and adds UI complexity. Keeping regions
-separate is the defensible default for a rotation scanner.
 
 ---
 
@@ -259,6 +244,11 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Remove region-split / composite view toggle~~ — removed the Region-split vs
+  Composite `<select>` toggle, `data-view` row attributes, `mergeComposite` in
+  `rescore.js`, `_build_composite_rows`/`_build_composite_history` in
+  `build.py`, composite CSS rules, 3 i18n keys, and `test_dashboard_composite.py`.
+  US and EU sectors stay separate — no merged "Global" rows. *(2026-07-10)*
 - ~~Themes — EU-available ETF alternatives~~ — added a `ucits:` section to
   `config/themes.yaml` with one UCITS-listed equivalent per theme (10 total:
   Global X, VanEck, iShares, First Trust). Each entry has ticker, name, ISIN,
