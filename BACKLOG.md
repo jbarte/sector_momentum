@@ -40,12 +40,10 @@ prioritized P1 (fix first) → P4; each records the finding and the intended act
   `try/finally` around the DB connection, and a failure after `save_scan` makes
   CI retries duplicate the scan. **Action:** same-UTC-date dedup (replace or
   skip), wrap connection in `try/finally`, make post-save steps non-fatal.
-- **Dependency fragility** — `requirements.txt` is floor-only (`>=`), no
-  lockfile: the cron installs newest versions daily. `pytrends` is unmaintained
-  (unofficial endpoint) — most fragile dep. **Action:** add compiled lockfile
-  (pip-compile/uv) that CI installs from; pin pytrends exactly; log loudly (not
-  just fail-open) on pytrends hard failure; evaluate maintained replacement
-  (e.g. trendspy). Split `pytest` into a dev requirements file.
+- ~~**Dependency fragility**~~ — *(done — see Done)* lockfile + pytrends pin
+  + dev split shipped. pytrends already logs warnings on failure and degrades
+  gracefully; maintained replacement (trendspy) deferred to if/when pytrends
+  breaks.
 
 ### P3 — Dashboard bugs & cheap wins
 
@@ -354,6 +352,7 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Dependency lockfile & pytrends pin~~ — split `requirements.txt` (runtime, `>=` floors) from `requirements-dev.txt` (adds pytest); `uv pip compile` generates exact-pinned `.lock` files that CI installs from (`requirements.lock` for build-docs/scan, `requirements-dev.lock` for tests); `pytrends` pinned to `==4.9.2` in the input file. Daily cron no longer installs newest versions on every run. *(2026-07-11)*
 - ~~Review P1: z-score NaN handling~~ — `zscore_cross_section` now standardizes on
   non-NaN values and fills missing z-scores with 0.0 (neutral in z-space) instead
   of filling raw values with 0.0 first, which made any sector with a failed
