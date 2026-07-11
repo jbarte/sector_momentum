@@ -370,6 +370,7 @@ Carried over from earlier planning — not started:
   lost-commit race); daily scan gated on a green `pytest`; `test.yml` also
   triggers on `fix/**`/`chore/**`; `claude-code-action` pinned to SHA. *(2026-07-11)*
 - ~~Scan robustness: coverage guard, idempotent saves, connection cleanup~~ — scan.py aborts (exit 1) if <80% of configured sectors produce signal rows; `save_scan` replaces same-UTC-day scans so CI retries don't duplicate; DB connection wrapped in try/finally; report + dashboard steps non-fatal. *(2026-07-11)*
+- ~~Dashboard quick wins: movers clip, rank guard, rescore init, dead code, report skip, plotly-basic~~ — removed fixed 520px height from movers containers (both templates); added `row.rank is number` guard in index.html.j2; `applyRanking()` only runs on init when sentiment toggle is enabled; deleted dead per-signal drilldown figure loop (751-796); `_generate_scan_reports` skips reports whose file already exists; switched to plotly-basic bundle (~3.6MB → ~1MB). *(2026-07-11)*
 - ~~Themes — full tab parity with sectors~~ — the Themes page now has the same
   tab structure as Sectors: Leaderboard, RRG, Drill-down, Movers, History, and
   Guide. Added `get_theme_rrg_history()` in `state.py`; all other build functions
