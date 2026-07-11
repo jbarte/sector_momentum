@@ -132,9 +132,34 @@ def save_scan(
     """
     config_hash = _compute_config_hash(weights_path)
     run_at_str = run_at.isoformat()
+    run_date_prefix = run_at.strftime("%Y-%m-%d")
 
     with conn:
         with conn.cursor() as cur:
+            cur.execute(
+                "SELECT scan_id FROM scans WHERE run_at LIKE %s",
+                (run_date_prefix + "%",),
+            )
+            dup_ids = [r[0] for r in cur.fetchall()]
+            if dup_ids:
+                logger.info(
+                    "Replacing %d existing scan(s) for %s (idempotent re-run)",
+                    len(dup_ids), run_date_prefix,
+                )
+                placeholders = ",".join(["%s"] * len(dup_ids))
+                for child in (
+                    "theme_signals", "theme_scores", "sentiment_signals",
+                    "scores", "signals",
+                ):
+                    cur.execute(
+                        f"DELETE FROM {child} WHERE scan_id IN ({placeholders})",
+                        dup_ids,
+                    )
+                cur.execute(
+                    f"DELETE FROM scans WHERE scan_id IN ({placeholders})",
+                    dup_ids,
+                )
+
             cur.execute(
                 "INSERT INTO scans (run_at, config_hash) VALUES (%s, %s) RETURNING scan_id",
                 (run_at_str, config_hash),

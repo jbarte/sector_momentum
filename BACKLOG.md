@@ -369,6 +369,7 @@ Carried over from earlier planning — not started:
   `commit-to-main` concurrency group and rebase before pushing (fixes the
   lost-commit race); daily scan gated on a green `pytest`; `test.yml` also
   triggers on `fix/**`/`chore/**`; `claude-code-action` pinned to SHA. *(2026-07-11)*
+- ~~Scan robustness: coverage guard, idempotent saves, connection cleanup~~ — scan.py aborts (exit 1) if <80% of configured sectors produce signal rows; `save_scan` replaces same-UTC-day scans so CI retries don't duplicate; DB connection wrapped in try/finally; report + dashboard steps non-fatal. *(2026-07-11)*
 - ~~Themes — full tab parity with sectors~~ — the Themes page now has the same
   tab structure as Sectors: Leaderboard, RRG, Drill-down, Movers, History, and
   Guide. Added `get_theme_rrg_history()` in `state.py`; all other build functions

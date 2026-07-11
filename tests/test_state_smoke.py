@@ -240,3 +240,42 @@ def test_get_scan_history_none_returns_all_scans(db_conn):
         save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df)
     all_rows = get_scan_history(db_conn, n_scans=None)
     assert all_rows["scan_id"].nunique() == 3
+
+
+@skipif_no_db
+def test_save_scan_idempotent_same_day(db_conn):
+    """A second save_scan on the same UTC day replaces the first scan."""
+    signals_df, scores_df = _make_scan_data()
+    run_at = datetime.datetime(2099, 1, 15, 10, 0, 0)
+
+    id1 = save_scan(db_conn, run_at, signals_df, scores_df)
+
+    scores_df2 = scores_df.copy()
+    scores_df2["composite"] = [0.99, 0.88, 0.77]
+    run_at2 = datetime.datetime(2099, 1, 15, 14, 30, 0)
+    id2 = save_scan(db_conn, run_at2, signals_df, scores_df2)
+
+    assert id2 != id1
+
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT scan_id FROM scans WHERE run_at LIKE '2099-01-15%%'")
+        rows = cur.fetchall()
+    assert len(rows) == 1
+    assert rows[0][0] == id2
+
+    last = load_last_scan(db_conn)
+    assert last is not None
+    assert abs(last["composite"].max() - 0.99) < 1e-9
+
+
+@skipif_no_db
+def test_save_scan_different_days_not_replaced(db_conn):
+    """Scans on different UTC days are NOT replaced — both survive."""
+    signals_df, scores_df = _make_scan_data()
+    id1 = save_scan(db_conn, datetime.datetime(2099, 2, 1, 10, 0), signals_df, scores_df)
+    id2 = save_scan(db_conn, datetime.datetime(2099, 2, 2, 10, 0), signals_df, scores_df)
+
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM scans WHERE run_at LIKE '2099-02-%%'")
+        count = cur.fetchone()[0]
+    assert count == 2
