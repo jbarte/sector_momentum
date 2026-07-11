@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 try:
     from dotenv import load_dotenv
@@ -78,7 +78,7 @@ def run(args: argparse.Namespace) -> int:
         logger.info("Rotation event-study: %d/%d rotations produced", len(rotations_data), len(rots))
 
     path = write_results(tracks, out_dir=args.out,
-                         generated_at=datetime.utcnow().isoformat() + "Z",
+                         generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                          top_n=args.top_n, rotations=rotations_data)
 
     for region, tr in tracks.items():

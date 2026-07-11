@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import math
 import os
 import subprocess
 import sys
@@ -25,10 +24,8 @@ try:
     load_dotenv()
 except ImportError:
     pass
-from datetime import date, timedelta
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 
-import numpy as np
 import pandas as pd
 import yaml
 
@@ -313,7 +310,7 @@ def run(args: argparse.Namespace) -> int:
                 ", ".join(f"{r}→{'/'.join(g)}" for r, g in _region_geos.items()), _anchor)
     from src.data import trends_cache
     _use_cache = not args.no_cache
-    _cache_date = datetime.utcnow().strftime("%Y-%m-%d")
+    _cache_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     _cache = trends_cache.load_cache(_cache_date) if _use_cache else None
     _trends_by_key = fetch_symbol_trends(
         _symbol_map, anchor=_anchor, entities=_entities, region_geos=_region_geos,
@@ -414,7 +411,7 @@ def run(args: argparse.Namespace) -> int:
             logger.info("DRY RUN — skipping DB write and report generation.")
         else:
             logger.info("Saving scan to DB …")
-            run_at = datetime.utcnow()
+            run_at = datetime.now(timezone.utc)
             scan_id = save_scan(
                 conn=conn,
                 run_at=run_at,
