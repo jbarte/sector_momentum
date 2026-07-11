@@ -13,6 +13,13 @@ def _tables():
                                  "sentiment_score": 0.0, "composite": 0.4, "rank": 1.0}]),
         "signals": pd.DataFrame([{"scan_id": 1, "region": "US", "gics_sector": "Energy",
                                   "signal_name": "return_1m", "raw_value": 0.5, "z_value": 0.6}]),
+        "sentiment_signals": pd.DataFrame([{"scan_id": 1, "region": "US", "gics_sector": "Energy",
+                                            "signal_name": "trend_momentum", "value": 0.5}]),
+        "theme_scores": pd.DataFrame([{"scan_id": 1, "theme": "AI", "level_score": 0.6,
+                                       "change_score": 0.3, "data_score": 0.45,
+                                       "sentiment_score": 0.0, "composite": 0.45, "rank": 1.0}]),
+        "theme_signals": pd.DataFrame([{"scan_id": 1, "theme": "AI", "signal_name": "rs_ratio",
+                                        "raw_value": 102.0, "z_value": 0.7}]),
     }
 
 
@@ -25,7 +32,8 @@ def test_backup_to_storage_uploads_valid_zip(monkeypatch):
     assert name.startswith("backup_") and name.endswith(".zip") and ":" not in name
     with zipfile.ZipFile(io.BytesIO(captured["data"])) as zf:
         names = set(zf.namelist())
-    assert {"scans.csv", "scores.csv", "signals.csv", "manifest.json"} <= names
+    assert {"scans.csv", "scores.csv", "signals.csv", "sentiment_signals.csv",
+            "theme_scores.csv", "theme_signals.csv", "manifest.json"} <= names
 
 
 def test_restore_from_storage_latest_then_load(monkeypatch):
@@ -45,7 +53,7 @@ def test_restore_from_storage_latest_then_load(monkeypatch):
                         lambda conn, tables, force=False: loaded.update(tables=tables, force=force) or {"scans": 1})
     out = bk.restore_from_storage(conn=object(), force=True)
     assert out == {"scans": 1}
-    assert set(loaded["tables"]) == {"scans", "scores", "signals"}
+    assert {"scans", "scores", "signals"} <= set(loaded["tables"])
     assert loaded["force"] is True
 
 

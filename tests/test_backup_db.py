@@ -53,7 +53,9 @@ def test_load_refuses_nonempty_db_without_force():
 def test_load_into_empty_db_inserts_and_resets_sequence():
     conn = _FakeConn(count_result=0)
     counts = load_tables(conn, _tables(), force=False)
-    assert counts == {"scans": 1, "signals": 1, "scores": 1}
+    assert counts["scans"] == 1
+    assert counts["signals"] == 1
+    assert counts["scores"] == 1
     cur = conn._cur
     # NaN sentiment_score was converted to None (NULL)
     scores_rows = [rows for (sql, rows) in cur.executemany_calls if "scores" in sql][0]
@@ -62,22 +64,27 @@ def test_load_into_empty_db_inserts_and_resets_sequence():
     assert any("setval" in sql for sql, _ in cur.executed)
 
 
-def test_load_force_deletes_first():
+def test_load_force_deletes_children_before_scans():
     conn = _FakeConn(count_result=9)
     load_tables(conn, _tables(), force=True)
     deletes = [sql for sql, _ in conn._cur.executed if sql.strip().startswith("DELETE")]
-    assert any("signals" in d for d in deletes)
-    assert any("scores" in d for d in deletes)
-    assert any("scans" in d for d in deletes)
+    table_order = []
+    for d in deletes:
+        for t in ("scans", "signals", "scores", "sentiment_signals", "theme_scores", "theme_signals"):
+            if t in d and t not in table_order:
+                table_order.append(t)
+    assert table_order.index("scans") == len(table_order) - 1, (
+        f"scans must be deleted last (FK safety), but order was: {table_order}"
+    )
 
 
-def test_dump_tables_queries_all_three(monkeypatch):
+def test_dump_tables_queries_all_tables(monkeypatch):
     seen = []
     def fake_read_sql(sql, conn):
         seen.append(sql)
         return pd.DataFrame()
     monkeypatch.setattr("src.backup.pd.read_sql_query", fake_read_sql)
     dump_tables(object())
-    assert any("FROM scans" in s for s in seen)
-    assert any("FROM scores" in s for s in seen)
-    assert any("FROM signals" in s for s in seen)
+    from src.backup import _COLUMNS
+    for table in _COLUMNS:
+        assert any(f"FROM {table}" in s for s in seen), f"dump_tables did not query {table}"
