@@ -36,22 +36,28 @@ _CHANGE_SIGNALS = ["rs_momentum", "acceleration", "ma50_slope", "obv_slope"]
 def zscore_cross_section(df: pd.DataFrame) -> pd.DataFrame:
     """
     Z-score each numeric column across rows (cross-sectionally).
-    Columns with zero std are filled with 0.0 (not NaN).
-    NaN inputs are filled with 0.0 before scoring (missing signal = neutral).
+
+    Statistics are computed on non-NaN values only; the resulting z-scores
+    for NaN inputs are then filled with 0.0 (neutral in z-space).  This
+    avoids the distortion that would occur if raw NaN were replaced with 0.0
+    before standardising — signals centred far from zero (e.g. rs_ratio ~100)
+    would become fake outliers.
+
+    Columns with zero std or all-NaN are filled with 0.0.
     Returns a new DataFrame with the same shape and index.
     """
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     result = df.copy()
 
     for col in numeric_cols:
-        series = result[col].fillna(0.0)
-        std = series.std(ddof=1)
+        raw = result[col]
+        mean = raw.mean()
+        std = raw.std(ddof=1)
         if std == 0.0 or np.isnan(std):
             result[col] = 0.0
         else:
-            result[col] = (series - series.mean()) / std
+            result[col] = ((raw - mean) / std).fillna(0.0)
 
-    # Non-numeric columns are kept as-is
     return result
 
 

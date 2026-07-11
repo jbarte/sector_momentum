@@ -71,6 +71,31 @@ def test_zscore_constant_column():
     assert (z["constant"] == 0.0).all(), "Constant column should be all 0.0 after z-score"
 
 
+def test_zscore_nan_gets_neutral_z_without_distorting_peers():
+    """Regression: NaN in a ~100-centred column must not distort other rows.
+
+    The old code filled NaN with raw 0.0 *before* computing mean/std, which
+    dragged the mean toward 0 and gave every peer an inflated z-score.  The
+    fix computes stats on non-NaN only, then fills missing z with 0.0.
+    """
+    df = pd.DataFrame({
+        "high_centre": [100.0, 101.0, 99.0, 102.0, np.nan],
+    }, index=[f"S{i}" for i in range(5)])
+    z = zscore_cross_section(df)
+
+    # NaN sector gets z=0.0 (neutral)
+    assert z.loc["S4", "high_centre"] == 0.0
+
+    # Non-NaN peers must match z-scores computed without the NaN row
+    clean = df["high_centre"].dropna()
+    expected_z = (clean - clean.mean()) / clean.std(ddof=1)
+    for idx in expected_z.index:
+        assert abs(z.loc[idx, "high_centre"] - expected_z[idx]) < 1e-12, (
+            f"Peer {idx} z-score diverged: got {z.loc[idx, 'high_centre']}, "
+            f"expected {expected_z[idx]}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # rank_sectors tests
 # ---------------------------------------------------------------------------
