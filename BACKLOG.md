@@ -359,6 +359,12 @@ Carried over from earlier planning — not started:
   of filling raw values with 0.0 first, which made any sector with a failed
   ~100-centred signal (rs_ratio/rs_momentum) a fake outlier that distorted the
   whole cross-section. Regression test added. *(2026-07-11)*
+- ~~Review P1: backup/restore table coverage~~ — backups now include
+  `sentiment_signals`, `theme_scores`, `theme_signals` (previously silently
+  dropped, and `restore.py --force` failed on an FK violation deleting `scans`
+  with live child rows). Deletes/loads now run in FK-safe order; old backups
+  lacking the new tables restore gracefully (empty DFs). Schema-coverage test
+  asserts `_COLUMNS` covers every table in the DDL. *(2026-07-11)*
 - ~~Themes — full tab parity with sectors~~ — the Themes page now has the same
   tab structure as Sectors: Leaderboard, RRG, Drill-down, Movers, History, and
   Guide. Added `get_theme_rrg_history()` in `state.py`; all other build functions

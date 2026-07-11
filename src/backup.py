@@ -26,7 +26,15 @@ _COLUMNS = {
     "scores": ("scan_id", "region", "gics_sector", "level_score", "change_score",
                "data_score", "sentiment_score", "composite", "rank"),
     "signals": ("scan_id", "region", "gics_sector", "signal_name", "raw_value", "z_value"),
+    "sentiment_signals": ("scan_id", "region", "gics_sector", "signal_name", "value"),
+    "theme_scores": ("scan_id", "theme", "level_score", "change_score", "data_score",
+                     "sentiment_score", "composite", "rank"),
+    "theme_signals": ("scan_id", "theme", "signal_name", "raw_value", "z_value"),
 }
+
+# FK-safe orderings: parents before children (insert), children before parents (delete).
+_INSERT_ORDER = ("scans", "signals", "scores", "sentiment_signals", "theme_scores", "theme_signals")
+_DELETE_ORDER = tuple(reversed(_INSERT_ORDER))
 
 
 def write_backup(tables: dict[str, pd.DataFrame], backup_dir: str | Path = "backups") -> Path:
@@ -46,14 +54,20 @@ def write_backup(tables: dict[str, pd.DataFrame], backup_dir: str | Path = "back
     return d
 
 
+_REQUIRED_TABLES = {"scans", "scores", "signals"}
+
+
 def read_backup(backup_dir: str | Path = "backups") -> dict[str, pd.DataFrame]:
-    """Read the 3 CSVs back. Raises FileNotFoundError / ValueError on a bad backup."""
+    """Read CSVs back. Missing optional tables (pre-theme backups) get empty DFs."""
     d = Path(backup_dir)
     tables: dict[str, pd.DataFrame] = {}
     for name, cols in _COLUMNS.items():
         f = d / f"{name}.csv"
         if not f.exists():
-            raise FileNotFoundError(f"backup file missing: {f}")
+            if name in _REQUIRED_TABLES:
+                raise FileNotFoundError(f"backup file missing: {f}")
+            tables[name] = pd.DataFrame(columns=list(cols))
+            continue
         df = pd.read_csv(f)
         missing = set(cols) - set(df.columns)
         if missing:
@@ -63,11 +77,14 @@ def read_backup(backup_dir: str | Path = "backups") -> dict[str, pd.DataFrame]:
 
 
 def dump_tables(conn) -> dict[str, pd.DataFrame]:
-    """Read every row from the three tables into DataFrames (deterministic order)."""
+    """Read every row from all tables into DataFrames (deterministic order)."""
     order = {
         "scans": "ORDER BY scan_id",
         "scores": "ORDER BY scan_id, region, gics_sector",
         "signals": "ORDER BY scan_id, region, gics_sector, signal_name",
+        "sentiment_signals": "ORDER BY scan_id, region, gics_sector, signal_name",
+        "theme_scores": "ORDER BY scan_id, theme",
+        "theme_signals": "ORDER BY scan_id, theme, signal_name",
     }
     out = {}
     for name, cols in _COLUMNS.items():
@@ -89,7 +106,7 @@ def load_tables(conn, tables: dict[str, pd.DataFrame], *, force: bool = False) -
     with conn:
         with conn.cursor() as cur:
             non_empty = False
-            for name in ("scans", "scores", "signals"):
+            for name in _COLUMNS:
                 cur.execute(f"SELECT COUNT(*) FROM {name}")
                 if cur.fetchone()[0]:
                     non_empty = True
@@ -99,13 +116,12 @@ def load_tables(conn, tables: dict[str, pd.DataFrame], *, force: bool = False) -
                     "to delete existing rows before restoring"
                 )
             if force:
-                cur.execute("DELETE FROM signals")
-                cur.execute("DELETE FROM scores")
-                cur.execute("DELETE FROM scans")
-            # FK-safe insert order: scans before its children.
-            for name in ("scans", "signals", "scores"):
+                for name in _DELETE_ORDER:
+                    cur.execute(f"DELETE FROM {name}")
+            for name in _INSERT_ORDER:
                 cols = _COLUMNS[name]
-                rows = _rows_with_nulls(tables[name], cols)
+                df = tables.get(name, pd.DataFrame(columns=list(cols)))
+                rows = _rows_with_nulls(df, cols)
                 if rows:
                     placeholders = ", ".join(["%s"] * len(cols))
                     cur.executemany(
@@ -130,7 +146,7 @@ def restore_database(conn, backup_dir: str | Path = "backups", *, force: bool = 
     return load_tables(conn, read_backup(backup_dir), force=force)
 
 
-_ARCHIVE_MEMBERS = ("scans.csv", "scores.csv", "signals.csv", "manifest.json")
+_ARCHIVE_MEMBERS = tuple(f"{t}.csv" for t in _COLUMNS) + ("manifest.json",)
 
 
 def backup_to_storage(conn, bucket: str = storage_backup.DEFAULT_BUCKET) -> str:
