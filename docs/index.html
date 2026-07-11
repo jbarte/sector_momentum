@@ -1533,7 +1533,7 @@ select.sector-select:focus {
       </ul>
     </div>
   </details>
-  <div class="chart-container" id="movers-chart" style="height:520px"></div>
+  <div class="chart-container" id="movers-chart"></div>
 </section>
 
 <!-- ============================================================
@@ -2117,7 +2117,7 @@ function sortTable(col) {
   weightInput.value = weight0;
   toggle.addEventListener("change", applyRanking);
   weightInput.addEventListener("input", applyRanking);
-  applyRanking();
+  if (enabled0) { applyRanking(); }
 })();
 
 // ----- Language toggle (EN default ⇄ SV), chrome only -----
