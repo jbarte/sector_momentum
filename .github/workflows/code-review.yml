@@ -49,7 +49,7 @@ jobs:
 
       - name: Claude code review
         if: ${{ env.ANTHROPIC_API_KEY != '' }}
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@71d3414a2ac47c29d9b7d0da6ca01963a9a6e5fc  # v1
         with:
           anthropic_api_key: ${{ env.ANTHROPIC_API_KEY }}
           prompt: "/code-review --comment"
