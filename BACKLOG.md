@@ -4,6 +4,132 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 ---
 
+## Code review findings — full application review (2026-07-11)
+
+Source: four-area review (pipeline/signals, data layer, dashboard/frontend,
+tests/CI/backtest). No exploitable security holes found. Items below are
+prioritized P1 (fix first) → P4; each records the finding and the intended action.
+
+### P1 — Correctness (affects published rankings / disaster recovery)
+
+- **Z-score NaN handling corrupts rankings** — `src/scoring.py:47`.
+  `zscore_cross_section` fills NaN with raw `0.0` *before* standardizing; for
+  signals centered away from 0 (`rs_ratio`/`rs_momentum` ~100, breadth ~0.5) one
+  failed signal becomes a huge fake outlier and distorts the whole cross-section.
+  **Action:** compute mean/std on non-NaN values, z-score those, then fill NaN
+  with 0.0 in z-space. Add a test with one NaN in an ~100-centered column.
+- **Backup/restore omits `sentiment_signals`, `theme_scores`, `theme_signals`** —
+  `src/backup.py:24`. Disaster restore loses all sentiment/theme history, and
+  `restore.py --force` fails with an FK violation (`DELETE FROM scans` while
+  children still reference it). **Action:** add the three tables to
+  `_COLUMNS`/archive members, delete children before `scans` in FK order, add a
+  test that `_COLUMNS` covers every table in the DDL.
+
+### P2 — Daily pipeline robustness (CI & scan)
+
+- **Push race between `scan.yml` and `build-docs.yml`** — both commit to `main`
+  with no `concurrency:` group and no pull-before-push; a concurrent run loses a
+  commit. **Action:** shared concurrency group + `git pull --rebase` before push.
+- **Tests don't gate the daily scan** — cron runs `scan.py` even on a red `main`.
+  **Action:** add a `pytest` step (suite is mock-based/fast) before the scan step.
+- **Partial scan persists as complete** — `src/pipeline.py:92`. If the US
+  benchmark (RSP) fails both sources, an EU-only scan is saved and deltas go
+  bogus for two scans. **Action:** abort (or flag) when rows < ~80% of universe.
+- **Scans not idempotent + connection leak** — `src/state.py:120`, `scan.py:373`.
+  A re-triggered run inserts a duplicate same-day scan (deltas ≈ 0); no
+  `try/finally` around the DB connection, and a failure after `save_scan` makes
+  CI retries duplicate the scan. **Action:** same-UTC-date dedup (replace or
+  skip), wrap connection in `try/finally`, make post-save steps non-fatal.
+- **Dependency fragility** — `requirements.txt` is floor-only (`>=`), no
+  lockfile: the cron installs newest versions daily. `pytrends` is unmaintained
+  (unofficial endpoint) — most fragile dep. **Action:** add compiled lockfile
+  (pip-compile/uv) that CI installs from; pin pytrends exactly; log loudly (not
+  just fail-open) on pytrends hard failure; evaluate maintained replacement
+  (e.g. trendspy). Split `pytest` into a dev requirements file.
+
+### P3 — Dashboard bugs & cheap wins
+
+- **Movers chart clipped** — `dashboard/build.py:888` sets figure height
+  (~696px for 22 rows) inside a 520px `overflow:hidden` container; bottom bars
+  cut off. **Action:** drop one of the two heights.
+- **Client rescore overwrites server values on load** — `index.html.j2` calls
+  `applyRanking()` unconditionally at init; `RESCORE_DATA` coerces NaN→0.0 so
+  displayed trajectories can diverge from server-rendered ones with the toggle
+  off. **Action:** only rescore when the sentiment toggle is actually enabled.
+- **Latent build crash on NaN rank** — `index.html.j2` uses `{% if row.rank <= 3 %}`;
+  rank can be the string `"—"` → TypeError fails the whole build. **Action:** copy
+  the `row.rank is number` guard from `themes.html.j2`.
+- **Dead work: drilldown figure loop** — `dashboard/build.py:751-796` builds and
+  serializes 5 full Plotly figures per page that are never returned (runs twice
+  per build). **Action:** delete the loop + stale docstring.
+- **O(scans²) report regeneration** — `_generate_scan_reports` rewrites every
+  historical `docs/reports/report_<id>.md` on every build (source of the
+  recurring all-reports-modified git churn). **Action:** skip reports whose file
+  exists; force-regen only the latest one or two.
+- **Plotly bundle 3.6 MB → ~1 MB** — only scatter+bar are used;
+  `plotly.js-basic-dist-min` covers them. **Action:** one-line `PLOTLY_CDN` swap
+  in `build.py:36` + re-vendor.
+- **`rs_momentum` is one-day noise** — `src/signals/relative_strength.py:56`
+  defaults `fast=1` yet carries 25% of the change score; standard RRG uses
+  ~10-day ROC. **Action:** default `fast` to ~5–10 (config value). Note: changes
+  signal semantics — expect rank shifts; document in the scan report.
+- **Backtest realism** — `src/backtest/strategy.py`, `engine.py`, `metrics.py`:
+  no transaction costs (turnover computed but never debited), entry at the
+  signal close, benchmark NaN months → 0%, Sharpe with rf=0, `close_at`
+  back-fills stale prices without bound. **Action:** add `--cost-bps` debit on
+  turnover (report gross + net) first; then drop NaN benchmark periods, bound
+  staleness (~5 trading days → NaN), label metric "Sharpe (rf=0)".
+
+### P4 — Maintainability, docs, hardening
+
+- **Split `dashboard/build.py` (1,487 lines)** into `figures.py` / `breakdown.py`
+  / `rows.py` / `render.py` (boundaries already marked by section comments).
+  Dedupe: sector vs theme row builders (~80% identical, 3 copies of the
+  merge/format logic), copy-pasted tab/render JS between `index.html.j2` and
+  `themes.html.j2` (extract `_tabs.js.j2`), triplicated `<header>` block
+  (extract `_header.html.j2`), unused `_CHART_STYLE` → apply via a
+  `_base_layout()` helper (~80 duplicated lines).
+- **`config/weights.yaml` is partly dead config** — per-signal weight maps are
+  never read (lists hardcoded in `scoring.py`); declared 70/30 data/sentiment
+  split never applied (`blend_sentiment=False`). **Action:** either wire config
+  into scoring or trim config to reflect reality with a comment.
+- **Docs**: `README.md` is one line — add purpose + disclaimer, live dashboard
+  link, `.env` keys, dev commands, pointers to ARCHITECTURE/BACKLOG.
+  `ARCHITECTURE.md` is stale (says SQLite storage, 2-day cron, Reddit/PRAW
+  sentiment; reality: Supabase/Postgres, daily, Trends+StockTwits). **Action:**
+  one-pass sync or a dated "v1 plan" banner.
+- **i18n gaps** — `guide_tab_themes` has no SV key (themes Guide tab never
+  translates); untranslated drilldown labels / history download link / empty-row
+  text / sentiment footnote; SV `note_backtest` hardcodes "topp-5"; themes RRG
+  SV bodies say "Sektorer". Also 3 undefined CSS vars silently no-op:
+  `--font-sans`, `--brand`, `--text-muted` → `--font-body`, `--brand-strong`, `--fg4`.
+- **Accessibility** — tabs have `role="tab"` but no `aria-selected` /
+  `aria-controls` / arrow-key nav; row expansion + column sort are mouse-only
+  (add tabindex + Enter/Space via one delegated listener); `.sig-tip` tooltips
+  hover-only; guide modal lacks focus trap / `aria-modal`.
+- **XSS hardening (no active hole)** — figure JSON enters `<script>` blocks
+  without `</` escaping; `onclick="toggleBreakdown('{{ id }}')"` breaks on an
+  apostrophe in a config name; ETF `url` scheme unvalidated. **Action:** one
+  `js_json()` helper escaping `</`, switch onclick to delegated
+  `data-sector-id` listener, require `http(s)://` on config URLs.
+- **Test coverage gaps** — zero tests for `src/data/prices.py` (cache/fallback
+  logic) and `src/data/macro.py`; `test_dashboard_js.py` regex-parses build.py
+  source (vacuously passes if the marker moves); `test_pipeline.py` is
+  key-presence only. **Action:** unit-test prices cache + stooq→yfinance
+  fallback with mocked HTTP; render-based dashboard test; pipeline value
+  assertions + missing-benchmark case.
+- **Minor sweep** — `datetime.utcnow()` deprecated (scan.py, backtest.py,
+  state.py — use `datetime.now(timezone.utc)`); dead/duplicate imports in
+  scan.py; `_last_trading_day` ignores holidays (full refetch after holidays);
+  price cache ignores requested `start` (latent truncation for longer
+  lookbacks); StockTwits one-ticker failure discards all fetched sectors +
+  local-vs-UTC cache date; `state.py` query duplication (latest-scan /
+  history / insert helpers would halve the file); backup "latest" selection
+  should filter `backup_*.zip`; mid-file imports in `trends_symbols.py`;
+  test.yml missing `fix/**` branch trigger; pin third-party GitHub Actions.
+
+---
+
 ## Thematic / genre ETF momentum (beyond sectors)
 
 **What:** Extend the momentum engine to a second universe of **thematic / genre
