@@ -24,5 +24,9 @@ change_signals:
   ma50_slope: 1.0      # slope of 50-DMA
   obv_slope: 1.0       # slope of OBV trend
 
+# Signal computation parameters
+signal_params:
+  rs_momentum_fast: 5     # RRG RS-Momentum lookback (was 1; standard RRG ~10)
+
 # Persistence: consecutive improved scans required for emerging flag
 emerging_min_consecutive: 2

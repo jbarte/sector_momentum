@@ -53,7 +53,7 @@ def compute_rrg(
     sector_close: pd.Series,
     benchmark_close: pd.Series,
     slow: int = 10,
-    fast: int = 1,
+    fast: int = 5,
 ) -> pd.DataFrame:
     """
     Compute RRG coordinates.
@@ -81,13 +81,13 @@ def compute_rrg(
     )
 
 
-def latest_rrg(sector_close: pd.Series, benchmark_close: pd.Series) -> dict:
+def latest_rrg(sector_close: pd.Series, benchmark_close: pd.Series, fast: int = 5) -> dict:
     """
     Returns {'rs_ratio': float, 'rs_momentum': float} for the most recent date.
     Returns NaN values if computation fails.
     """
     try:
-        rrg = compute_rrg(sector_close, benchmark_close)
+        rrg = compute_rrg(sector_close, benchmark_close, fast=fast)
         last_row = rrg.dropna(how="all").iloc[-1]
         return {
             "rs_ratio": float(last_row["rs_ratio"]),

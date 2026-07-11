@@ -34,3 +34,10 @@ def test_cagr_one_year_monthly():
     rets = pd.Series([0.0] * 12)
     eq = m.equity_curve(rets)
     assert m.cagr(eq) == pytest.approx(0.0)
+
+
+def test_sharpe_is_excess_return_over_vol():
+    """Sharpe formula: mean / std * sqrt(12), with rf=0 implicit."""
+    rets = pd.Series([0.02, 0.03, 0.01, 0.04, 0.02])
+    expected = float(rets.mean() / rets.std(ddof=1) * np.sqrt(12))
+    assert m.sharpe(rets) == pytest.approx(expected)

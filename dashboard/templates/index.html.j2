@@ -242,7 +242,7 @@
   {% if has_backtest %}
   <div class="table-wrap">
     <table>
-      <thead><tr><th data-i18n="bt_track">Track</th><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_hitrate">Hit rate</th><th data-i18n="bt_turnover">Turnover</th></tr></thead>
+      <thead><tr><th data-i18n="bt_track">Track</th><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe (rf=0)</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_hitrate">Hit rate</th><th data-i18n="bt_turnover">Turnover</th></tr></thead>
       <tbody>
         {% for r in backtest_metrics %}
         <tr><td>{{ r.region }}</td><td>{{ r.start }} → {{ r.end }}</td><td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td><td>{{ r.max_drawdown }}</td><td>{{ r.hit_rate }}</td><td>{{ r.avg_turnover }}</td></tr>

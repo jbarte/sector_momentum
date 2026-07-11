@@ -1,13 +1,18 @@
-"""Top-N equal-weight monthly rebalance simulation (long-only, no costs)."""
+"""Top-N equal-weight monthly rebalance simulation (long-only, optional costs)."""
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
+MAX_STALE_DAYS = 5
+
 
 def close_at(df: pd.DataFrame, date: pd.Timestamp) -> float:
     sliced = df["Close"][df.index <= date]
     if sliced.empty:
+        return float("nan")
+    last_date = sliced.index[-1]
+    if (date - last_date).days > MAX_STALE_DAYS:
         return float("nan")
     return float(sliced.iloc[-1])
 
@@ -37,6 +42,7 @@ def simulate(
     fwd_returns: pd.DataFrame,
     instrument_of: dict[str, str],
     top_n: int = 5,
+    cost_bps: float = 0.0,
 ) -> dict:
     dates = sorted(score_by_date.keys())
     out_dates: list[pd.Timestamp] = []
@@ -64,10 +70,12 @@ def simulate(
             continue
 
         out_dates.append(d)
-        strat_rets.append(float(np.mean(rets)))
-        holdings.append(picks)
         cur = set(picks)
-        turnover.append(len(cur ^ prev) / (2 * top_n) if prev else 1.0)
+        to = len(cur ^ prev) / (2 * top_n) if prev else 1.0
+        cost = to * cost_bps / 10_000
+        strat_rets.append(float(np.mean(rets)) - cost)
+        holdings.append(picks)
+        turnover.append(to)
         prev = cur
 
     return {
