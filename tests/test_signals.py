@@ -87,6 +87,33 @@ def test_rrg_outperforming_sector_above_100():
     )
 
 
+def test_compute_rrg_fast_parameter_changes_momentum():
+    """Different fast values produce different rs_momentum series."""
+    sector = make_prices(300, seed=20)
+    bench = make_prices(300, seed=21)
+    rrg_fast1 = compute_rrg(sector, bench, fast=1)
+    rrg_fast5 = compute_rrg(sector, bench, fast=5)
+    mom1 = rrg_fast1["rs_momentum"].dropna()
+    mom5 = rrg_fast5["rs_momentum"].dropna()
+    assert not mom1.equals(mom5), "fast=1 and fast=5 should produce different momentum"
+
+
+def test_latest_rrg_respects_fast_param():
+    """latest_rrg(fast=1) and latest_rrg(fast=5) should differ."""
+    sector = make_prices(300, seed=22)
+    bench = make_prices(300, seed=23)
+    v1 = latest_rrg(sector, bench, fast=1)["rs_momentum"]
+    v5 = latest_rrg(sector, bench, fast=5)["rs_momentum"]
+    assert v1 != pytest.approx(v5, abs=1e-9), "fast param should affect momentum"
+
+
+def test_compute_rrg_default_fast_is_5():
+    """Default fast parameter changed from 1 to 5."""
+    import inspect
+    sig = inspect.signature(compute_rrg)
+    assert sig.parameters["fast"].default == 5
+
+
 # ---------------------------------------------------------------------------
 # momentum tests
 # ---------------------------------------------------------------------------

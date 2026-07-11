@@ -45,3 +45,31 @@ def test_simulate_has_no_lookahead():
     perturbed[dates[1]] = pd.DataFrame({"composite": {"US|Tech": -99.0, "US|Energy": 99.0}})
     res_b = strategy.simulate(perturbed, fwd, instrument_of, top_n=1)
     assert res_b["holdings"][0] == res_a["holdings"][0] == ["US|Tech"]
+
+
+def test_simulate_cost_bps_reduces_returns():
+    """Transaction costs should reduce strategy returns."""
+    dates = [pd.Timestamp("2021-01-31"), pd.Timestamp("2021-02-28")]
+    instrument_of = {"US|Tech": "XLK"}
+    score_by_date = {dates[0]: _scored({"US|Tech": 1.0})}
+    fwd = pd.DataFrame({"XLK": [0.05]}, index=[dates[0]])
+    res_no_cost = strategy.simulate(score_by_date, fwd, instrument_of, top_n=1, cost_bps=0)
+    res_with_cost = strategy.simulate(score_by_date, fwd, instrument_of, top_n=1, cost_bps=50)
+    assert res_with_cost["strategy_returns"][0] < res_no_cost["strategy_returns"][0]
+
+
+def test_close_at_stale_price_returns_nan():
+    """Prices older than MAX_STALE_DAYS should return NaN."""
+    dates = [pd.Timestamp("2021-01-04")]
+    df = pd.DataFrame({"Close": [100.0]}, index=dates)
+    # 6+ days later (> MAX_STALE_DAYS=5)
+    result = strategy.close_at(df, pd.Timestamp("2021-01-11"))
+    assert np.isnan(result)
+
+
+def test_close_at_fresh_price_returns_value():
+    """Prices within MAX_STALE_DAYS should return the close."""
+    dates = [pd.Timestamp("2021-01-04")]
+    df = pd.DataFrame({"Close": [100.0]}, index=dates)
+    result = strategy.close_at(df, pd.Timestamp("2021-01-08"))
+    assert result == 100.0

@@ -67,16 +67,10 @@ prioritized P1 (fix first) → P4; each records the finding and the intended act
 - **Plotly bundle 3.6 MB → ~1 MB** — only scatter+bar are used;
   `plotly.js-basic-dist-min` covers them. **Action:** one-line `PLOTLY_CDN` swap
   in `build.py:36` + re-vendor.
-- **`rs_momentum` is one-day noise** — `src/signals/relative_strength.py:56`
-  defaults `fast=1` yet carries 25% of the change score; standard RRG uses
-  ~10-day ROC. **Action:** default `fast` to ~5–10 (config value). Note: changes
-  signal semantics — expect rank shifts; document in the scan report.
-- **Backtest realism** — `src/backtest/strategy.py`, `engine.py`, `metrics.py`:
-  no transaction costs (turnover computed but never debited), entry at the
-  signal close, benchmark NaN months → 0%, Sharpe with rf=0, `close_at`
-  back-fills stale prices without bound. **Action:** add `--cost-bps` debit on
-  turnover (report gross + net) first; then drop NaN benchmark periods, bound
-  staleness (~5 trading days → NaN), label metric "Sharpe (rf=0)".
+- ~~**`rs_momentum` is one-day noise**~~ — *(done — see Done)* default changed
+  to fast=5, configurable via `config/weights.yaml` `signal_params.rs_momentum_fast`.
+- ~~**Backtest realism**~~ — *(done — see Done)* `--cost-bps` on turnover, NaN
+  benchmark periods dropped, stale price guard (5 days), Sharpe labelled "(rf=0)".
 
 ### P4 — Maintainability, docs, hardening
 
@@ -352,6 +346,8 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~rs_momentum fast=1→5~~ — `compute_rrg` default changed from `fast=1` (one-day noise) to `fast=5`; configurable via `config/weights.yaml` `signal_params.rs_momentum_fast`; threaded through `latest_rrg` → `compute_signals_for_sector` → `build_signals_rows` / `build_theme_signals_rows` → `scan.py`. Expect rank shifts from the smoother momentum signal. *(2026-07-11)*
+- ~~Backtest realism~~ — four fixes: (1) `--cost-bps` CLI flag debits one-way transaction costs proportional to turnover on each rebalance; (2) benchmark NaN months dropped instead of silently treated as 0%; (3) `close_at` rejects prices older than 5 trading days (returns NaN); (4) Sharpe column labelled "Sharpe (rf=0)" in EN+SV. *(2026-07-11)*
 - ~~Dependency lockfile & pytrends pin~~ — split `requirements.txt` (runtime, `>=` floors) from `requirements-dev.txt` (adds pytest); `uv pip compile` generates exact-pinned `.lock` files that CI installs from (`requirements.lock` for build-docs/scan, `requirements-dev.lock` for tests); `pytrends` pinned to `==4.9.2` in the input file. Daily cron no longer installs newest versions on every run. *(2026-07-11)*
 - ~~Review P1: z-score NaN handling~~ — `zscore_cross_section` now standardizes on
   non-NaN values and fills missing z-scores with 0.0 (neutral in z-space) instead

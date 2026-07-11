@@ -22,6 +22,7 @@ def run_track(
     benchmark_ticker: str,
     instrument_of: dict[str, str],
     top_n: int = 5,
+    cost_bps: float = 0.0,
 ) -> dict | None:
     if benchmark_ticker not in prices:
         logger.warning("Track %s skipped — benchmark %s missing", region, benchmark_ticker)
@@ -44,14 +45,21 @@ def run_track(
     track_tickers = list(instrument_of.values()) + [benchmark_ticker]
     fwd = strategy.forward_returns(prices, track_tickers, dates)
 
-    sim = strategy.simulate(score_by_date, fwd, instrument_of, top_n=top_n)
+    sim = strategy.simulate(score_by_date, fwd, instrument_of, top_n=top_n, cost_bps=cost_bps)
     if not sim["dates"]:
         return None
 
-    # Benchmark forward returns aligned to the simulated rebalance dates.
     bench_rets_list = [fwd.loc[d, benchmark_ticker] for d in sim["dates"]]
     strat_rets_s = pd.Series(sim["strategy_returns"]).reset_index(drop=True)
-    bench_rets_s = pd.Series(bench_rets_list).fillna(0.0).reset_index(drop=True)
+    bench_rets_s = pd.Series(bench_rets_list).reset_index(drop=True)
+
+    # Drop periods where benchmark return is NaN (missing data) rather than
+    # silently treating them as 0% which inflates the benchmark equity curve.
+    valid = bench_rets_s.notna()
+    strat_rets_s = strat_rets_s[valid].reset_index(drop=True)
+    bench_rets_s = bench_rets_s[valid].reset_index(drop=True)
+    sim_dates = [d for d, v in zip(sim["dates"], valid) if v]
+    sim_holdings = [h for h, v in zip(sim["holdings"], valid) if v]
 
     # metrics.equity_curve prepends the initial 1.0 and returns a positional
     # series of length len(returns)+1. Align it to dates: the n selection dates
@@ -59,8 +67,11 @@ def run_track(
     strat_eq = metrics.equity_curve(strat_rets_s)
     bench_eq = metrics.equity_curve(bench_rets_s)
 
-    eq_dates = list(sim["dates"])
-    later = [d for d in calendar if d > sim["dates"][-1]]
+    if not sim_dates:
+        return None
+
+    eq_dates = list(sim_dates)
+    later = [d for d in calendar if d > sim_dates[-1]]
     if later:
         eq_dates.append(later[0])
     n_points = min(len(eq_dates), len(strat_eq), len(bench_eq))
@@ -76,6 +87,7 @@ def run_track(
         "region": region,
         "benchmark": benchmark_ticker,
         "top_n": top_n,
+        "cost_bps": cost_bps,
         "start": eq_dates[0].strftime("%Y-%m-%d"),
         "end": eq_dates[n_points - 1].strftime("%Y-%m-%d"),
         "metrics": {
@@ -92,15 +104,15 @@ def run_track(
         "equity_curve": equity_curve,
         "holdings": [
             {"date": d.strftime("%Y-%m-%d"), "sectors": secs}
-            for d, secs in zip(sim["dates"], sim["holdings"])
+            for d, secs in zip(sim_dates, sim_holdings)
         ],
     }
 
 
-def run_all(universe: dict, prices: dict[str, pd.DataFrame], top_n: int = 5) -> dict:
+def run_all(universe: dict, prices: dict[str, pd.DataFrame], top_n: int = 5, cost_bps: float = 0.0) -> dict:
     return {
         "US": run_track(universe, prices, "US", universe["us_benchmark"],
-                        _track_instruments(universe, "US"), top_n=top_n),
+                        _track_instruments(universe, "US"), top_n=top_n, cost_bps=cost_bps),
         "EU": run_track(universe, prices, "EU", universe["eu_benchmark"],
-                        _track_instruments(universe, "EU"), top_n=top_n),
+                        _track_instruments(universe, "EU"), top_n=top_n, cost_bps=cost_bps),
     }

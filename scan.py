@@ -206,6 +206,8 @@ def run(args: argparse.Namespace) -> int:
     # ------------------------------------------------------------------
     logger.info("Loading universe config …")
     universe = load_universe("config/universe.yaml")
+    weights_cfg = _load_config("config/weights.yaml")
+    signal_params = weights_cfg.get("signal_params", {})
 
     # ------------------------------------------------------------------
     # Step 3: Determine date range
@@ -257,7 +259,7 @@ def run(args: argparse.Namespace) -> int:
     # Step 5 + 6: Compute per-sector signals → wide rows
     # ------------------------------------------------------------------
     logger.info("Computing signals …")
-    rows = build_signals_rows(universe, prices)
+    rows = build_signals_rows(universe, prices, signal_params=signal_params)
 
     if not rows:
         logger.error("No signal rows produced — all sectors failed. Aborting.")
@@ -435,7 +437,7 @@ def run(args: argparse.Namespace) -> int:
                 _theme_prices = fetch_prices(
                     tickers=_theme_tickers, start=str(start_date), end=str(end_date),
                 )
-                _theme_rows = build_theme_signals_rows(_themes_cfg, _theme_prices)
+                _theme_rows = build_theme_signals_rows(_themes_cfg, _theme_prices, signal_params=signal_params)
                 if _theme_rows:
                     _theme_wide = pd.DataFrame(_theme_rows).set_index("sector_key")[SIGNAL_COLUMNS]
                     _theme_scored = score_all(_theme_wide, blend_sentiment=False)

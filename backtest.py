@@ -34,6 +34,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--top-n", type=int, default=5, help="Number of sectors to hold (default 5).")
     p.add_argument("--start", default=DEFAULT_START, help="History start date (YYYY-MM-DD).")
     p.add_argument("--out", default="backtests", help="Output directory.")
+    p.add_argument("--cost-bps", type=float, default=0.0,
+                   help="One-way transaction cost in basis points, applied on turnover (default 0).")
     p.add_argument("--no-rotations", action="store_true",
                    help="Skip the rotation event-study.")
     return p.parse_args()
@@ -66,8 +68,8 @@ def run(args: argparse.Namespace) -> int:
     prices = fetch_prices(tickers=tickers, start=args.start, end=end, cache_dir=BACKTEST_CACHE)
     logger.info("Got %d / %d tickers", len(prices), len(tickers))
 
-    logger.info("Running tracks (top_n=%d) …", args.top_n)
-    tracks = run_all(universe, prices, top_n=args.top_n)
+    logger.info("Running tracks (top_n=%d, cost_bps=%.0f) …", args.top_n, args.cost_bps)
+    tracks = run_all(universe, prices, top_n=args.top_n, cost_bps=args.cost_bps)
 
     rotations_data = []
     if not args.no_rotations:

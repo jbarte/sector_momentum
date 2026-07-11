@@ -71,6 +71,7 @@ def compute_signals_for_sector(
     benchmark_ticker: str,
     prices: dict[str, pd.DataFrame],
     sector_df: pd.DataFrame | None = None,
+    rs_momentum_fast: int = 5,
 ) -> dict | None:
     """
     Compute all signal-pillar values for one sector ETF vs its benchmark.
@@ -106,7 +107,7 @@ def compute_signals_for_sector(
 
     # --- Relative strength (RRG) ---
     try:
-        rrg = latest_rrg(sector_close, bench_close)
+        rrg = latest_rrg(sector_close, bench_close, fast=rs_momentum_fast)
         signals["rs_ratio"] = rrg["rs_ratio"]
         signals["rs_momentum"] = rrg["rs_momentum"]
     except Exception as exc:
@@ -152,6 +153,7 @@ def compute_signals_for_sector(
 def build_signals_rows(
     universe: dict,
     prices: dict[str, pd.DataFrame],
+    signal_params: dict | None = None,
 ) -> list[dict]:
     """
     Iterate over all US + EU sectors, compute signals, and collect into a list
@@ -161,6 +163,8 @@ def build_signals_rows(
     """
     us_benchmark = universe["us_benchmark"]
     eu_benchmark = universe["eu_benchmark"]
+    sp = signal_params or {}
+    rs_fast = sp.get("rs_momentum_fast", 5)
 
     rows: list[dict] = []
 
@@ -174,6 +178,7 @@ def build_signals_rows(
             sector_ticker=ticker,
             benchmark_ticker=us_benchmark,
             prices=prices,
+            rs_momentum_fast=rs_fast,
         )
         if sig is None:
             continue
@@ -189,6 +194,7 @@ def build_signals_rows(
             sig = compute_signals_for_sector(
                 sector_key=sector_key, region="EU", gics_sector=gics_sector,
                 sector_ticker=tickers[0], benchmark_ticker=eu_benchmark, prices=prices,
+                rs_momentum_fast=rs_fast,
             )
         else:
             comp = build_composite_series(tickers, prices)
@@ -198,7 +204,7 @@ def build_signals_rows(
             sig = compute_signals_for_sector(
                 sector_key=sector_key, region="EU", gics_sector=gics_sector,
                 sector_ticker="+".join(tickers), benchmark_ticker=eu_benchmark,
-                prices=prices, sector_df=comp,
+                prices=prices, sector_df=comp, rs_momentum_fast=rs_fast,
             )
         if sig is None:
             continue
@@ -212,6 +218,7 @@ def build_signals_rows(
 def build_theme_signals_rows(
     themes_cfg: dict,
     prices: dict[str, pd.DataFrame],
+    signal_params: dict | None = None,
 ) -> list[dict]:
     """Compute signal rows for each theme ETF vs one global benchmark.
 
@@ -226,6 +233,9 @@ def build_theme_signals_rows(
         logger.warning("Themes benchmark %s unavailable — falling back to SPY", benchmark)
         benchmark = "SPY"
 
+    sp = signal_params or {}
+    rs_fast = sp.get("rs_momentum_fast", 5)
+
     rows: list[dict] = []
     for name, ticker in themes_cfg.get("themes", {}).items():
         if ticker not in prices:
@@ -239,6 +249,7 @@ def build_theme_signals_rows(
             sector_ticker=ticker,
             benchmark_ticker=benchmark,
             prices=prices,
+            rs_momentum_fast=rs_fast,
         )
         if sig is None:
             continue
