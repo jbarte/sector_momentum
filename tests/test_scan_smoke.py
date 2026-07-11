@@ -310,6 +310,171 @@ def test_pre_run_backup_skipped_with_no_backup_flag(monkeypatch):
     assert calls == []
 
 
+def test_coverage_guard_aborts_on_partial_scan(monkeypatch):
+    """run() returns 1 if <80% of expected sectors produce signal rows."""
+    import scan
+    import src.data.prices as _prices_mod
+    import src.scoring as _scoring_mod
+
+    universe = {
+        "us_benchmark": "SPY",
+        "eu_benchmark": "SXXP",
+        "us_sectors": {f"Sector{i}": f"T{i}" for i in range(10)},
+        "eu_sectors": {f"Sector{i}": f"E{i}" for i in range(10)},
+        "price_lookback_days": 252,
+    }
+    # Only 3 out of 20 expected sectors → 15% coverage → should abort
+    rows = [
+        {"region": "US", "gics_sector": "Sector0", "sector_key": "US|Sector0",
+         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
+        {"region": "US", "gics_sector": "Sector1", "sector_key": "US|Sector1",
+         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
+        {"region": "EU", "gics_sector": "Sector0", "sector_key": "EU|Sector0",
+         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
+    ]
+
+    monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run"])
+    monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
+    monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: {})
+    monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: {})
+    monkeypatch.setattr(scan, "fetch_sp500_constituents", lambda: None)
+    monkeypatch.setattr(scan, "compute_constituent_breadth", lambda *a, **k: {})
+    monkeypatch.setattr("scan.build_signals_rows", lambda *a, **k: rows)
+
+    args = scan._parse_args()
+    rc = scan.run(args)
+    assert rc == 1
+
+
+def test_coverage_guard_passes_at_80_percent(monkeypatch):
+    """run() does NOT abort when coverage is exactly 80%."""
+    import scan
+    import src.data.prices as _prices_mod
+    import src.scoring as _scoring_mod
+    import src.state as _state_mod
+    import src.report as _report_mod
+    from unittest.mock import MagicMock
+
+    universe = {
+        "us_benchmark": "SPY",
+        "eu_benchmark": "SXXP",
+        "us_sectors": {f"Sector{i}": f"T{i}" for i in range(5)},
+        "eu_sectors": {f"Sector{i}": f"E{i}" for i in range(5)},
+        "price_lookback_days": 252,
+    }
+    # 8 out of 10 expected → exactly 80% → should pass
+    rows = [
+        {"region": "US", "gics_sector": f"Sector{i}", "sector_key": f"US|Sector{i}",
+         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}}
+        for i in range(4)
+    ] + [
+        {"region": "EU", "gics_sector": f"Sector{i}", "sector_key": f"EU|Sector{i}",
+         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}}
+        for i in range(4)
+    ]
+
+    monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run"])
+    monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
+    monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: {})
+    monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: {})
+    monkeypatch.setattr(scan, "fetch_sp500_constituents", lambda: None)
+    monkeypatch.setattr(scan, "compute_constituent_breadth", lambda *a, **k: {})
+    monkeypatch.setattr("scan.build_signals_rows", lambda *a, **k: rows)
+
+    wide_idx = pd.Index([r["sector_key"] for r in rows], name="sector_key")
+    scored = pd.DataFrame(
+        {col: [0.0] * len(rows) for col in ["level_score", "change_score", "data_score",
+                                              "sentiment_score", "composite", "rank"]},
+        index=wide_idx,
+    )
+    monkeypatch.setattr(_scoring_mod, "score_all", lambda *a, **k: scored)
+    monkeypatch.setattr(_scoring_mod, "zscore_cross_section",
+                        lambda df: pd.DataFrame({c: [0.0] * len(df) for c in df.columns},
+                                                index=df.index))
+
+    # Stub trends
+    import src.data.trends_symbols as _trends_sym_mod
+    monkeypatch.setattr(_trends_sym_mod, "build_symbol_map", lambda *a, **k: {})
+    monkeypatch.setattr(_trends_sym_mod, "fetch_symbol_trends", lambda *a, **k: {})
+    monkeypatch.setattr(_trends_sym_mod, "score_symbol_sentiment",
+                        lambda *a, **k: pd.Series(dtype=float))
+    monkeypatch.setattr(_trends_sym_mod, "fetch_comparative_interest", lambda *a, **k: {})
+
+    import builtins
+    original_open = builtins.open
+    def fake_open(path, *a, **k):
+        if isinstance(path, str) and ("sector_etfs" in path or "trends_blocklist" in path):
+            import io
+            return io.StringIO("{}")
+        return original_open(path, *a, **k)
+    monkeypatch.setattr(builtins, "open", fake_open)
+
+    args = scan._parse_args()
+    rc = scan.run(args)
+    assert rc == 0
+
+
+def test_conn_closed_on_exception(monkeypatch):
+    """DB connection is closed even when save_scan raises."""
+    import scan
+    from unittest.mock import MagicMock
+    import src.data.prices as _prices_mod
+    import src.scoring as _scoring_mod
+    import src.state as _state_mod
+
+    universe = _make_minimal_universe()
+    prices = _make_minimal_prices()
+    scored = _make_minimal_scored()
+
+    fake_conn = MagicMock()
+
+    monkeypatch.setattr(sys, "argv", ["scan.py"])
+    monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
+    monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: prices)
+    monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: prices)
+    monkeypatch.setattr(scan, "fetch_sp500_constituents", lambda: None)
+    monkeypatch.setattr(scan, "compute_constituent_breadth", lambda *a, **k: {})
+    monkeypatch.setattr(_scoring_mod, "score_all", lambda *a, **k: scored)
+    monkeypatch.setattr(_scoring_mod, "zscore_cross_section",
+                        lambda df: pd.DataFrame({c: [0.0] for c in df.columns},
+                                                index=pd.Index(["US|Technology"], name="sector_key")))
+    monkeypatch.setattr(_state_mod, "init_db", lambda: fake_conn)
+    monkeypatch.setattr(_state_mod, "load_last_scan", lambda *a, **k: None)
+    scored_with_deltas = pd.DataFrame({
+        "region": ["US"], "gics_sector": ["Technology"],
+        "composite": [0.35], "rank": [1.0],
+        "level_score": [0.5], "change_score": [0.2],
+        "data_score": [0.35], "sentiment_score": [0.0],
+    })
+    monkeypatch.setattr(_state_mod, "compute_deltas", lambda *a, **k: scored_with_deltas)
+
+    def boom(*a, **k):
+        raise RuntimeError("DB write exploded")
+    monkeypatch.setattr(_state_mod, "save_scan", boom)
+    monkeypatch.setattr(scan, "backup_to_storage", lambda *a, **k: "backup.zip")
+
+    import src.data.trends_symbols as _trends_sym_mod
+    monkeypatch.setattr(_trends_sym_mod, "build_symbol_map", lambda *a, **k: {"US|Technology": ["XLK"]})
+    monkeypatch.setattr(_trends_sym_mod, "fetch_symbol_trends", lambda *a, **k: {"US|Technology": pd.Series([0.0] * 13)})
+    monkeypatch.setattr(_trends_sym_mod, "score_symbol_sentiment", lambda *a, **k: pd.Series({"US|Technology": 0.0}))
+    monkeypatch.setattr(_trends_sym_mod, "fetch_comparative_interest", lambda *a, **k: {})
+
+    import builtins
+    original_open = builtins.open
+    def fake_open(path, *a, **k):
+        if isinstance(path, str) and ("sector_etfs" in path or "trends_blocklist" in path):
+            import io
+            return io.StringIO("{}")
+        return original_open(path, *a, **k)
+    monkeypatch.setattr(builtins, "open", fake_open)
+
+    args = scan._parse_args()
+    with pytest.raises(RuntimeError, match="DB write exploded"):
+        scan.run(args)
+
+    fake_conn.close.assert_called_once()
+
+
 def test_score_symbol_sentiment_returns_series():
     """score_symbol_sentiment returns a per-sector-key Series with no NaNs."""
     import pandas as pd

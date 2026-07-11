@@ -263,6 +263,15 @@ def run(args: argparse.Namespace) -> int:
         logger.error("No signal rows produced — all sectors failed. Aborting.")
         return 1
 
+    expected_sectors = len(universe.get("us_sectors", {})) + len(universe.get("eu_sectors", {}))
+    coverage = len(rows) / expected_sectors if expected_sectors else 0
+    if coverage < 0.8:
+        logger.error(
+            "Partial scan: only %d/%d sectors (%.0f%%) produced signals — aborting.",
+            len(rows), expected_sectors, coverage * 100,
+        )
+        return 1
+
     logger.info("Signals computed for %d sectors", len(rows))
 
     # ------------------------------------------------------------------
@@ -372,111 +381,119 @@ def run(args: argparse.Namespace) -> int:
     logger.info("Connecting to Supabase …")
     conn = init_db()
 
-    if not args.no_backup:
-        try:
-            name = backup_to_storage(conn)
-            logger.info("Pre-run DB backup uploaded to Storage (%s)", name)
-        except Exception as exc:  # non-fatal: a backup failure must not fail the scan
-            logger.warning("Pre-run backup failed (%s) — continuing", exc)
+    try:
+        if not args.no_backup:
+            try:
+                name = backup_to_storage(conn)
+                logger.info("Pre-run DB backup uploaded to Storage (%s)", name)
+            except Exception as exc:  # non-fatal: a backup failure must not fail the scan
+                logger.warning("Pre-run backup failed (%s) — continuing", exc)
 
-    prior_scan = load_last_scan(conn)
-    if prior_scan is not None:
-        logger.info("Prior scan found (%d sectors) — computing deltas …", len(prior_scan))
-    else:
-        logger.info("No prior scan found — this is the first run.")
-
-    # Build scored_df_for_db (with region + gics_sector columns)
-    scored_df_for_db = _build_scored_df_for_db(scored)
-
-    # Compute deltas (adds delta_composite, delta_rank, emerging_flag columns)
-    scored_with_deltas = compute_deltas(scored_df_for_db, prior_scan)
-
-    # Build long-format signals for DB, with cross-sectional z-scores
-    z_df = zscore_cross_section(wide_df)
-    long_signals_df = _build_long_signals_df(rows, z_wide_df=z_df)
-
-    # ------------------------------------------------------------------
-    # Step 12: Persist (unless --dry-run)
-    # ------------------------------------------------------------------
-    if args.dry_run:
-        logger.info("DRY RUN — skipping DB write and report generation.")
-    else:
-        logger.info("Saving scan to DB …")
-        run_at = datetime.utcnow()
-        scan_id = save_scan(
-            conn=conn,
-            run_at=run_at,
-            region_sector_signals=long_signals_df,
-            scores_df=scored_with_deltas,
-            sentiment_signals_df=sentiment_signals_df,
-        )
-        logger.info("Saved scan_id=%d", scan_id)
-
-        # Themes track (Phase 1): score a thematic-ETF universe vs a global
-        # benchmark and persist to theme tables under the same scan_id. Fully
-        # non-fatal — a themes failure must not affect the sector scan.
-        try:
-            with open("config/themes.yaml", "r") as _fh:
-                _themes_cfg = yaml.safe_load(_fh) or {}
-            _theme_tickers = sorted({
-                *_themes_cfg.get("themes", {}).values(),
-                _themes_cfg.get("benchmark", "ACWI"), "SPY",
-            })
-            _theme_prices = fetch_prices(
-                tickers=_theme_tickers, start=str(start_date), end=str(end_date),
-            )
-            _theme_rows = build_theme_signals_rows(_themes_cfg, _theme_prices)
-            if _theme_rows:
-                _theme_wide = pd.DataFrame(_theme_rows).set_index("sector_key")[SIGNAL_COLUMNS]
-                _theme_scored = score_all(_theme_wide, blend_sentiment=False)
-                _theme_scores_df = _build_scored_df_for_db(_theme_scored)
-                _theme_z = zscore_cross_section(_theme_wide)
-                _theme_signals_df = _build_long_signals_df(_theme_rows, z_wide_df=_theme_z)
-                save_theme_scan(conn, scan_id, _theme_scores_df, _theme_signals_df)
-                logger.info("Themes: scored and saved %d themes", len(_theme_rows))
-            else:
-                logger.warning("Themes: no themes with price data — skipping")
-        except FileNotFoundError:
-            logger.info("Themes: config/themes.yaml not found — skipping themes track")
-        except Exception as exc:  # non-fatal
-            logger.warning("Themes pass failed (%s) — sector scan unaffected", exc)
-
-        logger.info("Writing report …")
-        ranked_table = build_ranked_table(scored_with_deltas)
-        movers = build_movers(scored_with_deltas)
-        swedish = build_swedish_overlay(scored_with_deltas)
-        report_path = write_report(
-            scan_date=scan_date,
-            ranked_table=ranked_table,
-            movers=movers,
-            swedish=swedish,
-        )
-        logger.info("Report written to %s", report_path)
-
-    # ------------------------------------------------------------------
-    # Step 13: Dashboard (unless --dry-run or --no-dashboard)
-    # ------------------------------------------------------------------
-    if not args.dry_run and not args.no_dashboard:
-        dashboard_script = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "dashboard", "build.py"
-        )
-        if os.path.exists(dashboard_script):
-            logger.info("Running dashboard build …")
-            result = subprocess.run(
-                [sys.executable, dashboard_script],
-                capture_output=False,
-            )
-            if result.returncode != 0:
-                logger.warning("Dashboard build exited with code %d", result.returncode)
+        prior_scan = load_last_scan(conn)
+        if prior_scan is not None:
+            logger.info("Prior scan found (%d sectors) — computing deltas …", len(prior_scan))
         else:
-            logger.info("dashboard/build.py not found — skipping dashboard build (expected in Phase 2).")
+            logger.info("No prior scan found — this is the first run.")
 
-    # ------------------------------------------------------------------
-    # Step 14: Print summary
-    # ------------------------------------------------------------------
-    _print_summary(scan_date, scored_with_deltas)
+        # Build scored_df_for_db (with region + gics_sector columns)
+        scored_df_for_db = _build_scored_df_for_db(scored)
 
-    conn.close()
+        # Compute deltas (adds delta_composite, delta_rank, emerging_flag columns)
+        scored_with_deltas = compute_deltas(scored_df_for_db, prior_scan)
+
+        # Build long-format signals for DB, with cross-sectional z-scores
+        z_df = zscore_cross_section(wide_df)
+        long_signals_df = _build_long_signals_df(rows, z_wide_df=z_df)
+
+        # ------------------------------------------------------------------
+        # Step 12: Persist (unless --dry-run)
+        # ------------------------------------------------------------------
+        if args.dry_run:
+            logger.info("DRY RUN — skipping DB write and report generation.")
+        else:
+            logger.info("Saving scan to DB …")
+            run_at = datetime.utcnow()
+            scan_id = save_scan(
+                conn=conn,
+                run_at=run_at,
+                region_sector_signals=long_signals_df,
+                scores_df=scored_with_deltas,
+                sentiment_signals_df=sentiment_signals_df,
+            )
+            logger.info("Saved scan_id=%d", scan_id)
+
+            # Themes track (Phase 1): score a thematic-ETF universe vs a global
+            # benchmark and persist to theme tables under the same scan_id. Fully
+            # non-fatal — a themes failure must not affect the sector scan.
+            try:
+                with open("config/themes.yaml", "r") as _fh:
+                    _themes_cfg = yaml.safe_load(_fh) or {}
+                _theme_tickers = sorted({
+                    *_themes_cfg.get("themes", {}).values(),
+                    _themes_cfg.get("benchmark", "ACWI"), "SPY",
+                })
+                _theme_prices = fetch_prices(
+                    tickers=_theme_tickers, start=str(start_date), end=str(end_date),
+                )
+                _theme_rows = build_theme_signals_rows(_themes_cfg, _theme_prices)
+                if _theme_rows:
+                    _theme_wide = pd.DataFrame(_theme_rows).set_index("sector_key")[SIGNAL_COLUMNS]
+                    _theme_scored = score_all(_theme_wide, blend_sentiment=False)
+                    _theme_scores_df = _build_scored_df_for_db(_theme_scored)
+                    _theme_z = zscore_cross_section(_theme_wide)
+                    _theme_signals_df = _build_long_signals_df(_theme_rows, z_wide_df=_theme_z)
+                    save_theme_scan(conn, scan_id, _theme_scores_df, _theme_signals_df)
+                    logger.info("Themes: scored and saved %d themes", len(_theme_rows))
+                else:
+                    logger.warning("Themes: no themes with price data — skipping")
+            except FileNotFoundError:
+                logger.info("Themes: config/themes.yaml not found — skipping themes track")
+            except Exception as exc:  # non-fatal
+                logger.warning("Themes pass failed (%s) — sector scan unaffected", exc)
+
+            try:
+                logger.info("Writing report …")
+                ranked_table = build_ranked_table(scored_with_deltas)
+                movers = build_movers(scored_with_deltas)
+                swedish = build_swedish_overlay(scored_with_deltas)
+                report_path = write_report(
+                    scan_date=scan_date,
+                    ranked_table=ranked_table,
+                    movers=movers,
+                    swedish=swedish,
+                )
+                logger.info("Report written to %s", report_path)
+            except Exception as exc:
+                logger.warning("Report generation failed (%s) — scan data saved", exc)
+
+        # ------------------------------------------------------------------
+        # Step 13: Dashboard (unless --dry-run or --no-dashboard)
+        # ------------------------------------------------------------------
+        if not args.dry_run and not args.no_dashboard:
+            try:
+                dashboard_script = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), "dashboard", "build.py"
+                )
+                if os.path.exists(dashboard_script):
+                    logger.info("Running dashboard build …")
+                    result = subprocess.run(
+                        [sys.executable, dashboard_script],
+                        capture_output=False,
+                    )
+                    if result.returncode != 0:
+                        logger.warning("Dashboard build exited with code %d", result.returncode)
+                else:
+                    logger.info("dashboard/build.py not found — skipping dashboard build (expected in Phase 2).")
+            except Exception as exc:
+                logger.warning("Dashboard build failed (%s) — scan data saved", exc)
+
+        # ------------------------------------------------------------------
+        # Step 14: Print summary
+        # ------------------------------------------------------------------
+        _print_summary(scan_date, scored_with_deltas)
+    finally:
+        conn.close()
+
     return 0
 
 
