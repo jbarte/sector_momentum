@@ -88,7 +88,7 @@
         {% for row in leaderboard_rows %}
         <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
           <td class="rank-cell">
-            <span class="rank-badge{% if row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
+            <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
           <td>{{ row.sector }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
@@ -187,7 +187,7 @@
       </ul>
     </div>
   </details>
-  <div class="chart-container" id="movers-chart" style="height:520px"></div>
+  <div class="chart-container" id="movers-chart"></div>
 </section>
 
 <!-- ============================================================
@@ -615,7 +615,7 @@ function sortTable(col) {
   weightInput.value = weight0;
   toggle.addEventListener("change", applyRanking);
   weightInput.addEventListener("input", applyRanking);
-  applyRanking();
+  if (enabled0) { applyRanking(); }
 })();
 
 {% include "_i18n.html.j2" %}

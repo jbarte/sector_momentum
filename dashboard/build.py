@@ -33,7 +33,7 @@ logger = logging.getLogger("dashboard.build")
 # Plotly bundle management
 # ---------------------------------------------------------------------------
 
-PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.27.0.min.js"
+PLOTLY_CDN = "https://cdn.plot.ly/plotly-basic-2.27.0.min.js"
 _ASSETS_DIR = Path(__file__).parent / "assets"
 
 
@@ -732,9 +732,9 @@ def _build_rescore_data(history_df) -> dict:
 def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     """
     Build per-sector timeseries for each score column.
-    Returns (drilldown_data, signals_list).
+    Returns (sector_signal_data, sector_keys, score_signals).
 
-    drilldown_data: { sector_key: { signal_name: plotly_figure_json } }
+    sector_signal_data: { sector_key: plotly_figure_json }
     """
     import pandas as pd
 
@@ -748,54 +748,11 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     sector_keys = (history_df["region"] + "|" + history_df["gics_sector"]).unique().tolist()
     sector_keys.sort()
 
-    drilldown_data: dict[str, dict] = {}
-
     history_df = history_df.copy()
     history_df["sector_key"] = history_df["region"] + "|" + history_df["gics_sector"]
-    # Format run_at for display
     history_df["run_at_str"] = pd.to_datetime(history_df["run_at"]).dt.strftime("%Y-%m-%d")
 
-    for signal in score_signals:
-        if signal not in history_df.columns:
-            continue
-
-        fig = go.Figure()
-
-        for i, sk in enumerate(sector_keys):
-            sk_data = history_df[history_df["sector_key"] == sk].sort_values("scan_id")
-            if sk_data.empty:
-                continue
-            region, sector_name = sk.split("|", 1)
-            fig.add_trace(go.Scatter(
-                x=sk_data["run_at_str"].tolist(),
-                y=sk_data[signal].tolist(),
-                mode="lines+markers",
-                name=f"{sector_name} ({region})",
-                line=dict(color=_WARM_PALETTE[i % len(_WARM_PALETTE)]),
-                hovertemplate=f"<b>{sector_name}</b><br>Date: %{{x}}<br>{signal}: %{{y:.3f}}<extra></extra>",
-            ))
-
-        fig.update_layout(
-            title=dict(text=signal.replace("_", " ").title(),
-                       font=dict(size=13, color="#3E392B")),
-            xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
-            yaxis=dict(title=signal.replace("_", " ").title(), gridcolor="#DFD5BE"),
-            paper_bgcolor="#F5F0E6",
-            plot_bgcolor="#FAF7F0",
-            font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
-            legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
-            margin=dict(l=50, r=20, t=50, b=50),
-            hovermode="x unified",
-        )
-
-        fig_json = pio.to_json(fig)
-
-        # Store per sector_key grouped by signal
-        if signal not in drilldown_data:
-            drilldown_data[signal] = {}
-        drilldown_data[signal] = fig_json  # one figure per signal, all sectors
-
-    # Also provide per-sector per-signal breakdown
+    # Per-sector per-signal breakdown (used by the drilldown tab)
     sector_signal_data: dict[str, str] = {}
     for sk in sector_keys:
         sk_data = history_df[history_df["sector_key"] == sk].sort_values("scan_id")
@@ -1068,6 +1025,10 @@ def _generate_scan_reports(all_scores_df, out_dir, swedish_tickers_path="config/
     scan_ids = sorted(all_scores_df["scan_id"].unique())
     written = []
     for i, sid in enumerate(scan_ids):
+        report_path = out_dir / f"report_{int(sid)}.md"
+        if report_path.exists():
+            written.append(int(sid))
+            continue
         try:
             current = all_scores_df[all_scores_df["scan_id"] == sid].copy()
             prior = (all_scores_df[all_scores_df["scan_id"] == scan_ids[i - 1]].copy()
@@ -1080,7 +1041,7 @@ def _generate_scan_reports(all_scores_df, out_dir, swedish_tickers_path="config/
                 build_movers(swd),
                 build_swedish_overlay(swd, swedish_tickers_path),
             )
-            (out_dir / f"report_{int(sid)}.md").write_text(md, encoding="utf-8")
+            report_path.write_text(md, encoding="utf-8")
             written.append(int(sid))
         except Exception as exc:
             logger.warning("Report generation failed for scan %s (%s) — skipping", sid, exc)
