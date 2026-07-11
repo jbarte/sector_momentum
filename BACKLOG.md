@@ -365,6 +365,10 @@ Carried over from earlier planning — not started:
   with live child rows). Deletes/loads now run in FK-safe order; old backups
   lacking the new tables restore gracefully (empty DFs). Schema-coverage test
   asserts `_COLUMNS` covers every table in the DDL. *(2026-07-11)*
+- ~~Review P2: CI hardening~~ — `scan.yml` and `build-docs.yml` now share a
+  `commit-to-main` concurrency group and rebase before pushing (fixes the
+  lost-commit race); daily scan gated on a green `pytest`; `test.yml` also
+  triggers on `fix/**`/`chore/**`; `claude-code-action` pinned to SHA. *(2026-07-11)*
 - ~~Themes — full tab parity with sectors~~ — the Themes page now has the same
   tab structure as Sectors: Leaderboard, RRG, Drill-down, Movers, History, and
   Guide. Added `get_theme_rrg_history()` in `state.py`; all other build functions

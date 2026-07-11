@@ -16,6 +16,10 @@ on:
       - "requirements.txt"
   workflow_dispatch: {}
 
+concurrency:
+  group: commit-to-main
+  cancel-in-progress: false
+
 jobs:
   build-docs:
     runs-on: ubuntu-latest
@@ -46,4 +50,5 @@ jobs:
           git add docs/
           # [skip ci] + the docs/-excluded paths filter both prevent a rebuild loop.
           git diff --staged --quiet || git commit -m "build: rebuild dashboard [skip ci]"
+          git pull --rebase origin main
           git push
