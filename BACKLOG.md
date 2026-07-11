@@ -354,6 +354,11 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Review P1: z-score NaN handling~~ — `zscore_cross_section` now standardizes on
+  non-NaN values and fills missing z-scores with 0.0 (neutral in z-space) instead
+  of filling raw values with 0.0 first, which made any sector with a failed
+  ~100-centred signal (rs_ratio/rs_momentum) a fake outlier that distorted the
+  whole cross-section. Regression test added. *(2026-07-11)*
 - ~~Themes — full tab parity with sectors~~ — the Themes page now has the same
   tab structure as Sectors: Leaderboard, RRG, Drill-down, Movers, History, and
   Guide. Added `get_theme_rrg_history()` in `state.py`; all other build functions
