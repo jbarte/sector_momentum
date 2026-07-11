@@ -392,6 +392,18 @@ def test_coverage_guard_passes_at_80_percent(monkeypatch):
                         lambda df: pd.DataFrame({c: [0.0] * len(df) for c in df.columns},
                                                 index=df.index))
 
+    monkeypatch.setattr(_state_mod, "init_db", lambda: MagicMock())
+    monkeypatch.setattr(_state_mod, "load_last_scan", lambda *a, **k: None)
+    scored_with_deltas = pd.DataFrame({
+        "region": ["US"] * 4 + ["EU"] * 4,
+        "gics_sector": [f"Sector{i}" for i in range(4)] * 2,
+        "composite": [0.0] * 8, "rank": list(range(1, 9)),
+        "level_score": [0.0] * 8, "change_score": [0.0] * 8,
+        "data_score": [0.0] * 8, "sentiment_score": [0.0] * 8,
+    })
+    monkeypatch.setattr(_state_mod, "compute_deltas", lambda *a, **k: scored_with_deltas)
+    monkeypatch.setattr(scan, "backup_to_storage", lambda *a, **k: "backup.zip")
+
     # Stub trends
     import src.data.trends_symbols as _trends_sym_mod
     monkeypatch.setattr(_trends_sym_mod, "build_symbol_map", lambda *a, **k: {})
