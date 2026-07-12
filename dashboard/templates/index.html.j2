@@ -6,6 +6,7 @@
 <title>Sector Momentum</title>
 <script src="{{ plotly_bundle }}"></script>
 <script src="assets/rescore.js"></script>
+<script src="assets/scan-history.js"></script>
 <style>
 {% include "_style.html.j2" %}
 </style>
@@ -346,6 +347,7 @@ var MOVERS_DATA = {{ movers_json | js_json }};
 var HISTORY_DATA = {{ history_json | js_json }};
 var DRILLDOWN_DATA = {{ drilldown_data | js_json }};
 var RESCORE_DATA = {{ rescore_data_json | js_json }};
+var SCAN_HISTORY = {{ scan_history_json | js_json }};
 var BACKTEST_DATA = {{ backtest_json | js_json }};
 var ROTATION_DATA = {{ rotation_json | js_json }};
 

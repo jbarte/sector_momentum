@@ -180,6 +180,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
             history_json=_make_mock_plotly_json(),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            scan_history_json=json.dumps({"scans": [], "scores": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
             backtest_json=json.dumps({}),
@@ -242,6 +243,7 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
             history_json=_make_mock_plotly_json(),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            scan_history_json=json.dumps({"scans": [], "scores": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
             backtest_json=json.dumps({}),
@@ -280,6 +282,7 @@ def test_history_tab_has_scan_index(tmp_path):
         leaderboard_rows=[], rrg_data_json="{}", drilldown_data="{}",
         sector_keys=[], movers_json="{}", history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
     ))
     html = out.read_text()
@@ -312,6 +315,7 @@ def test_built_html_has_no_composite_toggle(tmp_path):
         rrg_data_json="{}", drilldown_data="{}", sector_keys=[], movers_json="{}",
         history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
     ))
     html = out.read_text()
@@ -363,6 +367,7 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
         history_json=_make_mock_plotly_json(),
         sentiment_scatter_json=_make_mock_plotly_json(),
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
         backtest_json=_json.dumps({}), backtest_metrics=[], has_backtest=False,
         rotation_json=_json.dumps([]), has_rotations=False,
