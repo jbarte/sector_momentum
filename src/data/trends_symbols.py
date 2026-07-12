@@ -193,6 +193,24 @@ def _volatility(series: list[float]) -> float:
     return var ** 0.5
 
 
+def _seasonal_ratio(series: list[float]) -> float:
+    """Recent 13-week mean / trailing baseline mean.
+
+    >1.0 = current interest above historical norm. Returns NaN if the
+    trailing portion (everything before the last 13 points) averages zero
+    or if the series is too short to split.
+    """
+    vals = [float(v) for v in series]
+    if len(vals) < 14:
+        return float("nan")
+    recent = vals[-13:]
+    trailing = vals[:-13]
+    trailing_mean = sum(trailing) / len(trailing)
+    if trailing_mean == 0.0:
+        return float("nan")
+    return sum(recent) / len(recent) / trailing_mean
+
+
 # Derived-signal names, in display order. Kept as a module constant so scan.py,
 # state.py, and the dashboard agree on the set without duplicating the list.
 DERIVED_SIGNAL_NAMES = (
@@ -201,6 +219,7 @@ DERIVED_SIGNAL_NAMES = (
     "range_position",
     "spike",
     "volatility",
+    "seasonal_ratio",
 )
 
 
@@ -212,12 +231,14 @@ def derived_signals(series) -> dict[str, float]:
     only ``momentum`` feeds ``score_symbol_sentiment`` for the composite toggle.
     """
     vals = list(series)
+    recent = vals[-13:] if len(vals) >= 13 else vals
     return {
-        "momentum": _slope(vals),
-        "acceleration": _acceleration(vals),
-        "range_position": _range_position(vals),
-        "spike": _spike_z(vals),
-        "volatility": _volatility(vals),
+        "momentum": _slope(recent),
+        "acceleration": _acceleration(recent),
+        "range_position": _range_position(recent),
+        "spike": _spike_z(recent),
+        "volatility": _volatility(recent),
+        "seasonal_ratio": _seasonal_ratio(vals),
     }
 
 
@@ -506,6 +527,99 @@ def fetch_comparative_interest(
     return result
 
 
+def fetch_rising_queries(
+    symbol_map: dict[str, list[str]],
+    client=None,
+    timeframe: str = "today 12-m",
+    sleep_s: float = 20.0,
+    max_retries: int = 3,
+    entities: dict[str, str] | None = None,
+    region_geos: dict[str, list[str]] | None = None,
+    cache: dict | None = None,
+) -> dict[str, list[dict]]:
+    """Fetch rising/breakout queries per sector via pytrends related_queries.
+
+    One call per sector (primary representative term) per geo. Returns
+    {region|sector: [{"query": str, "growth": str}, ...]} with up to 5
+    entries per sector. Entirely fail-open.
+    """
+    if not symbol_map:
+        return {}
+    if client is None:
+        try:
+            client = _new_client()
+        except Exception as exc:
+            logger.warning("Trends client init failed (%s) — rising queries skipped", exc)
+            return {}
+
+    entities = entities or {}
+    region_geos = region_geos if region_geos is not None else DEFAULT_REGION_GEOS
+
+    sectors_by_region: dict[str, list[str]] = {}
+    rep_term: dict[str, dict[str, str]] = {}
+    for key, symbols in sorted(symbol_map.items()):
+        region, _, sector = key.partition("|")
+        sectors_by_region.setdefault(region, []).append(sector)
+        ticker = symbols[0]
+        rep_term.setdefault(region, {})[sector] = entities.get(ticker, ticker)
+
+    result: dict[str, list[dict]] = {}
+    for region, sectors in sectors_by_region.items():
+        geos = region_geos.get(region, [""])
+        for sector in sectors:
+            term = rep_term[region][sector]
+            sector_key = f"{region}|{sector}"
+            cache_ns = f"rising_{region}"
+
+            if cache is not None:
+                cached = cache.get(cache_ns, {}).get(term)
+                if isinstance(cached, list):
+                    result[sector_key] = cached
+                    continue
+
+            per_geo_rising: list[dict] = []
+            for geo in geos:
+                for attempt in range(max_retries):
+                    try:
+                        client.build_payload([term], timeframe=timeframe, geo=geo)
+                        rq = client.related_queries()
+                        rising_df = rq.get(term, {}).get("rising")
+                        if rising_df is not None and not rising_df.empty:
+                            for _, row in rising_df.head(5).iterrows():
+                                q = str(row.get("query", ""))
+                                g = str(row.get("value", ""))
+                                if g != "Breakout":
+                                    g = f"{g}%"
+                                per_geo_rising.append({"query": q, "growth": g})
+                        break
+                    except Exception as exc:
+                        if attempt < max_retries - 1:
+                            time.sleep(sleep_s * (2 ** attempt) + random.uniform(0, 3))
+                        else:
+                            logger.warning(
+                                "Rising queries for %s (geo=%s) failed (%s)",
+                                sector_key, geo or "world", exc,
+                            )
+
+            seen: set[str] = set()
+            deduped: list[dict] = []
+            for entry in per_geo_rising:
+                if entry["query"] not in seen:
+                    seen.add(entry["query"])
+                    deduped.append(entry)
+            deduped = deduped[:5]
+
+            if deduped:
+                result[sector_key] = deduped
+                if cache is not None:
+                    cache.setdefault(cache_ns, {})[term] = deduped
+
+            if sleep_s:
+                time.sleep(sleep_s)
+
+    return result
+
+
 def _new_client(timeout=(10, 25)):
     from pytrends.request import TrendReq
     return TrendReq(hl="en-US", tz=0, timeout=timeout)
@@ -565,8 +679,8 @@ def fetch_symbol_trends(
     symbol_map: dict[str, list[str]],
     anchor: str = DEFAULT_ANCHOR,
     client=None,
-    timeframe: str = "today 3-m",
-    window: int = 13,
+    timeframe: str = "today 12-m",
+    window: int = 52,
     batch_size: int = 4,
     sleep_s: float = 20.0,
     max_retries: int = 3,

@@ -314,7 +314,7 @@ def run(args: argparse.Namespace) -> int:
     _cache = trends_cache.load_cache(_cache_date) if _use_cache else None
     _trends_by_key = fetch_symbol_trends(
         _symbol_map, anchor=_anchor, entities=_entities, region_geos=_region_geos,
-        cache=_cache,
+        cache=_cache, timeframe="today 12-m", window=52,
     )
     sentiment_score = score_symbol_sentiment(_trends_by_key)
     sentiment_score = sentiment_score.reindex(wide_df.index, fill_value=0.0)
@@ -360,6 +360,36 @@ def run(args: argparse.Namespace) -> int:
             logger.info("Comparative interest: no results (skipped or failed)")
     except Exception as exc:
         logger.warning("Comparative interest failed (%s) — continuing without", exc)
+
+    # ------------------------------------------------------------------
+    # Step 8c: Rising / breakout queries per sector
+    # ------------------------------------------------------------------
+    logger.info("Fetching rising queries …")
+    from src.data.trends_symbols import fetch_rising_queries
+    try:
+        _rising = fetch_rising_queries(
+            _symbol_map, sleep_s=20.0, max_retries=3,
+            entities=_entities, region_geos=_region_geos, cache=_cache,
+        )
+        if _rising:
+            import json as _json
+            _rising_rows = []
+            for _key, _queries in _rising.items():
+                _region, _, _sector = _key.partition("|")
+                _rising_rows.append({
+                    "region": _region, "gics_sector": _sector,
+                    "signal_name": "rising_queries", "value": None,
+                    "text_value": _json.dumps(_queries),
+                })
+            sentiment_signals_df = pd.concat(
+                [sentiment_signals_df, pd.DataFrame(_rising_rows)],
+                ignore_index=True,
+            )
+            logger.info("Rising queries: %d sectors with results", len(_rising))
+        else:
+            logger.info("Rising queries: no results (skipped or failed)")
+    except Exception as exc:
+        logger.warning("Rising queries failed (%s) — continuing without", exc)
 
     if _use_cache:
         trends_cache.save_cache(_cache_date, _cache)

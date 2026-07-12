@@ -464,3 +464,35 @@ def test_render_context_keys_finds_all_render_calls():
     # themes.html context keys
     assert "theme_rows" in keys
     assert "theme_rrg_json" in keys
+
+
+# ---------------------------------------------------------------------------
+# Sentiment signal row builder tests
+# ---------------------------------------------------------------------------
+
+def test_sentiment_row_includes_seasonal_ratio():
+    """seasonal_ratio signal value is formatted as Nx in the row dict."""
+    from dashboard.sentiment import _build_sentiment_signal_rows
+
+    df = pd.DataFrame([
+        {"region": "US", "gics_sector": "Technology", "signal_name": "momentum", "value": 0.3, "text_value": None},
+        {"region": "US", "gics_sector": "Technology", "signal_name": "seasonal_ratio", "value": 1.25, "text_value": None},
+    ])
+    rows = _build_sentiment_signal_rows(df)
+    assert len(rows) == 1
+    assert rows[0]["seasonal_ratio"] == "1.25x"
+
+
+def test_sentiment_row_includes_rising_queries():
+    """rising_queries JSON in text_value is parsed into a list of dicts."""
+    from dashboard.sentiment import _build_sentiment_signal_rows
+
+    queries = [{"query": "nvidia stock", "growth": "2400%"}, {"query": "ai etf", "growth": "Breakout"}]
+    df = pd.DataFrame([
+        {"region": "US", "gics_sector": "Technology", "signal_name": "momentum", "value": 0.3, "text_value": None},
+        {"region": "US", "gics_sector": "Technology", "signal_name": "rising_queries", "value": None, "text_value": json.dumps(queries)},
+    ])
+    rows = _build_sentiment_signal_rows(df)
+    assert len(rows) == 1
+    assert rows[0]["rising_queries"] == queries
+    assert rows[0]["rising_queries"][0]["query"] == "nvidia stock"

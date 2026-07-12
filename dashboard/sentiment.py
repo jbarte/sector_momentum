@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import math
 
 
 def _build_sentiment_signal_rows(sent_df) -> list[dict]:
     """Pivot derived sentiment signals into one display row per sector-key.
 
-    Each row: region, sector, and the six derived metrics formatted for the
+    Each row: region, sector, and the derived metrics formatted for the
     template. Sorted by momentum descending so the leaders sit on top. Returns
     [] when no sentiment_signals rows exist (older scans / dry runs).
     """
@@ -25,9 +26,26 @@ def _build_sentiment_signal_rows(sent_df) -> list[dict]:
             return "—"
         return f"{v:.1f}"
 
+    def _fmt_seasonal(v):
+        if v is None or (isinstance(v, float) and math.isnan(v)):
+            return "—"
+        return f"{v:.2f}x"
+
     rows = []
     for (region, sector), grp in sent_df.groupby(["region", "gics_sector"]):
         vals = dict(zip(grp["signal_name"], grp["value"]))
+        # Parse rising_queries from text_value column
+        rising = []
+        if "text_value" in grp.columns:
+            rq_rows = grp[grp["signal_name"] == "rising_queries"]
+            if not rq_rows.empty:
+                tv = rq_rows.iloc[0].get("text_value")
+                if tv and isinstance(tv, str):
+                    try:
+                        rising = json.loads(tv)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
         rows.append({
             "region": region,
             "sector": sector,
@@ -38,6 +56,8 @@ def _build_sentiment_signal_rows(sent_df) -> list[dict]:
             "spike": _fmt(vals.get("spike")),
             "volatility": _fmt(vals.get("volatility"), pct=True),
             "attention": _fmt_attn(vals.get("attention_level")),
+            "seasonal_ratio": _fmt_seasonal(vals.get("seasonal_ratio")),
+            "rising_queries": rising,
         })
     rows.sort(key=lambda r: r["_momentum"], reverse=True)
     return rows

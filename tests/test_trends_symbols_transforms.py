@@ -2,9 +2,11 @@ import math
 
 import numpy as np
 import pandas as pd
+import pytest
 from src.data.trends_symbols import (
     _slope, _normalize_by_anchor, _aggregate,
     _acceleration, _range_position, _spike_z, _volatility,
+    _seasonal_ratio,
     derived_signals, DERIVED_SIGNAL_NAMES,
 )
 
@@ -72,9 +74,39 @@ def test_volatility_nonneg_and_ordering():
     assert _volatility([5, 5, 5]) == 0.0             # flat → zero
 
 
+def test_seasonal_ratio_normal():
+    series = [10.0] * 39 + [20.0] * 13
+    assert _seasonal_ratio(series) == pytest.approx(2.0)
+
+def test_seasonal_ratio_below_baseline():
+    series = [20.0] * 39 + [10.0] * 13
+    assert _seasonal_ratio(series) == pytest.approx(0.5)
+
+def test_seasonal_ratio_zero_trailing():
+    series = [0.0] * 39 + [10.0] * 13
+    assert math.isnan(_seasonal_ratio(series))
+
+def test_seasonal_ratio_short_series():
+    series = [10.0] * 13
+    assert math.isnan(_seasonal_ratio(series))
+
+def test_seasonal_ratio_exact_boundary():
+    series = [5.0] + [10.0] * 13
+    assert _seasonal_ratio(series) == pytest.approx(10.0 / 5.0)
+
+
 def test_derived_signals_keys_and_momentum_matches_slope():
     series = [1, 2, 1, 3, 2, 4, 3, 5]
     out = derived_signals(series)
     assert set(out) == set(DERIVED_SIGNAL_NAMES)
     assert out["momentum"] == _slope(series)
-    assert not any(math.isnan(v) for v in out.values())
+    assert math.isnan(out["seasonal_ratio"])
+    assert not any(math.isnan(v) for k, v in out.items() if k != "seasonal_ratio")
+
+
+def test_derived_signals_52w_includes_seasonal():
+    series = [10.0] * 39 + [15.0] * 13
+    out = derived_signals(series)
+    assert set(out) == set(DERIVED_SIGNAL_NAMES)
+    assert out["seasonal_ratio"] == pytest.approx(1.5)
+    assert abs(out["momentum"]) < 0.01
