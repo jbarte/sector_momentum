@@ -74,13 +74,7 @@ prioritized P1 (fix first) → P4; each records the finding and the intended act
 
 ### P4 — Maintainability, docs, hardening
 
-- **Split `dashboard/build.py` (1,487 lines)** into `figures.py` / `breakdown.py`
-  / `rows.py` / `render.py` (boundaries already marked by section comments).
-  Dedupe: sector vs theme row builders (~80% identical, 3 copies of the
-  merge/format logic), copy-pasted tab/render JS between `index.html.j2` and
-  `themes.html.j2` (extract `_tabs.js.j2`), triplicated `<header>` block
-  (extract `_header.html.j2`), unused `_CHART_STYLE` → apply via a
-  `_base_layout()` helper (~80 duplicated lines).
+- ~~**Split `dashboard/build.py` (1,487 lines)**~~ *(done — see Done)*
 - ~~**`config/weights.yaml` is partly dead config**~~ *(done — see Done)*
 - **Docs**: `README.md` is one line — add purpose + disclaimer, live dashboard
   link, `.env` keys, dev commands, pointers to ARCHITECTURE/BACKLOG.
@@ -375,6 +369,15 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~P4 split build.py~~ — split `dashboard/build.py` (1,459 lines) into
+  `figures.py`, `rows.py`, `breakdown.py`, `sentiment.py`, `reports.py`
+  (~300 lines remain in build.py as orchestrator + re-exports). Extracted
+  `_base_layout()` helper eliminating ~80 lines of duplicated Plotly layout
+  boilerplate per figure. Deleted unused `_CHART_STYLE` constant. Deduped
+  sector/theme leaderboard row builders via shared `_build_rows_common()`.
+  Extracted `_header.html.j2` (shared across all 3 pages) and `_tabs.js.j2`
+  (shared between index and themes). Created `dashboard/__init__.py`. All
+  existing imports preserved via re-exports in build.py. *(2026-07-12)*
 - ~~P4 dead config + minor sweep~~ — clarified `config/weights.yaml` (comments
   documenting signal-list keys are dashboard display order only, scoring hardcodes
   the lists; removed unused `emerging_min_consecutive`; noted `blend_sentiment=False`
