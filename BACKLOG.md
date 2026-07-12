@@ -90,20 +90,12 @@ prioritized P1 (fix first) → P4; each records the finding and the intended act
   `ARCHITECTURE.md` is stale (says SQLite storage, 2-day cron, Reddit/PRAW
   sentiment; reality: Supabase/Postgres, daily, Trends+StockTwits). **Action:**
   one-pass sync or a dated "v1 plan" banner.
-- **i18n gaps** — `guide_tab_themes` has no SV key (themes Guide tab never
-  translates); untranslated drilldown labels / history download link / empty-row
-  text / sentiment footnote; SV `note_backtest` hardcodes "topp-5"; themes RRG
-  SV bodies say "Sektorer". Also 3 undefined CSS vars silently no-op:
-  `--font-sans`, `--brand`, `--text-muted` → `--font-body`, `--brand-strong`, `--fg4`.
-- **Accessibility** — tabs have `role="tab"` but no `aria-selected` /
-  `aria-controls` / arrow-key nav; row expansion + column sort are mouse-only
-  (add tabindex + Enter/Space via one delegated listener); `.sig-tip` tooltips
-  hover-only; guide modal lacks focus trap / `aria-modal`.
-- **XSS hardening (no active hole)** — figure JSON enters `<script>` blocks
-  without `</` escaping; `onclick="toggleBreakdown('{{ id }}')"` breaks on an
-  apostrophe in a config name; ETF `url` scheme unvalidated. **Action:** one
-  `js_json()` helper escaping `</`, switch onclick to delegated
-  `data-sector-id` listener, require `http(s)://` on config URLs.
+- ~~**i18n gaps**~~ — *(done — see Done)* SV translations filled, CSS vars
+  fixed, "topp-5" generalized, themes RRG bodies corrected.
+- ~~**Accessibility**~~ — *(done — see Done)* ARIA attributes, keyboard nav,
+  sig-tip focus, guide modal focus trap.
+- ~~**XSS hardening**~~ — *(done — see Done)* js_json filter, delegated
+  listeners, URL scheme validation.
 - **Test coverage gaps** — zero tests for `src/data/prices.py` (cache/fallback
   logic) and `src/data/macro.py`; `test_dashboard_js.py` regex-parses build.py
   source (vacuously passes if the marker moves); `test_pipeline.py` is
@@ -366,6 +358,9 @@ Carried over from earlier planning — not started:
   triggers on `fix/**`/`chore/**`; `claude-code-action` pinned to SHA. *(2026-07-11)*
 - ~~Scan robustness: coverage guard, idempotent saves, connection cleanup~~ — scan.py aborts (exit 1) if <80% of configured sectors produce signal rows; `save_scan` replaces same-UTC-day scans so CI retries don't duplicate; DB connection wrapped in try/finally; report + dashboard steps non-fatal. *(2026-07-11)*
 - ~~Dashboard quick wins: movers clip, rank guard, rescore init, dead code, report skip, plotly-basic~~ — removed fixed 520px height from movers containers (both templates); added `row.rank is number` guard in index.html.j2; `applyRanking()` only runs on init when sentiment toggle is enabled; deleted dead per-signal drilldown figure loop (751-796); `_generate_scan_reports` skips reports whose file already exists; switched to plotly-basic bundle (~3.6MB → ~1MB). *(2026-07-11)*
+- ~~i18n gaps + CSS vars~~ — added SV `guide_tab_themes` (full themes Guide page), `guide_body_rrg_themes`, `guide_body_drilldown_themes`, `si_download`, `leaderboard_empty`, `scans_empty`; generalized "topp-5" in `note_backtest`; fixed `--font-sans` → `--font-body`, `--brand` → `--brand-strong`, `--text-muted` → `--fg4`. *(2026-07-12)*
+- ~~Accessibility~~ — tabs: `aria-selected`/`aria-controls`, `role="tabpanel"`, arrow-key nav; leaderboard rows: `tabindex="0"` + Enter/Space delegated handler; sortable `<th>`: `tabindex="0"` + keyboard trigger; `.sig-tip`: focusable + tooltip on focus; guide modal: `aria-modal="true"`, focus trap, focus restore on close. Both index.html.j2 and themes.html.j2. *(2026-07-12)*
+- ~~XSS hardening~~ — `js_json` Jinja filter escapes `</` in script-block JSON; inline `onclick="toggleBreakdown()"` replaced with `data-sector-id` + delegated click listener (both pages); ETF URL scheme validation rejects non-http(s) URLs. *(2026-07-12)*
 - ~~Themes — full tab parity with sectors~~ — the Themes page now has the same
   tab structure as Sectors: Leaderboard, RRG, Drill-down, Movers, History, and
   Guide. Added `get_theme_rrg_history()` in `state.py`; all other build functions

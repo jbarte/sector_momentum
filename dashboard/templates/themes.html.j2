@@ -25,18 +25,18 @@
 
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
-  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" data-i18n="tab_leaderboard">Leaderboard</button>
-  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab" data-i18n="tab_rrg">RRG</button>
-  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab" data-i18n="tab_drilldown">Drill-down</button>
-  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" data-i18n="tab_movers">Movers</button>
-  <button class="tab-btn" onclick="switchTab('history', this)" role="tab" data-i18n="tab_history">History</button>
-  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" data-i18n="tab_guide">Guide</button>
+  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" aria-selected="true" aria-controls="tab-leaderboard" data-i18n="tab_leaderboard">Leaderboard</button>
+  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab" aria-selected="false" aria-controls="tab-rrg" data-i18n="tab_rrg">RRG</button>
+  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab" aria-selected="false" aria-controls="tab-drilldown" data-i18n="tab_drilldown">Drill-down</button>
+  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers" data-i18n="tab_movers">Movers</button>
+  <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history" data-i18n="tab_history">History</button>
+  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" aria-selected="false" aria-controls="tab-guide" data-i18n="tab_guide">Guide</button>
 </nav>
 
 <!-- ============================================================
      Tab: Leaderboard
      ============================================================ -->
-<section id="tab-leaderboard" class="tab-panel active">
+<section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <p class="tab-note" data-i18n="note_themes">Thematic ETFs ranked by the same momentum pillars, vs a global benchmark (ACWI). Information-only; separate from the sector leaderboard.</p>
   <div class="table-wrap">
     <table id="themes-table">
@@ -54,7 +54,7 @@
       </thead>
       <tbody>
         {% for row in theme_rows %}
-        <tr class="leaderboard-row" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
+        <tr class="leaderboard-row" data-sector-id="{{ row.sector_id }}" tabindex="0">
           <td class="rank-cell">
             <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
@@ -85,10 +85,10 @@
 <!-- ============================================================
      Tab: RRG
      ============================================================ -->
-<section id="tab-rrg" class="tab-panel">
+<section id="tab-rrg" class="tab-panel" role="tabpanel">
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_rrg">
+    <div class="tab-guide-body" data-i18n-html="guide_body_rrg_themes">
       <p>Themes are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
       <h4>Four quadrants</h4>
       <ul>
@@ -107,10 +107,10 @@
 <!-- ============================================================
      Tab: Drill-down
      ============================================================ -->
-<section id="tab-drilldown" class="tab-panel">
+<section id="tab-drilldown" class="tab-panel" role="tabpanel">
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_drilldown">
+    <div class="tab-guide-body" data-i18n-html="guide_body_drilldown_themes">
       <p>Select a theme to see its score component history across all stored scans.</p>
       <h4>Key patterns</h4>
       <ul>
@@ -134,10 +134,10 @@
 <!-- ============================================================
      Tab: Movers
      ============================================================ -->
-<section id="tab-movers" class="tab-panel">
+<section id="tab-movers" class="tab-panel" role="tabpanel">
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_movers">
+    <div class="tab-guide-body" data-i18n-html="guide_body_movers_themes">
       <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = themes that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = themes that slipped.</p>
       <h4>How to use</h4>
       <ul>
@@ -152,10 +152,10 @@
 <!-- ============================================================
      Tab: History
      ============================================================ -->
-<section id="tab-history" class="tab-panel">
+<section id="tab-history" class="tab-panel" role="tabpanel">
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_history">
+    <div class="tab-guide-body" data-i18n-html="guide_body_history_themes">
       <p>Composite score trend across all stored scans for every theme. The composite is a cross-sectional z-score — 0 = theme-average for that scan.</p>
       <h4>Key patterns</h4>
       <ul>
@@ -171,7 +171,7 @@
 <!-- ============================================================
      Tab: Guide
      ============================================================ -->
-<section id="tab-guide" class="tab-panel">
+<section id="tab-guide" class="tab-panel" role="tabpanel">
   <div class="guide" data-i18n-html="guide_tab_themes">
     <h2>Leaderboard</h2>
     <p>
@@ -239,17 +239,31 @@ function switchTab(name, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.setAttribute('aria-selected', 'false'));
+  btn.setAttribute('aria-selected', 'true');
   if (name === 'rrg')       renderRRG();
   if (name === 'movers')    renderMovers();
   if (name === 'history')   renderHistory();
   if (name === 'drilldown') renderDrilldown();
 }
 
+// Arrow-key navigation between tabs
+document.querySelector('.tabs')?.addEventListener('keydown', function(e) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  var btns = Array.from(this.querySelectorAll('.tab-btn'));
+  var idx = btns.indexOf(document.activeElement);
+  if (idx < 0) return;
+  e.preventDefault();
+  var next = e.key === 'ArrowRight' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+  btns[next].focus();
+  btns[next].click();
+});
+
 // ----- Plotly data (injected by build.py) -----
-var RRG_DATA       = {{ theme_rrg_json | safe }};
-var MOVERS_DATA    = {{ theme_movers_json | safe }};
-var HISTORY_DATA   = {{ theme_history_json | safe }};
-var DRILLDOWN_DATA = {{ theme_drilldown_data | safe }};
+var RRG_DATA       = {{ theme_rrg_json | js_json }};
+var MOVERS_DATA    = {{ theme_movers_json | js_json }};
+var HISTORY_DATA   = {{ theme_history_json | js_json }};
+var DRILLDOWN_DATA = {{ theme_drilldown_data | js_json }};
 
 // ----- Render helpers -----
 var _rendered = {};
@@ -299,6 +313,25 @@ function toggleBreakdown(id) {
   var open = bd.classList.toggle("open");
   if (chev) chev.textContent = open ? "▼" : "▶";
 }
+// Delegated click handler for theme row expansion
+document.getElementById('themes-table')?.addEventListener('click', function(e) {
+  var row = e.target.closest('.leaderboard-row');
+  if (row) {
+    var id = row.getAttribute('data-sector-id');
+    if (id) toggleBreakdown(id);
+  }
+});
+
+// Keyboard support for interactive table elements
+document.getElementById('themes-table')?.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var t = e.target;
+  if (t.matches('th[onclick]') || t.matches('.leaderboard-row')) {
+    e.preventDefault();
+    t.click();
+  }
+});
+
 {% include "_i18n.html.j2" %}
 </script>
 

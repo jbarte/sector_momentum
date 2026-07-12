@@ -28,19 +28,19 @@
 
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
-  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" data-i18n="tab_leaderboard">Leaderboard</button>
-  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab" data-i18n="tab_rrg">RRG</button>
-  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab" data-i18n="tab_drilldown">Drill-down</button>
-  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" data-i18n="tab_movers">Movers</button>
-  <button class="tab-btn" onclick="switchTab('history', this)" role="tab" data-i18n="tab_history">History</button>
-  <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" data-i18n="tab_backtest">Backtest</button>
-  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" data-i18n="tab_guide">Guide</button>
+  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" aria-selected="true" aria-controls="tab-leaderboard" data-i18n="tab_leaderboard">Leaderboard</button>
+  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab" aria-selected="false" aria-controls="tab-rrg" data-i18n="tab_rrg">RRG</button>
+  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab" aria-selected="false" aria-controls="tab-drilldown" data-i18n="tab_drilldown">Drill-down</button>
+  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers" data-i18n="tab_movers">Movers</button>
+  <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history" data-i18n="tab_history">History</button>
+  <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest" data-i18n="tab_backtest">Backtest</button>
+  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" aria-selected="false" aria-controls="tab-guide" data-i18n="tab_guide">Guide</button>
 </nav>
 
 <!-- ============================================================
      Tab: Leaderboard
      ============================================================ -->
-<section id="tab-leaderboard" class="tab-panel active">
+<section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
     <div class="tab-guide-body" data-i18n-html="guide_body_leaderboard">
@@ -72,21 +72,21 @@
     <table id="leaderboard-table">
       <thead>
         <tr>
-          <th onclick="sortTable(0)" data-col="0" data-i18n="col_rank">#</th>
-          <th onclick="sortTable(1)" data-col="1" data-i18n="col_sector">Sector</th>
-          <th onclick="sortTable(2)" data-col="2" data-i18n="col_region">Region</th>
-          <th onclick="sortTable(3)" data-col="3" data-i18n="col_composite">Composite</th>
-          <th onclick="sortTable(4)" data-col="4" data-i18n="col_level">Level</th>
-          <th onclick="sortTable(5)" data-col="5" data-i18n="col_change">Change</th>
-          <th onclick="sortTable(6)" data-col="6" data-i18n="col_data">Data</th>
-          <th onclick="sortTable(7)" data-col="7" data-i18n="col_sentiment">Sentiment</th>
-          <th onclick="sortTable(8)" data-col="8" data-i18n="col_rankdelta">Rank Δ</th>
+          <th onclick="sortTable(0)" data-col="0" tabindex="0" data-i18n="col_rank">#</th>
+          <th onclick="sortTable(1)" data-col="1" tabindex="0" data-i18n="col_sector">Sector</th>
+          <th onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_region">Region</th>
+          <th onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_composite">Composite</th>
+          <th onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_level">Level</th>
+          <th onclick="sortTable(5)" data-col="5" tabindex="0" data-i18n="col_change">Change</th>
+          <th onclick="sortTable(6)" data-col="6" tabindex="0" data-i18n="col_data">Data</th>
+          <th onclick="sortTable(7)" data-col="7" tabindex="0" data-i18n="col_sentiment">Sentiment</th>
+          <th onclick="sortTable(8)" data-col="8" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
           <th data-col="9" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
         </tr>
       </thead>
       <tbody>
         {% for row in leaderboard_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" onclick="toggleBreakdown('{{ row.sector_id }}')">
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" tabindex="0">
           <td class="rank-cell">
             <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
@@ -109,7 +109,7 @@
           <td colspan="10">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)">No data available yet.</td></tr>
+        <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -119,7 +119,7 @@
 <!-- ============================================================
      Tab: RRG
      ============================================================ -->
-<section id="tab-rrg" class="tab-panel">
+<section id="tab-rrg" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
@@ -143,7 +143,7 @@
 <!-- ============================================================
      Tab: Drill-down
      ============================================================ -->
-<section id="tab-drilldown" class="tab-panel">
+<section id="tab-drilldown" class="tab-panel" role="tabpanel">
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
     <div class="tab-guide-body" data-i18n-html="guide_body_drilldown">
@@ -173,7 +173,7 @@
 <!-- ============================================================
      Tab: Movers
      ============================================================ -->
-<section id="tab-movers" class="tab-panel">
+<section id="tab-movers" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
@@ -193,7 +193,7 @@
 <!-- ============================================================
      Tab: History
      ============================================================ -->
-<section id="tab-history" class="tab-panel">
+<section id="tab-history" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
@@ -223,10 +223,10 @@
           <td>{{ s.run_at_display }}</td>
           <td>{{ s.sector_count }}</td>
           <td>{{ s.top_sector }} ({{ s.top_region }})</td>
-          <td><a href="reports/report_{{ s.scan_id }}.md">download</a></td>
+          <td><a href="reports/report_{{ s.scan_id }}.md" data-i18n="si_download">download</a></td>
         </tr>
         {% else %}
-        <tr><td colspan="6" style="text-align:center;padding:16px;color:var(--fg4)">No scans yet.</td></tr>
+        <tr><td colspan="6" style="text-align:center;padding:16px;color:var(--fg4)" data-i18n="scans_empty">No scans yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -237,7 +237,7 @@
 <!-- ============================================================
      Tab: Backtest
      ============================================================ -->
-<section id="tab-backtest" class="tab-panel">
+<section id="tab-backtest" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_backtest">Monthly top-{{ backtest_metrics[0].top_n if backtest_metrics else 5 }} rotation, equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded). Each region scored within its own cohort.</p>
   {% if has_backtest %}
   <div class="table-wrap">
@@ -265,7 +265,7 @@
 <!-- ============================================================
      Tab: Guide
      ============================================================ -->
-<section id="tab-guide" class="tab-panel">
+<section id="tab-guide" class="tab-panel" role="tabpanel">
   <div class="guide" data-i18n-html="guide_tab">
     <h2>Leaderboard</h2>
     <p>
@@ -354,6 +354,8 @@ function switchTab(name, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.setAttribute('aria-selected', 'false'));
+  btn.setAttribute('aria-selected', 'true');
 
   // Lazy-render Plotly charts on first activation
   if (name === 'rrg')       renderRRG();
@@ -363,14 +365,26 @@ function switchTab(name, btn) {
   if (name === 'backtest')  renderBacktest();
 }
 
+// Arrow-key navigation between tabs
+document.querySelector('.tabs')?.addEventListener('keydown', function(e) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  var btns = Array.from(this.querySelectorAll('.tab-btn'));
+  var idx = btns.indexOf(document.activeElement);
+  if (idx < 0) return;
+  e.preventDefault();
+  var next = e.key === 'ArrowRight' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+  btns[next].focus();
+  btns[next].click();
+});
+
 // ----- Plotly data (injected by build.py) -----
-var RRG_DATA    = {{ rrg_data_json | safe }};
-var MOVERS_DATA = {{ movers_json | safe }};
-var HISTORY_DATA = {{ history_json | safe }};
-var DRILLDOWN_DATA = {{ drilldown_data | safe }};
-var RESCORE_DATA = {{ rescore_data_json | safe }};
-var BACKTEST_DATA = {{ backtest_json | safe }};
-var ROTATION_DATA = {{ rotation_json | safe }};
+var RRG_DATA    = {{ rrg_data_json | js_json }};
+var MOVERS_DATA = {{ movers_json | js_json }};
+var HISTORY_DATA = {{ history_json | js_json }};
+var DRILLDOWN_DATA = {{ drilldown_data | js_json }};
+var RESCORE_DATA = {{ rescore_data_json | js_json }};
+var BACKTEST_DATA = {{ backtest_json | js_json }};
+var ROTATION_DATA = {{ rotation_json | js_json }};
 
 // ----- Render helpers -----
 var _rendered = {};
@@ -495,6 +509,16 @@ function sortTable(col) {
 
 }
 
+// Keyboard support for interactive table elements
+document.getElementById('leaderboard-table')?.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var t = e.target;
+  if (t.matches('th[onclick]') || t.matches('.leaderboard-row')) {
+    e.preventDefault();
+    t.click();
+  }
+});
+
 // ----- Sentiment toggle wiring -----
 (function () {
   var LS_ENABLED = "sentimentEnabled", LS_WEIGHT = "sentimentWeight";
@@ -617,6 +641,15 @@ function sortTable(col) {
   weightInput.addEventListener("input", applyRanking);
   if (enabled0) { applyRanking(); }
 })();
+
+// Delegated click handler for leaderboard row expansion
+document.getElementById('leaderboard-table')?.addEventListener('click', function(e) {
+  var row = e.target.closest('.leaderboard-row');
+  if (row) {
+    var id = row.getAttribute('data-sector-id');
+    if (id) toggleBreakdown(id);
+  }
+});
 
 {% include "_i18n.html.j2" %}
 </script>
