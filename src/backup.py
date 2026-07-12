@@ -45,7 +45,7 @@ def write_backup(tables: dict[str, pd.DataFrame], backup_dir: str | Path = "back
         tables[name].reindex(columns=list(cols)).to_csv(d / f"{name}.csv", index=False)
     scans = tables["scans"]
     manifest = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "row_counts": {name: int(len(tables[name])) for name in _COLUMNS},
         "max_scan_id": int(scans["scan_id"].max()) if len(scans) else None,
     }
@@ -169,7 +169,10 @@ def restore_from_storage(conn, object_name: str | None = None,
                          force: bool = False) -> dict[str, int]:
     """Download a backup object (latest if unspecified) and load it into the DB."""
     if object_name is None:
-        names = storage_backup.list_objects(bucket=bucket)
+        names = [
+            n for n in storage_backup.list_objects(bucket=bucket)
+            if n.startswith("backup_") and n.endswith(".zip")
+        ]
         if not names:
             raise RuntimeError(f"no backups found in bucket '{bucket}'")
         object_name = names[-1]  # ISO-ish timestamps sort chronologically

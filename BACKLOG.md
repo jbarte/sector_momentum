@@ -81,10 +81,7 @@ prioritized P1 (fix first) → P4; each records the finding and the intended act
   `themes.html.j2` (extract `_tabs.js.j2`), triplicated `<header>` block
   (extract `_header.html.j2`), unused `_CHART_STYLE` → apply via a
   `_base_layout()` helper (~80 duplicated lines).
-- **`config/weights.yaml` is partly dead config** — per-signal weight maps are
-  never read (lists hardcoded in `scoring.py`); declared 70/30 data/sentiment
-  split never applied (`blend_sentiment=False`). **Action:** either wire config
-  into scoring or trim config to reflect reality with a comment.
+- ~~**`config/weights.yaml` is partly dead config**~~ *(done — see Done)*
 - **Docs**: `README.md` is one line — add purpose + disclaimer, live dashboard
   link, `.env` keys, dev commands, pointers to ARCHITECTURE/BACKLOG.
   `ARCHITECTURE.md` is stale (says SQLite storage, 2-day cron, Reddit/PRAW
@@ -102,15 +99,16 @@ prioritized P1 (fix first) → P4; each records the finding and the intended act
   key-presence only. **Action:** unit-test prices cache + stooq→yfinance
   fallback with mocked HTTP; render-based dashboard test; pipeline value
   assertions + missing-benchmark case.
-- **Minor sweep** — `datetime.utcnow()` deprecated (scan.py, backtest.py,
-  state.py — use `datetime.now(timezone.utc)`); dead/duplicate imports in
-  scan.py; `_last_trading_day` ignores holidays (full refetch after holidays);
+- **Minor sweep** — ~~`datetime.utcnow()` deprecated (scan.py, backtest.py,
+  state.py — use `datetime.now(timezone.utc)`)~~; ~~dead/duplicate imports in
+  scan.py~~; `_last_trading_day` ignores holidays (full refetch after holidays);
   price cache ignores requested `start` (latent truncation for longer
   lookbacks); StockTwits one-ticker failure discards all fetched sectors +
   local-vs-UTC cache date; `state.py` query duplication (latest-scan /
-  history / insert helpers would halve the file); backup "latest" selection
-  should filter `backup_*.zip`; mid-file imports in `trends_symbols.py`;
-  test.yml missing `fix/**` branch trigger; pin third-party GitHub Actions.
+  history / insert helpers would halve the file); ~~backup "latest" selection
+  should filter `backup_*.zip`~~; ~~mid-file imports in `trends_symbols.py`~~;
+  ~~test.yml missing `fix/**` branch trigger~~; ~~pin third-party GitHub Actions~~
+  (first-party already at major version tags, third-party SHA-pinned).
 
 ---
 
@@ -338,6 +336,15 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~P4 dead config + minor sweep~~ — clarified `config/weights.yaml` (comments
+  documenting signal-list keys are dashboard display order only, scoring hardcodes
+  the lists; removed unused `emerging_min_consecutive`; noted `blend_sentiment=False`
+  means pillar weights are not applied). Replaced `datetime.utcnow()` with
+  `datetime.now(timezone.utc)` in scan.py, backtest.py, src/backup.py, and tests.
+  Removed dead imports in scan.py (math, numpy). Moved mid-file imports to top in
+  trends_symbols.py and state.py. Filtered `backup_*.zip` in restore latest
+  selection. GitHub Actions already pinned (first-party at major version tags,
+  third-party SHA-pinned); test.yml already had `fix/**` trigger. *(2026-07-11)*
 - ~~rs_momentum fast=1→5~~ — `compute_rrg` default changed from `fast=1` (one-day noise) to `fast=5`; configurable via `config/weights.yaml` `signal_params.rs_momentum_fast`; threaded through `latest_rrg` → `compute_signals_for_sector` → `build_signals_rows` / `build_theme_signals_rows` → `scan.py`. Expect rank shifts from the smoother momentum signal. *(2026-07-11)*
 - ~~Backtest realism~~ — four fixes: (1) `--cost-bps` CLI flag debits one-way transaction costs proportional to turnover on each rebalance; (2) benchmark NaN months dropped instead of silently treated as 0%; (3) `close_at` rejects prices older than 5 trading days (returns NaN); (4) Sharpe column labelled "Sharpe (rf=0)" in EN+SV. *(2026-07-11)*
 - ~~Dependency lockfile & pytrends pin~~ — split `requirements.txt` (runtime, `>=` floors) from `requirements-dev.txt` (adds pytest); `uv pip compile` generates exact-pinned `.lock` files that CI installs from (`requirements.lock` for build-docs/scan, `requirements-dev.lock` for tests); `pytrends` pinned to `==4.9.2` in the input file. Daily cron no longer installs newest versions on every run. *(2026-07-11)*

@@ -1,32 +1,33 @@
 # Pillar weights (must sum to 1.0)
-# Phase 2: sentiment pillar active. data=0.70, sentiment=0.30.
+# NOTE: scan.py always passes blend_sentiment=False, so the composite score
+# is pure data (sentiment is stored but not blended). These weights will take
+# effect once blending is enabled.
 pillars:
-  data: 0.70        # was 1.0
-  sentiment: 0.30   # was 0.0
+  data: 0.70
+  sentiment: 0.30
 
 # Within data pillar: level vs change split
 data_pillar:
   level: 0.50
   change: 0.50
 
-# Within level score: equal-weight these signals
+# Signal display ordering for the dashboard breakdown panel.
+# The actual equal-weight signal lists are hardcoded in src/scoring.py
+# (_LEVEL_SIGNALS, _CHANGE_SIGNALS); these keys control column order in
+# dashboard/build.py only. Values are ignored.
 level_signals:
-  rs_ratio: 1.0        # RRG RS-Ratio (relative strength level)
-  return_3m: 1.0       # 3-month return
-  return_6m: 1.0       # 6-month return
-  above_50dma: 1.0     # price vs 50-DMA distance
-  above_200dma: 1.0    # price vs 200-DMA distance
+  rs_ratio: 1.0
+  return_3m: 1.0
+  return_6m: 1.0
+  above_50dma: 1.0
+  above_200dma: 1.0
 
-# Within change score: equal-weight these signals
 change_signals:
-  rs_momentum: 1.0     # RRG RS-Momentum (rate of change of RS)
-  acceleration: 1.0    # 1M return minus 3M return
-  ma50_slope: 1.0      # slope of 50-DMA
-  obv_slope: 1.0       # slope of OBV trend
+  rs_momentum: 1.0
+  acceleration: 1.0
+  ma50_slope: 1.0
+  obv_slope: 1.0
 
 # Signal computation parameters
 signal_params:
   rs_momentum_fast: 5     # RRG RS-Momentum lookback (was 1; standard RRG ~10)
-
-# Persistence: consecutive improved scans required for emerging flag
-emerging_min_consecutive: 2

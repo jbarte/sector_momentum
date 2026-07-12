@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 import math
+import random
+import time
 
 import numpy as np
 import pandas as pd
@@ -502,10 +504,6 @@ def fetch_comparative_interest(
                 result[f"{region}|{sector}"] = float(val)
 
     return result
-
-
-import random
-import time
 
 
 def _new_client(timeout=(10, 25)):

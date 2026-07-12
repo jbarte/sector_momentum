@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 import os
 from datetime import datetime
 from pathlib import Path
@@ -523,7 +524,6 @@ def _to_float_or_none(value) -> float | None:
     if value is None:
         return None
     try:
-        import math
         f = float(value)
         return None if math.isnan(f) else f
     except (TypeError, ValueError):

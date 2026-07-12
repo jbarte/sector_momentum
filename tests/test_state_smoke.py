@@ -168,7 +168,7 @@ def _make_scan_data(sectors=None):
 def test_save_scan_returns_positive_int(db_conn):
     """save_scan should return a positive integer scan_id."""
     signals_df, scores_df = _make_scan_data()
-    scan_id = save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df)
+    scan_id = save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df)
     assert isinstance(scan_id, int)
     assert scan_id > 0
 
@@ -177,7 +177,7 @@ def test_save_scan_returns_positive_int(db_conn):
 def test_load_last_scan_after_save(db_conn):
     """load_last_scan returns a DataFrame with the saved rows."""
     signals_df, scores_df = _make_scan_data()
-    save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df)
+    save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df)
     last = load_last_scan(db_conn)
     assert last is not None
     assert len(last) == 3
@@ -188,12 +188,12 @@ def test_load_last_scan_after_save(db_conn):
 def test_load_last_scan_returns_most_recent(db_conn):
     """After two scans, load_last_scan returns the second scan's data."""
     signals_df, scores_df = _make_scan_data()
-    save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df)
+    save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df)
 
     scores_df2 = scores_df.copy()
     scores_df2["composite"] = [0.9, 0.1, -0.5]
     scores_df2["rank"] = [1.0, 2.0, 3.0]
-    save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df2)
+    save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df2)
 
     last = load_last_scan(db_conn)
     assert last is not None
@@ -205,7 +205,7 @@ def test_load_last_scan_returns_most_recent(db_conn):
 def test_compute_deltas_columns(db_conn):
     """compute_deltas should produce delta_composite, delta_rank, emerging_flag."""
     signals_df, scores_df = _make_scan_data()
-    save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df)
+    save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df)
     last = load_last_scan(db_conn)
 
     scores_df2 = scores_df.copy()
@@ -222,11 +222,11 @@ def test_compute_deltas_columns(db_conn):
 def test_get_scan_history_row_count(db_conn):
     """get_scan_history returns n_sectors * n_scans rows."""
     signals_df, scores_df = _make_scan_data()
-    save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df)
+    save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df)
 
     scores_df2 = scores_df.copy()
     scores_df2["composite"] = [0.5, 0.1, -0.1]
-    save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df2)
+    save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df2)
 
     history = get_scan_history(db_conn, n_scans=5)
     assert len(history) == 6
@@ -237,7 +237,7 @@ def test_get_scan_history_none_returns_all_scans(db_conn):
     """n_scans=None returns every scan, not just a window."""
     signals_df, scores_df = _make_scan_data()
     for _ in range(3):
-        save_scan(db_conn, datetime.datetime.utcnow(), signals_df, scores_df)
+        save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df)
     all_rows = get_scan_history(db_conn, n_scans=None)
     assert all_rows["scan_id"].nunique() == 3
 
