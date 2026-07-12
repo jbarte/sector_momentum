@@ -496,3 +496,59 @@ def test_sentiment_row_includes_rising_queries():
     assert len(rows) == 1
     assert rows[0]["rising_queries"] == queries
     assert rows[0]["rising_queries"][0]["query"] == "nvidia stock"
+
+
+# ---------------------------------------------------------------------------
+# _build_scan_history_data tests
+# ---------------------------------------------------------------------------
+
+def test_build_scan_history_data_shape():
+    """_build_scan_history_data returns scans and scores with correct structure."""
+    from dashboard.figures import _build_scan_history_data
+
+    rows = []
+    for scan_id, run_at in [(1, "2026-06-22T00:00:00"), (2, "2026-06-23T00:00:00")]:
+        for region, sector, comp, lvl, chg, data, sent, rank in [
+            ("US", "Technology", 0.8, 0.7, 0.4, 0.55, 0.2, 1.0),
+            ("EU", "Energy", 0.3, 0.2, 0.1, 0.15, 0.0, 2.0),
+        ]:
+            rows.append({
+                "scan_id": scan_id, "run_at": run_at, "region": region,
+                "gics_sector": sector, "level_score": lvl, "change_score": chg,
+                "data_score": data, "sentiment_score": sent, "composite": comp,
+                "rank": rank,
+            })
+    df = pd.DataFrame(rows)
+    result = _build_scan_history_data(df)
+
+    assert "scans" in result
+    assert "scores" in result
+    assert len(result["scans"]) == 2
+    # Newest first
+    assert result["scans"][0]["id"] == 2
+    assert result["scans"][1]["id"] == 1
+    # Each scan entry has required fields
+    for s in result["scans"]:
+        assert "id" in s and "date" in s and "sectors" in s and "top" in s
+    # Scores keyed by string scan_id
+    assert "2" in result["scores"]
+    assert "1" in result["scores"]
+    # Each sector present
+    assert "US|Technology" in result["scores"]["2"]
+    assert "EU|Energy" in result["scores"]["2"]
+    # Required score fields
+    for key, sc in result["scores"]["2"].items():
+        for field in ("rank", "composite", "level", "change", "data", "sentiment"):
+            assert field in sc, f"Missing {field} in {key}"
+
+
+def test_build_scan_history_data_empty():
+    """Empty DataFrame returns empty structure."""
+    from dashboard.figures import _build_scan_history_data
+
+    df = pd.DataFrame(columns=[
+        "scan_id", "run_at", "region", "gics_sector", "level_score",
+        "change_score", "data_score", "sentiment_score", "composite", "rank",
+    ])
+    result = _build_scan_history_data(df)
+    assert result == {"scans": [], "scores": {}}

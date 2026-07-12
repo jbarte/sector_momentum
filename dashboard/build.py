@@ -59,6 +59,7 @@ from dashboard.figures import (                   # noqa: E402, F401
     _build_rotation_figures,
     _build_backtest_context,
     _build_rescore_data,
+    _build_scan_history_data,
     _WARM_PALETTE,
     _SCORE_SIGNAL_COLORS,
 )
