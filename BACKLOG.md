@@ -216,10 +216,10 @@ out of the core momentum score.
 - ~~**Comparative (cross-sector) interest.**~~ *(shipped — see Done)*
 - ~~**Multiple derived signals from one series**, not just slope~~ *(shipped — see Done:
   momentum, acceleration, range position, spike, volatility)*
-- **Longer window for a seasonal baseline.** Pull 12 months to compute current interest
-  vs its seasonal norm (YoY), reducing false momentum from recurring seasonality.
-- **Rising / breakout queries.** `pytrends.related_queries()` surfaces "rising" search
-  terms per topic — could flag emerging themes within a sector on the page.
+- ~~**Longer window for a seasonal baseline.**~~ *(done — see Done)* Extended to 12-month
+  fetch; `seasonal_ratio` signal compares recent 13 weeks vs prior 39-week baseline.
+- ~~**Rising / breakout queries.**~~ *(done — see Done)* `fetch_rising_queries()` surfaces
+  top 5 emerging search terms per sector, displayed as expandable panels on the sentiment page.
 
 **To activate:** enrich `fetch_symbol_trends` (`src/data/trends_symbols.py`) along the
 above lines, compute the derived signals in a Trends-only scorer, surface them on
@@ -369,6 +369,14 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Sentiment enrichment — seasonal baseline + rising queries~~ — extended Trends fetch
+  from 3 months to 12 months (`today 12-m`, 52 weeks); existing derived signals still
+  operate on the trailing 13 weeks. New `seasonal_ratio` signal = mean(last 13 wk) /
+  mean(first 39 wk), surfaced as a "Seasonal" column (EN+SV) on the sentiment page.
+  New `fetch_rising_queries()` calls `related_queries()` per sector per geo (cached,
+  fail-open), top 5 results stored in a `text_value TEXT` column on `sentiment_signals`,
+  displayed as expandable panels with delegated click/keyboard toggle. Both info-only —
+  neither affects the composite score. *(2026-07-12)*
 - ~~P4 split build.py~~ — split `dashboard/build.py` (1,459 lines) into
   `figures.py`, `rows.py`, `breakdown.py`, `sentiment.py`, `reports.py`
   (~300 lines remain in build.py as orchestrator + re-exports). Extracted
