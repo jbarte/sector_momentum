@@ -271,22 +271,9 @@ sector-view-toggle design discussion (2026-06-25).
 
 ---
 
-## Renderable scan history (view past scans in the dashboard)
+## ~~Renderable scan history (view past scans in the dashboard)~~
 
-**What:** In the History tab's scan index table, make the "Showing" indicator
-selectable — clicking any past scan renders the full leaderboard / dashboard
-view for that scan's data, not just a downloadable raw text report.
-
-**Why:** The per-scan Markdown reports (`docs/reports/report_<scan_id>.md`) are
-hard to read as raw text. Being able to flip through past scans in the actual
-dashboard UI — with the same leaderboard, scores, badges, and breakdowns — makes
-it practical to compare how sectors looked at different points in time.
-
-**To resolve:** Decide whether this is server-side (pre-render N historical
-dashboard snapshots at build time) or client-side (fetch historical scores via
-JSON and re-render the leaderboard dynamically). Client-side is more flexible but
-requires shipping the score data as JSON; server-side is simpler but multiplies
-the build output.
+*(done — see Done)*
 
 ---
 
@@ -316,6 +303,11 @@ Carried over from earlier planning — not started:
 
 ## Done
 
+- ~~Renderable scan history~~ — clicking any scan row in the History tab rebuilds
+  the Leaderboard with that scan's scores via an embedded `SCAN_HISTORY` JSON blob
+  and client-side JS table rebuild. Sectors page only; charts stay multi-scan as-is.
+  Keyboard accessible (tabindex + Enter/Space), i18n (EN+SV), "Back to latest"
+  restore. *(2026-07-12)*
 - ~~Sentiment enrichment — seasonal baseline + rising queries~~ — extended Trends fetch
   from 3 months to 12 months (`today 12-m`, 52 weeks); existing derived signals still
   operate on the trailing 13 weeks. New `seasonal_ratio` signal = mean(last 13 wk) /
