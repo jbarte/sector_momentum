@@ -6,10 +6,12 @@ Always branch before making changes. Never commit directly to `main`.
 
 1. **Create a branch** from `main` using the pattern `feature/<short-slug>` or `fix/<short-slug>`.
 2. **Implement** the feature on that branch with regular commits.
-3. **Update `BACKLOG.md` in the same branch** — if the work completes (or partially
-   completes) a backlog item, move it to Done in the *same* branch/PR that ships the
-   code. Never defer backlog hygiene to a separate sync PR; that's how the backlog
-   drifts out of sync with what's actually shipped.
+3. **Update `BACKLOG.md` in the same branch** — if the work completes a backlog
+   item, **delete its Queued section** and add a Done entry (top of Done) in the
+   *same* branch/PR that ships the code; if it partially completes one, rewrite
+   the Queued section to only what remains. Never strikethrough-in-place in
+   Queued, and never defer backlog hygiene to a separate sync PR — both are how
+   the backlog drifts out of sync with what's actually shipped.
 4. **Run a code review** when the implementation is complete (`/code-review`).
 5. **Address review findings**, then push: `git push -u origin feature/<short-slug>`.
 6. **Open a pull request** against `main` with `gh pr create` — Claude creates the PR
@@ -74,9 +76,20 @@ default and write to `design/specs/` and `design/plans/` instead.
 
 ## Backlog
 
-All queued and completed work lives in `BACKLOG.md` in the project root. When asked about the backlog, read that file — not memory. When finishing a task that appears in `BACKLOG.md`, move it to the Done section with the completion date — in the same branch that ships the work (see Git workflow step 3).
+All queued and completed work lives in `BACKLOG.md` in the project root. When asked
+about the backlog, read that file — not memory. The lifecycle rules are at the top of
+`BACKLOG.md` itself: one item per section; shipping **deletes** the Queued section and
+adds a Done entry at the top of Done, in the same branch that ships the work (see Git
+workflow step 3); Done is append-only.
 
-To catch drift after the fact, run `/backlog-sync`: it audits each queued item against git history, merged PRs, and the actual code, then offers to move anything already shipped to Done.
+**Before starting a queued item, verify it's still open** — check the Done section,
+`git log --all --grep`, and the cited code. Queued text can be stale (line numbers
+drift, premises get removed); the 2026-07-12 audit found an entire review-findings
+section that had shipped without its Queued bullets being cleaned up.
+
+To catch drift after the fact, run `/backlog-sync` (`.claude/commands/backlog-sync.md`):
+it audits each Queued/Parked item against git history, merged PRs, and the actual code,
+then fixes anything already shipped or stale via a `chore:` PR.
 
 ## Backups
 

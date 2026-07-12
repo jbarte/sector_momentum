@@ -2,307 +2,148 @@
 
 Loosely prioritized list of features and improvements not yet scheduled.
 
----
+**How this file stays in sync (read before editing):**
 
-## Code review findings — full application review (2026-07-11)
-
-Source: four-area review (pipeline/signals, data layer, dashboard/frontend,
-tests/CI/backtest). No exploitable security holes found. Items below are
-prioritized P1 (fix first) → P4; each records the finding and the intended action.
-
-### P1 — Correctness (affects published rankings / disaster recovery)
-
-- **Z-score NaN handling corrupts rankings** — `src/scoring.py:47`.
-  `zscore_cross_section` fills NaN with raw `0.0` *before* standardizing; for
-  signals centered away from 0 (`rs_ratio`/`rs_momentum` ~100, breadth ~0.5) one
-  failed signal becomes a huge fake outlier and distorts the whole cross-section.
-  **Action:** compute mean/std on non-NaN values, z-score those, then fill NaN
-  with 0.0 in z-space. Add a test with one NaN in an ~100-centered column.
-- **Backup/restore omits `sentiment_signals`, `theme_scores`, `theme_signals`** —
-  `src/backup.py:24`. Disaster restore loses all sentiment/theme history, and
-  `restore.py --force` fails with an FK violation (`DELETE FROM scans` while
-  children still reference it). **Action:** add the three tables to
-  `_COLUMNS`/archive members, delete children before `scans` in FK order, add a
-  test that `_COLUMNS` covers every table in the DDL.
-
-### P2 — Daily pipeline robustness (CI & scan)
-
-- **Push race between `scan.yml` and `build-docs.yml`** — both commit to `main`
-  with no `concurrency:` group and no pull-before-push; a concurrent run loses a
-  commit. **Action:** shared concurrency group + `git pull --rebase` before push.
-- **Tests don't gate the daily scan** — cron runs `scan.py` even on a red `main`.
-  **Action:** add a `pytest` step (suite is mock-based/fast) before the scan step.
-- **Partial scan persists as complete** — `src/pipeline.py:92`. If the US
-  benchmark (RSP) fails both sources, an EU-only scan is saved and deltas go
-  bogus for two scans. **Action:** abort (or flag) when rows < ~80% of universe.
-- **Scans not idempotent + connection leak** — `src/state.py:120`, `scan.py:373`.
-  A re-triggered run inserts a duplicate same-day scan (deltas ≈ 0); no
-  `try/finally` around the DB connection, and a failure after `save_scan` makes
-  CI retries duplicate the scan. **Action:** same-UTC-date dedup (replace or
-  skip), wrap connection in `try/finally`, make post-save steps non-fatal.
-- ~~**Dependency fragility**~~ — *(done — see Done)* lockfile + pytrends pin
-  + dev split shipped. pytrends already logs warnings on failure and degrades
-  gracefully; maintained replacement (trendspy) deferred to if/when pytrends
-  breaks.
-
-### P3 — Dashboard bugs & cheap wins
-
-- **Movers chart clipped** — `dashboard/build.py:888` sets figure height
-  (~696px for 22 rows) inside a 520px `overflow:hidden` container; bottom bars
-  cut off. **Action:** drop one of the two heights.
-- **Client rescore overwrites server values on load** — `index.html.j2` calls
-  `applyRanking()` unconditionally at init; `RESCORE_DATA` coerces NaN→0.0 so
-  displayed trajectories can diverge from server-rendered ones with the toggle
-  off. **Action:** only rescore when the sentiment toggle is actually enabled.
-- **Latent build crash on NaN rank** — `index.html.j2` uses `{% if row.rank <= 3 %}`;
-  rank can be the string `"—"` → TypeError fails the whole build. **Action:** copy
-  the `row.rank is number` guard from `themes.html.j2`.
-- **Dead work: drilldown figure loop** — `dashboard/build.py:751-796` builds and
-  serializes 5 full Plotly figures per page that are never returned (runs twice
-  per build). **Action:** delete the loop + stale docstring.
-- **O(scans²) report regeneration** — `_generate_scan_reports` rewrites every
-  historical `docs/reports/report_<id>.md` on every build (source of the
-  recurring all-reports-modified git churn). **Action:** skip reports whose file
-  exists; force-regen only the latest one or two.
-- **Plotly bundle 3.6 MB → ~1 MB** — only scatter+bar are used;
-  `plotly.js-basic-dist-min` covers them. **Action:** one-line `PLOTLY_CDN` swap
-  in `build.py:36` + re-vendor.
-- ~~**`rs_momentum` is one-day noise**~~ — *(done — see Done)* default changed
-  to fast=5, configurable via `config/weights.yaml` `signal_params.rs_momentum_fast`.
-- ~~**Backtest realism**~~ — *(done — see Done)* `--cost-bps` on turnover, NaN
-  benchmark periods dropped, stale price guard (5 days), Sharpe labelled "(rf=0)".
-
-### P4 — Maintainability, docs, hardening
-
-- ~~**Split `dashboard/build.py` (1,487 lines)**~~ *(done — see Done)*
-- ~~**`config/weights.yaml` is partly dead config**~~ *(done — see Done)*
-- ~~**Docs**: README + ARCHITECTURE~~ — *(done — see Done)*
-- ~~**i18n gaps**~~ — *(done — see Done)* SV translations filled, CSS vars
-  fixed, "topp-5" generalized, themes RRG bodies corrected.
-- ~~**Accessibility**~~ — *(done — see Done)* ARIA attributes, keyboard nav,
-  sig-tip focus, guide modal focus trap.
-- ~~**XSS hardening**~~ — *(done — see Done)* js_json filter, delegated
-  listeners, URL scheme validation.
-- ~~**Test coverage gaps**~~ — *(done — see Done)* unit tests for prices.py
-  (cache, fallback, edge cases), macro.py, pipeline value assertions +
-  missing-benchmark handling, render-based dashboard tests.
-- **Minor sweep** — ~~`datetime.utcnow()` deprecated (scan.py, backtest.py,
-  state.py — use `datetime.now(timezone.utc)`)~~; ~~dead/duplicate imports in
-  scan.py~~; `_last_trading_day` ignores holidays (full refetch after holidays);
-  price cache ignores requested `start` (latent truncation for longer
-  lookbacks); StockTwits one-ticker failure discards all fetched sectors +
-  local-vs-UTC cache date; `state.py` query duplication (latest-scan /
-  history / insert helpers would halve the file); ~~backup "latest" selection
-  should filter `backup_*.zip`~~; ~~mid-file imports in `trends_symbols.py`~~;
-  ~~test.yml missing `fix/**` branch trigger~~; ~~pin third-party GitHub Actions~~
-  (first-party already at major version tags, third-party SHA-pinned).
+- **One item = one `##` section** under Queued (or one bullet in a grouped
+  sweep). Keep sections self-contained — union merge combines *additions*
+  cleanly but silently doubles concurrent *edits* to the same paragraph.
+- **Shipping an item: delete its Queued section entirely** and add one entry
+  at the **top of Done** — in the same branch/PR as the code. Never
+  strikethrough-in-place in Queued; half-struck sections are exactly how this
+  file drifted before.
+- **Partially shipping:** rewrite the Queued section so it describes *only
+  what remains*, and record the shipped part in Done.
+- **Done is append-at-top and never edited** — it's the permanent record.
+- Run `/backlog-sync` to audit Queued against git history and the code when
+  drift is suspected (e.g. after merge conflicts touching this file).
 
 ---
 
-## Thematic / genre ETF momentum (beyond sectors)
+# Queued
 
-**What:** Extend the momentum engine to a second universe of **thematic / genre
-ETFs** — e.g. space, defence, clean energy, crypto, AI, robotics, uranium —
-ranked the same way the GICS sectors are, but as their own track alongside the
-sector leaderboard.
+## Theme sentiment (Google Trends for themes)
 
-**Why:** The current scanner is GICS-sector-only. A lot of rotation happens at
-the *theme* level (defence ripping, crypto-proxy ETFs, AI), which doesn't map
-cleanly onto the 11 sectors. Applying the existing momentum pillars (RS, returns,
-MA distance/slope, OBV) to a thematic ETF universe surfaces those rotations
-without changing the sector model.
+**What:** Extend the Trends sentiment dimension to the thematic ETF universe.
+Themes map naturally to real search keywords (defence, uranium, robotics…) —
+better Trends material than sector ETF tickers ever were.
 
-**Why it's a natural fit:** the momentum signals operate on any price series, not
-anything sector-specific — only the *universe* and the *benchmark* differ. So
-this reuses `src/signals/*`, `src/scoring.py`, `src/state.py`, and most of the
-dashboard, much like sentiment was added as a parallel dimension rather than a
-rewrite.
+**Scope:** keyword (or entity-mid) per theme in `config/themes.yaml`, fetched
+through the existing region-aware/cached `trends_symbols.py` machinery, scored
+in the theme cohort, surfaced on the Themes page. Info-only like sector
+sentiment. This is the last piece of the original thematic-momentum plan
+(Phases 1–2 and full tab parity shipped — see Done).
 
-**Scope / things to resolve when designing:**
-- **Universe definition** — a new config (e.g. `config/themes.yaml`) listing each
-  theme → its ETF ticker(s). One ETF per theme to start (vs a basket).
-- **Benchmark** — themes aren't region-cohorted like sectors. Pick a single broad
-  benchmark for relative strength (e.g. `ACWI`/`SPY`), or score themes purely on
-  absolute price momentum (no RS). Decide which signals carry over (RS needs a
-  benchmark; returns/MA/OBV don't).
-- **Scoring cohort** — z-score each theme within the theme universe (its own
-  cohort), separate from the sector cohorts.
-- **Keying / storage** — current DB + dashboard key on `region|gics_sector`.
-  Themes need a parallel key (e.g. `THEME|<name>`); decide whether to reuse the
-  existing tables with a new "region"/group value or add a dimension.
-- **Constituent breadth** — likely N/A for themes (no GICS constituent list);
-  the breadth signal would stay sector-only.
-- **Sentiment** — themes map very naturally to Google Trends keywords (space,
-  defence, crypto…), so the Trends sentiment dimension extends here too.
+## Theme backtest tab
 
-**Possible delivery:** a dedicated **Themes** tab/leaderboard mirroring the sector
-leaderboard (rank, composite, trajectory, breakdown), fed by the same scoring
-pipeline over the themes universe. Could ship incrementally: universe + scoring
-first (info-only table), then full leaderboard parity (deltas/trajectory), then
-sentiment.
+**What:** The Themes page has every sector tab except Backtest. Needs a theme
+variant of the monthly top-N rotation runner (`backtest.py`) using the ACWI
+benchmark and the theme cohort, plus artifact + tab rendering. Deferred from
+the tab-parity work (2026-07-10).
 
-**Notes:** Parallels the sentiment build — a new dimension layered on the existing
-engine, not a rewrite. Biggest design decision is the benchmark/RS question above.
+## Multilingual news sentiment (FinBERT) — recommended sentiment direction
 
----
+**What:** Signed sentiment (positive/negative polarity, not just attention)
+from a finance-tuned model over a free news feed — **GDELT** (global tone) or
+**Alpha Vantage** `NEWS_SENTIMENT` (free tier). Local inference
+(`transformers` + `torch`, ~400 MB model, CPU, no API key) fits the free-only
+constraint but is a heavier dependency than anything in the current stack.
 
-## Sentiment page — enrichment (get more out of Google Trends)
+**Why:** The 2026-06-26 Trends validation showed search-attention is noisy,
+directionless, and ambiguous-ticker-contaminated. FinBERT sidesteps search-term
+ambiguity entirely and adds direction. Base FinBERT is English-only; EU/Swedish
+needs a multilingual variant or translate-then-score.
 
-**What:** Improve the Google-Trends-only sentiment signal shown on its dedicated
-page (`docs/sentiment.html`, relocated from a dashboard tab — see Done). Still kept
-out of the core momentum score.
+## Sentiment → composite blend decision
 
-**Current state of the code:**
-- The live scan computes `sentiment_score` from **symbol-based Google Trends**
-  (`src/data/trends_symbols.py` → `score_symbol_sentiment`, shipped Phase 1), passed to
-  `score_all(..., blend_sentiment=False)` — toggle-only, never blended into the canonical
-  composite. (`config/weights.yaml` declares `sentiment: 0.30`, never applied.)
-- The old multi-source engine has been fully removed: **Finnhub** (US-only free tier),
-  **StockTwits** (Cloudflare-blocked), **Reddit** (`src/data/reddit.py`), the orphaned
-  `compute_sentiment_score` (+ `_mention_velocity`/`_search_momentum`), and the original
-  generic-keyword Trends path (`fetch_trends`/`src/data/trends.py` +
-  `config/sentiment_keywords.yaml`). Only `_cross_zscore` survived (moved into
-  `trends_symbols.py`). Symbol-based Trends (`trends_symbols.py`) is now the sole source.
-
-**Getting the most out of Google Trends (ideas to explore):**
-- ~~**Trends *topics* (entity mids) over raw ticker strings.**~~ *(shipped — see Done)*
-- ~~**Region-aware pulls.**~~ *(shipped — see Done)*
-- ~~**Comparative (cross-sector) interest.**~~ *(shipped — see Done)*
-- ~~**Multiple derived signals from one series**, not just slope~~ *(shipped — see Done:
-  momentum, acceleration, range position, spike, volatility)*
-- ~~**Longer window for a seasonal baseline.**~~ *(done — see Done)* Extended to 12-month
-  fetch; `seasonal_ratio` signal compares recent 13 weeks vs prior 39-week baseline.
-- ~~**Rising / breakout queries.**~~ *(done — see Done)* `fetch_rising_queries()` surfaces
-  top 5 emerging search terms per sector, displayed as expandable panels on the sentiment page.
-
-**To activate:** enrich `fetch_symbol_trends` (`src/data/trends_symbols.py`) along the
-above lines, compute the derived signals in a Trends-only scorer, surface them on
-`docs/sentiment.html`, and (optionally) feed a single blended Trends score back into
-`score_all(..., sentiment_score=...)` if we later decide it should influence the
-composite.
-
----
-
-## Symbol-based Trends sentiment — Phase 2 (underlying US constituents)
-
-**What:** Extend the Phase 1 symbol-based Trends sentiment (ETF symbols → `region|sector`
-attention, shipped 2026-06-26 in `src/data/trends_symbols.py`) by adding the **underlying
-US constituent stock symbols** to each US sector's query list. EU stays ETF-only (no
-constituent list). Everything flows through the existing
-`fetch_symbol_trends` → `_aggregate` → `score_symbol_sentiment` path — Phase 2 only
-expands the per-sector symbol set.
-
-**Why:** Phase 1 proved the mechanism on ETF tickers; mega-cap constituent names
-(`AAPL`, `MSFT`, `XOM` …) carry far more search volume than ETF tickers and are the
-finance-intent terms Trends tracks best (Da/Engelberg/Gao 2011). Stays a confirmer
-(toggle-only, composite unchanged).
-
-**Phase 1 validation result (2026-06-26) — DO NOT build Phase 2 on this as-is.** A live
-Trends run over the Phase 1 symbol map found:
-- **Mechanism works for liquid US ETFs** — `XLK/VGT`, `XLV/VHT`, `XLY/VCR`, `XLP/VDC`,
-  `XLI/VIS`, `XLC/VOX` all returned full 13/13 coverage.
-- **Signal is contaminated by ambiguous-ticker false positives** that the blocklist didn't
-  catch: `US|Communication Services` z **+4.16** (driven by **`VOX`** — Vox Media/party,
-  not the ETF) and `EU|Energy` z **+1.27** (driven by **`LOGS`** — the English word). These
-  outliers dominate the cross-sectional z.
-- **EU `.DE` tickers are dead** (0/13) as predicted; EU's only "signal" is those false
-  positives. The EU "alternate" tickers (`LTUG`, `LBNK`, `LOGS`, `LUTI`, `LBRE`…) are
-  noise-/collision-prone.
-- **Unreliable:** a Google **429** mid-run zeroed a whole batch (US Financials/Materials/
-  Real Estate/Utilities → 0), so single runs need the deferred day-cache + gentler batching.
-
-**Conclusion:** adding constituents (more, lower-volume, more-ambiguous tickers) makes the
-contamination worse, not better. The real disambiguation fix is **Trends Topics (entity
-mids)**, not a growing blocklist — and the better path overall is signed **news sentiment
-(FinBERT)**, which sidesteps search-term ambiguity entirely. **Recommended:** park Phase 2;
-pursue the FinBERT pivot (below) or Topics first. Quick stopgap if kept: expand the
-blocklist (`VOX`, `LOGS`, the `L*` EU alternates) — but it's whack-a-mole.
-
-**Scope / things to resolve when designing:**
-- **Top-N liquidity ranking.** Add the top-N (≈10) most liquid constituents per US sector.
-  `fetch_sp500_constituents()` (`src/data/constituents.py`, already used by breadth)
-  returns the names but **no market caps** — need a cap/volume source or a hardcoded
-  mega-cap shortlist to pick "most liquid".
-- **Aggregation weighting.** Phase 1 equal-weights ETFs; decide whether constituents are
-  equal-weighted alongside the ETFs or down-weighted so one ETF isn't swamped by N names.
-- **Volume reality.** Most constituents are thin on Trends; expect only mega-caps to
-  survive the existing dead-term drop. Validate coverage before trusting.
-- **Rate limits / caching.** Many more terms ⇒ many more pytrends batches ⇒ 429 risk.
-  This is where the day-cache deferred in the Phase 1 plan
-  (`trends_symbols_<date>.json`) becomes necessary.
-
-**Notes:** Reuses `src/data/constituents.py`. Trends *Topics* (entity disambiguation) and
-regional geo are tracked separately under [[the Google-Trends-only tab item above]], not
-here. Phase 1 design + plan: `design/{specs,plans}/2026-06-26-symbol-trends-*`.
-
----
+**What:** Decide whether the (now much richer) sentiment dimension should ever
+feed the canonical composite. `config/weights.yaml` declares `sentiment: 0.30`
+but it is never applied — the live scan always runs
+`score_all(..., blend_sentiment=False)` and sentiment stays toggle-only.
+Either commit to a blend (probably only after FinBERT gives signed polarity)
+or delete the dead weight from the config and document the toggle as the
+permanent design.
 
 ## Unify regional benchmarks for true cross-region scoring
 
 **What:** Re-base US and EU scoring onto a common footing so sector scores are
 comparable *in absolute terms across regions*, not just within each region.
 
-**Why (the gap):** Today each region's `data_score` is z-scored within its own
-11-sector cohort, so both cohorts are centered at zero by construction. That means
-any cross-region combination (e.g. the composite view's US+EU mean) measures
-"leads within both regions" — it cannot see that one whole region is broadly
-stronger than the other. The simple-mean composite was chosen deliberately for the
-sector-view toggle for this reason; this item is the heavier, "statistically
-correct" alternative if absolute cross-region strength ever becomes something we
-want to rank on.
+**Why (the gap):** Each region's `data_score` is z-scored within its own
+11-sector cohort, so both cohorts are centered at zero by construction. Any
+cross-region combination measures "leads within both regions" — it cannot see
+that one whole region is broadly stronger than the other.
 
 **Two layers to the fix:**
 - **Global z-score re-pool** — z-score the price-based signals (returns, MA
-  distances, slopes) across all 22 region-sectors in one pool instead of per
-  region. These signals are already absolute, so re-pooling makes them genuinely
-  cross-region comparable.
-- **Common benchmark** — RS-ratio and RS-momentum are measured against each
-  region's own benchmark (US `RSP`, EU `EXSA.DE`), so they stay apples-to-oranges
-  no matter how you re-pool. True comparability for the relative-strength signals
-  needs both regions re-based to a single global benchmark (e.g. a world/ACWI ETF).
-  This is the larger part of the change.
+  distances, slopes) across all 22 region-sectors in one pool. These signals
+  are already absolute, so re-pooling makes them genuinely comparable.
+- **Common benchmark** — RS-ratio/RS-momentum are measured against each
+  region's own benchmark (US `RSP`, EU `EXSA.DE`); true comparability needs
+  both re-based to a single global benchmark (e.g. ACWI). The larger change.
 
-**Cost / notes:** Touches the core scoring pipeline (`src/scoring.py`,
-`scan.py`) and would emit a new globally-scored series; it breaks the pure
-client-side parity the sentiment + sector-view toggles rely on. Only worth it if
-absolute cross-region ranking is a real need — the within-region semantics are a
-defensible (arguably preferable) default for a rotation scanner. Captured from the
-sector-view-toggle design discussion (2026-06-25).
+**Cost / notes:** Touches core scoring (`src/scoring.py`, `scan.py`), breaks
+client-side parity for the sentiment toggle. Only worth it if absolute
+cross-region ranking becomes a real need — within-region semantics are a
+defensible default for a rotation scanner. From the sector-view-toggle design
+discussion (2026-06-25).
 
----
+## Maintenance sweep (verified open, 2026-07-12)
 
-## ~~Renderable scan history (view past scans in the dashboard)~~
+Small independent fixes; audit confirmed each is still present in the code:
 
-*(done — see Done)*
-
----
-
-## Phase 3 features
-
-Carried over from earlier planning — not started:
-
-- ~~**Swedish overlay polish**~~ — **dropped (2026-06-26):** the overlay is a
-  hand-maintained list of 30 individual Swedish stocks (`config/swedish_tickers.csv`)
-  with static market caps and no live data source — not tied to any real watchlist or
-  broker. The project has moved to an ETF-native sector/theme model, so the
-  single-market expression layer is a vestige of the original thesis. Not worth
-  maintaining.
-- **Multilingual sentiment polarity (FinBERT)** — replace/augment VADER with a
-  finance-tuned, multilingual sentiment model. **Now the recommended sentiment direction**
-  after the 2026-06-26 Trends validation showed search-attention is noisy, directionless,
-  and ambiguous-ticker-contaminated (see the symbol-Trends Phase 2 item above). FinBERT
-  gives **signed** polarity (positive/negative), not just attention, and sidesteps
-  search-term ambiguity. It's the *scorer*, paired with a free news feed — **GDELT**
-  (free global news tone) or **Alpha Vantage** `NEWS_SENTIMENT` (free tier). Free + local
-  (`transformers` + `torch`, ~400 MB model, CPU inference, no API key) — fits "free only",
-  but a heavier dependency than the current stack. Base FinBERT is English-only; EU/Swedish
-  needs a multilingual model or translate-then-score.
-- **Streamlit live drill-down** (optional) — interactive drill-down UI
+- **Theme timestamp parse crash** — `_build_drilldown_data`
+  (`dashboard/figures.py:289`) crashes on theme `run_at` timestamps, breaking
+  local `python3 dashboard/build.py` runs. *(fix already in progress in
+  separate sessions, 2026-07-12 — check before starting)*
+- **Delete dead `src/data/stocktwits.py` + `tests/test_stocktwits.py`** — the
+  multi-source sentiment engine was removed, but this module survived; nothing
+  imports it except its own test.
+- **`_last_trading_day` ignores holidays** (`src/data/prices.py:33`) — full
+  refetch after market holidays.
+- **Price cache ignores requested `start`** (`src/data/prices.py`) — latent
+  truncation if a longer lookback is ever requested.
+- **`state.py` query duplication** (536 lines) — latest-scan / history /
+  insert helpers would roughly halve the file.
 
 ---
 
-## Done
+# Parked
 
+## Symbol-based Trends sentiment — Phase 2 (US constituents)
+
+**Parked 2026-06-26 after Phase 1 validation.** Adding constituent tickers
+(more, lower-volume, more-ambiguous terms) makes ticker-collision
+contamination worse, not better. Key findings kept for the record:
+
+- Mechanism works for liquid US ETFs (full 13/13 coverage on `XLK/VGT` etc.);
+  EU `.DE` tickers are dead on Trends (0/13).
+- Ambiguous tickers dominate the cross-sectional z (`VOX` → Vox Media z +4.16,
+  `LOGS` → the English word z +1.27). Blocklisting is whack-a-mole; the real
+  fixes are entity mids (since shipped for sectors, 2026-07-04) or the FinBERT
+  pivot (queued above).
+- If ever revived: needs top-N liquidity ranking (no market-cap source in
+  `fetch_sp500_constituents()`), aggregation weighting, and the Trends
+  day-cache (since shipped, 2026-07-07).
+
+Phase 1 design + plan: `design/{specs,plans}/2026-06-26-symbol-trends-*`.
+
+## Streamlit live drill-down
+
+Optional interactive drill-down UI. Carried from early planning; the static
+dashboard's drill-down tab covers most of the need.
+
+---
+
+# Done
+
+- ~~Backlog rewrite + drift guardrails~~ — rewrote this file (deleted the
+  fully-shipped code-review-findings section and stale queued text for shipped
+  work), added the lifecycle rules above, created a real
+  `.claude/commands/backlog-sync.md` (CLAUDE.md referenced a command that
+  didn't exist), and un-ignored `.claude/commands/` so shared commands are
+  versioned. Dropped record: **Swedish overlay polish** was dropped 2026-06-26
+  (hand-maintained 30-stock list with static caps, vestige of the original
+  thesis). *(2026-07-12)*
 - ~~Renderable scan history~~ — clicking any scan row in the History tab rebuilds
   the Leaderboard with that scan's scores via an embedded `SCAN_HISTORY` JSON blob
   and client-side JS table rebuild. Sectors page only; charts stay multi-scan as-is.
@@ -362,6 +203,9 @@ Carried over from earlier planning — not started:
   `commit-to-main` concurrency group and rebase before pushing (fixes the
   lost-commit race); daily scan gated on a green `pytest`; `test.yml` also
   triggers on `fix/**`/`chore/**`; `claude-code-action` pinned to SHA. *(2026-07-11)*
+- ~~Review P2: dependency fragility~~ — covered by the lockfile + pytrends pin
+  entry above; pytrends already degrades gracefully, maintained replacement
+  (trendspy) deferred to if/when pytrends breaks. *(2026-07-11)*
 - ~~Scan robustness: coverage guard, idempotent saves, connection cleanup~~ — scan.py aborts (exit 1) if <80% of configured sectors produce signal rows; `save_scan` replaces same-UTC-day scans so CI retries don't duplicate; DB connection wrapped in try/finally; report + dashboard steps non-fatal. *(2026-07-11)*
 - ~~Dashboard quick wins: movers clip, rank guard, rescore init, dead code, report skip, plotly-basic~~ — removed fixed 520px height from movers containers (both templates); added `row.rank is number` guard in index.html.j2; `applyRanking()` only runs on init when sentiment toggle is enabled; deleted dead per-signal drilldown figure loop (751-796); `_generate_scan_reports` skips reports whose file already exists; switched to plotly-basic bundle (~3.6MB → ~1MB). *(2026-07-11)*
 - ~~i18n gaps + CSS vars~~ — added SV `guide_tab_themes` (full themes Guide page), `guide_body_rrg_themes`, `guide_body_drilldown_themes`, `si_download`, `leaderboard_empty`, `scans_empty`; generalized "topp-5" in `note_backtest`; fixed `--font-sans` → `--font-body`, `--brand` → `--brand-strong`, `--text-muted` → `--fg4`. *(2026-07-12)*
