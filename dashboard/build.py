@@ -27,9 +27,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("dashboard.build")
 
+# Ensure project root is on sys.path so absolute imports work
+# whether invoked as `python dashboard/build.py` or `python -m dashboard.build`
+_project_root = str(Path(__file__).resolve().parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 
 # Re-export public API so existing imports keep working
-from .rows import (                      # noqa: E402, F401
+from dashboard.rows import (                      # noqa: E402, F401
     _safe_float,
     _format_raw_value,
     _compute_rank_trajectories,
@@ -37,13 +43,13 @@ from .rows import (                      # noqa: E402, F401
     _build_leaderboard_rows,
     _build_theme_leaderboard_rows,
 )
-from .breakdown import (                 # noqa: E402, F401
+from dashboard.breakdown import (                 # noqa: E402, F401
     _build_breakdown_html,
     _build_instruments_html,
     _SIGNAL_META,
     _SIGNAL_DESCRIPTIONS,
 )
-from .figures import (                   # noqa: E402, F401
+from dashboard.figures import (                   # noqa: E402, F401
     _build_rrg_figure,
     _build_sentiment_scatter_figure,
     _build_drilldown_data,
@@ -56,10 +62,10 @@ from .figures import (                   # noqa: E402, F401
     _WARM_PALETTE,
     _SCORE_SIGNAL_COLORS,
 )
-from .sentiment import (                 # noqa: E402, F401
+from dashboard.sentiment import (                 # noqa: E402, F401
     _build_sentiment_signal_rows,
 )
-from .reports import (                   # noqa: E402, F401
+from dashboard.reports import (                   # noqa: E402, F401
     build_scan_index,
     _generate_scan_reports,
 )

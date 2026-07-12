@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .rows import _safe_float, _format_raw_value
+from dashboard.rows import _safe_float, _format_raw_value
 
 
 # ---------------------------------------------------------------------------
