@@ -122,6 +122,7 @@
     if (sentimentToggle) sentimentToggle.disabled = true;
     if (sentimentControl) sentimentControl.style.opacity = "0.4";
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
+    if (typeof window.renderScanDigest === "function") window.renderScanDigest(scanId);
   };
 
   window.restoreLatest = function () {
@@ -137,6 +138,7 @@
     }
     if (sentimentControl) sentimentControl.style.opacity = "";
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
+    if (typeof window.renderScanDigest === "function") window.renderScanDigest(latestScanId);
   };
 
   // Delegated click + keyboard on scan-index table
