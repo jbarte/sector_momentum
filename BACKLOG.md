@@ -123,6 +123,26 @@ they earn their place. Natural companion to forward-return validation above —
 same data plumbing (past ranks/trajectories + forward prices), so consider
 building them together.
 
+## Holding-period stats (how long to hold a position)
+
+**What:** Historical stats on how long a sector typically stays "worth
+holding" once it enters the top ranks — e.g. median/typical scan-count (or
+calendar days) a sector spends in the top 5 before falling out, distribution
+of holding periods, and how that compares to the Entry/Exit badge timing.
+
+**Why:** Rank and trajectory tell you *that* a sector is a leader; this tells
+you *how long that tends to last*, which is the practical question someone
+actually holding a position asks. Same data family as forward-return
+validation and the Entry/Exit scorecard above — all three answer variations
+of "what happens after a signal fires," and likely share plumbing (per-sector
+top-N run-length from `get_scan_history`, no new data source). Worth designing
+together with those two rather than separately, to avoid three overlapping
+historical-stats panels.
+
+**Design notes:** define "holding a position" precisely (in top-5? top-3?
+above a composite threshold?) before implementing — that choice drives the
+whole stat. Info-only, no scoring impact.
+
 ## RSS/Atom feed of scan results
 
 **What:** `build.py` emits `docs/feed.xml` — one entry per scan with the date,
