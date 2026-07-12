@@ -22,7 +22,7 @@ def _sample():
         "signal_name": ["rs_ratio", "rs_ratio"], "raw_value": [103.4, np.nan], "z_value": [0.8, -0.2]})
     sentiment_signals = pd.DataFrame({
         "scan_id": [1], "region": ["US"], "gics_sector": ["Technology"],
-        "signal_name": ["trend_momentum"], "value": [0.5]})
+        "signal_name": ["trend_momentum"], "value": [0.5], "text_value": [np.nan]})
     theme_scores = pd.DataFrame({
         "scan_id": [1], "theme": ["AI"], "level_score": [0.6], "change_score": [0.3],
         "data_score": [0.45], "sentiment_score": [np.nan], "composite": [0.45], "rank": [1.0]})

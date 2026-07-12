@@ -816,6 +816,40 @@ select.sector-select:focus {
   .guide-modal { transition: none; }
 }
 
+/* --- Sentiment: seasonal + rising queries --- */
+.seasonal-hi { color: var(--up); }
+.seasonal-lo { color: var(--down); }
+.has-rising { cursor: pointer; }
+.has-rising:hover { background: var(--bg-raised); }
+.has-rising:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
+.rising-toggle {
+  width: 1.2em;
+  text-align: center;
+  color: var(--fg4);
+  font-size: 0.7em;
+  transition: transform 0.15s;
+  user-select: none;
+}
+.has-rising.open .rising-toggle { transform: rotate(90deg); }
+.rising-panel td { padding: 0 !important; border-bottom: none !important; }
+.rising-inner {
+  padding: 8px 16px 12px 36px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border-soft);
+}
+.rising-inner strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg4); }
+.rising-table {
+  width: auto;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.rising-table thead th {
+  padding: 4px 12px;
+  font-size: 9px;
+  cursor: default;
+}
+.rising-table tbody td { padding: 4px 12px; }
+
 @media (max-width: 520px) {
   .guide-card-body { padding: 22px 20px 20px; }
   .guide-card-body h2 { font-size: 21px; }

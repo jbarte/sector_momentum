@@ -57,6 +57,12 @@
         <li><strong>Attention</strong> — relative search interest compared
             head-to-head against all other sectors in the same region.
             Higher = more attention.</li>
+        <li><strong>Seasonal</strong> — compares the last 13 weeks of search interest
+            to the prior 39-week baseline. Above 1.0 = interest exceeding its
+            historical norm; below 1.0 = below norm.</li>
+        <li><strong>Rising Queries</strong> — emerging search terms surfaced by
+            Google Trends for each sector's representative ETF/entity. Click a row
+            with &#x25B6; to expand.</li>
       </ul>
       <h4>It does not drive the ranking by default</h4>
       <p>The leaderboard composite is built from price/momentum signals only. Sentiment
@@ -79,6 +85,7 @@
     <table>
       <thead>
         <tr>
+          <th style="width:1.2em"></th>
           <th data-i18n="sent_col_sector">Sector</th>
           <th data-i18n="sent_col_region">Region</th>
           <th data-i18n="sent_col_momentum">Momentum</th>
@@ -87,11 +94,13 @@
           <th data-i18n="sent_col_spike">Spike</th>
           <th data-i18n="sent_col_volatility">Volatility</th>
           <th data-i18n="sent_col_attention">Attention</th>
+          <th data-i18n="sent_col_seasonal">Seasonal</th>
         </tr>
       </thead>
       <tbody>
         {% for r in sentiment_signal_rows %}
-        <tr>
+        <tr{% if r.rising_queries %} class="has-rising" data-rising-id="rising-{{ loop.index }}" tabindex="0"{% endif %}>
+          <td class="rising-toggle">{% if r.rising_queries %}&#x25B6;{% endif %}</td>
           <td>{{ r.sector }}</td>
           <td>{{ r.region }}</td>
           <td>{{ r.momentum }}</td>
@@ -100,7 +109,28 @@
           <td>{{ r.spike }}</td>
           <td>{{ r.volatility }}</td>
           <td>{{ r.attention }}</td>
+          <td class="seasonal{% if r.seasonal_ratio != '—' %} {% if r.seasonal_ratio.replace('x','')|float > 1.0 %}seasonal-hi{% elif r.seasonal_ratio.replace('x','')|float < 1.0 %}seasonal-lo{% endif %}{% endif %}">{{ r.seasonal_ratio }}</td>
         </tr>
+        {% if r.rising_queries %}
+        <tr class="rising-panel" id="rising-{{ loop.index }}" style="display:none">
+          <td colspan="10">
+            <div class="rising-inner">
+              <strong data-i18n="rising_heading">Rising Queries</strong>
+              <table class="rising-table">
+                <thead><tr>
+                  <th data-i18n="rising_col_query">Query</th>
+                  <th data-i18n="rising_col_growth">Growth</th>
+                </tr></thead>
+                <tbody>
+                  {% for q in r.rising_queries %}
+                  <tr><td>{{ q.query }}</td><td>{{ q.growth }}</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>
@@ -111,6 +141,31 @@
 <script>
 var SENTIMENT_DATA = {{ sentiment_scatter_json | js_json }};
 Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
+
+// Delegated toggle for rising-queries expandable panels
+(function () {
+  var tbl = document.querySelector('.tab-panel table');
+  if (!tbl) return;
+  function toggle(row) {
+    var id = row.getAttribute('data-rising-id');
+    if (!id) return;
+    var panel = document.getElementById(id);
+    if (!panel) return;
+    var open = panel.style.display !== 'none';
+    panel.style.display = open ? 'none' : '';
+    row.classList.toggle('open', !open);
+    row.setAttribute('aria-expanded', String(!open));
+  }
+  tbl.addEventListener('click', function (e) {
+    var row = e.target.closest('.has-rising');
+    if (row) toggle(row);
+  });
+  tbl.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var row = e.target.closest('.has-rising');
+    if (row) { e.preventDefault(); toggle(row); }
+  });
+})();
 
 {% include "_i18n.html.j2" %}
 </script>
