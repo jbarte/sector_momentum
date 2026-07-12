@@ -180,6 +180,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
             history_json=_make_mock_plotly_json(),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            scan_history_json=json.dumps({"scans": [], "scores": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
             backtest_json=json.dumps({}),
@@ -242,6 +243,7 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
             history_json=_make_mock_plotly_json(),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            scan_history_json=json.dumps({"scans": [], "scores": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
             backtest_json=json.dumps({}),
@@ -280,6 +282,7 @@ def test_history_tab_has_scan_index(tmp_path):
         leaderboard_rows=[], rrg_data_json="{}", drilldown_data="{}",
         sector_keys=[], movers_json="{}", history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
     ))
     html = out.read_text()
@@ -312,6 +315,7 @@ def test_built_html_has_no_composite_toggle(tmp_path):
         rrg_data_json="{}", drilldown_data="{}", sector_keys=[], movers_json="{}",
         history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
     ))
     html = out.read_text()
@@ -363,6 +367,7 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
         history_json=_make_mock_plotly_json(),
         sentiment_scatter_json=_make_mock_plotly_json(),
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
         backtest_json=_json.dumps({}), backtest_metrics=[], has_backtest=False,
         rotation_json=_json.dumps([]), has_rotations=False,
@@ -496,3 +501,110 @@ def test_sentiment_row_includes_rising_queries():
     assert len(rows) == 1
     assert rows[0]["rising_queries"] == queries
     assert rows[0]["rising_queries"][0]["query"] == "nvidia stock"
+
+
+# ---------------------------------------------------------------------------
+# _build_scan_history_data tests
+# ---------------------------------------------------------------------------
+
+def test_build_scan_history_data_shape():
+    """_build_scan_history_data returns scans and scores with correct structure."""
+    from dashboard.figures import _build_scan_history_data
+
+    rows = []
+    for scan_id, run_at in [(1, "2026-06-22T00:00:00"), (2, "2026-06-23T00:00:00")]:
+        for region, sector, comp, lvl, chg, data, sent, rank in [
+            ("US", "Technology", 0.8, 0.7, 0.4, 0.55, 0.2, 1.0),
+            ("EU", "Energy", 0.3, 0.2, 0.1, 0.15, 0.0, 2.0),
+        ]:
+            rows.append({
+                "scan_id": scan_id, "run_at": run_at, "region": region,
+                "gics_sector": sector, "level_score": lvl, "change_score": chg,
+                "data_score": data, "sentiment_score": sent, "composite": comp,
+                "rank": rank,
+            })
+    df = pd.DataFrame(rows)
+    result = _build_scan_history_data(df)
+
+    assert "scans" in result
+    assert "scores" in result
+    assert len(result["scans"]) == 2
+    # Newest first
+    assert result["scans"][0]["id"] == 2
+    assert result["scans"][1]["id"] == 1
+    # Each scan entry has required fields
+    for s in result["scans"]:
+        assert "id" in s and "date" in s and "sectors" in s and "top" in s
+    # Scores keyed by string scan_id
+    assert "2" in result["scores"]
+    assert "1" in result["scores"]
+    # Each sector present
+    assert "US|Technology" in result["scores"]["2"]
+    assert "EU|Energy" in result["scores"]["2"]
+    # Required score fields
+    for key, sc in result["scores"]["2"].items():
+        for field in ("rank", "composite", "level", "change", "data", "sentiment"):
+            assert field in sc, f"Missing {field} in {key}"
+
+
+def test_build_scan_history_data_empty():
+    """Empty DataFrame returns empty structure."""
+    from dashboard.figures import _build_scan_history_data
+
+    df = pd.DataFrame(columns=[
+        "scan_id", "run_at", "region", "gics_sector", "level_score",
+        "change_score", "data_score", "sentiment_score", "composite", "rank",
+    ])
+    result = _build_scan_history_data(df)
+    assert result == {"scans": [], "scores": {}}
+
+
+# ---------------------------------------------------------------------------
+# Renderable scan history — template render test
+# ---------------------------------------------------------------------------
+
+def test_scan_history_json_in_rendered_output(tmp_path):
+    """Rendered index.html contains SCAN_HISTORY variable with valid JSON."""
+    scan_history = {
+        "scans": [{"id": 2, "date": "2026-07-12 06:00 UTC", "sectors": 22, "top": "Technology (US)"}],
+        "scores": {"2": {"US|Technology": {"rank": 1, "composite": 0.8, "level": 0.7, "change": 0.4, "data": 0.55, "sentiment": 0.2}}},
+    }
+    out = tmp_path / "index.html"
+    _render(
+        template_path=_TEMPLATE,
+        out_path=out,
+        context=dict(
+            scan_date="2026-07-12",
+            scan_index=[{"scan_id": 2, "run_at_display": "2026-07-12 06:00 UTC",
+                         "run_at_raw": "2026-07-12T06:00:00", "sector_count": 22,
+                         "top_sector": "Technology", "top_region": "US"}],
+            active_scan_id=2,
+            leaderboard_rows=[],
+            rrg_data_json=_make_mock_plotly_json(),
+            drilldown_data=json.dumps({}),
+            sector_keys=[],
+            movers_json=_make_mock_plotly_json(),
+            history_json=_make_mock_plotly_json(),
+            sentiment_scatter_json=_make_mock_plotly_json(),
+            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            scan_history_json=json.dumps(scan_history),
+            signals_list=[],
+            plotly_bundle="assets/plotly.min.js",
+            backtest_json=json.dumps({}),
+            backtest_metrics=[],
+            has_backtest=False,
+            rotation_json=json.dumps([]),
+            has_rotations=False,
+        ),
+    )
+    html = out.read_text()
+    assert "var SCAN_HISTORY =" in html
+    assert "scan-history-banner" in html
+    assert 'data-scan-id="2"' in html
+    # Extract and parse the JSON
+    start = html.index("var SCAN_HISTORY =") + len("var SCAN_HISTORY =")
+    end = html.index(";", start)
+    parsed = json.loads(html[start:end].strip())
+    assert "scans" in parsed
+    assert "scores" in parsed
+    assert parsed["scans"][0]["id"] == 2

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
 
@@ -529,3 +530,47 @@ def _build_rescore_data(history_df) -> dict:
         "data": _series("data_score"),
         "sentiment": _series("sentiment_score"),
     }
+
+
+def _build_scan_history_data(all_scores_df) -> dict:
+    """Per-scan scores for every sector, for the client-side scan-history viewer."""
+    if all_scores_df.empty:
+        return {"scans": [], "scores": {}}
+
+    df = all_scores_df.copy()
+
+    scan_ids = sorted(df["scan_id"].unique(), reverse=True)
+    scans = []
+    for sid in scan_ids:
+        g = df[df["scan_id"] == sid]
+        run_at_raw = str(g["run_at"].iloc[0])
+        try:
+            disp = pd.to_datetime(run_at_raw).strftime("%Y-%m-%d %H:%M UTC")
+        except (ValueError, TypeError):
+            disp = run_at_raw
+        top = g.loc[g["rank"].idxmin()]
+        scans.append({
+            "id": int(sid),
+            "date": disp,
+            "sectors": int(len(g)),
+            "top": f"{top['gics_sector']} ({top['region']})",
+        })
+
+    scores = {}
+    for sid in scan_ids:
+        g = df[df["scan_id"] == sid]
+        sid_scores = {}
+        for _, row in g.iterrows():
+            key = f"{row['region']}|{row['gics_sector']}"
+            rk = _safe_float(row["rank"])
+            sid_scores[key] = {
+                "rank": int(rk) if rk is not None else 99,
+                "composite": round(_safe_float(row["composite"]) or 0.0, 3),
+                "level": round(_safe_float(row["level_score"]) or 0.0, 3),
+                "change": round(_safe_float(row["change_score"]) or 0.0, 3),
+                "data": round(_safe_float(row["data_score"]) or 0.0, 3),
+                "sentiment": round(_safe_float(row["sentiment_score"]) or 0.0, 3),
+            }
+        scores[str(int(sid))] = sid_scores
+
+    return {"scans": scans, "scores": scores}

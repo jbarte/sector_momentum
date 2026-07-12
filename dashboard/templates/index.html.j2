@@ -58,6 +58,10 @@
       <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
     </span>
   </div>
+  <div id="scan-history-banner" style="display:none">
+    <span class="scan-history-text" data-i18n="scan_viewing" data-en-prefix="Viewing scan #">Viewing scan #</span>
+    <a href="javascript:void(0)" onclick="restoreLatest()" data-i18n="scan_back_to_latest">Back to latest</a>
+  </div>
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
@@ -207,7 +211,7 @@
       </thead>
       <tbody>
         {% for s in scan_index %}
-        <tr{% if s.scan_id == active_scan_id %} class="active-scan"{% endif %}>
+        <tr data-scan-id="{{ s.scan_id }}" tabindex="0" role="button" aria-label="View scan #{{ s.scan_id }}"{% if s.scan_id == active_scan_id %} class="active-scan"{% endif %}>
           <td>{% if s.scan_id == active_scan_id %}<span class="showing-badge">● Showing</span>{% endif %}</td>
           <td>#{{ s.scan_id }}</td>
           <td>{{ s.run_at_display }}</td>
@@ -346,6 +350,7 @@ var MOVERS_DATA = {{ movers_json | js_json }};
 var HISTORY_DATA = {{ history_json | js_json }};
 var DRILLDOWN_DATA = {{ drilldown_data | js_json }};
 var RESCORE_DATA = {{ rescore_data_json | js_json }};
+var SCAN_HISTORY = {{ scan_history_json | js_json }};
 var BACKTEST_DATA = {{ backtest_json | js_json }};
 var ROTATION_DATA = {{ rotation_json | js_json }};
 
@@ -616,6 +621,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 
 {% include "_i18n.html.j2" %}
 </script>
+<script src="assets/scan-history.js"></script>
 
 {% include "_guide_modal.html.j2" %}
 

@@ -59,6 +59,7 @@ from dashboard.figures import (                   # noqa: E402, F401
     _build_rotation_figures,
     _build_backtest_context,
     _build_rescore_data,
+    _build_scan_history_data,
     _WARM_PALETTE,
     _SCORE_SIGNAL_COLORS,
 )
@@ -189,6 +190,9 @@ def main() -> None:
     active_scan_id = scan_index[0]["scan_id"] if scan_index else None
     _generate_scan_reports(all_scores_df, out_dir / "reports")
 
+    logger.info("Building scan history data …")
+    scan_history_data = _build_scan_history_data(all_scores_df)
+
     conn.close()
 
     if history_df.empty:
@@ -287,6 +291,9 @@ def main() -> None:
     rescore_src = _ASSETS_DIR / "rescore.js"
     if rescore_src.exists():
         shutil.copy2(rescore_src, docs_assets / "rescore.js")
+    scan_hist_src = _ASSETS_DIR / "scan-history.js"
+    if scan_hist_src.exists():
+        shutil.copy2(scan_hist_src, docs_assets / "scan-history.js")
     plotly_bundle_rel = "assets/plotly.min.js"
 
     # 5. Render template
@@ -307,6 +314,7 @@ def main() -> None:
             movers_json=movers_json,
             history_json=history_json,
             rescore_data_json=rescore_data_json,
+            scan_history_json=json.dumps(scan_history_data),
             signals_list=signals_list,
             plotly_bundle=plotly_bundle_rel,
             backtest_json=backtest_ctx["backtest_json"],
