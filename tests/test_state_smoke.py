@@ -279,3 +279,9 @@ def test_save_scan_different_days_not_replaced(db_conn):
         cur.execute("SELECT COUNT(*) FROM scans WHERE run_at LIKE '2099-02-%%'")
         count = cur.fetchone()[0]
     assert count == 2
+
+
+def test_sentiment_signals_ddl_includes_text_value():
+    from src.state import _DDL_STATEMENTS
+    ddl = " ".join(_DDL_STATEMENTS)
+    assert "text_value" in ddl

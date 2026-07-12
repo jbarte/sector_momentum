@@ -61,7 +61,8 @@ _DDL_STATEMENTS = [
         region      TEXT NOT NULL,
         gics_sector TEXT NOT NULL,
         signal_name TEXT NOT NULL,
-        value       REAL
+        value       REAL,
+        text_value  TEXT
     )
     """,
     """
@@ -105,6 +106,10 @@ def init_db() -> psycopg2.extensions.connection:
         with conn.cursor() as cur:
             for stmt in _DDL_STATEMENTS:
                 cur.execute(stmt)
+            cur.execute(
+                "ALTER TABLE sentiment_signals "
+                "ADD COLUMN IF NOT EXISTS text_value TEXT"
+            )
     logger.info("Database initialised (Supabase/Postgres)")
     return conn
 
@@ -220,13 +225,14 @@ def save_scan(
                         row["gics_sector"],
                         row["signal_name"],
                         _to_float_or_none(row.get("value")),
+                        row.get("text_value") or None,
                     )
                     for _, row in sentiment_signals_df.iterrows()
                 ]
                 cur.executemany(
                     "INSERT INTO sentiment_signals "
-                    "(scan_id, region, gics_sector, signal_name, value) "
-                    "VALUES (%s, %s, %s, %s, %s)",
+                    "(scan_id, region, gics_sector, signal_name, value, text_value) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
                     sent_rows,
                 )
 
@@ -321,7 +327,7 @@ def get_sentiment_signals_for_latest_scan(
     """
     return pd.read_sql_query(
         """
-        SELECT ss.region, ss.gics_sector, ss.signal_name, ss.value
+        SELECT ss.region, ss.gics_sector, ss.signal_name, ss.value, ss.text_value
         FROM sentiment_signals ss
         JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON ss.scan_id = m.max_id
         """,

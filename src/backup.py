@@ -26,7 +26,7 @@ _COLUMNS = {
     "scores": ("scan_id", "region", "gics_sector", "level_score", "change_score",
                "data_score", "sentiment_score", "composite", "rank"),
     "signals": ("scan_id", "region", "gics_sector", "signal_name", "raw_value", "z_value"),
-    "sentiment_signals": ("scan_id", "region", "gics_sector", "signal_name", "value"),
+    "sentiment_signals": ("scan_id", "region", "gics_sector", "signal_name", "value", "text_value"),
     "theme_scores": ("scan_id", "theme", "level_score", "change_score", "data_score",
                      "sentiment_score", "composite", "rank"),
     "theme_signals": ("scan_id", "theme", "signal_name", "raw_value", "z_value"),
