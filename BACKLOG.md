@@ -87,6 +87,74 @@ cross-region ranking becomes a real need — within-region semantics are a
 defensible default for a rotation scanner. From the sector-view-toggle design
 discussion (2026-06-25).
 
+## "What changed today" digest
+
+**What:** A summary strip above the sector leaderboard: new top-5 entries,
+biggest rank jumps/drops, and trajectory flips vs the previous scan.
+
+**Why:** Users currently diff scans mentally. The `SCAN_HISTORY` blob (shipped
+2026-07-12) already ships every scan's scores to the client, so this is pure
+client-side JS — compare `scans[0]` vs `scans[1]`, render a few chips. Zero
+pipeline or schema changes. Cheapest high-visibility win on the list.
+
+## Forward-return validation (do the rankings predict anything?)
+
+**What:** For each historical scan, compute the forward 1-month return of that
+day's top-5 sectors vs the region benchmark, and surface a rolling hit-rate /
+average-edge panel (likely a new tab or a section in Backtest).
+
+**Why:** The backtest is a one-off artifact over a fixed history; this
+continuously validates *live* scans as they age. All inputs already exist:
+per-scan ranks in the DB (`get_scan_history`), prices in the cache. Compute at
+dashboard-build time; scans younger than the horizon show "pending".
+
+**Design notes:** pick the horizon (1M to match the rotation backtest), handle
+the price-cache `start` truncation issue (see Maintenance sweep) if longer
+history is needed, and keep it info-only.
+
+## Entry/Exit badge scorecard
+
+**What:** Historical hit rate for the Entry/Exit setup badges: each time a
+badge appeared on a past scan, measure the sector's forward return over a
+fixed horizon, and show per-badge stats (count, hit rate, avg forward return).
+
+**Why:** The badges are currently decorative heuristics; this measures whether
+they earn their place. Natural companion to forward-return validation above —
+same data plumbing (past ranks/trajectories + forward prices), so consider
+building them together.
+
+## RSS/Atom feed of scan results
+
+**What:** `build.py` emits `docs/feed.xml` — one entry per scan with the date,
+top-5 per region, and biggest movers, linking to the dashboard.
+
+**Why:** Subscribable without visiting the page; very static-site-friendly
+(Pages serves the XML as-is). Keep the last ~30 scans in the feed. No JS, no
+schema changes; one new builder function + template.
+
+## Macro regime context bar
+
+**What:** A small risk-on/risk-off context header on the dashboard — e.g. SPY
+vs its 200-DMA (above/below + distance) and a VIX band (calm/elevated/stressed)
+— from free daily data via the existing price fetchers.
+
+**Why:** Sector rotation signals mean different things in different regimes;
+this contextualizes whether momentum is worth acting on at all.
+`src/data/macro.py` is currently a stub with a tested contract waiting for
+exactly this. Info-only; never touches scoring.
+
+## Threshold alerts (daily scan notifications)
+
+**What:** A post-scan step in `scan.yml` that sends a notification when a
+threshold event occurs: sector enters/exits the top 3, or a trajectory flips.
+Delivery via a free push channel (e.g. ntfy.sh topic, or GitHub Issues as a
+poor-man's inbox) — decide in design.
+
+**Why:** The dashboard is pull-only; rank transitions are exactly the moments
+worth a push. Needs: event detection (compare latest two scans — trivially
+derivable from the DB), a delivery secret/topic, and a "no events, no noise"
+rule. Non-fatal like the other post-scan steps.
+
 ## Maintenance sweep (verified open, 2026-07-12)
 
 Small independent fixes; audit confirmed each is still present in the code:
