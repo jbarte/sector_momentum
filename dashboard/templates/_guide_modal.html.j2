@@ -1,6 +1,6 @@
 <!-- Onboarding guide modal — included in all pages -->
 <div class="guide-overlay" id="guide-overlay" aria-hidden="true">
-  <div class="guide-modal" role="dialog" aria-label="Dashboard guide">
+  <div class="guide-modal" role="dialog" aria-modal="true" aria-label="Dashboard guide">
     <button class="guide-close" id="guide-close" aria-label="Close guide">&times;</button>
     <div class="guide-viewport">
       <div class="guide-track" id="guide-track">
@@ -272,6 +272,7 @@
   var counterEl = document.getElementById('guide-counter');
   var closeBtn = document.getElementById('guide-close');
   var openBtn = document.getElementById('guide-open-btn');
+  var _previousFocus = null;
 
   for (var i = 0; i < TOTAL; i++) {
     var d = document.createElement('button');
@@ -293,16 +294,19 @@
   }
 
   function openGuide() {
+    _previousFocus = document.activeElement;
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
     go(0);
+    closeBtn.focus();
   }
 
   function closeGuide() {
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    if (_previousFocus) { _previousFocus.focus(); _previousFocus = null; }
   }
 
   if (openBtn) openBtn.addEventListener('click', openGuide);
@@ -325,6 +329,20 @@
     if (e.key === 'Escape') closeGuide();
     else if (e.key === 'ArrowLeft') go(current - 1);
     else if (e.key === 'ArrowRight') go(current + 1);
+  });
+
+  // Focus trap: keep Tab within the modal while open
+  overlay.addEventListener('keydown', function(e) {
+    if (e.key !== 'Tab') return;
+    var focusable = overlay.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
   });
 
   var x0 = null;

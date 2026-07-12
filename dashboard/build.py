@@ -240,6 +240,8 @@ def _build_instruments_html(
         ter     = etf.get("ter", "")
         isin    = etf.get("isin", "")
         url     = etf.get("url", "")
+        if url and not (url.startswith("https://") or url.startswith("http://")):
+            url = ""  # Drop URLs without valid scheme
         match   = etf.get("match", "")
         link    = (
             f'<a href="{_html.escape(url)}" target="_blank" rel="noopener">↗</a>'
@@ -389,7 +391,8 @@ def _build_breakdown_html(
 
         tip = _SIGNAL_DESCRIPTIONS.get(name, "")
         label_html = (
-            f'<span class="sig-tip" data-tip="{_html.escape(tip)}">'
+            f'<span class="sig-tip" tabindex="0" data-tip="{_html.escape(tip)}"'
+            f' aria-label="{_html.escape(meta["label"])}: {_html.escape(tip)}">'
             f'{_html.escape(meta["label"])}'
             f'</span>'
         ) if tip else _html.escape(meta["label"])
@@ -1159,6 +1162,14 @@ def _render(
         autoescape=select_autoescape(["html"]),
         keep_trailing_newline=True,
     )
+
+    def js_json_filter(value):
+        """Escape </ sequences in JSON for safe embedding in <script> tags."""
+        if isinstance(value, str):
+            return value.replace("</", r"<\/")
+        return value
+    env.filters["js_json"] = js_json_filter
+
     template = env.get_template(template_path.name)
     html = template.render(**context)
     out_path.parent.mkdir(parents=True, exist_ok=True)

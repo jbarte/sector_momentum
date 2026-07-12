@@ -504,7 +504,7 @@ select.sector-select:focus {
   border: 1px solid var(--border);
   color: var(--fg2);
   font-size: 0.78rem;
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   line-height: 1.55;
   padding: 7px 11px;
   border-radius: var(--radius-md);
@@ -513,7 +513,7 @@ select.sector-select:focus {
   z-index: 200;
   pointer-events: none;
 }
-.sig-tip:hover::after { display: block; }
+.sig-tip:hover::after, .sig-tip:focus::after { display: block; }
 /* Setup badges (entry / exit) */
 .setup-badge {
   display: inline-block;
@@ -571,7 +571,7 @@ select.sector-select:focus {
 .etf-match-close   { color: var(--fg3); }
 .etf-match-partial { color: var(--fg4); font-style: italic; }
 .etf-link a { color: var(--brand-strong); text-decoration: none; }
-.etf-link a:hover { color: var(--brand); }
+.etf-link a:hover { color: var(--brand-strong); }
 
 /* =========================================================
    Sentiment toggle control

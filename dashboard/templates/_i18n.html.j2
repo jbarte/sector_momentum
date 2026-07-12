@@ -33,7 +33,7 @@
     col_rankdelta: "Rank Δ",
     col_trend: "Trend",
     note_sentiment: "Sentimentvikten påverkar endast topplistans rankning.",
-    note_backtest: "Månatlig topp-5-rotation, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje region poängsätts inom sin egen kohort.",
+    note_backtest: "Månatlig rotation av topprankade sektorer, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje region poängsätts inom sin egen kohort.",
     bt_track: "Spår",
     bt_window: "Period",
     bt_stratcagr: "Strategi CAGR",
@@ -47,6 +47,9 @@
     si_sectors: "Sektorer",
     si_top: "Topp-sektor",
     si_report: "Rapport",
+    si_download: "ladda ner",
+    leaderboard_empty: "Ingen data tillgänglig ännu.",
+    scans_empty: "Inga skanningar ännu.",
     guide_summary: "Hur du läser den här fliken",
     guide_summary_sentiment: "Hur beräknas sentimentpoängen?",
     sent_derived_heading: "Härledda Trends-signaler",
@@ -108,6 +111,17 @@
       <h4>Så använder du den</h4>
       <p>Sektorer roterar Ledande → Försvagas → Eftersläpar → Förbättras → Ledande. Köp i <span class="signal-hi">Förbättras</span> före rörelsen till Ledande; sälj i <span class="signal-lo">Försvagas</span> före fallet till Eftersläpar. Prickade svanslinjer visar de senaste 3 skanningspositionerna — svansens riktning betyder mer än nuvarande position.</p>
       <p><em>Obs: nuvarande axlar är kompositbaserade approximationer. Äkta JdK RS-Ratio/Momentum kräver daglig prisdata relativt ett jämförelseindex.</em></p>`,
+    guide_body_rrg_themes: `
+      <p>Teman plottas efter <strong>relativ styrka mot jämförelseindex</strong> (x-axel) och om den relativa styrkan <strong>accelererar eller bromsar in</strong> (y-axel). Båda axlarna är centrerade kring 100.</p>
+      <h4>Fyra kvadranter</h4>
+      <ul>
+        <li><strong>Ledande (uppe till höger):</strong> Överpresterar OCH accelererar.</li>
+        <li><strong>Försvagas (nere till höger):</strong> Överpresterar men bromsar in. <span class="signal-lo">Främsta ur-/minska-signal.</span></li>
+        <li><strong>Eftersläpar (nere till vänster):</strong> Underpresterar OCH bromsar in. Undvik.</li>
+        <li><strong>Förbättras (uppe till vänster):</strong> Underpresterar men accelererar. <span class="signal-hi">Främsta insteg-signal.</span></li>
+      </ul>
+      <h4>Så använder du den</h4>
+      <p>Teman roterar Ledande → Försvagas → Eftersläpar → Förbättras → Ledande. Köp i <span class="signal-hi">Förbättras</span> före rörelsen till Ledande; sälj i <span class="signal-lo">Försvagas</span> före fallet till Eftersläpar. Prickade svanslinjer visar de senaste skanningspositionerna — svansens riktning betyder mer än nuvarande position.</p>`,
     guide_body_drilldown: `
       <p>Välj en sektor för att se historiken för dess poängkomponenter över alla lagrade skanningar.</p>
       <h4>Viktiga mönster</h4>
@@ -119,6 +133,14 @@
       </ul>
       <h4>Så använder du den</h4>
       <p>Kombinera med topplistans Trend-märke. En sektor som visar <span class="signal-hi">↑</span> på topplistan och som även har stigande komposit och change_score i detaljvyn är läget med högst övertygelse. En sektor med hög rang men platt eller fallande change_score halkar sannolikt i nästa skanning.</p>`,
+    guide_body_drilldown_themes: `
+      <p>Välj ett tema för att se historiken för dess poängkomponenter över alla lagrade skanningar.</p>
+      <h4>Viktiga mönster</h4>
+      <ul>
+        <li><span class="signal-hi">Komposit stiger + förändringspoäng stiger:</span> ihållande acceleration. Insteg-läge med högst övertygelse.</li>
+        <li><span class="signal-lo">Komposit nära topp + förändringspoäng vänder negativt:</span> temat toppar. Minska eller gå ur.</li>
+        <li>Komposit faller men förändringspoäng stiger: bottenprocess. Invänta bekräftelse innan insteg.</li>
+      </ul>`,
     guide_body_movers: `
       <p>Rangförändring mellan de två senaste skanningarna. <span class="signal-hi">Gröna staplar</span> = sektorer som klättrade på topplistan; <span class="signal-lo">terrakotta-staplar</span> = sektorer som halkade.</p>
       <h4>Så använder du den</h4>
@@ -126,6 +148,13 @@
         <li>En enskild stor positiv rörelse kan vara en datahändelse snarare än ihållande momentum — bekräfta i Detaljvy-fliken innan du agerar.</li>
         <li>Sektorer med 2+ stora positiva rörelser i rad i Historik-fliken bär mer övertygelse än enstaka hopp.</li>
         <li><span class="signal-lo">Varningsflagga:</span> en högt rankad sektor med en stor negativ stapel här är en tidig topp-signal. Kolla topplistans Trend-märke — om det visar <span class="signal-lo">↓</span> eller <span class="signal-lo">↓↓</span> är vändningen sannolikt verklig.</li>
+      </ul>`,
+    guide_body_movers_themes: `
+      <p>Rangförändring mellan de två senaste skanningarna. <span class="signal-hi">Gröna staplar</span> = teman som klättrade på topplistan; <span class="signal-lo">terrakotta-staplar</span> = teman som halkade.</p>
+      <h4>Så använder du den</h4>
+      <ul>
+        <li>En enskild stor positiv rörelse kan vara brus — bekräfta i Detaljvy-fliken innan du agerar.</li>
+        <li>Teman med 2+ stora positiva rörelser i rad i Historik-fliken bär mer övertygelse.</li>
       </ul>`,
     guide_body_history: `
       <p>Kompositpoängens trend över alla lagrade skanningar för varje sektor. Kompositen är ett tvärsnitts-z-värde — 0 = sektorgenomsnitt för den skanningen.</p>
@@ -138,6 +167,19 @@
       </ul>
       <h4>Så använder du den</h4>
       <p>Använd som kontext för nuvarande rang. En sektor rankad #1 efter att stadigt ha stigit under 10 skanningar har en annan riskprofil än en som hoppade från #8 förra skanningen. Långa, jämna uppgångar är de insteg värda att behålla; V-formade vändningar är de att handla snabbt eller hoppa över.</p>`,
+    guide_body_history_themes: `
+      <p>Kompositpoängens trend över alla lagrade skanningar för varje tema. Kompositen är ett tvärsnitts-z-värde — 0 = temagenomsnitt för den skanningen.</p>
+      <h4>Viktiga mönster</h4>
+      <ul>
+        <li><span class="signal-hi">Konsekvent uppåtlutning:</span> kvalitetsmomentum över flera skanningar.</li>
+        <li><span class="signal-lo">Skarp spik följt av vändning:</span> sannolikt en engångshändelse, ej hållbart.</li>
+        <li>Gradvis återhämtning från negativt territorium: möjlig framväxande chans.</li>
+      </ul>`,
+    sentiment_footnote: `
+    Nedre högra kvadranten (data före sentiment) är den tidiga rotationszonen.
+    Ihåliga punkter = ingen sentimentdata denna skanning (källa otillgänglig eller enbart EU).
+    Sentiment är en bekräftande signal — brusig, manipulerbar, privatspararpartisk.
+    Detta är ett analysverktyg, inte investeringsrådgivning.`,
     guide_body_sentiment: `
       <h4>Källa — endast Google Trends</h4>
       <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
@@ -189,6 +231,31 @@
     <p>Ett linjediagram över kompositpoängen för alla lagrade skanningar. Ihållande uppåtgående trender i en sektors kompositpoäng indikerar uthålligt momentum, medan vändningar kan signalera rotation in i eller ut ur sektorn.</p>
     <h2>Ansvarsfriskrivning</h2>
     <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning eller en rekommendation att köpa, sälja eller behålla något värdepapper. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys och rådgör med en kvalificerad finansiell rådgivare innan du fattar investeringsbeslut.</p>`,
+    guide_tab_themes: `
+    <h2>Topplista</h2>
+    <p>Topplistan rankar varje tematisk ETF efter dess <strong>kompositpoäng</strong> — en viktad blandning av nivå, momentumförändring och datakvalitets-delpoäng mätta mot ett globalt jämförelseindex (ACWI). En högre komposit betyder att temat uppvisar starkare relativt momentum.</p>
+    <ul>
+      <li><strong>Nivåpoäng</strong> — nuvarande absolut momentumnivå (avkastning, MA-struktur, OBV-trend).</li>
+      <li><strong>Förändringspoäng</strong> — hur momentum accelererar eller bromsar in mot föregående skanning.</li>
+      <li><strong>Datapoäng</strong> — datakomplettering; teman med saknade signaler straffas.</li>
+      <li><strong>Rang-Δ</strong> — hur många platser temat klättrade (▲) eller föll (▼) mot föregående skanning.</li>
+    </ul>
+    <p>Klicka på en rad för att se hela signaluppdelningen och UCITS-alternativa instrument.</p>
+    <h2>Relativ rotationsgraf (RRG)</h2>
+    <p>RRG:n plottar teman på två axlar härledda från deras relativa styrka mot jämförelseindexet:</p>
+    <ul>
+      <li><strong>X-axel (RS-Ratio)</strong> — om temat överpresterar (&gt; 100) eller underpresterar (&lt; 100) jämförelseindexet.</li>
+      <li><strong>Y-axel (RS-Momentum)</strong> — om den relativa styrkan accelererar (&gt; 100) eller bromsar in (&lt; 100).</li>
+    </ul>
+    <p>Prickade svanslinjer visar de senaste skanningspositionerna per tema och anger rotationsriktning. Teman som roterar från Förbättras → Ledande är de starkaste tidiga trendlägena.</p>
+    <h2>Detaljvy</h2>
+    <p>Välj ett tema i rullistan för att se hur varje poängkomponent har utvecklats över tid. En stigande <em>change_score</em> tillsammans med en stigande <em>komposit</em> signalerar ihållande momentum.</p>
+    <h2>Rörelser</h2>
+    <p>Rangförändring mellan de två senaste skanningarna. <span style="color:var(--up)">Gröna staplar</span> anger teman som klättrade; <span style="color:var(--down)">terrakotta-staplar</span> anger teman som halkade.</p>
+    <h2>Historik</h2>
+    <p>Ett linjediagram över kompositpoängen för alla lagrade skanningar. Ihållande uppåtgående trender indikerar ihållande momentum; vändningar kan signalera rotation in i eller ut ur temat.</p>
+    <h2>Ansvarsfriskrivning</h2>
+    <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys.</p>`,
     guide_modal_body_1: `Denna dashboard spårar relativt momentum över de 11 GICS-sektorerna för både <strong>US</strong> (SPDR ETF:er) och <strong>EU</strong> (STOXX 600). Automatiska dagliga skanningar rankar sektorer efter momentumstyrka, upptäcker trendskiften och lyfter fram insteg- och utstegsupplägg.`,
     guide_modal_body_1b: `Tre sidor &mdash; <strong>Sektorer</strong>, <strong>Teman</strong> och <strong>Sentiment</strong> &mdash; tillgängliga från toppnavigationen. Låt oss gå igenom vad varje sida visar.`,
     guide_modal_body_2: `Din startsida. Varje sektor rankas efter <strong>kompositpoäng</strong> &mdash; ett tvärsnitts-z-värde som väger samman:`,

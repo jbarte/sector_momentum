@@ -76,7 +76,7 @@
     </div>
   </details>
   <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
-  <p style="color:var(--text-muted);font-size:0.8rem;padding:8px 0 0 4px">
+  <p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px" data-i18n-html="sentiment_footnote">
     Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
     Hollow points = no sentiment data this scan (source unavailable or EU-only).
     Sentiment is a confirming signal — noisy, gameable, retail-biased.
@@ -119,7 +119,7 @@
 </section>
 
 <script>
-var SENTIMENT_DATA = {{ sentiment_scatter_json | safe }};
+var SENTIMENT_DATA = {{ sentiment_scatter_json | js_json }};
 Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
 
 {% include "_i18n.html.j2" %}
