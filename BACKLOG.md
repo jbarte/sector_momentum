@@ -87,16 +87,6 @@ cross-region ranking becomes a real need — within-region semantics are a
 defensible default for a rotation scanner. From the sector-view-toggle design
 discussion (2026-06-25).
 
-## "What changed today" digest
-
-**What:** A summary strip above the sector leaderboard: new top-5 entries,
-biggest rank jumps/drops, and trajectory flips vs the previous scan.
-
-**Why:** Users currently diff scans mentally. The `SCAN_HISTORY` blob (shipped
-2026-07-12) already ships every scan's scores to the client, so this is pure
-client-side JS — compare `scans[0]` vs `scans[1]`, render a few chips. Zero
-pipeline or schema changes. Cheapest high-visibility win on the list.
-
 ## Forward-return validation (do the rankings predict anything?)
 
 **What:** For each historical scan, compute the forward 1-month return of that
@@ -204,6 +194,14 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- ~~"What changed today" digest~~ — a summary strip above the sector
+  leaderboard shows new top-5 entries and the biggest rank movers (up to 3
+  gains, 3 drops) vs the previous scan. Entirely client-side
+  (`dashboard/assets/scan-digest.js`), reusing the `SCAN_HISTORY` blob already
+  shipped by renderable-scan-history — no pipeline or schema changes. Updates
+  live when browsing historical scans via the existing scan-history viewer.
+  Trajectory flips deferred (would need porting the server-side trailing-slope
+  algorithm to JS). *(2026-07-12)*
 - ~~Backlog rewrite + drift guardrails~~ — rewrote this file (deleted the
   fully-shipped code-review-findings section and stale queued text for shipped
   work), added the lifecycle rules above, created a real
