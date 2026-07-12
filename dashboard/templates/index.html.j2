@@ -58,6 +58,20 @@
       <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
     </span>
   </div>
+  <div id="scan-digest-banner" style="display:none">
+    <span class="digest-cluster" data-cluster="entries">
+      <span data-i18n="digest_new_top5">New in Top 5:</span>
+      <span class="digest-chips" id="digest-chips-entries"></span>
+    </span>
+    <span class="digest-cluster" data-cluster="up">
+      <span data-i18n="digest_gains">Biggest gains:</span>
+      <span class="digest-chips" id="digest-chips-up"></span>
+    </span>
+    <span class="digest-cluster" data-cluster="down">
+      <span data-i18n="digest_drops">Biggest drops:</span>
+      <span class="digest-chips" id="digest-chips-down"></span>
+    </span>
+  </div>
   <div id="scan-history-banner" style="display:none">
     <span class="scan-history-text" data-i18n="scan_viewing" data-en-prefix="Viewing scan #">Viewing scan #</span>
     <a href="javascript:void(0)" onclick="restoreLatest()" data-i18n="scan_back_to_latest">Back to latest</a>
@@ -622,6 +636,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 {% include "_i18n.html.j2" %}
 </script>
 <script src="assets/scan-history.js"></script>
+<script src="assets/scan-digest.js"></script>
 
 {% include "_guide_modal.html.j2" %}
 

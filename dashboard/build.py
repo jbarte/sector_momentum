@@ -294,6 +294,9 @@ def main() -> None:
     scan_hist_src = _ASSETS_DIR / "scan-history.js"
     if scan_hist_src.exists():
         shutil.copy2(scan_hist_src, docs_assets / "scan-history.js")
+    scan_digest_src = _ASSETS_DIR / "scan-digest.js"
+    if scan_digest_src.exists():
+        shutil.copy2(scan_digest_src, docs_assets / "scan-digest.js")
     plotly_bundle_rel = "assets/plotly.min.js"
 
     # 5. Render template
