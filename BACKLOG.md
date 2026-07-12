@@ -76,65 +76,19 @@ prioritized P1 (fix first) → P4; each records the finding and the intended act
 
 - ~~**Split `dashboard/build.py` (1,487 lines)**~~ *(done — see Done)*
 - ~~**`config/weights.yaml` is partly dead config**~~ *(done — see Done)*
-- **Docs**: `README.md` is one line — add purpose + disclaimer, live dashboard
-  link, `.env` keys, dev commands, pointers to ARCHITECTURE/BACKLOG.
-  `ARCHITECTURE.md` is stale (says SQLite storage, 2-day cron, Reddit/PRAW
-  sentiment; reality: Supabase/Postgres, daily, Trends+StockTwits). **Action:**
-  one-pass sync or a dated "v1 plan" banner.
+- ~~**Docs**: README + ARCHITECTURE~~ — *(done — see Done)*
 - ~~**i18n gaps**~~ — *(done — see Done)* SV translations filled, CSS vars
   fixed, "topp-5" generalized, themes RRG bodies corrected.
 - ~~**Accessibility**~~ — *(done — see Done)* ARIA attributes, keyboard nav,
   sig-tip focus, guide modal focus trap.
 - ~~**XSS hardening**~~ — *(done — see Done)* js_json filter, delegated
   listeners, URL scheme validation.
-- **`config/weights.yaml` is partly dead config** — per-signal weight maps are
-  never read (lists hardcoded in `scoring.py`); declared 70/30 data/sentiment
-  split never applied (`blend_sentiment=False`). **Action:** either wire config
-  into scoring or trim config to reflect reality with a comment.
-- ~~**Docs**: README + ARCHITECTURE~~ — *(done — see Done)*
-- **i18n gaps** — `guide_tab_themes` has no SV key (themes Guide tab never
-  translates); untranslated drilldown labels / history download link / empty-row
-  text / sentiment footnote; SV `note_backtest` hardcodes "topp-5"; themes RRG
-  SV bodies say "Sektorer". Also 3 undefined CSS vars silently no-op:
-  `--font-sans`, `--brand`, `--text-muted` → `--font-body`, `--brand-strong`, `--fg4`.
-- **Accessibility** — tabs have `role="tab"` but no `aria-selected` /
-  `aria-controls` / arrow-key nav; row expansion + column sort are mouse-only
-  (add tabindex + Enter/Space via one delegated listener); `.sig-tip` tooltips
-  hover-only; guide modal lacks focus trap / `aria-modal`.
-- **XSS hardening (no active hole)** — figure JSON enters `<script>` blocks
-  without `</` escaping; `onclick="toggleBreakdown('{{ id }}')"` breaks on an
-  apostrophe in a config name; ETF `url` scheme unvalidated. **Action:** one
-  `js_json()` helper escaping `</`, switch onclick to delegated
-  `data-sector-id` listener, require `http(s)://` on config URLs.
-- **Test coverage gaps** — zero tests for `src/data/prices.py` (cache/fallback
-  logic) and `src/data/macro.py`; `test_dashboard_js.py` regex-parses build.py
-  source (vacuously passes if the marker moves); `test_pipeline.py` is
-  key-presence only. **Action:** unit-test prices cache + stooq→yfinance
-  fallback with mocked HTTP; render-based dashboard test; pipeline value
-  assertions + missing-benchmark case.
-- **Minor sweep** — ~~`datetime.utcnow()` deprecated (scan.py, backtest.py,
-  state.py — use `datetime.now(timezone.utc)`)~~; ~~dead/duplicate imports in
-  scan.py~~; `_last_trading_day` ignores holidays (full refetch after holidays);
-- **i18n gaps** — `guide_tab_themes` has no SV key (themes Guide tab never
-  translates); untranslated drilldown labels / history download link / empty-row
-  text / sentiment footnote; SV `note_backtest` hardcodes "topp-5"; themes RRG
-  SV bodies say "Sektorer". Also 3 undefined CSS vars silently no-op:
-  `--font-sans`, `--brand`, `--text-muted` → `--font-body`, `--brand-strong`, `--fg4`.
-- **Accessibility** — tabs have `role="tab"` but no `aria-selected` /
-  `aria-controls` / arrow-key nav; row expansion + column sort are mouse-only
-  (add tabindex + Enter/Space via one delegated listener); `.sig-tip` tooltips
-  hover-only; guide modal lacks focus trap / `aria-modal`.
-- **XSS hardening (no active hole)** — figure JSON enters `<script>` blocks
-  without `</` escaping; `onclick="toggleBreakdown('{{ id }}')"` breaks on an
-  apostrophe in a config name; ETF `url` scheme unvalidated. **Action:** one
-  `js_json()` helper escaping `</`, switch onclick to delegated
-  `data-sector-id` listener, require `http(s)://` on config URLs.
 - ~~**Test coverage gaps**~~ — *(done — see Done)* unit tests for prices.py
   (cache, fallback, edge cases), macro.py, pipeline value assertions +
   missing-benchmark handling, render-based dashboard tests.
-- **Minor sweep** — `datetime.utcnow()` deprecated (scan.py, backtest.py,
-  state.py — use `datetime.now(timezone.utc)`); dead/duplicate imports in
-  scan.py; `_last_trading_day` ignores holidays (full refetch after holidays);
+- **Minor sweep** — ~~`datetime.utcnow()` deprecated (scan.py, backtest.py,
+  state.py — use `datetime.now(timezone.utc)`)~~; ~~dead/duplicate imports in
+  scan.py~~; `_last_trading_day` ignores holidays (full refetch after holidays);
   price cache ignores requested `start` (latent truncation for longer
   lookbacks); StockTwits one-ticker failure discards all fetched sectors +
   local-vs-UTC cache date; `state.py` query duplication (latest-scan /
@@ -314,13 +268,6 @@ client-side parity the sentiment + sector-view toggles rely on. Only worth it if
 absolute cross-region ranking is a real need — the within-region semantics are a
 defensible (arguably preferable) default for a rotation scanner. Captured from the
 sector-view-toggle design discussion (2026-06-25).
-
----
-
----
-
----
-
 
 ---
 
