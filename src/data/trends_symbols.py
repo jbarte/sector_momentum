@@ -193,6 +193,24 @@ def _volatility(series: list[float]) -> float:
     return var ** 0.5
 
 
+def _seasonal_ratio(series: list[float]) -> float:
+    """Recent 13-week mean / trailing baseline mean.
+
+    >1.0 = current interest above historical norm. Returns NaN if the
+    trailing portion (everything before the last 13 points) averages zero
+    or if the series is too short to split.
+    """
+    vals = [float(v) for v in series]
+    if len(vals) < 14:
+        return float("nan")
+    recent = vals[-13:]
+    trailing = vals[:-13]
+    trailing_mean = sum(trailing) / len(trailing)
+    if trailing_mean == 0.0:
+        return float("nan")
+    return sum(recent) / len(recent) / trailing_mean
+
+
 # Derived-signal names, in display order. Kept as a module constant so scan.py,
 # state.py, and the dashboard agree on the set without duplicating the list.
 DERIVED_SIGNAL_NAMES = (
@@ -201,6 +219,7 @@ DERIVED_SIGNAL_NAMES = (
     "range_position",
     "spike",
     "volatility",
+    "seasonal_ratio",
 )
 
 
@@ -212,12 +231,14 @@ def derived_signals(series) -> dict[str, float]:
     only ``momentum`` feeds ``score_symbol_sentiment`` for the composite toggle.
     """
     vals = list(series)
+    recent = vals[-13:] if len(vals) >= 13 else vals
     return {
-        "momentum": _slope(vals),
-        "acceleration": _acceleration(vals),
-        "range_position": _range_position(vals),
-        "spike": _spike_z(vals),
-        "volatility": _volatility(vals),
+        "momentum": _slope(recent),
+        "acceleration": _acceleration(recent),
+        "range_position": _range_position(recent),
+        "spike": _spike_z(recent),
+        "volatility": _volatility(recent),
+        "seasonal_ratio": _seasonal_ratio(vals),
     }
 
 
