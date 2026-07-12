@@ -285,7 +285,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
 
     history_df = history_df.copy()
     history_df["sector_key"] = history_df["region"] + "|" + history_df["gics_sector"]
-    history_df["run_at_str"] = pd.to_datetime(history_df["run_at"]).dt.strftime("%Y-%m-%d")
+    history_df["run_at_str"] = pd.to_datetime(history_df["run_at"], format="ISO8601", utc=True).dt.strftime("%Y-%m-%d")
 
     # Per-sector per-signal breakdown (used by the drilldown tab)
     sector_signal_data: dict[str, str] = {}
@@ -386,7 +386,7 @@ def _build_history_figure(history_df) -> str:
 
     df = history_df.copy()
     df["sector_label"] = df["gics_sector"] + " (" + df["region"] + ")"
-    df["run_at_str"] = pd.to_datetime(df["run_at"]).dt.strftime("%Y-%m-%d")
+    df["run_at_str"] = pd.to_datetime(df["run_at"], format="ISO8601", utc=True).dt.strftime("%Y-%m-%d")
     df = df.sort_values("scan_id")
 
     fig = go.Figure()
