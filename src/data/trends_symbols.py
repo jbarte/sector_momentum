@@ -527,6 +527,99 @@ def fetch_comparative_interest(
     return result
 
 
+def fetch_rising_queries(
+    symbol_map: dict[str, list[str]],
+    client=None,
+    timeframe: str = "today 12-m",
+    sleep_s: float = 20.0,
+    max_retries: int = 3,
+    entities: dict[str, str] | None = None,
+    region_geos: dict[str, list[str]] | None = None,
+    cache: dict | None = None,
+) -> dict[str, list[dict]]:
+    """Fetch rising/breakout queries per sector via pytrends related_queries.
+
+    One call per sector (primary representative term) per geo. Returns
+    {region|sector: [{"query": str, "growth": str}, ...]} with up to 5
+    entries per sector. Entirely fail-open.
+    """
+    if not symbol_map:
+        return {}
+    if client is None:
+        try:
+            client = _new_client()
+        except Exception as exc:
+            logger.warning("Trends client init failed (%s) — rising queries skipped", exc)
+            return {}
+
+    entities = entities or {}
+    region_geos = region_geos if region_geos is not None else DEFAULT_REGION_GEOS
+
+    sectors_by_region: dict[str, list[str]] = {}
+    rep_term: dict[str, dict[str, str]] = {}
+    for key, symbols in sorted(symbol_map.items()):
+        region, _, sector = key.partition("|")
+        sectors_by_region.setdefault(region, []).append(sector)
+        ticker = symbols[0]
+        rep_term.setdefault(region, {})[sector] = entities.get(ticker, ticker)
+
+    result: dict[str, list[dict]] = {}
+    for region, sectors in sectors_by_region.items():
+        geos = region_geos.get(region, [""])
+        for sector in sectors:
+            term = rep_term[region][sector]
+            sector_key = f"{region}|{sector}"
+            cache_ns = f"rising_{region}"
+
+            if cache is not None:
+                cached = cache.get(cache_ns, {}).get(term)
+                if isinstance(cached, list):
+                    result[sector_key] = cached
+                    continue
+
+            per_geo_rising: list[dict] = []
+            for geo in geos:
+                for attempt in range(max_retries):
+                    try:
+                        client.build_payload([term], timeframe=timeframe, geo=geo)
+                        rq = client.related_queries()
+                        rising_df = rq.get(term, {}).get("rising")
+                        if rising_df is not None and not rising_df.empty:
+                            for _, row in rising_df.head(5).iterrows():
+                                q = str(row.get("query", ""))
+                                g = str(row.get("value", ""))
+                                if g != "Breakout":
+                                    g = f"{g}%"
+                                per_geo_rising.append({"query": q, "growth": g})
+                        break
+                    except Exception as exc:
+                        if attempt < max_retries - 1:
+                            time.sleep(sleep_s * (2 ** attempt) + random.uniform(0, 3))
+                        else:
+                            logger.warning(
+                                "Rising queries for %s (geo=%s) failed (%s)",
+                                sector_key, geo or "world", exc,
+                            )
+
+            seen: set[str] = set()
+            deduped: list[dict] = []
+            for entry in per_geo_rising:
+                if entry["query"] not in seen:
+                    seen.add(entry["query"])
+                    deduped.append(entry)
+            deduped = deduped[:5]
+
+            if deduped:
+                result[sector_key] = deduped
+                if cache is not None:
+                    cache.setdefault(cache_ns, {})[term] = deduped
+
+            if sleep_s:
+                time.sleep(sleep_s)
+
+    return result
+
+
 def _new_client(timeout=(10, 25)):
     from pytrends.request import TrendReq
     return TrendReq(hl="en-US", tz=0, timeout=timeout)
