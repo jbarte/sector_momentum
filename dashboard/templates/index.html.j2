@@ -59,6 +59,10 @@
       <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
     </span>
   </div>
+  <div id="scan-history-banner" style="display:none">
+    <span class="scan-history-text" data-i18n="scan_viewing" data-en-prefix="Viewing scan #">Viewing scan #</span>
+    <a href="javascript:void(0)" onclick="restoreLatest()" data-i18n="scan_back_to_latest">Back to latest</a>
+  </div>
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
@@ -208,7 +212,7 @@
       </thead>
       <tbody>
         {% for s in scan_index %}
-        <tr{% if s.scan_id == active_scan_id %} class="active-scan"{% endif %}>
+        <tr data-scan-id="{{ s.scan_id }}" tabindex="0"{% if s.scan_id == active_scan_id %} class="active-scan"{% endif %}>
           <td>{% if s.scan_id == active_scan_id %}<span class="showing-badge">● Showing</span>{% endif %}</td>
           <td>#{{ s.scan_id }}</td>
           <td>{{ s.run_at_display }}</td>

@@ -557,3 +557,54 @@ def test_build_scan_history_data_empty():
     ])
     result = _build_scan_history_data(df)
     assert result == {"scans": [], "scores": {}}
+
+
+# ---------------------------------------------------------------------------
+# Renderable scan history — template render test
+# ---------------------------------------------------------------------------
+
+def test_scan_history_json_in_rendered_output(tmp_path):
+    """Rendered index.html contains SCAN_HISTORY variable with valid JSON."""
+    scan_history = {
+        "scans": [{"id": 2, "date": "2026-07-12 06:00 UTC", "sectors": 22, "top": "Technology (US)"}],
+        "scores": {"2": {"US|Technology": {"rank": 1, "composite": 0.8, "level": 0.7, "change": 0.4, "data": 0.55, "sentiment": 0.2}}},
+    }
+    out = tmp_path / "index.html"
+    _render(
+        template_path=_TEMPLATE,
+        out_path=out,
+        context=dict(
+            scan_date="2026-07-12",
+            scan_index=[{"scan_id": 2, "run_at_display": "2026-07-12 06:00 UTC",
+                         "run_at_raw": "2026-07-12T06:00:00", "sector_count": 22,
+                         "top_sector": "Technology", "top_region": "US"}],
+            active_scan_id=2,
+            leaderboard_rows=[],
+            rrg_data_json=_make_mock_plotly_json(),
+            drilldown_data=json.dumps({}),
+            sector_keys=[],
+            movers_json=_make_mock_plotly_json(),
+            history_json=_make_mock_plotly_json(),
+            sentiment_scatter_json=_make_mock_plotly_json(),
+            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            scan_history_json=json.dumps(scan_history),
+            signals_list=[],
+            plotly_bundle="assets/plotly.min.js",
+            backtest_json=json.dumps({}),
+            backtest_metrics=[],
+            has_backtest=False,
+            rotation_json=json.dumps([]),
+            has_rotations=False,
+        ),
+    )
+    html = out.read_text()
+    assert "var SCAN_HISTORY =" in html
+    assert "scan-history-banner" in html
+    assert 'data-scan-id="2"' in html
+    # Extract and parse the JSON
+    start = html.index("var SCAN_HISTORY =") + len("var SCAN_HISTORY =")
+    end = html.index(";", start)
+    parsed = json.loads(html[start:end].strip())
+    assert "scans" in parsed
+    assert "scores" in parsed
+    assert parsed["scans"][0]["id"] == 2
