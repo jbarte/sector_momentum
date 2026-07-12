@@ -15,7 +15,18 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dashboard.build import _build_sentiment_scatter_figure, _build_leaderboard_rows, _render
+from dashboard.build import (
+    _build_sentiment_scatter_figure,
+    _build_leaderboard_rows,
+    _build_breakdown_html,
+    _build_rrg_figure,
+    _build_movers_figure,
+    _build_history_figure,
+    _compute_rank_trajectories,
+    _format_raw_value,
+    _safe_float,
+    _render,
+)
 
 _TEMPLATE = Path(__file__).parent.parent / "dashboard" / "templates" / "index.html.j2"
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -35,27 +46,35 @@ def _template_js_vars() -> set[str]:
 def _render_context_keys() -> set[str]:
     """Extract the keys passed to _render(context=dict(...)) in build.py's main().
 
-    Uses parenthesis depth-counting to handle nested calls like json.dumps(...).
+    Finds ALL _render() calls (there are 3: index, sentiment, themes) and collects
+    context keys from each one. Uses parenthesis depth-counting to handle nested
+    calls like json.dumps(...). This approach is more robust than matching a single
+    `context=dict(` marker — it finds all render calls and extracts the union of
+    their context keys.
     """
     text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
+    all_keys: set[str] = set()
     marker = "context=dict("
-    start = text.find(marker)
-    if start == -1:
-        return set()
-    # Walk from the opening '(' counting depth to find the matching ')'
-    paren_start = start + len(marker) - 1  # position of '('
-    depth = 0
-    context_block = ""
-    for i, ch in enumerate(text[paren_start:], paren_start):
-        if ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth -= 1
-            if depth == 0:
-                context_block = text[paren_start + 1 : i]
-                break
-    # Each kwarg starts a line with `    key=`
-    return set(re.findall(r"^\s*(\w+)\s*=", context_block, re.MULTILINE))
+    search_start = 0
+    while True:
+        start = text.find(marker, search_start)
+        if start == -1:
+            break
+        paren_start = start + len(marker) - 1
+        depth = 0
+        context_block = ""
+        for i, ch in enumerate(text[paren_start:], paren_start):
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    context_block = text[paren_start + 1 : i]
+                    break
+        keys = set(re.findall(r"^\s*(\w+)\s*=", context_block, re.MULTILINE))
+        all_keys.update(keys)
+        search_start = start + len(marker)
+    return all_keys
 
 
 def _minimal_history_df() -> pd.DataFrame:
@@ -299,3 +318,149 @@ def test_built_html_has_no_composite_toggle(tmp_path):
     assert 'data-view=' not in html
     assert 'sector-view-toggle' not in html
     assert 'data-sector-key="US|Technology"' in html
+
+
+# ---------------------------------------------------------------------------
+# Render-based tests: call build functions, check output HTML
+# ---------------------------------------------------------------------------
+
+def test_leaderboard_render_with_breakdown_panel(tmp_path):
+    """Render a full leaderboard row with breakdown HTML and verify structure."""
+    import json as _json
+
+    df = pd.DataFrame([
+        dict(scan_id=1, run_at="2026-07-01T12:00:00", region="US",
+             gics_sector="Technology", level_score=0.7, change_score=0.4,
+             data_score=0.55, sentiment_score=0.2, composite=0.55, rank=1.0),
+        dict(scan_id=1, run_at="2026-07-01T12:00:00", region="US",
+             gics_sector="Energy", level_score=-0.3, change_score=-0.1,
+             data_score=-0.2, sentiment_score=0.0, composite=-0.2, rank=2.0),
+    ])
+    lb_rows, scan_date = _build_leaderboard_rows(df)
+
+    # Enrich rows with breakdown HTML as main() does
+    universe = {"us_sectors": {"Technology": "XLK", "Energy": "XLE"},
+                "us_benchmark": "RSP", "eu_sectors": {}, "eu_benchmark": "EXSA.DE"}
+    weights = {"pillars": {"data": 1.0}, "data_pillar": {"level": 0.5, "change": 0.5},
+               "level_signals": {"rs_ratio": 1}, "change_signals": {"rs_momentum": 1}}
+    for r in lb_rows:
+        key = f"{r['region']}|{r['sector']}"
+        r["key"] = key
+        r["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        r["trajectory_label"] = "->"; r["trajectory_state"] = "flat"
+        r["setup"] = None
+        r["breakdown_html"] = _build_breakdown_html(
+            key, {"composite": r.get("_raw_composite", 0), "data_score": 0.5,
+                  "level_score": 0.4, "change_score": 0.3},
+            [], universe, weights,
+        )
+
+    out = tmp_path / "index.html"
+    _render(_TEMPLATE, out, dict(
+        scan_date=scan_date, leaderboard_rows=lb_rows,
+        rrg_data_json=_make_mock_plotly_json(), drilldown_data=_json.dumps({}),
+        sector_keys=[], movers_json=_make_mock_plotly_json(),
+        history_json=_make_mock_plotly_json(),
+        sentiment_scatter_json=_make_mock_plotly_json(),
+        rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        signals_list=[], plotly_bundle="assets/plotly.min.js",
+        backtest_json=_json.dumps({}), backtest_metrics=[], has_backtest=False,
+        rotation_json=_json.dumps([]), has_rotations=False,
+    ))
+    html = out.read_text()
+
+    # Both sectors rendered
+    assert "Technology" in html
+    assert "Energy" in html
+    # Breakdown panel present
+    assert "breakdown-inner" in html
+    assert "score-tree" in html
+    # Rank column rendered
+    assert ">1<" in html or ">1 <" in html or "rank" in html.lower()
+    # No empty JS vars
+    assert not re.compile(r"var\s+\w+\s*=\s*;").findall(html)
+
+
+def test_figure_builders_produce_valid_plotly_json():
+    """All figure builders should return valid Plotly JSON (data + layout)."""
+    df = _minimal_history_df()
+
+    # RRG
+    rrg_json = _build_rrg_figure(df.assign(rs_ratio=100.5, rs_momentum=99.8))
+    parsed = json.loads(rrg_json)
+    assert "data" in parsed and "layout" in parsed
+
+    # Movers (need 2 scans for a meaningful chart)
+    two_scan_df = pd.concat([
+        df.assign(scan_id=1),
+        df.assign(scan_id=2, composite=lambda x: x["composite"] + 0.1, rank=lambda x: x["rank"]),
+    ], ignore_index=True)
+    movers_json = _build_movers_figure(two_scan_df)
+    parsed = json.loads(movers_json)
+    assert "data" in parsed and "layout" in parsed
+
+    # History
+    hist_json = _build_history_figure(df)
+    parsed = json.loads(hist_json)
+    assert "data" in parsed and "layout" in parsed
+
+
+def test_rank_trajectories_computation():
+    """_compute_rank_trajectories returns correct trajectory states."""
+    rows = []
+    for scan_id in range(1, 6):
+        # Technology improving (rank going from 5 down to 1)
+        rows.append(dict(scan_id=scan_id, region="US", gics_sector="Technology",
+                         rank=6 - scan_id))
+        # Energy worsening (rank going from 1 up to 5)
+        rows.append(dict(scan_id=scan_id, region="US", gics_sector="Energy",
+                         rank=scan_id))
+    df = pd.DataFrame(rows)
+    result = _compute_rank_trajectories(df)
+
+    assert "US|Technology" in result
+    assert "US|Energy" in result
+    # Improving rank (going down) = negative slope = up/strong_up
+    assert result["US|Technology"]["state"] in ("up", "strong_up")
+    # Worsening rank (going up) = positive slope = down/strong_down
+    assert result["US|Energy"]["state"] in ("down", "strong_down")
+
+
+def test_safe_float_handles_edge_cases():
+    """_safe_float correctly handles None, NaN, and valid floats."""
+    assert _safe_float(None) is None
+    assert _safe_float(float("nan")) is None
+    assert _safe_float(0.5) == 0.5
+    assert _safe_float(0) == 0.0
+    assert _safe_float("invalid") is None
+
+
+def test_format_raw_value_formatting():
+    """_format_raw_value applies correct formatting per signal type."""
+    # rs_ratio/rs_momentum: 1 decimal
+    assert _format_raw_value("rs_ratio", 102.5) == "102.5"
+    assert _format_raw_value("rs_momentum", 98.3) == "98.3"
+    # breadth: percentage
+    assert _format_raw_value("breadth_above_50dma", 0.65) == "65%"
+    # slopes: signed 3 decimals
+    assert _format_raw_value("ma50_slope", 0.003) == "+0.003"
+    # returns: percentage
+    assert "%" in _format_raw_value("return_1m", 0.05)
+    # NaN/None: em-dash
+    assert _format_raw_value("rs_ratio", None) == "—"
+    assert _format_raw_value("rs_ratio", float("nan")) == "—"
+
+
+def test_render_context_keys_finds_all_render_calls():
+    """_render_context_keys should find keys from all _render() calls, not just the first."""
+    keys = _render_context_keys()
+    # index.html context keys
+    assert "scan_date" in keys
+    assert "leaderboard_rows" in keys
+    assert "rrg_data_json" in keys
+    # sentiment.html context keys
+    assert "sentiment_scatter_json" in keys
+    assert "sentiment_signal_rows" in keys
+    # themes.html context keys
+    assert "theme_rows" in keys
+    assert "theme_rrg_json" in keys

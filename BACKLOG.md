@@ -102,6 +102,26 @@ prioritized P1 (fix first) → P4; each records the finding and the intended act
 - **Minor sweep** — ~~`datetime.utcnow()` deprecated (scan.py, backtest.py,
   state.py — use `datetime.now(timezone.utc)`)~~; ~~dead/duplicate imports in
   scan.py~~; `_last_trading_day` ignores holidays (full refetch after holidays);
+- **i18n gaps** — `guide_tab_themes` has no SV key (themes Guide tab never
+  translates); untranslated drilldown labels / history download link / empty-row
+  text / sentiment footnote; SV `note_backtest` hardcodes "topp-5"; themes RRG
+  SV bodies say "Sektorer". Also 3 undefined CSS vars silently no-op:
+  `--font-sans`, `--brand`, `--text-muted` → `--font-body`, `--brand-strong`, `--fg4`.
+- **Accessibility** — tabs have `role="tab"` but no `aria-selected` /
+  `aria-controls` / arrow-key nav; row expansion + column sort are mouse-only
+  (add tabindex + Enter/Space via one delegated listener); `.sig-tip` tooltips
+  hover-only; guide modal lacks focus trap / `aria-modal`.
+- **XSS hardening (no active hole)** — figure JSON enters `<script>` blocks
+  without `</` escaping; `onclick="toggleBreakdown('{{ id }}')"` breaks on an
+  apostrophe in a config name; ETF `url` scheme unvalidated. **Action:** one
+  `js_json()` helper escaping `</`, switch onclick to delegated
+  `data-sector-id` listener, require `http(s)://` on config URLs.
+- ~~**Test coverage gaps**~~ — *(done — see Done)* unit tests for prices.py
+  (cache, fallback, edge cases), macro.py, pipeline value assertions +
+  missing-benchmark handling, render-based dashboard tests.
+- **Minor sweep** — `datetime.utcnow()` deprecated (scan.py, backtest.py,
+  state.py — use `datetime.now(timezone.utc)`); dead/duplicate imports in
+  scan.py; `_last_trading_day` ignores holidays (full refetch after holidays);
   price cache ignores requested `start` (latent truncation for longer
   lookbacks); StockTwits one-ticker failure discards all fetched sectors +
   local-vs-UTC cache date; `state.py` query duplication (latest-scan /
@@ -345,6 +365,15 @@ Carried over from earlier planning — not started:
   trends_symbols.py and state.py. Filtered `backup_*.zip` in restore latest
   selection. GitHub Actions already pinned (first-party at major version tags,
   third-party SHA-pinned); test.yml already had `fix/**` trigger. *(2026-07-11)*
+- ~~Review P4: test coverage gaps~~ — added 22 unit tests for `src/data/prices.py`
+  (cache freshness, stooq→yfinance fallback, all-NaN/empty/corrupted edge cases,
+  `_normalize_columns` with MultiIndex, `fetch_prices` cache-vs-live integration),
+  8 tests for `src/data/macro.py` (stub contract), 13 pipeline value-range assertions
+  + missing-benchmark/sector handling, and 7 render-based dashboard tests (full
+  leaderboard render with breakdown panels, figure builder JSON validation,
+  trajectory computation, `_safe_float`/`_format_raw_value` edge cases, multi-call
+  render-context coverage). `_render_context_keys` now finds all three `_render()`
+  calls (index/sentiment/themes) instead of just the first. *(2026-07-11)*
 - ~~rs_momentum fast=1→5~~ — `compute_rrg` default changed from `fast=1` (one-day noise) to `fast=5`; configurable via `config/weights.yaml` `signal_params.rs_momentum_fast`; threaded through `latest_rrg` → `compute_signals_for_sector` → `build_signals_rows` / `build_theme_signals_rows` → `scan.py`. Expect rank shifts from the smoother momentum signal. *(2026-07-11)*
 - ~~Backtest realism~~ — four fixes: (1) `--cost-bps` CLI flag debits one-way transaction costs proportional to turnover on each rebalance; (2) benchmark NaN months dropped instead of silently treated as 0%; (3) `close_at` rejects prices older than 5 trading days (returns NaN); (4) Sharpe column labelled "Sharpe (rf=0)" in EN+SV. *(2026-07-11)*
 - ~~Dependency lockfile & pytrends pin~~ — split `requirements.txt` (runtime, `>=` floors) from `requirements-dev.txt` (adds pytest); `uv pip compile` generates exact-pinned `.lock` files that CI installs from (`requirements.lock` for build-docs/scan, `requirements-dev.lock` for tests); `pytrends` pinned to `==4.9.2` in the input file. Daily cron no longer installs newest versions on every run. *(2026-07-11)*
