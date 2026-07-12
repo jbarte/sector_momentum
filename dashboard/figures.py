@@ -562,14 +562,14 @@ def _build_scan_history_data(all_scores_df) -> dict:
         sid_scores = {}
         for _, row in g.iterrows():
             key = f"{row['region']}|{row['gics_sector']}"
-            sf = _safe_float
+            rk = _safe_float(row["rank"])
             sid_scores[key] = {
-                "rank": int(sf(row["rank"])) if sf(row["rank"]) is not None else 99,
-                "composite": round(sf(row["composite"]) or 0.0, 3),
-                "level": round(sf(row["level_score"]) or 0.0, 3),
-                "change": round(sf(row["change_score"]) or 0.0, 3),
-                "data": round(sf(row["data_score"]) or 0.0, 3),
-                "sentiment": round(sf(row["sentiment_score"]) or 0.0, 3),
+                "rank": int(rk) if rk is not None else 99,
+                "composite": round(_safe_float(row["composite"]) or 0.0, 3),
+                "level": round(_safe_float(row["level_score"]) or 0.0, 3),
+                "change": round(_safe_float(row["change_score"]) or 0.0, 3),
+                "data": round(_safe_float(row["data_score"]) or 0.0, 3),
+                "sentiment": round(_safe_float(row["sentiment_score"]) or 0.0, 3),
             }
         scores[str(int(sid))] = sid_scores
 

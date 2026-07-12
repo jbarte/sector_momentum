@@ -6,7 +6,6 @@
 <title>Sector Momentum</title>
 <script src="{{ plotly_bundle }}"></script>
 <script src="assets/rescore.js"></script>
-<script src="assets/scan-history.js"></script>
 <style>
 {% include "_style.html.j2" %}
 </style>
@@ -212,7 +211,7 @@
       </thead>
       <tbody>
         {% for s in scan_index %}
-        <tr data-scan-id="{{ s.scan_id }}" tabindex="0"{% if s.scan_id == active_scan_id %} class="active-scan"{% endif %}>
+        <tr data-scan-id="{{ s.scan_id }}" tabindex="0" role="button" aria-label="View scan #{{ s.scan_id }}"{% if s.scan_id == active_scan_id %} class="active-scan"{% endif %}>
           <td>{% if s.scan_id == active_scan_id %}<span class="showing-badge">● Showing</span>{% endif %}</td>
           <td>#{{ s.scan_id }}</td>
           <td>{{ s.run_at_display }}</td>
@@ -622,6 +621,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 
 {% include "_i18n.html.j2" %}
 </script>
+<script src="assets/scan-history.js"></script>
 
 {% include "_guide_modal.html.j2" %}
 

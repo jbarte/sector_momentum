@@ -197,7 +197,7 @@ header h1 {
 .scan-index .active-scan { background: var(--green-100); }
 .showing-badge { color: var(--green-700); font-weight: 600; font-size: 0.8em; white-space: nowrap; }
 .scan-index tr[data-scan-id] { cursor: pointer; }
-.scan-index tr[data-scan-id]:hover { background: var(--bg-raised); }
+.scan-index tr[data-scan-id]:not(.active-scan):hover { background: var(--bg-sunken); }
 .scan-index tr[data-scan-id]:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
 #scan-history-banner {
   display: flex;

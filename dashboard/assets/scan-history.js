@@ -129,7 +129,12 @@
     updateShowingBadge(latestScanId);
     if (headerDate) headerDate.innerHTML = originalDate;
     if (banner) banner.style.display = "none";
-    if (sentimentToggle) sentimentToggle.disabled = false;
+    if (sentimentToggle) {
+      sentimentToggle.disabled = false;
+      if (sentimentToggle.checked) {
+        sentimentToggle.dispatchEvent(new Event("change"));
+      }
+    }
     if (sentimentControl) sentimentControl.style.opacity = "";
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
   };
