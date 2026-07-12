@@ -1,0 +1,28 @@
+// ----- Tab switching -----
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.setAttribute('aria-selected', 'false'));
+  btn.setAttribute('aria-selected', 'true');
+
+  // Lazy-render Plotly charts on first activation
+  if (name === 'rrg')       renderRRG();
+  if (name === 'movers')    renderMovers();
+  if (name === 'history')   renderHistory();
+  if (name === 'drilldown') renderDrilldown();
+  if (typeof renderBacktest === 'function' && name === 'backtest') renderBacktest();
+}
+
+// Arrow-key navigation between tabs
+document.querySelector('.tabs')?.addEventListener('keydown', function(e) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  var btns = Array.from(this.querySelectorAll('.tab-btn'));
+  var idx = btns.indexOf(document.activeElement);
+  if (idx < 0) return;
+  e.preventDefault();
+  var next = e.key === 'ArrowRight' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+  btns[next].focus();
+  btns[next].click();
+});
