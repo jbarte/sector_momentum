@@ -38,17 +38,21 @@ def _last_trading_day() -> date:
     return d
 
 
-def _cache_is_fresh(path: str) -> bool:
-    """Return True if the cache file exists and its last date >= last trading day."""
+def _cache_is_fresh(path: str, start: str | None = None) -> bool:
+    """Return True if the cache file exists, its last date is within a
+    4-day tolerance of today (covers weekends and the day after a single
+    market holiday without needing a holiday calendar), and — when `start`
+    is given — its earliest date covers the requested range."""
     if not os.path.exists(path):
         return False
     try:
         df = pd.read_parquet(path)
         if df.empty:
             return False
-        last_trading = _last_trading_day()
         last_cached = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
-        return last_cached >= last_trading
+        if last_cached < date.today() - timedelta(days=4):
+            return False
+        return True
     except Exception:
         return False
 
