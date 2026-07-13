@@ -197,3 +197,26 @@ def test_score_all_blend_sentiment_false_keeps_composite_pure_data():
     )
     # Technology (higher data) still ranks 1 despite negative sentiment
     assert out.loc["US|Technology", "rank"] == 1.0
+
+
+def test_score_all_without_pillars_block(tmp_path):
+    """score_all works when weights.yaml lacks a 'pillars' block entirely."""
+    import yaml
+
+    weights = {
+        "data_pillar": {"level": 0.5, "change": 0.5},
+    }
+    weights_file = tmp_path / "weights.yaml"
+    weights_file.write_text(yaml.dump(weights))
+
+    signals = pd.DataFrame(
+        {col: [1.0, 2.0, 3.0] for col in [
+            "rs_ratio", "rs_momentum", "return_1m", "return_3m", "return_6m",
+            "acceleration", "above_50dma", "above_200dma", "ma50_slope",
+            "obv_slope",
+        ]},
+        index=["US|Tech", "US|Energy", "EU|Tech"],
+    )
+    result = score_all(signals, weights_path=str(weights_file), blend_sentiment=False)
+    assert "composite" in result.columns
+    assert len(result) == 3
