@@ -488,18 +488,25 @@ def test_conn_closed_on_exception(monkeypatch):
 
 
 def test_score_symbol_sentiment_returns_series():
-    """score_symbol_sentiment returns a per-sector-key Series with no NaNs."""
+    """score_symbol_sentiment returns a per-sector-key Series with no NaNs when above threshold."""
     import pandas as pd
-    from src.data.trends_symbols import score_symbol_sentiment
+    from src.data.trends_symbols import score_symbol_sentiment, _MIN_LIVE_SECTORS
 
-    # Rising slope -> positive score; flat -> neutral (z-score collapses to 0)
+    # Supply enough keys to exceed the live-sector guard (_MIN_LIVE_SECTORS = 8).
+    sectors = [
+        "US|Technology", "US|Energy", "US|Health Care", "US|Financials",
+        "US|Consumer Discretionary", "US|Consumer Staples", "US|Industrials",
+        "US|Materials",
+    ]
+    assert len(sectors) >= _MIN_LIVE_SECTORS
     trends_by_key = {
-        "US|Technology": pd.Series([float(i) for i in range(13)]),  # rising
-        "US|Energy": pd.Series([5.0] * 13),                          # flat
+        s: pd.Series([float(i) for i in range(13)]) for s in sectors
     }
+    # Make one flat to verify it still gets a score (z-score of 0)
+    trends_by_key["US|Energy"] = pd.Series([5.0] * 13)
 
     result = score_symbol_sentiment(trends_by_key)
 
     assert isinstance(result, pd.Series)
-    assert set(result.index) == {"US|Technology", "US|Energy"}
+    assert set(result.index) == set(sectors)
     assert not result.isna().any()

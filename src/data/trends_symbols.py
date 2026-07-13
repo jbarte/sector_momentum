@@ -683,7 +683,7 @@ def fetch_symbol_trends(
     timeframe: str = "today 12-m",
     window: int = 52,
     batch_size: int = 4,
-    sleep_s: float = 20.0,
+    sleep_s: float = 25.0,
     max_retries: int = 3,
     entities: dict[str, str] | None = None,
     region_geos: dict[str, list[str]] | None = None,

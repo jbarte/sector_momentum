@@ -36,7 +36,7 @@ def test_aggregate_means_live_symbols_and_zeros_dead():
     smap = {"US|Technology": ["XLK", "VGT", "DEAD"], "US|Energy": ["DEAD"]}
     agg = _aggregate(norm, smap, window=2)
     assert list(agg["US|Technology"]) == [3.0, 6.0]   # mean of XLK,VGT; DEAD excluded
-    assert list(agg["US|Energy"]) == [0.0, 0.0]       # no live symbols
+    assert "US|Energy" not in agg                      # dead-only key is omitted
 
 
 def test_acceleration_sign_and_guards():
