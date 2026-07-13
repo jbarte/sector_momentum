@@ -165,20 +165,6 @@ worth a push. Needs: event detection (compare latest two scans — trivially
 derivable from the DB), a delivery secret/topic, and a "no events, no noise"
 rule. Non-fatal like the other post-scan steps.
 
-## Maintenance sweep (verified open, 2026-07-12)
-
-Small independent fixes; audit confirmed each is still present in the code:
-
-- **Delete dead `src/data/stocktwits.py` + `tests/test_stocktwits.py`** — the
-  multi-source sentiment engine was removed, but this module survived; nothing
-  imports it except its own test.
-- **`_last_trading_day` ignores holidays** (`src/data/prices.py:33`) — full
-  refetch after market holidays.
-- **Price cache ignores requested `start`** (`src/data/prices.py`) — latent
-  truncation if a longer lookback is ever requested.
-- **`state.py` query duplication** (536 lines) — latest-scan / history /
-  insert helpers would roughly halve the file.
-
 ---
 
 # Parked
@@ -210,6 +196,16 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- ~~Maintenance sweep~~ — deleted dead `src/data/stocktwits.py` +
+  `tests/test_stocktwits.py` (superseded by symbol-based Trends sentiment);
+  `_cache_is_fresh` (`src/data/prices.py`) now tolerates a 4-day gap so the
+  day after a market holiday no longer triggers a spurious live re-fetch, and
+  also checks that cached data covers a newly-requested longer `start` range
+  (re-fetches instead of silently truncating); deduped three repeated
+  patterns in `src/state.py` — a shared latest-scan query helper, a shared
+  recent-scan-filter builder, and a shared DataFrame-to-rows insert helper —
+  all pure refactors, same output/behavior, verified by the existing test
+  suite. *(2026-07-12)*
 - ~~Theme timestamp parse crash~~ — `_build_drilldown_data`/`_build_history_figure`
   (`dashboard/figures.py`) crashed on `run_at` values that mixed ISO8601
   timestamps with and without a `+00:00` timezone suffix (`pd.to_datetime`
