@@ -271,9 +271,7 @@ def _aggregate(
             for s in symbols
             if s in norm_by_symbol and any(v != 0 for v in norm_by_symbol[s])
         ]
-        if not live:
-            out[sector_key] = pd.Series([0.0] * window, dtype=float)
-        else:
+        if live:
             arr = np.array(live, dtype=float)
             out[sector_key] = pd.Series(arr.mean(axis=0), dtype=float)
     return out

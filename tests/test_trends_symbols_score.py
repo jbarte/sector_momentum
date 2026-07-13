@@ -32,3 +32,32 @@ def test_rising_key_scores_above_falling():
     assert s["US|Technology"] > s["US|Utilities"] > s["US|Energy"]
     # cross-sectional z is centered near zero
     assert abs(s.mean()) < 1e-9
+
+
+def test_aggregate_omits_dead_key():
+    """A sector-key with no live symbols is absent from _aggregate's result."""
+    from src.data.trends_symbols import _aggregate
+    norm_by_symbol = {
+        "AAPL": [1.0, 2.0, 3.0],
+        "DEAD": [0.0, 0.0, 0.0],
+    }
+    symbol_map = {
+        "US|Technology": ["AAPL"],
+        "US|Energy": ["DEAD"],
+    }
+    result = _aggregate(norm_by_symbol, symbol_map, window=3)
+    assert "US|Technology" in result
+    assert "US|Energy" not in result, "Dead key should be omitted, not zero-filled"
+
+
+def test_aggregate_omits_key_with_missing_symbols():
+    """A sector-key whose symbols aren't in norm_by_symbol at all is omitted."""
+    from src.data.trends_symbols import _aggregate
+    norm_by_symbol = {"AAPL": [1.0, 2.0, 3.0]}
+    symbol_map = {
+        "US|Technology": ["AAPL"],
+        "US|Energy": ["XOM"],
+    }
+    result = _aggregate(norm_by_symbol, symbol_map, window=3)
+    assert "US|Technology" in result
+    assert "US|Energy" not in result
