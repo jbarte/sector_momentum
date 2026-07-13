@@ -173,17 +173,11 @@ def save_scan(
             scan_id = cur.fetchone()[0]
 
             if not region_sector_signals.empty:
-                signals_rows = [
-                    (
-                        scan_id,
-                        row["region"],
-                        row["gics_sector"],
-                        row["signal_name"],
-                        _to_float_or_none(row.get("raw_value")),
-                        _to_float_or_none(row.get("z_value")),
-                    )
-                    for _, row in region_sector_signals.iterrows()
-                ]
+                signals_rows = _rows_from_df(
+                    region_sector_signals, scan_id,
+                    key_cols=["region", "gics_sector", "signal_name"],
+                    float_cols=["raw_value", "z_value"],
+                )
                 cur.executemany(
                     "INSERT INTO signals "
                     "(scan_id, region, gics_sector, signal_name, raw_value, z_value) "
@@ -192,23 +186,12 @@ def save_scan(
                 )
 
             if not scores_df.empty:
-                score_cols = [
-                    "level_score",
-                    "change_score",
-                    "data_score",
-                    "sentiment_score",
-                    "composite",
-                    "rank",
-                ]
-                scores_rows = [
-                    (
-                        scan_id,
-                        row["region"],
-                        row["gics_sector"],
-                        *(_to_float_or_none(row.get(c)) for c in score_cols),
-                    )
-                    for _, row in scores_df.iterrows()
-                ]
+                scores_rows = _rows_from_df(
+                    scores_df, scan_id,
+                    key_cols=["region", "gics_sector"],
+                    float_cols=["level_score", "change_score", "data_score",
+                                "sentiment_score", "composite", "rank"],
+                )
                 cur.executemany(
                     "INSERT INTO scores "
                     "(scan_id, region, gics_sector, level_score, change_score, "
@@ -218,17 +201,12 @@ def save_scan(
                 )
 
             if sentiment_signals_df is not None and not sentiment_signals_df.empty:
-                sent_rows = [
-                    (
-                        scan_id,
-                        row["region"],
-                        row["gics_sector"],
-                        row["signal_name"],
-                        _to_float_or_none(row.get("value")),
-                        row.get("text_value") or None,
-                    )
-                    for _, row in sentiment_signals_df.iterrows()
-                ]
+                sent_rows = _rows_from_df(
+                    sentiment_signals_df, scan_id,
+                    key_cols=["region", "gics_sector", "signal_name"],
+                    float_cols=["value"],
+                    raw_cols=["text_value"],
+                )
                 cur.executemany(
                     "INSERT INTO sentiment_signals "
                     "(scan_id, region, gics_sector, signal_name, value, text_value) "
@@ -307,13 +285,8 @@ def get_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.Data
     Columns: region, gics_sector, signal_name, raw_value, z_value
     Returns empty DataFrame if no scans exist.
     """
-    return pd.read_sql_query(
-        """
-        SELECT s.region, s.gics_sector, s.signal_name, s.raw_value, s.z_value
-        FROM signals s
-        JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON s.scan_id = m.max_id
-        """,
-        conn,
+    return _latest_scan_query(
+        conn, "signals", "t.region, t.gics_sector, t.signal_name, t.raw_value, t.z_value"
     )
 
 
@@ -325,13 +298,9 @@ def get_sentiment_signals_for_latest_scan(
     Columns: region, gics_sector, signal_name, value
     Returns empty DataFrame if no scans (or no sentiment rows) exist.
     """
-    return pd.read_sql_query(
-        """
-        SELECT ss.region, ss.gics_sector, ss.signal_name, ss.value, ss.text_value
-        FROM sentiment_signals ss
-        JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON ss.scan_id = m.max_id
-        """,
-        conn,
+    return _latest_scan_query(
+        conn, "sentiment_signals",
+        "t.region, t.gics_sector, t.signal_name, t.value, t.text_value",
     )
 
 
@@ -352,11 +321,11 @@ def save_theme_scan(
     with conn:
         with conn.cursor() as cur:
             if not scores_df.empty:
-                rows = [
-                    (scan_id, row["gics_sector"],
-                     *(_to_float_or_none(row.get(c)) for c in score_cols))
-                    for _, row in scores_df.iterrows()
-                ]
+                rows = _rows_from_df(
+                    scores_df, scan_id,
+                    key_cols=["gics_sector"],
+                    float_cols=score_cols,
+                )
                 cur.executemany(
                     "INSERT INTO theme_scores "
                     "(scan_id, theme, level_score, change_score, data_score, "
@@ -365,12 +334,11 @@ def save_theme_scan(
                     rows,
                 )
             if not signals_df.empty:
-                srows = [
-                    (scan_id, row["gics_sector"], row["signal_name"],
-                     _to_float_or_none(row.get("raw_value")),
-                     _to_float_or_none(row.get("z_value")))
-                    for _, row in signals_df.iterrows()
-                ]
+                srows = _rows_from_df(
+                    signals_df, scan_id,
+                    key_cols=["gics_sector", "signal_name"],
+                    float_cols=["raw_value", "z_value"],
+                )
                 cur.executemany(
                     "INSERT INTO theme_signals "
                     "(scan_id, theme, signal_name, raw_value, z_value) "
@@ -382,26 +350,16 @@ def save_theme_scan(
 
 def get_theme_scores_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
     """Theme score rows for the most recent scan. Empty DataFrame if none."""
-    return pd.read_sql_query(
-        """
-        SELECT ts.theme, ts.level_score, ts.change_score, ts.data_score,
-               ts.sentiment_score, ts.composite, ts.rank
-        FROM theme_scores ts
-        JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON ts.scan_id = m.max_id
-        """,
-        conn,
+    return _latest_scan_query(
+        conn, "theme_scores",
+        "t.theme, t.level_score, t.change_score, t.data_score, t.sentiment_score, t.composite, t.rank",
     )
 
 
 def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
     """Theme signal rows for the most recent scan. Empty DataFrame if none."""
-    return pd.read_sql_query(
-        """
-        SELECT tsg.theme, tsg.signal_name, tsg.raw_value, tsg.z_value
-        FROM theme_signals tsg
-        JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON tsg.scan_id = m.max_id
-        """,
-        conn,
+    return _latest_scan_query(
+        conn, "theme_signals", "t.theme, t.signal_name, t.raw_value, t.z_value"
     )
 
 
@@ -414,23 +372,19 @@ def get_theme_rrg_history(
     Columns: scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum
     (aliased to match get_rrg_history output so _build_rrg_figure works as-is).
     """
-    return pd.read_sql_query(
-        """
+    condition, params = _recent_scan_filter(n_scans)
+    query = f"""
         SELECT sc.scan_id, sc.run_at, 'THEME' AS region, tsg.theme AS gics_sector,
                MAX(CASE WHEN tsg.signal_name = 'rs_ratio'    THEN tsg.raw_value END) AS rs_ratio,
                MAX(CASE WHEN tsg.signal_name = 'rs_momentum' THEN tsg.raw_value END) AS rs_momentum
         FROM theme_signals tsg
         JOIN scans sc ON sc.scan_id = tsg.scan_id
-        WHERE tsg.scan_id IN (
-            SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s
-        )
+        WHERE {condition}
         AND tsg.signal_name IN ('rs_ratio', 'rs_momentum')
         GROUP BY sc.scan_id, sc.run_at, tsg.theme
         ORDER BY sc.scan_id ASC, tsg.theme
-        """,
-        conn,
-        params=(n_scans,),
-    )
+    """
+    return pd.read_sql_query(query, conn, params=params)
 
 
 def get_theme_scan_history(
@@ -443,24 +397,17 @@ def get_theme_scan_history(
     data_score, sentiment_score, composite, rank. Ordered by run_at ASC, theme.
     n_scans=None returns all scans. Empty DataFrame if no theme rows exist.
     """
-    base = """
+    condition, params = _recent_scan_filter(n_scans)
+    query = f"""
         SELECT sc.scan_id, sc.run_at, 'THEME' AS region, ts.theme AS gics_sector,
                ts.level_score, ts.change_score, ts.data_score, ts.sentiment_score,
                ts.composite, ts.rank
         FROM theme_scores ts
         JOIN scans sc ON sc.scan_id = ts.scan_id
-        {scan_filter}
+        WHERE {condition}
         ORDER BY sc.run_at ASC, ts.theme
     """
-    if n_scans is None:
-        return pd.read_sql_query(base.format(scan_filter=""), conn)
-    return pd.read_sql_query(
-        base.format(
-            scan_filter="WHERE sc.scan_id IN (SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s)"
-        ),
-        conn,
-        params=(n_scans,),
-    )
+    return pd.read_sql_query(query, conn, params=params)
 
 
 def get_rrg_history(
@@ -471,23 +418,19 @@ def get_rrg_history(
     Return rs_ratio and rs_momentum for the last n_scans scans, for RRG tail traces.
     Columns: scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum
     """
-    return pd.read_sql_query(
-        """
+    condition, params = _recent_scan_filter(n_scans)
+    query = f"""
         SELECT sc.scan_id, sc.run_at, sig.region, sig.gics_sector,
                MAX(CASE WHEN sig.signal_name = 'rs_ratio'    THEN sig.raw_value END) AS rs_ratio,
                MAX(CASE WHEN sig.signal_name = 'rs_momentum' THEN sig.raw_value END) AS rs_momentum
         FROM signals sig
         JOIN scans sc ON sc.scan_id = sig.scan_id
-        WHERE sig.scan_id IN (
-            SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s
-        )
+        WHERE {condition}
         AND sig.signal_name IN ('rs_ratio', 'rs_momentum')
         GROUP BY sc.scan_id, sc.run_at, sig.region, sig.gics_sector
         ORDER BY sc.scan_id ASC, sig.region, sig.gics_sector
-        """,
-        conn,
-        params=(n_scans,),
-    )
+    """
+    return pd.read_sql_query(query, conn, params=params)
 
 
 def get_scan_history(
@@ -502,22 +445,17 @@ def get_scan_history(
     Ordered by (run_at ASC, region, gics_sector).
     Returns empty DataFrame if no scans exist.
     """
-    base = """
+    condition, params = _recent_scan_filter(n_scans)
+    query = f"""
         SELECT sc.scan_id, sc.run_at, s.region, s.gics_sector,
                s.level_score, s.change_score, s.data_score, s.sentiment_score,
                s.composite, s.rank
         FROM scores s
         JOIN scans sc ON sc.scan_id = s.scan_id
-        {scan_filter}
+        WHERE {condition}
         ORDER BY sc.run_at ASC, s.region, s.gics_sector
     """
-    if n_scans is None:
-        query = base.format(scan_filter="")
-        return pd.read_sql_query(query, conn)
-    query = base.format(
-        scan_filter="WHERE sc.scan_id IN (SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s)"
-    )
-    return pd.read_sql_query(query, conn, params=(n_scans,))
+    return pd.read_sql_query(query, conn, params=params)
 
 
 # ---------------------------------------------------------------------------
@@ -534,3 +472,46 @@ def _to_float_or_none(value) -> float | None:
         return None if math.isnan(f) else f
     except (TypeError, ValueError):
         return None
+
+
+def _latest_scan_query(conn, table: str, columns: str) -> pd.DataFrame:
+    """Shared shape for 'all rows from <table> belonging to the most recent
+    scan'. `columns` must reference the table via alias 't'
+    (e.g. 't.region, t.gics_sector')."""
+    return pd.read_sql_query(
+        f"SELECT {columns} FROM {table} t "
+        f"JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON t.scan_id = m.max_id",
+        conn,
+    )
+
+
+def _recent_scan_filter(n_scans: int | None) -> tuple[str, tuple]:
+    """Returns (SQL boolean condition on sc.scan_id, params) restricting to
+    the last n_scans scans — assumes the query aliases the scans table as
+    'sc'. When n_scans is None, returns a condition matching all rows."""
+    if n_scans is None:
+        return "TRUE", ()
+    return (
+        "sc.scan_id IN (SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s)",
+        (n_scans,),
+    )
+
+
+def _rows_from_df(
+    df: pd.DataFrame,
+    scan_id: int,
+    key_cols: list[str],
+    float_cols: list[str],
+    raw_cols: list[str] | None = None,
+) -> list[tuple]:
+    """Build (scan_id, *key_cols, *float_cols, *raw_cols) tuples from a
+    DataFrame. float_cols are converted via _to_float_or_none; raw_cols pass
+    through as-is (None if falsy) — covers columns like
+    sentiment_signals.text_value that aren't float data."""
+    raw_cols = raw_cols or []
+    return [
+        (scan_id, *(row[k] for k in key_cols),
+         *(_to_float_or_none(row.get(c)) for c in float_cols),
+         *(row.get(c) or None for c in raw_cols))
+        for _, row in df.iterrows()
+    ]

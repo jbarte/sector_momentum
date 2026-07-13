@@ -263,7 +263,6 @@ config/weights.yaml ───┤
 | `src/data/trends_cache.py` | Durable day-cache for Trends batches (Supabase Storage) |
 | `src/data/constituents.py` | S&P 500 constituent list (Wikipedia scrape) |
 | `src/data/macro.py` | FRED macro data loader |
-| `src/data/stocktwits.py` | StockTwits loader (defunct -- Cloudflare-blocked) |
 | `src/signals/momentum.py` | Returns and acceleration |
 | `src/signals/relative_strength.py` | RRG RS-Ratio and RS-Momentum |
 | `src/signals/technical.py` | MA distances, MA slope, OBV slope |

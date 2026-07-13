@@ -72,15 +72,29 @@ def test_cache_is_fresh_returns_false_for_missing_file():
 
 
 def test_cache_is_fresh_returns_true_for_current_data(tmp_path):
-    """A cache file whose last date >= last trading day is considered fresh."""
+    """A cache file whose last date is within the tolerance window is fresh."""
     df = _make_price_df(n=10, start_date=str(date.today() - timedelta(days=14)))
     path = str(tmp_path / "test.parquet")
     df.to_parquet(path)
-    # The DataFrame extends to recent business days; should be fresh
-    # unless today is a weekend Monday and last 10 bdays don't reach yesterday.
-    # Use a mock to make this deterministic.
-    with patch("src.data.prices._last_trading_day", return_value=df.index[-1].date()):
-        assert _cache_is_fresh(path) is True
+    assert _cache_is_fresh(path) is True
+
+
+def test_cache_is_fresh_tolerates_gap_after_holiday(tmp_path):
+    """A cache 4 days old (e.g. the day after a single-day market holiday) is still fresh."""
+    idx = pd.DatetimeIndex([pd.Timestamp(date.today() - timedelta(days=4))])
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "gap.parquet")
+    df.to_parquet(path)
+    assert _cache_is_fresh(path) is True
+
+
+def test_cache_is_fresh_false_beyond_tolerance(tmp_path):
+    """A cache 5 days old (past the tolerance window) is stale."""
+    idx = pd.DatetimeIndex([pd.Timestamp(date.today() - timedelta(days=5))])
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "toostale.parquet")
+    df.to_parquet(path)
+    assert _cache_is_fresh(path) is False
 
 
 def test_cache_is_fresh_returns_false_for_stale_data(tmp_path):
@@ -295,7 +309,7 @@ def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tm
     cached_df = _make_price_df(n=5)
     cached_df.to_parquet(os.path.join(cache_dir, "XLK_prices.parquet"))
 
-    def fresh_side_effect(path):
+    def fresh_side_effect(path, start=None):
         return "XLK" in path
 
     mock_fresh.side_effect = fresh_side_effect
@@ -308,3 +322,21 @@ def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tm
     assert "XLF" in result
     assert len(result["XLK"]) == 5   # from cache
     assert len(result["XLF"]) == 3   # freshly fetched
+
+
+def test_cache_is_fresh_false_when_start_not_covered(tmp_path):
+    """Cache covers only the last 30 days; a 2-year lookback request is not covered."""
+    df = _make_price_df(n=20, start_date=str(date.today() - timedelta(days=30)))
+    path = str(tmp_path / "short.parquet")
+    df.to_parquet(path)
+    long_start = str(date.today() - timedelta(days=730))
+    assert _cache_is_fresh(path, start=long_start) is False
+
+
+def test_cache_is_fresh_true_when_start_covered(tmp_path):
+    """Cache's earliest date is on/before the requested start (within tolerance)."""
+    df = _make_price_df(n=20, start_date=str(date.today() - timedelta(days=30)))
+    path = str(tmp_path / "covered.parquet")
+    df.to_parquet(path)
+    recent_start = str(date.today() - timedelta(days=25))
+    assert _cache_is_fresh(path, start=recent_start) is True
