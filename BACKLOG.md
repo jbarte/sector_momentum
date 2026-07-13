@@ -169,10 +169,6 @@ rule. Non-fatal like the other post-scan steps.
 
 Small independent fixes; audit confirmed each is still present in the code:
 
-- **Theme timestamp parse crash** — `_build_drilldown_data`
-  (`dashboard/figures.py:289`) crashes on theme `run_at` timestamps, breaking
-  local `python3 dashboard/build.py` runs. *(fix already in progress in
-  separate sessions, 2026-07-12 — check before starting)*
 - **Delete dead `src/data/stocktwits.py` + `tests/test_stocktwits.py`** — the
   multi-source sentiment engine was removed, but this module survived; nothing
   imports it except its own test.
@@ -214,6 +210,12 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- ~~Theme timestamp parse crash~~ — `_build_drilldown_data`/`_build_history_figure`
+  (`dashboard/figures.py`) crashed on `run_at` values that mixed ISO8601
+  timestamps with and without a `+00:00` timezone suffix (`pd.to_datetime`
+  infers a fixed format from early rows, then chokes on later rows). Fixed by
+  passing `format="ISO8601", utc=True`. Was blocking local
+  `python3 dashboard/build.py` runs on the theme drilldown path. *(2026-07-12)*
 - ~~"What changed today" digest~~ — a summary strip above the sector
   leaderboard shows new top-5 entries and the biggest rank movers (up to 3
   gains, 3 drops) vs the previous scan. Entirely client-side
