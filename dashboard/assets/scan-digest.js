@@ -26,6 +26,7 @@
     if (!prevScores) return null;
 
     var entries = [];
+    var entryKeys = {};
     var movers = [];
     for (var key in scores) {
       if (!scores.hasOwnProperty(key)) continue;
@@ -37,12 +38,23 @@
 
       if (s.rank <= 5 && (!prev || prev.rank > 5)) {
         entries.push({ key: key, sector: sector, region: region, rank: s.rank });
+        entryKeys[key] = true;
       }
+    }
 
-      if (prev) {
-        var delta = prev.rank - s.rank;
+    for (var key2 in scores) {
+      if (!scores.hasOwnProperty(key2)) continue;
+      if (entryKeys.hasOwnProperty(key2)) continue;
+      var s2 = scores[key2];
+      var parts2 = key2.split("|");
+      var region2 = parts2[0];
+      var sector2 = parts2[1];
+      var prev2 = prevScores[key2];
+
+      if (prev2) {
+        var delta = prev2.rank - s2.rank;
         if (delta !== 0) {
-          movers.push({ key: key, sector: sector, region: region, rank: s.rank, delta: delta });
+          movers.push({ key: key2, sector: sector2, region: region2, rank: s2.rank, delta: delta });
         }
       }
     }
@@ -65,7 +77,7 @@
     if (!isMover) return label + " #" + item.rank;
     var cls = item.delta > 0 ? "up" : "down";
     var arrow = item.delta > 0 ? "▲" : "▼";
-    return label + ' <span class="arrow ' + cls + '">' + arrow + "</span>" + Math.abs(item.delta);
+    return label + ' <span class="arrow ' + cls + '">' + arrow + "</span> " + Math.abs(item.delta);
   }
 
   function renderCluster(clusterKey, items, isMover) {
