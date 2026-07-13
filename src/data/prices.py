@@ -30,14 +30,6 @@ def _cache_path(ticker: str, cache_dir: str) -> str:
     return os.path.join(cache_dir, f"{_sanitize_ticker(ticker)}_prices.parquet")
 
 
-def _last_trading_day() -> date:
-    """Return the most recent weekday (Mon-Fri) as a proxy for last trading day."""
-    d = date.today() - timedelta(days=1)
-    while d.weekday() >= 5:  # 5=Saturday, 6=Sunday
-        d -= timedelta(days=1)
-    return d
-
-
 def _cache_is_fresh(path: str, start: str | None = None) -> bool:
     """Return True if the cache file exists, its last date is within a
     4-day tolerance of today (covers weekends and the day after a single
