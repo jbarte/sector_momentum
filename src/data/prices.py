@@ -52,6 +52,11 @@ def _cache_is_fresh(path: str, start: str | None = None) -> bool:
         last_cached = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
         if last_cached < date.today() - timedelta(days=4):
             return False
+        if start is not None:
+            cached_start = df.index.min().date() if hasattr(df.index.min(), "date") else df.index.min()
+            requested_start = pd.Timestamp(start).date()
+            if cached_start > requested_start + timedelta(days=7):
+                return False
         return True
     except Exception:
         return False
@@ -155,7 +160,7 @@ def fetch_prices(
     for ticker in tickers:
         path = _cache_path(ticker, cache_dir)
 
-        if _cache_is_fresh(path):
+        if _cache_is_fresh(path, start):
             try:
                 df = pd.read_parquet(path)
                 df.index = pd.to_datetime(df.index)

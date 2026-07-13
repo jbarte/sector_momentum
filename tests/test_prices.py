@@ -309,7 +309,7 @@ def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tm
     cached_df = _make_price_df(n=5)
     cached_df.to_parquet(os.path.join(cache_dir, "XLK_prices.parquet"))
 
-    def fresh_side_effect(path):
+    def fresh_side_effect(path, start=None):
         return "XLK" in path
 
     mock_fresh.side_effect = fresh_side_effect
@@ -322,3 +322,21 @@ def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tm
     assert "XLF" in result
     assert len(result["XLK"]) == 5   # from cache
     assert len(result["XLF"]) == 3   # freshly fetched
+
+
+def test_cache_is_fresh_false_when_start_not_covered(tmp_path):
+    """Cache covers only the last 30 days; a 2-year lookback request is not covered."""
+    df = _make_price_df(n=20, start_date=str(date.today() - timedelta(days=30)))
+    path = str(tmp_path / "short.parquet")
+    df.to_parquet(path)
+    long_start = str(date.today() - timedelta(days=730))
+    assert _cache_is_fresh(path, start=long_start) is False
+
+
+def test_cache_is_fresh_true_when_start_covered(tmp_path):
+    """Cache's earliest date is on/before the requested start (within tolerance)."""
+    df = _make_price_df(n=20, start_date=str(date.today() - timedelta(days=30)))
+    path = str(tmp_path / "covered.parquet")
+    df.to_parquet(path)
+    recent_start = str(date.today() - timedelta(days=25))
+    assert _cache_is_fresh(path, start=recent_start) is True
