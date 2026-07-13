@@ -204,6 +204,43 @@ header h1 {
 .scan-index { margin-bottom: 20px; }
 .scan-index .active-scan { background: var(--green-100); }
 .showing-badge { color: var(--green-700); font-weight: 600; font-size: 0.8em; white-space: nowrap; }
+.scan-index tr[data-scan-id] { cursor: pointer; }
+.scan-index tr[data-scan-id]:not(.active-scan):hover { background: var(--bg-sunken); }
+.scan-index tr[data-scan-id]:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
+#scan-history-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  background: var(--bg-raised);
+  border-left: 3px solid var(--brand-strong);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--fg3);
+}
+#scan-history-banner a {
+  color: var(--brand-strong);
+  font-weight: 500;
+  text-decoration: none;
+}
+#scan-history-banner a:hover { text-decoration: underline; }
+#scan-digest-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  background: var(--bg-raised);
+  border-left: 3px solid var(--brand-strong);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--fg3);
+}
+.digest-cluster { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.digest-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.digest-chip { white-space: nowrap; }
 table {
   width: 100%;
   border-collapse: collapse;
@@ -824,6 +861,40 @@ select.sector-select:focus {
   .guide-modal { transition: none; }
 }
 
+/* --- Sentiment: seasonal + rising queries --- */
+.seasonal-hi { color: var(--up); }
+.seasonal-lo { color: var(--down); }
+.has-rising { cursor: pointer; }
+.has-rising:hover { background: var(--bg-raised); }
+.has-rising:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
+.rising-toggle {
+  width: 1.2em;
+  text-align: center;
+  color: var(--fg4);
+  font-size: 0.7em;
+  transition: transform 0.15s;
+  user-select: none;
+}
+.has-rising.open .rising-toggle { transform: rotate(90deg); }
+.rising-panel td { padding: 0 !important; border-bottom: none !important; }
+.rising-inner {
+  padding: 8px 16px 12px 36px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border-soft);
+}
+.rising-inner strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg4); }
+.rising-table {
+  width: auto;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.rising-table thead th {
+  padding: 4px 12px;
+  font-size: 9px;
+  cursor: default;
+}
+.rising-table tbody td { padding: 4px 12px; }
+
 @media (max-width: 520px) {
   .guide-card-body { padding: 22px 20px 20px; }
   .guide-card-body h2 { font-size: 21px; }
@@ -838,7 +909,7 @@ select.sector-select:focus {
 
 <header>
   <h1 data-i18n="title">Sector momentum</h1>
-  <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> #128 · 2026-07-11 08:14 UTC</span>
+  <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> #129 · 2026-07-12 08:35 UTC</span>
   <div class="segment-toggle" role="tablist" aria-label="Dashboard segment">
     
     <a class="segment-btn" href="index.html" data-i18n="segment_sectors">Sectors</a>
@@ -897,6 +968,12 @@ select.sector-select:focus {
         <li><strong>Attention</strong> — relative search interest compared
             head-to-head against all other sectors in the same region.
             Higher = more attention.</li>
+        <li><strong>Seasonal</strong> — compares the last 13 weeks of search interest
+            to the prior 39-week baseline. Above 1.0 = interest exceeding its
+            historical norm; below 1.0 = below norm.</li>
+        <li><strong>Rising Queries</strong> — emerging search terms surfaced by
+            Google Trends for each sector's representative ETF/entity. Click a row
+            with &#x25B6; to expand.</li>
       </ul>
       <h4>It does not drive the ranking by default</h4>
       <p>The leaderboard composite is built from price/momentum signals only. Sentiment
@@ -919,6 +996,7 @@ select.sector-select:focus {
     <table>
       <thead>
         <tr>
+          <th style="width:1.2em"></th>
           <th data-i18n="sent_col_sector">Sector</th>
           <th data-i18n="sent_col_region">Region</th>
           <th data-i18n="sent_col_momentum">Momentum</th>
@@ -927,11 +1005,27 @@ select.sector-select:focus {
           <th data-i18n="sent_col_spike">Spike</th>
           <th data-i18n="sent_col_volatility">Volatility</th>
           <th data-i18n="sent_col_attention">Attention</th>
+          <th data-i18n="sent_col_seasonal">Seasonal</th>
         </tr>
       </thead>
       <tbody>
         
         <tr>
+          <td class="rising-toggle"></td>
+          <td>Energy</td>
+          <td>US</td>
+          <td>+0.11</td>
+          <td>+0.10</td>
+          <td>0%</td>
+          <td>-0.68</td>
+          <td>51%</td>
+          <td>70.9</td>
+          <td class="seasonal">—</td>
+        </tr>
+        
+        
+        <tr>
+          <td class="rising-toggle"></td>
           <td>Communication Services</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -940,9 +1034,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>0.0</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Consumer Discretionary</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -951,9 +1048,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>0.0</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Consumer Staples</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -961,10 +1061,13 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>0.0</td>
+          <td>0.1</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Energy</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -973,9 +1076,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>0.0</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Financials</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -984,9 +1090,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>0.0</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Health Care</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -995,9 +1104,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>—</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Industrials</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -1006,9 +1118,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>—</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Materials</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -1017,9 +1132,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>—</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Real Estate</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -1028,9 +1146,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>—</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Technology</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -1039,9 +1160,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>—</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Utilities</td>
           <td>EU</td>
           <td>+0.00</td>
@@ -1050,9 +1174,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>—</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Communication Services</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1060,10 +1187,13 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>1.7</td>
+          <td>1.5</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Consumer Discretionary</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1072,9 +1202,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>1.0</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Consumer Staples</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1082,10 +1215,13 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>2.2</td>
+          <td>2.1</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Financials</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1093,10 +1229,13 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>3.0</td>
+          <td>2.8</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Health Care</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1104,10 +1243,13 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>4.4</td>
+          <td>4.2</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Industrials</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1115,10 +1257,13 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>2.8</td>
+          <td>2.7</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Materials</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1126,10 +1271,13 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>1.4</td>
+          <td>1.3</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Real Estate</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1138,9 +1286,12 @@ select.sector-select:focus {
           <td>+0.00</td>
           <td>0%</td>
           <td>0.5</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Technology</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1148,10 +1299,13 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>7.5</td>
+          <td>6.4</td>
+          <td class="seasonal">—</td>
         </tr>
         
+        
         <tr>
+          <td class="rising-toggle"></td>
           <td>Utilities</td>
           <td>US</td>
           <td>+0.00</td>
@@ -1159,19 +1313,10 @@ select.sector-select:focus {
           <td>50%</td>
           <td>+0.00</td>
           <td>0%</td>
-          <td>2.4</td>
+          <td>2.1</td>
+          <td class="seasonal">—</td>
         </tr>
         
-        <tr>
-          <td>Energy</td>
-          <td>US</td>
-          <td>-0.01</td>
-          <td>+0.13</td>
-          <td>0%</td>
-          <td>-0.68</td>
-          <td>49%</td>
-          <td>71.6</td>
-        </tr>
         
       </tbody>
     </table>
@@ -1180,8 +1325,33 @@ select.sector-select:focus {
 </section>
 
 <script>
-var SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text} (US)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#A55A3C","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"US","text":["Communication Services","Consumer Discretionary","Consumer Staples","Energy","Financials","Health Care","Industrials","Materials","Real Estate","Technology","Utilities"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[0.0609563,-0.188746,-0.12996,-0.0786487,0.397039,0.818351,0.180996,-0.280256,-0.114583,0.61231,-0.136124],"y":[0.213201,0.213201,0.213201,-4.47721,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{text} (EU)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#5A6F49","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"EU","text":["Communication Services","Consumer Discretionary","Consumer Staples","Energy","Financials","Health Care","Industrials","Materials","Real Estate","Technology","Utilities"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[-0.613264,-0.199552,0.049383,-0.126421,0.736046,-0.103092,0.0727014,-0.301107,-0.79804,0.088998,0.0530135],"y":[0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201,0.213201],"type":"scatter"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":0,"x1":0,"y0":-3,"y1":3},{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":-3,"x1":3,"y0":0,"y1":0}],"annotations":[{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bullish)","x":1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Sentiment\u003cbr\u003eahead","x":-1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bearish)","x":-1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Data ahead","x":1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"}],"font":{"color":"#3E392B","family":"Inter, -apple-system, sans-serif"},"legend":{"font":{"size":9},"bgcolor":"#FAF7F0","bordercolor":"#DFD5BE"},"margin":{"l":50,"r":20,"t":50,"b":50},"xaxis":{"title":{"text":"Data Score"},"gridcolor":"#DFD5BE","zeroline":false},"yaxis":{"title":{"text":"Sentiment Score"},"gridcolor":"#DFD5BE","zeroline":false},"title":{"font":{"size":13,"color":"#3E392B"},"text":"Data \u21c4 Sentiment"},"paper_bgcolor":"#F5F0E6","plot_bgcolor":"#FAF7F0","hovermode":"x unified","height":520}};
+var SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text} (US)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#A55A3C","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"US","text":["Communication Services","Consumer Discretionary","Consumer Staples","Energy","Financials","Health Care","Industrials","Materials","Real Estate","Technology","Utilities"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[0.0812989,-0.246099,-0.139309,0.0253633,0.366987,0.977155,0.148837,-0.313481,-0.147663,0.422023,-0.180152],"y":[-0.213201,-0.213201,-0.213201,4.47721,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{text} (EU)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#5A6F49","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"EU","text":["Communication Services","Consumer Discretionary","Consumer Staples","Energy","Financials","Health Care","Industrials","Materials","Real Estate","Technology","Utilities"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[-0.699996,-0.145908,0.0730464,-0.0744791,0.72385,-0.0246739,0.0409844,-0.312913,-0.712281,0.0336451,0.103763],"y":[-0.213201,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201,-0.213201],"type":"scatter"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":0,"x1":0,"y0":-3,"y1":3},{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":-3,"x1":3,"y0":0,"y1":0}],"annotations":[{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bullish)","x":1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Sentiment\u003cbr\u003eahead","x":-1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bearish)","x":-1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Data ahead","x":1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"}],"font":{"color":"#3E392B","family":"Inter, -apple-system, sans-serif"},"legend":{"font":{"size":9},"bgcolor":"#FAF7F0","bordercolor":"#DFD5BE"},"margin":{"l":50,"r":20,"t":50,"b":50},"xaxis":{"title":{"text":"Data Score"},"gridcolor":"#DFD5BE","zeroline":false},"yaxis":{"title":{"text":"Sentiment Score"},"gridcolor":"#DFD5BE","zeroline":false},"title":{"font":{"size":13,"color":"#3E392B"},"text":"Data \u21c4 Sentiment"},"paper_bgcolor":"#F5F0E6","plot_bgcolor":"#FAF7F0","hovermode":"x unified","height":520}};
 Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
+
+// Delegated toggle for rising-queries expandable panels
+(function () {
+  var tbl = document.querySelector('.tab-panel table');
+  if (!tbl) return;
+  function toggle(row) {
+    var id = row.getAttribute('data-rising-id');
+    if (!id) return;
+    var panel = document.getElementById(id);
+    if (!panel) return;
+    var open = panel.style.display !== 'none';
+    panel.style.display = open ? 'none' : '';
+    row.classList.toggle('open', !open);
+    row.setAttribute('aria-expanded', String(!open));
+  }
+  tbl.addEventListener('click', function (e) {
+    var row = e.target.closest('.has-rising');
+    if (row) toggle(row);
+  });
+  tbl.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var row = e.target.closest('.has-rising');
+    if (row) { e.preventDefault(); toggle(row); }
+  });
+})();
 
 // ----- Language toggle (EN default ⇄ SV), chrome only -----
 // English is the source text in the DOM. Swedish overrides live here; any
@@ -1246,6 +1416,15 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
     sent_col_spike: "Spik",
     sent_col_volatility: "Volatilitet",
     sent_col_attention: "Uppmärksamhet",
+    sent_col_seasonal: "Säsong",
+    scan_viewing: "Visar skanning #",
+    scan_back_to_latest: "Tillbaka till senaste",
+    digest_new_top5: "Nya i topp 5:",
+    digest_gains: "Störst uppgång:",
+    digest_drops: "Störst nedgång:",
+    rising_heading: "Stigande sökningar",
+    rising_col_query: "Sökterm",
+    rising_col_growth: "Tillväxt",
     badge_entry: "▲ Insteg",
     badge_exit: "▼ Ursteg",
     guide_open_btn: "Guide",
@@ -1381,6 +1560,12 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
         <li><strong>Uppmärksamhet</strong> — relativt sökintresse jämfört
             head-to-head mot alla andra sektorer i samma region.
             Högre = mer uppmärksamhet.</li>
+        <li><strong>Säsong</strong> — jämför senaste 13 veckors sökintresse mot de
+            föregående 39 veckorna. Över 1,0 = intresset överstiger sin historiska norm;
+            under 1,0 = under normen.</li>
+        <li><strong>Stigande sökningar</strong> — framväxande söktermer som Google Trends
+            identifierar för varje sektors representativa ETF/entitet. Klicka på en rad
+            med ▶ för att expandera.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`,
