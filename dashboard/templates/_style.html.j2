@@ -217,6 +217,22 @@ header h1 {
   text-decoration: none;
 }
 #scan-history-banner a:hover { text-decoration: underline; }
+#scan-digest-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  background: var(--bg-raised);
+  border-left: 3px solid var(--brand-strong);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--fg3);
+}
+.digest-cluster { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.digest-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.digest-chip { white-space: nowrap; }
 table {
   width: 100%;
   border-collapse: collapse;

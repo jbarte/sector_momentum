@@ -608,3 +608,48 @@ def test_scan_history_json_in_rendered_output(tmp_path):
     assert "scans" in parsed
     assert "scores" in parsed
     assert parsed["scans"][0]["id"] == 2
+
+
+def test_scan_digest_markup_in_rendered_output(tmp_path):
+    """Rendered index.html contains the scan-digest banner, script tag, and i18n keys."""
+    scan_history = {
+        "scans": [{"id": 2, "date": "2026-07-12 06:00 UTC", "sectors": 22, "top": "Technology (US)"}],
+        "scores": {"2": {"US|Technology": {"rank": 1, "composite": 0.8, "level": 0.7, "change": 0.4, "data": 0.55, "sentiment": 0.2}}},
+    }
+    out = tmp_path / "index.html"
+    _render(
+        template_path=_TEMPLATE,
+        out_path=out,
+        context=dict(
+            scan_date="2026-07-12",
+            scan_index=[{"scan_id": 2, "run_at_display": "2026-07-12 06:00 UTC",
+                         "run_at_raw": "2026-07-12T06:00:00", "sector_count": 22,
+                         "top_sector": "Technology", "top_region": "US"}],
+            active_scan_id=2,
+            leaderboard_rows=[],
+            rrg_data_json=_make_mock_plotly_json(),
+            drilldown_data=json.dumps({}),
+            sector_keys=[],
+            movers_json=_make_mock_plotly_json(),
+            history_json=_make_mock_plotly_json(),
+            sentiment_scatter_json=_make_mock_plotly_json(),
+            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+            scan_history_json=json.dumps(scan_history),
+            signals_list=[],
+            plotly_bundle="assets/plotly.min.js",
+            backtest_json=json.dumps({}),
+            backtest_metrics=[],
+            has_backtest=False,
+            rotation_json=json.dumps([]),
+            has_rotations=False,
+        ),
+    )
+    html = out.read_text()
+    assert 'id="scan-digest-banner"' in html
+    assert "assets/scan-digest.js" in html
+    assert 'data-i18n="digest_new_top5"' in html
+    assert 'data-i18n="digest_gains"' in html
+    assert 'data-i18n="digest_drops"' in html
+    assert 'id="digest-chips-entries"' in html
+    assert 'id="digest-chips-up"' in html
+    assert 'id="digest-chips-down"' in html
