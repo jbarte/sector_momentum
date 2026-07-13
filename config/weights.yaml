@@ -1,10 +1,7 @@
-# Pillar weights (must sum to 1.0)
-# NOTE: scan.py always passes blend_sentiment=False, so the composite score
-# is pure data (sentiment is stored but not blended). These weights will take
-# effect once blending is enabled.
-pillars:
-  data: 0.70
-  sentiment: 0.30
+# Sentiment is toggle-only by design: the composite score is pure data.
+# Revisit pillar blending only if/when FinBERT provides signed polarity.
+# (The old pillars: {data: 0.70, sentiment: 0.30} block was removed because
+# scan.py always passes blend_sentiment=False and the weight was dead config.)
 
 # Within data pillar: level vs change split
 data_pillar:

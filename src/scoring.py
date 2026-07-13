@@ -160,8 +160,9 @@ def score_all(
 
     level_weight: float = float(cfg["data_pillar"]["level"])
     change_weight: float = float(cfg["data_pillar"]["change"])
-    data_weight: float = float(cfg["pillars"]["data"])
-    sentiment_weight: float = float(cfg["pillars"]["sentiment"])
+    _pillars = cfg.get("pillars", {})
+    data_weight: float = float(_pillars.get("data", 1.0))
+    sentiment_weight: float = float(_pillars.get("sentiment", 0.0))
 
     z_df = zscore_cross_section(signals_df)
     level = compute_level_score(z_df)

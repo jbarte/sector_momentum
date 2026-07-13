@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_ANCHOR = "YouTube"
 DEFAULT_REGION_GEOS = {"US": ["US"], "EU": ["DE", "FR", "GB"]}
 
+_MIN_LIVE_SECTORS = 8
+_MOMENTUM_WINDOW = 13
+
 
 def _cross_zscore(values: dict[str, float]) -> dict[str, float]:
     """Z-score a dict of {key: float}. NaN inputs excluded from mean/std."""
@@ -231,7 +234,7 @@ def derived_signals(series) -> dict[str, float]:
     only ``momentum`` feeds ``score_symbol_sentiment`` for the composite toggle.
     """
     vals = list(series)
-    recent = vals[-13:] if len(vals) >= 13 else vals
+    recent = vals[-_MOMENTUM_WINDOW:] if len(vals) >= _MOMENTUM_WINDOW else vals
     return {
         "momentum": _slope(recent),
         "acceleration": _acceleration(recent),
@@ -271,9 +274,7 @@ def _aggregate(
             for s in symbols
             if s in norm_by_symbol and any(v != 0 for v in norm_by_symbol[s])
         ]
-        if not live:
-            out[sector_key] = pd.Series([0.0] * window, dtype=float)
-        else:
+        if live:
             arr = np.array(live, dtype=float)
             out[sector_key] = pd.Series(arr.mean(axis=0), dtype=float)
     return out
@@ -682,7 +683,7 @@ def fetch_symbol_trends(
     timeframe: str = "today 12-m",
     window: int = 52,
     batch_size: int = 4,
-    sleep_s: float = 20.0,
+    sleep_s: float = 25.0,
     max_retries: int = 3,
     entities: dict[str, str] | None = None,
     region_geos: dict[str, list[str]] | None = None,
@@ -716,14 +717,19 @@ def fetch_symbol_trends(
 
 
 def score_symbol_sentiment(trends_by_key: dict[str, pd.Series]) -> pd.Series:
-    """Score symbol sentiment: slope of each sector key's series, cross-sectionally z-scored.
+    """Score symbol sentiment: slope of trailing _MOMENTUM_WINDOW weeks, z-scored.
 
-    Args:
-        trends_by_key: dict mapping region|sector to a pd.Series of search interest.
-
-    Returns:
-        pd.Series indexed by region|sector with cross-sectional z-scores of slopes.
+    Returns a Series indexed by region|sector. If fewer than _MIN_LIVE_SECTORS
+    keys are present, returns all-NaN (cross-section too thin to z-score).
+    Dead keys (absent from trends_by_key) are not in the output.
     """
-    slopes = {key: _slope(list(series)) for key, series in trends_by_key.items()}
+    if not trends_by_key:
+        return pd.Series(dtype=float)
+    if len(trends_by_key) < _MIN_LIVE_SECTORS:
+        return pd.Series(float("nan"), index=list(trends_by_key.keys()), dtype=float)
+    slopes = {
+        key: _slope(list(series)[-_MOMENTUM_WINDOW:])
+        for key, series in trends_by_key.items()
+    }
     z = _cross_zscore(slopes)
     return pd.Series(z, dtype=float)

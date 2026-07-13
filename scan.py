@@ -290,7 +290,7 @@ def run(args: argparse.Namespace) -> int:
     logger.info("Fetching symbol-based Google Trends sentiment …")
     from src.data.trends_symbols import (
         build_symbol_map, fetch_symbol_trends, score_symbol_sentiment,
-        load_entities, derived_signals, load_geo_config,
+        load_entities, derived_signals, load_geo_config, _MIN_LIVE_SECTORS,
     )
     with open("config/sector_etfs.yaml", "r") as _fh:
         _sector_etfs = yaml.safe_load(_fh) or {}
@@ -317,9 +317,18 @@ def run(args: argparse.Namespace) -> int:
         cache=_cache, timeframe="today 12-m", window=52,
     )
     sentiment_score = score_symbol_sentiment(_trends_by_key)
-    sentiment_score = sentiment_score.reindex(wide_df.index, fill_value=0.0)
-    _live = int((sentiment_score != 0).sum())
-    logger.info("Symbol sentiment: %d/%d sector-keys non-neutral", _live, len(wide_df.index))
+    sentiment_score = sentiment_score.reindex(wide_df.index)
+    _live = len(_trends_by_key)
+    _total = len(wide_df.index)
+    logger.info(
+        "Symbol sentiment: %d/%d sectors have live Trends data (guard threshold: %d)",
+        _live, _total, _MIN_LIVE_SECTORS,
+    )
+    if _live < _MIN_LIVE_SECTORS:
+        logger.warning(
+            "Symbol sentiment: live count %d < threshold %d — all scores NULLed for this scan",
+            _live, _MIN_LIVE_SECTORS,
+        )
 
     # Derived Trends signals (info-only; not blended into the composite). One long
     # row per sector-key × signal, keyed for the sentiment_signals table.

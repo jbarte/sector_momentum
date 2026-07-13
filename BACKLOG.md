@@ -53,43 +53,6 @@ directionless, and ambiguous-ticker-contaminated. FinBERT sidesteps search-term
 ambiguity entirely and adds direction. Base FinBERT is English-only; EU/Swedish
 needs a multilingual variant or translate-then-score.
 
-## Sentiment honesty fixes (coverage collapse + silent semantics)
-
-**What:** Make the Trends sentiment signal honest about its own data quality.
-A 2026-07-13 live-DB audit found the signal is currently broken in production:
-
-- **Coverage collapse (~scan 123 / 2026-07-06 onward):** effectively 0–1 live
-  Trends series out of 22 sector-keys. The latest scan's sentiment column is
-  US Energy z=+4.477 and all 21 others identical at −0.213 — a degenerate
-  cross-section. Two scans were all-zero (total fetch failure). Onset
-  coincides with the region-aware pulls (4× API volume, YouTube anchor).
-- **Enrichments never ran:** scan 129 (2026-07-12 08:35 UTC) predates PR #79's
-  merge (10:22 UTC) — `seasonal_ratio` and `rising_queries` have zero rows in
-  the DB. First real run is the next scan; verify it.
-- **Silent window change:** `score_symbol_sentiment` slopes over the whole
-  series it receives; PR #79 changed that from 13 to 52 weeks, so the headline
-  sentiment becomes a 1-year trend slope — contradicting the docstring
-  ("only `momentum` [13-week] feeds the composite toggle").
-- **Lying health metric:** the scan logs "22/22 non-neutral" because it counts
-  non-zero values *after* z-scoring (never exactly 0). Collapse is invisible.
-
-**Action:** diagnose + fix the coverage collapse; add a coverage guard (fewer
-than N live series → store NULL, not fake z-scores, so the toggle blends
-neutral); pin the slope window explicitly to 13 weeks (= z(momentum), as
-documented); count live series *before* z-scoring in the health log. Resolve
-the dead `sentiment: 0.30` weight as part of this (see the blend-decision
-item below — recommendation: delete the weight, document toggle-only).
-
-## Sentiment → composite blend decision
-
-**What:** Decide whether the (now much richer) sentiment dimension should ever
-feed the canonical composite. `config/weights.yaml` declares `sentiment: 0.30`
-but it is never applied — the live scan always runs
-`score_all(..., blend_sentiment=False)` and sentiment stays toggle-only.
-Either commit to a blend (probably only after FinBERT gives signed polarity)
-or delete the dead weight from the config and document the toggle as the
-permanent design.
-
 ## Unify regional benchmarks for true cross-region scoring
 
 **What:** Re-base US and EU scoring onto a common footing so sector scores are
@@ -223,6 +186,16 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Sentiment honesty fixes** — coverage guard (`_aggregate` omits dead
+  sector keys, `score_symbol_sentiment` z-scores live subset only with
+  `_MIN_LIVE_SECTORS=8` threshold, NaN for dead/under-threshold); pinned
+  `_MOMENTUM_WINDOW=13` shared constant so headline sentiment == z(momentum)
+  as documented; honest health log (counts live series before z-scoring, not
+  post-z non-zeros); bumped default fetch `sleep_s` 20→25; removed dead
+  `pillars` block from `config/weights.yaml` (closes the "Sentiment →
+  composite blend decision" item — toggle-only is the permanent design until
+  FinBERT); `score_all` reads pillars lazily via `.get()` defaults.
+  Spec: `design/specs/2026-07-13-sentiment-honesty-design.md`. *(2026-07-13)*
 - ~~Maintenance sweep~~ — deleted dead `src/data/stocktwits.py` +
   `tests/test_stocktwits.py` (superseded by symbol-based Trends sentiment);
   `_cache_is_fresh` (`src/data/prices.py`) now tolerates a 4-day gap so the
