@@ -142,6 +142,11 @@ header h1 {
   border-radius: var(--radius-pill);
   white-space: nowrap;
   cursor: pointer;
+  /* Reset <button> UA chrome so button-based toggles match <a>/<span> ones. */
+  border: none;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
   transition: color var(--duration-fast) var(--ease-standard),
               background var(--duration-fast) var(--ease-standard);
 }
@@ -1476,6 +1481,8 @@ document.getElementById('themes-table')?.addEventListener('keydown', function(e)
     col_rankdelta: "Rank Δ",
     col_trend: "Trend",
     note_sentiment: "Sentimentvikten påverkar endast topplistans rankning.",
+    note_sentiment_themes: "Temasentiment hämtar världsomspännande sökintresse för varje temas nyckelord, z-poängsatt över temana. Endast information — påverkar aldrig någon rankning.",
+    sent_themes_empty: "Ingen temasentimentdata än — kör en skanning.",
     note_backtest: "Månatlig rotation av topprankade sektorer, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje region poängsätts inom sin egen kohort.",
     bt_track: "Spår",
     bt_window: "Period",
@@ -1637,6 +1644,8 @@ document.getElementById('themes-table')?.addEventListener('keydown', function(e)
       <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
       <h4>Metod</h4>
       <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>. Där en ticker motsvarar en känd Google Knowledge&nbsp;Graph-<strong>entitet</strong> frågar vi efter den entiteten i stället för den råa ticker-strängen, för att undvika namnkrockar; tickers utan känd entitet faller tillbaka på strängen. Intresset hämtas per region — <strong>US</strong>-sektorer i amerikanska sökningar, <strong>EU</strong>-sektorer som ett genomsnitt av Tyskland, Frankrike och Storbritannien — och normaliseras mot en neutral, allmänt spridd ankarterm i stället för en marknadsticker. (Denna ankarändring gör att sentimentvärden från före ändringen inte är direkt jämförbara med senare.)</p>
+      <h4>Teman</h4>
+      <p><strong>Teman</strong>-kohorten fungerar likadant, men teman motsvarar riktiga sökfraser (<em>uranium</em>, <em>defense stocks</em>, <em>robotics</em>) i stället för ETF-tickers. Temaintresse hämtas <strong>världsomspännande</strong> (teman är globala) och z-poängsätts över temakohorten. Byt kohort med växeln ovanför.</p>
       <h4>Härledda signaler</h4>
       <p>Ur samma intresseserie läser vi också ut några kompletterande vyer (visas i tabellen nedan, endast information — bara Momentum kan påverka rankningen):</p>
       <ul>
@@ -1646,13 +1655,13 @@ document.getElementById('themes-table')?.addEventListener('keydown', function(e)
         <li><strong>Spik</strong> — z-värde för senaste punkten mot föregående veckor; ett genombrott i intresse.</li>
         <li><strong>Volatilitet</strong> — hur ryckigt intresset varit vecka för vecka.</li>
         <li><strong>Uppmärksamhet</strong> — relativt sökintresse jämfört
-            head-to-head mot alla andra sektorer i samma region.
+            head-to-head mot alla andra medlemmar i samma kohort.
             Högre = mer uppmärksamhet.</li>
         <li><strong>Säsong</strong> — jämför senaste 13 veckors sökintresse mot de
             föregående 39 veckorna. Över 1,0 = intresset överstiger sin historiska norm;
             under 1,0 = under normen.</li>
         <li><strong>Stigande sökningar</strong> — framväxande söktermer som Google Trends
-            identifierar för varje sektors representativa ETF/entitet. Klicka på en rad
+            identifierar för varje rads representativa nyckelord/entitet. Klicka på en rad
             med ▶ för att expandera.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>

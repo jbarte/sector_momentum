@@ -142,6 +142,11 @@ header h1 {
   border-radius: var(--radius-pill);
   white-space: nowrap;
   cursor: pointer;
+  /* Reset <button> UA chrome so button-based toggles match <a>/<span> ones. */
+  border: none;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
   transition: color var(--duration-fast) var(--ease-standard),
               background var(--duration-fast) var(--ease-standard);
 }
@@ -928,6 +933,13 @@ select.sector-select:focus {
 
 <section class="tab-panel active">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
+
+  <!-- Cohort toggle: Sectors ⇄ Themes -->
+  <div class="segment-toggle" role="tablist" aria-label="Sentiment cohort" id="sent-cohort-toggle" style="margin:0 0 16px 4px">
+    <button type="button" class="segment-btn active" id="sent-tab-sectors" data-cohort="sectors" role="tab" aria-selected="true" aria-controls="sent-panel-sectors" data-i18n="segment_sectors">Sectors</button>
+    <button type="button" class="segment-btn" id="sent-tab-themes" data-cohort="themes" role="tab" aria-selected="false" aria-controls="sent-panel-themes" data-i18n="segment_themes">Themes</button>
+  </div>
+
   <details class="tab-guide">
     <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
     <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
@@ -952,6 +964,12 @@ select.sector-select:focus {
          and normalized against a neutral, ubiquitous anchor term rather than a
          market ticker. (This anchor change means sentiment values from before it
          are not directly comparable to later ones.)</p>
+      <h4>Themes</h4>
+      <p>The <strong>Themes</strong> cohort works the same way, but themes map to real
+         search phrases (<em>uranium</em>, <em>defense stocks</em>, <em>robotics</em>)
+         rather than ETF tickers. Theme interest is pulled <strong>worldwide</strong>
+         (themes are global) and z-scored across the theme cohort. Switch cohorts with
+         the toggle above.</p>
       <h4>Derived signals</h4>
       <p>From the same interest series we read out a few complementary views (shown
          in the table below, information-only — only Momentum can affect the ranking):</p>
@@ -966,13 +984,13 @@ select.sector-select:focus {
             weeks; a breakout in interest.</li>
         <li><strong>Volatility</strong> — how choppy week-to-week interest has been.</li>
         <li><strong>Attention</strong> — relative search interest compared
-            head-to-head against all other sectors in the same region.
+            head-to-head against all other members of the same cohort.
             Higher = more attention.</li>
         <li><strong>Seasonal</strong> — compares the last 13 weeks of search interest
             to the prior 39-week baseline. Above 1.0 = interest exceeding its
             historical norm; below 1.0 = below norm.</li>
         <li><strong>Rising Queries</strong> — emerging search terms surfaced by
-            Google Trends for each sector's representative ETF/entity. Click a row
+            Google Trends for each row's representative keyword/entity. Click a row
             with &#x25B6; to expand.</li>
       </ul>
       <h4>It does not drive the ranking by default</h4>
@@ -982,383 +1000,474 @@ select.sector-select:focus {
          driver — search interest is noisy and can lag price.</p>
     </div>
   </details>
-  <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
-  <p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px" data-i18n-html="sentiment_footnote">
-    Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
-    Hollow points = no sentiment data this scan (source unavailable or EU-only).
-    Sentiment is a confirming signal — noisy, gameable, retail-biased.
-    This is analytical tooling, not investment advice.
-  </p>
 
-  
-  <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
-  <div style="overflow-x:auto">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:1.2em"></th>
-          <th data-i18n="sent_col_sector">Sector</th>
-          <th data-i18n="sent_col_region">Region</th>
-          <th data-i18n="sent_col_momentum">Momentum</th>
-          <th data-i18n="sent_col_acceleration">Acceleration</th>
-          <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
-          <th data-i18n="sent_col_spike">Spike</th>
-          <th data-i18n="sent_col_volatility">Volatility</th>
-          <th data-i18n="sent_col_attention">Attention</th>
-          <th data-i18n="sent_col_seasonal">Seasonal</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Communication Services</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.2</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Consumer Discretionary</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Consumer Staples</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Energy</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Financials</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Health Care</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Industrials</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Materials</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Real Estate</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Technology</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Utilities</td>
-          <td>EU</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Communication Services</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Consumer Discretionary</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Consumer Staples</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Energy</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Financials</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>0.0</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Health Care</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Industrials</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Materials</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Real Estate</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-        <tr class="has-rising" data-rising-id="rising-21" tabindex="0">
-          <td class="rising-toggle">&#x25B6;</td>
-          <td>Technology</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        <tr class="rising-panel" id="rising-21" style="display:none">
-          <td colspan="10">
-            <div class="rising-inner">
-              <strong data-i18n="rising_heading">Rising Queries</strong>
-              <table class="rising-table">
-                <thead><tr>
-                  <th data-i18n="rising_col_query">Query</th>
-                  <th data-i18n="rising_col_growth">Growth</th>
-                </tr></thead>
-                <tbody>
-                  
-                  <tr><td>iren stock</td><td>800%</td></tr>
-                  
-                  <tr><td>xlk stock split</td><td>450%</td></tr>
-                  
-                  <tr><td>xli</td><td>140%</td></tr>
-                  
-                  <tr><td>xlu</td><td>140%</td></tr>
-                  
-                  <tr><td>xlk expense ratio</td><td>130%</td></tr>
-                  
-                </tbody>
-              </table>
-            </div>
-          </td>
-        </tr>
-        
-        
-        <tr>
-          <td class="rising-toggle"></td>
-          <td>Utilities</td>
-          <td>US</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td class="seasonal">—</td>
-        </tr>
-        
-        
-      </tbody>
-    </table>
+  <!-- ===== Sectors cohort ===== -->
+  <div class="cohort-panel" data-cohort="sectors" id="sent-panel-sectors" role="tabpanel" aria-labelledby="sent-tab-sectors">
+    <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
+    
+<p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px" data-i18n-html="sentiment_footnote">
+  Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
+  Hollow points = no sentiment data this scan (source unavailable or EU-only).
+  Sentiment is a confirming signal — noisy, gameable, retail-biased.
+  This is analytical tooling, not investment advice.
+</p>
+
+    
+    <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
+    
+
+<div style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:1.2em"></th>
+        <th data-i18n="sent_col_sector">Sector</th>
+        <th data-i18n="sent_col_region">Region</th>
+        <th data-i18n="sent_col_momentum">Momentum</th>
+        <th data-i18n="sent_col_acceleration">Acceleration</th>
+        <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
+        <th data-i18n="sent_col_spike">Spike</th>
+        <th data-i18n="sent_col_volatility">Volatility</th>
+        <th data-i18n="sent_col_attention">Attention</th>
+        <th data-i18n="sent_col_seasonal">Seasonal</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Communication Services</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.2</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Consumer Discretionary</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Consumer Staples</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Energy</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Financials</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Health Care</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Industrials</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Materials</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Real Estate</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Technology</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Utilities</td>
+        <td>EU</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Communication Services</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Consumer Discretionary</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Consumer Staples</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Energy</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Financials</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0.0</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Health Care</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Industrials</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Materials</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Real Estate</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+      <tr class="has-rising" data-rising-id="rising-s-21" tabindex="0">
+        <td class="rising-toggle">&#x25B6;</td>
+        <td>Technology</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      <tr class="rising-panel" id="rising-s-21" style="display:none">
+        <td colspan="10">
+          <div class="rising-inner">
+            <strong data-i18n="rising_heading">Rising Queries</strong>
+            <table class="rising-table">
+              <thead><tr>
+                <th data-i18n="rising_col_query">Query</th>
+                <th data-i18n="rising_col_growth">Growth</th>
+              </tr></thead>
+              <tbody>
+                
+                <tr><td>iren stock</td><td>800%</td></tr>
+                
+                <tr><td>xlk stock split</td><td>450%</td></tr>
+                
+                <tr><td>xli</td><td>140%</td></tr>
+                
+                <tr><td>xlu</td><td>140%</td></tr>
+                
+                <tr><td>xlk expense ratio</td><td>130%</td></tr>
+                
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+      
+      
+      <tr>
+        <td class="rising-toggle"></td>
+        <td>Utilities</td>
+        <td>US</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="seasonal">—</td>
+      </tr>
+      
+      
+    </tbody>
+  </table>
+</div>
+
+    
   </div>
-  
+
+  <!-- ===== Themes cohort ===== -->
+  <div class="cohort-panel" data-cohort="themes" id="sent-panel-themes" role="tabpanel" aria-labelledby="sent-tab-themes" style="display:none">
+    <p class="tab-note" data-i18n="note_sentiment_themes">Theme sentiment pulls worldwide search interest for each theme's keyword, z-scored across the themes. Information-only — it never affects any ranking.</p>
+    <div class="chart-container" id="sentiment-scatter-theme" style="height:560px"></div>
+    
+<p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px" data-i18n-html="sentiment_footnote">
+  Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
+  Hollow points = no sentiment data this scan (source unavailable or EU-only).
+  Sentiment is a confirming signal — noisy, gameable, retail-biased.
+  This is analytical tooling, not investment advice.
+</p>
+
+    
+    <p style="color:var(--fg4);padding:16px 4px" data-i18n="sent_themes_empty">No theme sentiment data yet — run a scan.</p>
+    
+  </div>
 </section>
 
 <script>
 var SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c\u002fb\u003e\u003cbr\u003eSentiment: N\u002fA\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#C8B89A","size":8,"symbol":"circle-open"},"mode":"markers+text","name":"no sentiment data","text":["Communication Services","Consumer Discretionary","Consumer Staples","Energy","Financials","Health Care","Industrials","Materials","Real Estate","Technology","Utilities","Communication Services","Consumer Discretionary","Consumer Staples","Energy","Financials","Health Care","Industrials","Materials","Real Estate","Technology","Utilities"],"textfont":{"color":"#8C8370","size":8},"textposition":"top center","x":[-0.56136,-0.191508,0.104694,0.102742,0.750062,-0.108832,-0.0277533,-0.308357,-0.838367,-0.0620125,0.178672,-0.021068,-0.308706,-0.18897,0.215871,0.466793,0.99931,0.131538,-0.398567,-0.148106,0.367331,-0.153405],"y":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"type":"scatter"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":0,"x1":0,"y0":-3,"y1":3},{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":-3,"x1":3,"y0":0,"y1":0}],"annotations":[{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bullish)","x":1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Sentiment\u003cbr\u003eahead","x":-1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bearish)","x":-1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Data ahead","x":1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"}],"font":{"color":"#3E392B","family":"Inter, -apple-system, sans-serif"},"legend":{"font":{"size":9},"bgcolor":"#FAF7F0","bordercolor":"#DFD5BE"},"margin":{"l":50,"r":20,"t":50,"b":50},"xaxis":{"title":{"text":"Data Score"},"gridcolor":"#DFD5BE","zeroline":false},"yaxis":{"title":{"text":"Sentiment Score"},"gridcolor":"#DFD5BE","zeroline":false},"title":{"font":{"size":13,"color":"#3E392B"},"text":"Data \u21c4 Sentiment"},"paper_bgcolor":"#F5F0E6","plot_bgcolor":"#FAF7F0","hovermode":"x unified","height":520}};
-Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
+var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c\u002fb\u003e\u003cbr\u003eSentiment: N\u002fA\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#C8B89A","size":8,"symbol":"circle-open"},"mode":"markers+text","name":"no sentiment data","text":["Artificial Intelligence & Robotics","Biotech","Blockchain & Crypto","Clean Energy","Cybersecurity","Defense","Lithium & Battery","Semiconductors","Space","Uranium & Nuclear"],"textfont":{"color":"#8C8370","size":8},"textposition":"top center","x":[-0.114467,0.594618,-0.096102,-0.293116,0.815271,0.275501,-0.457291,0.338925,-0.433193,-0.630146],"y":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"type":"scatter"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":0,"x1":0,"y0":-3,"y1":3},{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":-3,"x1":3,"y0":0,"y1":0}],"annotations":[{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bullish)","x":1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Sentiment\u003cbr\u003eahead","x":-1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bearish)","x":-1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Data ahead","x":1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"}],"font":{"color":"#3E392B","family":"Inter, -apple-system, sans-serif"},"legend":{"font":{"size":9},"bgcolor":"#FAF7F0","bordercolor":"#DFD5BE"},"margin":{"l":50,"r":20,"t":50,"b":50},"xaxis":{"title":{"text":"Data Score"},"gridcolor":"#DFD5BE","zeroline":false},"yaxis":{"title":{"text":"Sentiment Score"},"gridcolor":"#DFD5BE","zeroline":false},"title":{"font":{"size":13,"color":"#3E392B"},"text":"Data \u21c4 Sentiment"},"paper_bgcolor":"#F5F0E6","plot_bgcolor":"#FAF7F0","hovermode":"x unified","height":520}};
 
-// Delegated toggle for rising-queries expandable panels
+// Cohort toggle (Sectors ⇄ Themes), persisted in localStorage. Each scatter is
+// plotted lazily — the first time its cohort becomes visible — because Plotly
+// renders a chart inside a display:none container at a 0-width minimum and never
+// recovers cleanly. Lazy plotting guarantees a real container width at draw time.
 (function () {
-  var tbl = document.querySelector('.tab-panel table');
-  if (!tbl) return;
+  var KEY = 'sentimentCohort';
+  var toggle = document.getElementById('sent-cohort-toggle');
+  if (!toggle) return;
+  var panels = document.querySelectorAll('.cohort-panel');
+  var plotted = {};
+  var FIG = {sectors: SENTIMENT_DATA, themes: THEME_SENTIMENT_DATA};
+  var DIV = {sectors: 'sentiment-scatter', themes: 'sentiment-scatter-theme'};
+  function reveal(cohort) {
+    if (!window.Plotly) return;
+    var el = document.getElementById(DIV[cohort]);
+    if (!plotted[cohort]) {
+      // First reveal: plot now that the container is laid out (an inline script
+      // on initial load runs before the first layout pass, when a newly-shown
+      // container still measures 0 width — Plotly would bake in a 0 width).
+      var fig = FIG[cohort];
+      Plotly.newPlot(el, fig.data, fig.layout, {responsive: true});
+      plotted[cohort] = true;
+    } else if (el.data) {
+      // Re-reveal: fix a width that may have gone stale (e.g. window resized
+      // while this cohort was hidden, so responsive:true never relaid it out).
+      Plotly.Plots.resize(el);
+    }
+  }
+  function setCohort(cohort) {
+    panels.forEach(function (p) {
+      p.style.display = p.getAttribute('data-cohort') === cohort ? '' : 'none';
+    });
+    toggle.querySelectorAll('.segment-btn').forEach(function (b) {
+      var on = b.getAttribute('data-cohort') === cohort;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', String(on));
+    });
+    requestAnimationFrame(function () { reveal(cohort); });
+  }
+  function select(cohort, focus) {
+    setCohort(cohort);
+    try { localStorage.setItem(KEY, cohort); } catch (e) {}
+    if (focus) {
+      var btn = toggle.querySelector('.segment-btn[data-cohort="' + cohort + '"]');
+      if (btn) btn.focus();
+    }
+  }
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  setCohort(saved === 'themes' ? 'themes' : 'sectors');
+  toggle.addEventListener('click', function (e) {
+    var btn = e.target.closest('.segment-btn');
+    if (btn) select(btn.getAttribute('data-cohort'), false);
+  });
+  // Arrow-key navigation between tabs (WAI-ARIA tablist pattern).
+  toggle.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    var order = ['sectors', 'themes'];
+    var active = toggle.querySelector('.segment-btn.active');
+    var i = order.indexOf(active ? active.getAttribute('data-cohort') : 'sectors');
+    var next = e.key === 'ArrowRight' ? (i + 1) % order.length : (i + order.length - 1) % order.length;
+    select(order[next], true);
+  });
+})();
+
+// Delegated toggle for rising-queries expandable panels (both cohort tables).
+(function () {
+  var scope = document.querySelector('.tab-panel');
+  if (!scope) return;
   function toggle(row) {
     var id = row.getAttribute('data-rising-id');
     if (!id) return;
@@ -1369,11 +1478,11 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
     row.classList.toggle('open', !open);
     row.setAttribute('aria-expanded', String(!open));
   }
-  tbl.addEventListener('click', function (e) {
+  scope.addEventListener('click', function (e) {
     var row = e.target.closest('.has-rising');
     if (row) toggle(row);
   });
-  tbl.addEventListener('keydown', function (e) {
+  scope.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     var row = e.target.closest('.has-rising');
     if (row) { e.preventDefault(); toggle(row); }
@@ -1415,6 +1524,8 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
     col_rankdelta: "Rank Δ",
     col_trend: "Trend",
     note_sentiment: "Sentimentvikten påverkar endast topplistans rankning.",
+    note_sentiment_themes: "Temasentiment hämtar världsomspännande sökintresse för varje temas nyckelord, z-poängsatt över temana. Endast information — påverkar aldrig någon rankning.",
+    sent_themes_empty: "Ingen temasentimentdata än — kör en skanning.",
     note_backtest: "Månatlig rotation av topprankade sektorer, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje region poängsätts inom sin egen kohort.",
     bt_track: "Spår",
     bt_window: "Period",
@@ -1576,6 +1687,8 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
       <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
       <h4>Metod</h4>
       <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>. Där en ticker motsvarar en känd Google Knowledge&nbsp;Graph-<strong>entitet</strong> frågar vi efter den entiteten i stället för den råa ticker-strängen, för att undvika namnkrockar; tickers utan känd entitet faller tillbaka på strängen. Intresset hämtas per region — <strong>US</strong>-sektorer i amerikanska sökningar, <strong>EU</strong>-sektorer som ett genomsnitt av Tyskland, Frankrike och Storbritannien — och normaliseras mot en neutral, allmänt spridd ankarterm i stället för en marknadsticker. (Denna ankarändring gör att sentimentvärden från före ändringen inte är direkt jämförbara med senare.)</p>
+      <h4>Teman</h4>
+      <p><strong>Teman</strong>-kohorten fungerar likadant, men teman motsvarar riktiga sökfraser (<em>uranium</em>, <em>defense stocks</em>, <em>robotics</em>) i stället för ETF-tickers. Temaintresse hämtas <strong>världsomspännande</strong> (teman är globala) och z-poängsätts över temakohorten. Byt kohort med växeln ovanför.</p>
       <h4>Härledda signaler</h4>
       <p>Ur samma intresseserie läser vi också ut några kompletterande vyer (visas i tabellen nedan, endast information — bara Momentum kan påverka rankningen):</p>
       <ul>
@@ -1585,13 +1698,13 @@ Plotly.newPlot('sentiment-scatter', SENTIMENT_DATA.data, SENTIMENT_DATA.layout, 
         <li><strong>Spik</strong> — z-värde för senaste punkten mot föregående veckor; ett genombrott i intresse.</li>
         <li><strong>Volatilitet</strong> — hur ryckigt intresset varit vecka för vecka.</li>
         <li><strong>Uppmärksamhet</strong> — relativt sökintresse jämfört
-            head-to-head mot alla andra sektorer i samma region.
+            head-to-head mot alla andra medlemmar i samma kohort.
             Högre = mer uppmärksamhet.</li>
         <li><strong>Säsong</strong> — jämför senaste 13 veckors sökintresse mot de
             föregående 39 veckorna. Över 1,0 = intresset överstiger sin historiska norm;
             under 1,0 = under normen.</li>
         <li><strong>Stigande sökningar</strong> — framväxande söktermer som Google Trends
-            identifierar för varje sektors representativa ETF/entitet. Klicka på en rad
+            identifierar för varje rads representativa nyckelord/entitet. Klicka på en rad
             med ▶ för att expandera.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
