@@ -58,6 +58,7 @@ from dashboard.figures import (                   # noqa: E402, F401
     _build_backtest_figures,
     _build_rotation_figures,
     _build_backtest_context,
+    _build_theme_backtest_context,
     _build_rescore_data,
     _build_scan_history_data,
     _WARM_PALETTE,
@@ -286,6 +287,7 @@ def main() -> None:
 
     logger.info("Building backtest context …")
     backtest_ctx = _build_backtest_context(str(project_root / "backtests"))
+    theme_backtest_ctx = _build_theme_backtest_context(str(project_root / "backtests_themes"))
 
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
     import shutil
@@ -361,6 +363,9 @@ def main() -> None:
             theme_keys=theme_keys,
             theme_movers_json=theme_movers_json,
             theme_history_json=theme_history_json,
+            theme_backtest_json=theme_backtest_ctx["theme_backtest_json"],
+            theme_backtest_metrics=theme_backtest_ctx["theme_backtest_metrics"],
+            has_theme_backtest=theme_backtest_ctx["has_theme_backtest"],
         ),
     )
 

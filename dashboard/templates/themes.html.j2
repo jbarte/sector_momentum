@@ -20,6 +20,7 @@
   <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab" aria-selected="false" aria-controls="tab-drilldown" data-i18n="tab_drilldown">Drill-down</button>
   <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers" data-i18n="tab_movers">Movers</button>
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history" data-i18n="tab_history">History</button>
+  <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest" data-i18n="tab_backtest">Backtest</button>
   <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" aria-selected="false" aria-controls="tab-guide" data-i18n="tab_guide">Guide</button>
 </nav>
 
@@ -159,6 +160,28 @@
 </section>
 
 <!-- ============================================================
+     Tab: Backtest
+     ============================================================ -->
+<section id="tab-backtest" class="tab-panel" role="tabpanel">
+  <p class="tab-note" data-i18n="note_backtest_themes">Monthly top-{{ theme_backtest_metrics[0].top_n if theme_backtest_metrics else 3 }} rotation, equal-weight, long-only. Price-based signals only (sentiment excluded). Themes scored within their own cohort vs ACWI.</p>
+  {% if has_theme_backtest %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th data-i18n="bt_track">Track</th><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe (rf=0)</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_hitrate">Hit rate</th><th data-i18n="bt_turnover">Turnover</th></tr></thead>
+      <tbody>
+        {% for r in theme_backtest_metrics %}
+        <tr><td>Themes</td><td>{{ r.start }} → {{ r.end }}</td><td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td><td>{{ r.max_drawdown }}</td><td>{{ r.hit_rate }}</td><td>{{ r.avg_turnover }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="chart-container" id="backtest-chart-THEME" style="height:420px"></div>
+  {% else %}
+  <p style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="bt_themes_empty">No theme backtest yet. Run <code>python backtest.py</code>.</p>
+  {% endif %}
+</section>
+
+<!-- ============================================================
      Tab: Guide
      ============================================================ -->
 <section id="tab-guide" class="tab-panel" role="tabpanel">
@@ -210,6 +233,16 @@
       indicate sustained momentum; reversals may signal rotation into or out of the theme.
     </p>
 
+    <h2>Backtest</h2>
+    <p>
+      Monthly top-N rotation backtest: at each month-end the scanner scores all themes
+      using only price data available up to that date (no look-ahead), picks the top N,
+      and holds them equal-weight for the next month. The equity curve compares the
+      strategy to the ACWI benchmark. Metrics: CAGR, Sharpe (risk-free = 0%), maximum
+      drawdown, hit rate (% of months the strategy beat the benchmark), and average
+      monthly turnover. Run <code>python backtest.py</code> to regenerate.
+    </p>
+
     <h2>Disclaimer</h2>
     <p>
       <strong>This tool is for analytical and educational purposes only.</strong>
@@ -230,6 +263,7 @@ var RRG_DATA       = {{ theme_rrg_json | js_json }};
 var MOVERS_DATA    = {{ theme_movers_json | js_json }};
 var HISTORY_DATA   = {{ theme_history_json | js_json }};
 var DRILLDOWN_DATA = {{ theme_drilldown_data | js_json }};
+var THEME_BACKTEST_DATA = {{ theme_backtest_json | js_json }};
 
 // ----- Render helpers -----
 var _rendered = {};
@@ -269,6 +303,18 @@ function updateDrilldown() {
   }
   var fig = typeof figJson === 'string' ? JSON.parse(figJson) : figJson;
   Plotly.newPlot('drilldown-chart', fig.data, fig.layout, {responsive: true, displayModeBar: true});
+}
+
+function renderBacktest() {
+  if (_rendered.backtest) return;
+  _rendered.backtest = true;
+  var el = document.getElementById('backtest-chart-THEME');
+  if (el && THEME_BACKTEST_DATA) {
+    var f = typeof THEME_BACKTEST_DATA === 'string' ? JSON.parse(THEME_BACKTEST_DATA) : THEME_BACKTEST_DATA;
+    if (f && f.data) {
+      Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
+    }
+  }
 }
 
 // ----- Breakdown toggle -----
