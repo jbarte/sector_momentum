@@ -122,6 +122,22 @@ header h1 {
 .lang-toggle:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
 
 /* =========================================================
+   Macro regime bar — SPY vs 200-DMA + VIX band, below header.
+   ========================================================= */
+.macro-bar { display:flex; align-items:center; justify-content:center; gap:20px; padding:6px 16px; font-size:12px; font-family:var(--font-body); color:var(--fg2); border-bottom:1px solid var(--border); }
+.macro-item { display:flex; align-items:center; gap:6px; }
+.macro-label { font-weight:600; color:var(--fg1); }
+.macro-value { font-variant-numeric:tabular-nums; }
+.macro-sub { font-size:11px; }
+.macro-sep { width:1px; height:14px; background:var(--border); }
+.macro-up { color:var(--up); }
+.macro-down { color:var(--down); }
+.macro-band { font-size:11px; font-weight:600; padding:1px 8px; border-radius:var(--radius-pill); }
+.macro-band-calm { color:var(--up); background:color-mix(in srgb, var(--up) 12%, transparent); }
+.macro-band-elevated { color:var(--fg1); background:color-mix(in srgb, var(--fg1) 10%, transparent); }
+.macro-band-stressed { color:var(--down); background:color-mix(in srgb, var(--down) 12%, transparent); }
+
+/* =========================================================
    Segment toggle (Sectors ⇄ Sentiment) — top-level page switcher,
    distinct from the sector tab bar below it.
    ========================================================= */
@@ -933,6 +949,22 @@ select.sector-select:focus {
   <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
 </header>
 
+<div class="macro-bar">
+  <span class="macro-item">
+    <span class="macro-label">SPY</span>
+    <span class="macro-value macro-up">+8.6%</span>
+    <span class="macro-sub" data-i18n="macro_vs_200dma">vs 200-DMA</span>
+  </span>
+  <span class="macro-sep"></span>
+  <span class="macro-item">
+    <span class="macro-label">VIX</span>
+    <span class="macro-value">16.5</span>
+    <span class="macro-band macro-band-elevated" data-i18n="macro_vix_elevated">Elevated</span>
+  </span>
+</div>
+
+
+
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
   <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" aria-selected="true" aria-controls="tab-leaderboard" data-i18n="tab_leaderboard">Leaderboard</button>
@@ -961,6 +993,13 @@ select.sector-select:focus {
         <li><span class="signal-lo">↓ Falling</span> — rank deteriorating even if it is still high. Momentum is fading.</li>
         <li><span class="signal-lo">↓↓ Falling fast</span> — avoid or consider exiting.</li>
       </ul>
+      <h4>Macro regime bar</h4>
+      <p>The thin strip above the leaderboard shows two broad-market indicators refreshed each build:</p>
+      <ul>
+        <li><strong>SPY vs 200-DMA</strong> — The S&amp;P 500 ETF's distance from its 200-day simple moving average. <span class="signal-hi">Green / positive</span> = price above the 200-DMA (long-term uptrend, risk-on); <span class="signal-lo">red / negative</span> = below (risk-off). The percentage tells you how stretched the market is from the trend line.</li>
+        <li><strong>VIX band</strong> — The CBOE Volatility Index bucketed into three regimes: <strong>Calm</strong> (&lt;&nbsp;15), <strong>Elevated</strong> (15–25), and <strong>Stressed</strong> (&gt;&nbsp;25). Higher VIX = more fear and uncertainty.</li>
+      </ul>
+      <p>The bar is <strong>info-only</strong> — it does not affect sector scores or rankings. Use it as context: the same sector ranking can mean different things depending on whether the broad market is in a healthy uptrend with low volatility or a stressed, risk-off environment. If both indicators flash caution (below 200-DMA + Stressed VIX), even top-ranked sectors carry higher absolute risk.</p>
       <h4>Entry setup</h4>
       <p>Composite &gt; 0 with <span class="signal-hi">↑</span> or <span class="signal-hi">↑↑</span> trajectory and a positive Change score. Click any row to see the full signal breakdown.</p>
       <h4>Exit / avoid signal</h4>
@@ -1964,6 +2003,23 @@ select.sector-select:focus {
       signal rotation into or out of the sector.
     </p>
 
+    <h2>Macro Regime Bar</h2>
+    <p>
+      The strip below the header shows two broad-market context indicators, refreshed each
+      time the dashboard is built:
+    </p>
+    <ul>
+      <li><strong>SPY vs 200-DMA</strong> — the S&amp;P 500 ETF's percentage distance from
+          its 200-day simple moving average. Above = risk-on uptrend; below = risk-off.</li>
+      <li><strong>VIX band</strong> — the CBOE Volatility Index grouped into Calm (&lt; 15),
+          Elevated (15–25), or Stressed (&gt; 25).</li>
+    </ul>
+    <p>
+      These indicators are <strong>info-only</strong> and never affect sector scores or
+      rankings. They provide macro context so you can gauge absolute risk alongside relative
+      momentum. If the bar is hidden, the data was unavailable at build time.
+    </p>
+
     <h2>Disclaimer</h2>
     <p>
       <strong>This tool is for analytical and educational purposes only.</strong>
@@ -2377,7 +2433,11 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     guide_modal_eyebrow_7: "Redo att utforska",
     guide_modal_title_7: "Snabbstart",
     guide_modal_hint: "eller svep för att navigera",
-    guide_modal_hint_close: "för att stänga"
+    guide_modal_hint_close: "för att stänga",
+    macro_vs_200dma: "mot 200-DMA",
+    macro_vix_calm: "Lugnt",
+    macro_vix_elevated: "Förhöjt",
+    macro_vix_stressed: "Stressat"
   };
 
   // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
@@ -2393,6 +2453,13 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
         <li><span class="signal-lo">↓ Faller</span> — rangen försämras även om den fortfarande är hög. Momentum mattas av.</li>
         <li><span class="signal-lo">↓↓ Faller snabbt</span> — undvik eller överväg att gå ur.</li>
       </ul>
+      <h4>Makroregim-remsa</h4>
+      <p>Den tunna remsan ovanför topplistan visar två breda marknadsindikatorer som uppdateras vid varje bygge:</p>
+      <ul>
+        <li><strong>SPY mot 200-DMA</strong> — S&amp;P 500 ETF:ens avstånd från sitt 200-dagars glidande medelvärde. <span class="signal-hi">Grönt / positivt</span> = pris över 200-DMA (långsiktig upptrend, risk-on); <span class="signal-lo">rött / negativt</span> = under (risk-off). Procentsatsen visar hur långt marknaden sträckt sig från trendlinjen.</li>
+        <li><strong>VIX-band</strong> — CBOE Volatilitetsindex indelat i tre regimer: <strong>Lugnt</strong> (&lt;&nbsp;15), <strong>Förhöjt</strong> (15–25) och <strong>Stressat</strong> (&gt;&nbsp;25). Högre VIX = mer rädsla och osäkerhet.</li>
+      </ul>
+      <p>Remsan är <strong>enbart information</strong> — den påverkar inte sektorpoäng eller rankning. Använd den som kontext: samma sektorsrankning kan betyda olika saker beroende på om den breda marknaden är i en hälsosam upptrend med låg volatilitet eller i en stressad risk-off-miljö. Om båda indikatorerna blinkar varning (under 200-DMA + Stressat VIX) bär även topprankade sektorer högre absolut risk.</p>
       <h4>Insteg-läge</h4>
       <p>Komposit &gt; 0 med <span class="signal-hi">↑</span>- eller <span class="signal-hi">↑↑</span>-bana och positiv förändringspoäng. Klicka på en rad för att se hela signaluppdelningen.</p>
       <h4>Ur-/undvik-signal</h4>
@@ -2535,6 +2602,13 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     <p>Rörelsepanelen visar rangförändringen mellan de två senaste skanningarna. <span style="color:var(--up)">Gröna staplar</span> anger sektorer som klättrade på topplistan; <span style="color:var(--down)">terrakotta-staplar</span> anger sektorer som halkade. Stora rörelser kan spegla datauppdateringar, makrohändelser eller äkta momentumskiften.</p>
     <h2>Historik</h2>
     <p>Ett linjediagram över kompositpoängen för alla lagrade skanningar. Ihållande uppåtgående trender i en sektors kompositpoäng indikerar uthålligt momentum, medan vändningar kan signalera rotation in i eller ut ur sektorn.</p>
+    <h2>Makroregim-remsa</h2>
+    <p>Remsan under rubriken visar två breda marknadsindikatorer som uppdateras vid varje bygge:</p>
+    <ul>
+      <li><strong>SPY mot 200-DMA</strong> — S&amp;P 500 ETF:ens procentuella avstånd från sitt 200-dagars glidande medelvärde. Över = risk-on upptrend; under = risk-off.</li>
+      <li><strong>VIX-band</strong> — CBOE Volatilitetsindex grupperat i Lugnt (&lt; 15), Förhöjt (15–25) eller Stressat (&gt; 25).</li>
+    </ul>
+    <p>Dessa indikatorer är <strong>enbart information</strong> och påverkar aldrig sektorpoäng eller rankning. De ger makrokontext så att du kan bedöma absolut risk vid sidan av relativt momentum. Om remsan är dold var data otillgänglig vid byggtillfället.</p>
     <h2>Ansvarsfriskrivning</h2>
     <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning eller en rekommendation att köpa, sälja eller behålla något värdepapper. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys och rådgör med en kvalificerad finansiell rådgivare innan du fattar investeringsbeslut.</p>`,
     guide_tab_themes: `
