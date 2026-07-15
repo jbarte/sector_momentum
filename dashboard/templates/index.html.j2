@@ -16,6 +16,7 @@
 <!-- Header -->
 {% set active_segment = "sectors" %}
 {% include '_header.html.j2' %}
+{% include '_macro_bar.html.j2' %}
 
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
@@ -45,6 +46,13 @@
         <li><span class="signal-lo">↓ Falling</span> — rank deteriorating even if it is still high. Momentum is fading.</li>
         <li><span class="signal-lo">↓↓ Falling fast</span> — avoid or consider exiting.</li>
       </ul>
+      <h4>Macro regime bar</h4>
+      <p>The thin strip above the leaderboard shows two broad-market indicators refreshed each build:</p>
+      <ul>
+        <li><strong>SPY vs 200-DMA</strong> — The S&amp;P 500 ETF's distance from its 200-day simple moving average. <span class="signal-hi">Green / positive</span> = price above the 200-DMA (long-term uptrend, risk-on); <span class="signal-lo">red / negative</span> = below (risk-off). The percentage tells you how stretched the market is from the trend line.</li>
+        <li><strong>VIX band</strong> — The CBOE Volatility Index bucketed into three regimes: <strong>Calm</strong> (&lt;&nbsp;15), <strong>Elevated</strong> (15–25), and <strong>Stressed</strong> (&gt;&nbsp;25). Higher VIX = more fear and uncertainty.</li>
+      </ul>
+      <p>The bar is <strong>info-only</strong> — it does not affect sector scores or rankings. Use it as context: the same sector ranking can mean different things depending on whether the broad market is in a healthy uptrend with low volatility or a stressed, risk-off environment. If both indicators flash caution (below 200-DMA + Stressed VIX), even top-ranked sectors carry higher absolute risk.</p>
       <h4>Entry setup</h4>
       <p>Composite &gt; 0 with <span class="signal-hi">↑</span> or <span class="signal-hi">↑↑</span> trajectory and a positive Change score. Click any row to see the full signal breakdown.</p>
       <h4>Exit / avoid signal</h4>
@@ -340,6 +348,23 @@
       A line chart of composite score across all stored scans. Persistent upward trends
       in a sector's composite score indicate sustained momentum, while reversals may
       signal rotation into or out of the sector.
+    </p>
+
+    <h2>Macro Regime Bar</h2>
+    <p>
+      The strip below the header shows two broad-market context indicators, refreshed each
+      time the dashboard is built:
+    </p>
+    <ul>
+      <li><strong>SPY vs 200-DMA</strong> — the S&amp;P 500 ETF's percentage distance from
+          its 200-day simple moving average. Above = risk-on uptrend; below = risk-off.</li>
+      <li><strong>VIX band</strong> — the CBOE Volatility Index grouped into Calm (&lt; 15),
+          Elevated (15–25), or Stressed (&gt; 25).</li>
+    </ul>
+    <p>
+      These indicators are <strong>info-only</strong> and never affect sector scores or
+      rankings. They provide macro context so you can gauge absolute risk alongside relative
+      momentum. If the bar is hidden, the data was unavailable at build time.
     </p>
 
     <h2>Disclaimer</h2>

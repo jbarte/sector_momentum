@@ -112,6 +112,22 @@ header h1 {
 .lang-toggle:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
 
 /* =========================================================
+   Macro regime bar — SPY vs 200-DMA + VIX band, below header.
+   ========================================================= */
+.macro-bar { display:flex; align-items:center; justify-content:center; gap:20px; padding:6px 16px; font-size:12px; font-family:var(--font-body); color:var(--fg2); border-bottom:1px solid var(--border); }
+.macro-item { display:flex; align-items:center; gap:6px; }
+.macro-label { font-weight:600; color:var(--fg1); }
+.macro-value { font-variant-numeric:tabular-nums; }
+.macro-sub { font-size:11px; }
+.macro-sep { width:1px; height:14px; background:var(--border); }
+.macro-up { color:var(--up); }
+.macro-down { color:var(--down); }
+.macro-band { font-size:11px; font-weight:600; padding:1px 8px; border-radius:var(--radius-pill); }
+.macro-band-calm { color:var(--up); background:color-mix(in srgb, var(--up) 12%, transparent); }
+.macro-band-elevated { color:var(--fg1); background:color-mix(in srgb, var(--fg1) 10%, transparent); }
+.macro-band-stressed { color:var(--down); background:color-mix(in srgb, var(--down) 12%, transparent); }
+
+/* =========================================================
    Segment toggle (Sectors ⇄ Sentiment) — top-level page switcher,
    distinct from the sector tab bar below it.
    ========================================================= */
