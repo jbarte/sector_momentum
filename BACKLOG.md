@@ -104,17 +104,6 @@ historical-stats panels.
 above a composite threshold?) before implementing — that choice drives the
 whole stat. Info-only, no scoring impact.
 
-## Macro regime context bar
-
-**What:** A small risk-on/risk-off context header on the dashboard — e.g. SPY
-vs its 200-DMA (above/below + distance) and a VIX band (calm/elevated/stressed)
-— from free daily data via the existing price fetchers.
-
-**Why:** Sector rotation signals mean different things in different regimes;
-this contextualizes whether momentum is worth acting on at all.
-`src/data/macro.py` is currently a stub with a tested contract waiting for
-exactly this. Info-only; never touches scoring.
-
 ## Threshold alerts (daily scan notifications)
 
 **What:** A post-scan step in `scan.yml` that sends a notification when a
@@ -157,6 +146,12 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Macro regime context bar** — a thin info strip below the dashboard header showing
+  SPY vs 200-DMA (above/below + distance %) and VIX band (Calm/Elevated/Stressed).
+  Fetched at dashboard build time via the existing price cache, non-fatal if unavailable.
+  `dashboard/macro.py` computes the indicators; `_macro_bar.html.j2` renders the strip
+  on all three pages. Info-only, no scoring impact. *(2026-07-15)*
 
 - **RSS/Atom feed of scan results** — `build.py` now emits `docs/feed.xml`, an Atom
   feed with one entry per scan (last 30). Each entry lists the top-5 sectors per region

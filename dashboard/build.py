@@ -75,6 +75,10 @@ from dashboard.feed import (                      # noqa: E402, F401
     build_feed_entries,
     feed_updated_timestamp,
 )
+from dashboard.macro import (                     # noqa: E402, F401
+    build_macro_context,
+    fetch_macro_data,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +297,15 @@ def main() -> None:
     backtest_ctx = _build_backtest_context(str(project_root / "backtests"))
     theme_backtest_ctx = _build_theme_backtest_context(str(project_root / "backtests_themes"))
 
+    logger.info("Fetching macro regime data …")
+    macro_ctx = fetch_macro_data(cache_dir=str(project_root / "data" / "cache"))
+    if macro_ctx:
+        logger.info("Macro: SPY %+.1f%% vs 200-DMA, VIX %.1f (%s)",
+                     macro_ctx["spy_distance_pct"], macro_ctx["vix_last"],
+                     macro_ctx["vix_band"])
+    else:
+        logger.warning("Macro data unavailable — regime bar will be hidden")
+
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
     import shutil
     docs_assets = out_dir / "assets"
@@ -337,6 +350,7 @@ def main() -> None:
             has_backtest=backtest_ctx["has_backtest"],
             rotation_json=backtest_ctx["rotation_json"],
             has_rotations=backtest_ctx["has_rotations"],
+            macro=macro_ctx,
         ),
     )
 
@@ -351,6 +365,7 @@ def main() -> None:
             theme_sentiment_scatter_json=theme_sentiment_scatter_json,
             theme_sentiment_signal_rows=theme_sentiment_signal_rows,
             plotly_bundle=plotly_bundle_rel,
+            macro=macro_ctx,
         ),
     )
 
@@ -370,6 +385,7 @@ def main() -> None:
             theme_backtest_json=theme_backtest_ctx["theme_backtest_json"],
             theme_backtest_metrics=theme_backtest_ctx["theme_backtest_metrics"],
             has_theme_backtest=theme_backtest_ctx["has_theme_backtest"],
+            macro=macro_ctx,
         ),
     )
 
