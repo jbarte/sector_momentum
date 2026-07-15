@@ -207,7 +207,9 @@ def _build_sentiment_scatter_figure(history_df) -> str:
     solid = df[has_sentiment]
     faded = df[~has_sentiment]
 
-    region_colors = {"US": "#A55A3C", "EU": "#5A6F49"}
+    # THEME is included so the shared builder also renders the theme cohort's
+    # solid points (region="THEME"); sector history never contains THEME rows.
+    region_colors = {"US": "#A55A3C", "EU": "#5A6F49", "THEME": "#7A5B8E"}
 
     fig = go.Figure()
 

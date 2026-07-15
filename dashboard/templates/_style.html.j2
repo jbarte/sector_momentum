@@ -134,6 +134,11 @@ header h1 {
   border-radius: var(--radius-pill);
   white-space: nowrap;
   cursor: pointer;
+  /* Reset <button> UA chrome so button-based toggles match <a>/<span> ones. */
+  border: none;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
   transition: color var(--duration-fast) var(--ease-standard),
               background var(--duration-fast) var(--ease-standard);
 }

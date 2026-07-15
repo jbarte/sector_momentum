@@ -29,9 +29,13 @@ def _sample():
     theme_signals = pd.DataFrame({
         "scan_id": [1], "theme": ["AI"], "signal_name": ["rs_ratio"],
         "raw_value": [102.0], "z_value": [0.7]})
+    theme_sentiment_signals = pd.DataFrame({
+        "scan_id": [1], "theme": ["AI"], "signal_name": ["momentum"],
+        "value": [0.9], "text_value": [np.nan]})
     return {"scans": scans, "scores": scores, "signals": signals,
             "sentiment_signals": sentiment_signals, "theme_scores": theme_scores,
-            "theme_signals": theme_signals}
+            "theme_signals": theme_signals,
+            "theme_sentiment_signals": theme_sentiment_signals}
 
 
 def test_roundtrip_preserves_values_including_nan(tmp_path):

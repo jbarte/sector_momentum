@@ -86,6 +86,15 @@ _DDL_STATEMENTS = [
         z_value     REAL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS theme_sentiment_signals (
+        scan_id     INTEGER NOT NULL REFERENCES scans(scan_id),
+        theme       TEXT NOT NULL,
+        signal_name TEXT NOT NULL,
+        value       REAL,
+        text_value  TEXT
+    )
+    """,
 ]
 
 
@@ -309,12 +318,15 @@ def save_theme_scan(
     scan_id: int,
     scores_df: pd.DataFrame,
     signals_df: pd.DataFrame,
+    sentiment_signals_df: pd.DataFrame | None = None,
 ) -> None:
     """Insert theme scores/signals for an existing scan_id (theme = gics_sector).
 
     scores_df columns: region, gics_sector, level_score, change_score, data_score,
     sentiment_score, composite, rank (region is "THEME"; gics_sector is the theme
     name). signals_df columns: region, gics_sector, signal_name, raw_value, z_value.
+    sentiment_signals_df (optional) columns: theme, signal_name, value, text_value
+    — the info-only derived Trends signals for the theme cohort.
     """
     score_cols = ["level_score", "change_score", "data_score",
                   "sentiment_score", "composite", "rank"]
@@ -345,6 +357,19 @@ def save_theme_scan(
                     "VALUES (%s, %s, %s, %s, %s)",
                     srows,
                 )
+            if sentiment_signals_df is not None and not sentiment_signals_df.empty:
+                sent_rows = _rows_from_df(
+                    sentiment_signals_df, scan_id,
+                    key_cols=["theme", "signal_name"],
+                    float_cols=["value"],
+                    raw_cols=["text_value"],
+                )
+                cur.executemany(
+                    "INSERT INTO theme_sentiment_signals "
+                    "(scan_id, theme, signal_name, value, text_value) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    sent_rows,
+                )
     logger.info("Saved %d theme scores for scan_id=%d", len(scores_df), scan_id)
 
 
@@ -360,6 +385,22 @@ def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> p
     """Theme signal rows for the most recent scan. Empty DataFrame if none."""
     return _latest_scan_query(
         conn, "theme_signals", "t.theme, t.signal_name, t.raw_value, t.z_value"
+    )
+
+
+def get_theme_sentiment_signals_for_latest_scan(
+    conn: psycopg2.extensions.connection,
+) -> pd.DataFrame:
+    """Derived Trends sentiment rows for the theme cohort, most recent scan.
+
+    Aliased ``'THEME' AS region, theme AS gics_sector`` so the shared
+    ``_build_sentiment_signal_rows`` dashboard builder consumes it unchanged.
+    Columns: region, gics_sector, signal_name, value, text_value. Empty DataFrame
+    if no theme sentiment rows exist.
+    """
+    return _latest_scan_query(
+        conn, "theme_sentiment_signals",
+        "'THEME' AS region, t.theme AS gics_sector, t.signal_name, t.value, t.text_value",
     )
 
 
@@ -506,12 +547,20 @@ def _rows_from_df(
 ) -> list[tuple]:
     """Build (scan_id, *key_cols, *float_cols, *raw_cols) tuples from a
     DataFrame. float_cols are converted via _to_float_or_none; raw_cols pass
-    through as-is (None if falsy) — covers columns like
-    sentiment_signals.text_value that aren't float data."""
+    through as-is but with missing values (None / NaN) normalized to None so
+    Postgres stores NULL — covers columns like sentiment_signals.text_value that
+    carry real text on some rows and NaN on others after a mixed-column concat."""
     raw_cols = raw_cols or []
+
+    def _raw(v):
+        # NaN (from mixed-dtype columns) and falsy values → SQL NULL; keep text.
+        if v is None or (isinstance(v, float) and math.isnan(v)) or not v:
+            return None
+        return v
+
     return [
         (scan_id, *(row[k] for k in key_cols),
          *(_to_float_or_none(row.get(c)) for c in float_cols),
-         *(row.get(c) or None for c in raw_cols))
+         *(_raw(row.get(c)) for c in raw_cols))
         for _, row in df.iterrows()
     ]

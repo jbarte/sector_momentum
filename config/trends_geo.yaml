@@ -8,3 +8,7 @@ anchor: YouTube
 region_geos:
   US: [US]
   EU: [DE, FR, GB]
+  # Thematic ETFs are global; theme keywords are pulled worldwide (empty geo =
+  # no geo restriction). The THEME|<name> keys from build_theme_symbol_map look
+  # this up via the same region_geos.get(region, [""]) path as US/EU.
+  THEME: [""]

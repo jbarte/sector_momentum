@@ -109,3 +109,19 @@ def test_empty_trends_returns_empty_series():
     """Empty input -> empty Series (no crash)."""
     s = score_symbol_sentiment({})
     assert len(s) == 0
+
+
+def test_min_live_override_lowers_threshold_for_small_cohorts():
+    """A smaller cohort (e.g. themes) can pass a lower min_live and still score.
+
+    Six live keys are below the default _MIN_LIVE_SECTORS (8) — all-NaN by
+    default — but score as a valid cross-section when min_live is lowered.
+    """
+    trends = {
+        f"THEME|T{i}": pd.Series([float(i + 1) * (j + 1) for j in range(13)])
+        for i in range(6)
+    }
+    assert score_symbol_sentiment(trends).isna().all()          # default bar (8) → NaN
+    s = score_symbol_sentiment(trends, min_live=5)              # theme bar (5) → z-scores
+    assert not s.isna().any()
+    assert abs(s.mean()) < 1e-9

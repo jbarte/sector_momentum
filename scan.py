@@ -191,6 +191,85 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
     print(f"\n{'='*60}\n")
 
 
+def _fetch_theme_sentiment(
+    themes_cfg: dict,
+    theme_index,
+    anchor: str,
+    region_geos: dict,
+    cache: dict | None,
+) -> tuple[pd.Series, pd.DataFrame]:
+    """Fetch Google Trends sentiment for the theme cohort.
+
+    Mirrors the sector sentiment path (scan Step 8/8b/8c) but keyed by the
+    ``THEME|<name>`` convention and pulled worldwide. Returns:
+      - a sentiment ``pd.Series`` (z-scored slope) reindexed to ``theme_index``
+        for feeding ``score_all`` (populates ``theme_scores.sentiment_score``);
+      - a long DataFrame (``theme, signal_name, value, text_value``) of the
+        info-only derived signals + comparative attention + rising queries, for
+        ``save_theme_scan(..., sentiment_signals_df=...)``.
+
+    Comparative interest and rising queries are each best-effort — a failure in
+    either logs a warning and yields no rows for that signal, but the headline
+    sentiment + derived signals still return.
+    """
+    import json as _json
+
+    from src.data.trends_symbols import (
+        build_theme_symbol_map, load_theme_entities, fetch_symbol_trends,
+        score_symbol_sentiment, derived_signals, fetch_comparative_interest,
+        fetch_rising_queries, _MIN_LIVE_THEMES,
+    )
+
+    _sym_map = build_theme_symbol_map(themes_cfg)
+    # Theme entities are keyed by search term, not ticker, so the sector entity
+    # map is irrelevant here — use only the theme overrides.
+    _theme_entities = load_theme_entities(themes_cfg)
+
+    _trends = fetch_symbol_trends(
+        _sym_map, anchor=anchor, entities=_theme_entities, region_geos=region_geos,
+        cache=cache, timeframe="today 12-m", window=52,
+    )
+    _sentiment = score_symbol_sentiment(_trends, min_live=_MIN_LIVE_THEMES).reindex(theme_index)
+    logger.info("Theme sentiment: %d/%d themes have live Trends data",
+                len(_trends), len(theme_index))
+
+    def _theme_of(key: str) -> str:
+        return key.partition("|")[2]
+
+    rows: list[dict] = []
+    for _key, _series in _trends.items():
+        _theme = _theme_of(_key)
+        for _name, _val in derived_signals(_series).items():
+            rows.append({"theme": _theme, "signal_name": _name,
+                         "value": _val, "text_value": None})
+
+    try:
+        _attn = fetch_comparative_interest(
+            _sym_map, sleep_s=20.0, max_retries=3,
+            entities=_theme_entities, region_geos=region_geos, cache=cache,
+        )
+        for _key, _val in (_attn or {}).items():
+            rows.append({"theme": _theme_of(_key), "signal_name": "attention_level",
+                         "value": _val, "text_value": None})
+        logger.info("Theme comparative interest: %d themes scored", len(_attn or {}))
+    except Exception as exc:
+        logger.warning("Theme comparative interest failed (%s) — continuing", exc)
+
+    try:
+        _rising = fetch_rising_queries(
+            _sym_map, sleep_s=20.0, max_retries=3,
+            entities=_theme_entities, region_geos=region_geos, cache=cache,
+        )
+        for _key, _queries in (_rising or {}).items():
+            rows.append({"theme": _theme_of(_key), "signal_name": "rising_queries",
+                         "value": None, "text_value": _json.dumps(_queries)})
+        logger.info("Theme rising queries: %d themes with results", len(_rising or {}))
+    except Exception as exc:
+        logger.warning("Theme rising queries failed (%s) — continuing", exc)
+
+    return _sentiment, pd.DataFrame(rows)
+
+
 def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     from src.data.prices import fetch_prices, load_universe
@@ -476,11 +555,37 @@ def run(args: argparse.Namespace) -> int:
                 _theme_rows = build_theme_signals_rows(_themes_cfg, _theme_prices, signal_params=signal_params)
                 if _theme_rows:
                     _theme_wide = pd.DataFrame(_theme_rows).set_index("sector_key")[SIGNAL_COLUMNS]
-                    _theme_scored = score_all(_theme_wide, blend_sentiment=False)
+
+                    # Theme sentiment (Google Trends). Info-only like sector
+                    # sentiment: stored but never blended (blend_sentiment=False).
+                    # Isolated in its own try so a Trends failure still lets the
+                    # price-based theme scores persist below.
+                    _theme_sentiment = None
+                    _theme_sent_df = None
+                    try:
+                        _theme_sentiment, _theme_sent_df = _fetch_theme_sentiment(
+                            _themes_cfg, _theme_wide.index,
+                            anchor=_anchor, region_geos=_region_geos, cache=_cache,
+                        )
+                    except Exception as exc:  # non-fatal: keep price-based scores
+                        logger.warning("Theme sentiment failed (%s) — themes scored without it", exc)
+                    finally:
+                        # Persist whatever theme batches were fetched, even on a
+                        # mid-fetch failure, so a same-day re-run reuses them
+                        # (the 429 mitigation) instead of re-hitting Google.
+                        if _use_cache:
+                            trends_cache.save_cache(_cache_date, _cache)
+
+                    _theme_scored = score_all(
+                        _theme_wide, sentiment_score=_theme_sentiment, blend_sentiment=False,
+                    )
                     _theme_scores_df = _build_scored_df_for_db(_theme_scored)
                     _theme_z = zscore_cross_section(_theme_wide)
                     _theme_signals_df = _build_long_signals_df(_theme_rows, z_wide_df=_theme_z)
-                    save_theme_scan(conn, scan_id, _theme_scores_df, _theme_signals_df)
+                    save_theme_scan(
+                        conn, scan_id, _theme_scores_df, _theme_signals_df,
+                        sentiment_signals_df=_theme_sent_df,
+                    )
                     logger.info("Themes: scored and saved %d themes", len(_theme_rows))
                 else:
                     logger.warning("Themes: no themes with price data — skipping")
