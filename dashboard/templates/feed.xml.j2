@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Sector Momentum</title>
+  <subtitle>Daily sector momentum scan results</subtitle>
+  <link href="{{ dashboard_url }}" />
+  <link href="{{ feed_url }}" rel="self" type="application/atom+xml" />
+  <id>{{ feed_url }}</id>
+  <updated>{{ feed_updated }}</updated>
+  {% for entry in entries %}
+  <entry>
+    <title>{{ entry.title }}</title>
+    <id>{{ dashboard_url }}#scan-{{ entry.scan_id }}</id>
+    <link href="{{ dashboard_url }}" />
+    <updated>{{ entry.updated }}</updated>
+    <content type="html">{{ entry.summary_html | e }}</content>
+  </entry>
+  {% endfor %}
+</feed>

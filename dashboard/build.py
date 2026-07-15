@@ -71,6 +71,10 @@ from dashboard.reports import (                   # noqa: E402, F401
     build_scan_index,
     _generate_scan_reports,
 )
+from dashboard.feed import (                      # noqa: E402, F401
+    build_feed_entries,
+    feed_updated_timestamp,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -369,7 +373,30 @@ def main() -> None:
         ),
     )
 
-    # 6. Disable Jekyll on GitHub Pages (the published artifact is static).
+    # 6. Atom feed
+    logger.info("Building Atom feed …")
+    feed_entries = build_feed_entries(all_scores_df, n_entries=30)
+    dashboard_url = "https://jbarte.github.io/sector_momentum/"
+    feed_url = dashboard_url + "feed.xml"
+
+    from jinja2 import Environment, FileSystemLoader
+    feed_env = Environment(
+        loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
+        autoescape=False,
+        keep_trailing_newline=True,
+    )
+    feed_template = feed_env.get_template("feed.xml.j2")
+    feed_xml = feed_template.render(
+        entries=feed_entries,
+        feed_updated=feed_updated_timestamp(feed_entries),
+        dashboard_url=dashboard_url,
+        feed_url=feed_url,
+    )
+    feed_path = out_dir / "feed.xml"
+    feed_path.write_text(feed_xml, encoding="utf-8")
+    logger.info("Feed written to %s (%d entries)", feed_path, len(feed_entries))
+
+    # 7. Disable Jekyll on GitHub Pages (the published artifact is static).
     _disable_jekyll(out_dir)
 
     print(f"Dashboard built: {out_path}")
