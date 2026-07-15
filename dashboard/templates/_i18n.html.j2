@@ -36,6 +36,8 @@
     note_sentiment_themes: "Temasentiment hämtar världsomspännande sökintresse för varje temas nyckelord, z-poängsatt över temana. Endast information — påverkar aldrig någon rankning.",
     sent_themes_empty: "Ingen temasentimentdata än — kör en skanning.",
     note_backtest: "Månatlig rotation av topprankade sektorer, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje region poängsätts inom sin egen kohort.",
+    note_backtest_themes: "Månatlig rotation av topprankade teman, likaviktad, endast lång. Endast prisbaserade signaler (sentiment exkluderat). Teman poängsätts inom sin egen kohort mot ACWI.",
+    bt_themes_empty: "Ingen temabacktest ännu. Kör <code>python backtest.py</code>.",
     bt_track: "Spår",
     bt_window: "Period",
     bt_stratcagr: "Strategi CAGR",
@@ -273,6 +275,8 @@
     <p>Rangförändring mellan de två senaste skanningarna. <span style="color:var(--up)">Gröna staplar</span> anger teman som klättrade; <span style="color:var(--down)">terrakotta-staplar</span> anger teman som halkade.</p>
     <h2>Historik</h2>
     <p>Ett linjediagram över kompositpoängen för alla lagrade skanningar. Ihållande uppåtgående trender indikerar ihållande momentum; vändningar kan signalera rotation in i eller ut ur temat.</p>
+    <h2>Backtest</h2>
+    <p>Månatlig topp-N-rotationsbacktest: vid varje månadsslut poängsätter scannern alla teman med enbart prisdata tillgänglig fram till det datumet (inget framåtblickande), väljer topp N och håller dem likaviktat nästa månad. Aktiekurvan jämför strategin mot ACWI-jämförelseindexet. Mätvärden: CAGR, Sharpe (riskfri = 0 %), maximal nedgång, träffsäkerhet (% av månaderna strategin slog index) och genomsnittlig månatlig omsättning. Kör <code>python backtest.py</code> för att generera om.</p>
     <h2>Ansvarsfriskrivning</h2>
     <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys.</p>`,
     guide_modal_body_1: `Denna dashboard spårar relativt momentum över de 11 GICS-sektorerna för både <strong>US</strong> (SPDR ETF:er) och <strong>EU</strong> (STOXX 600). Automatiska dagliga skanningar rankar sektorer efter momentumstyrka, upptäcker trendskiften och lyfter fram insteg- och utstegsupplägg.`,

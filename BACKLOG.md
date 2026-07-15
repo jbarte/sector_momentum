@@ -21,13 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Theme backtest tab
-
-**What:** The Themes page has every sector tab except Backtest. Needs a theme
-variant of the monthly top-N rotation runner (`backtest.py`) using the ACWI
-benchmark and the theme cohort, plus artifact + tab rendering. Deferred from
-the tab-parity work (2026-07-10).
-
 ## Multilingual news sentiment (FinBERT) — recommended sentiment direction
 
 **What:** Signed sentiment (positive/negative polarity, not just attention)
@@ -174,6 +167,17 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Theme backtest tab** — the Themes page now has a Backtest tab matching the
+  sector page. `score_themes_as_of` (`src/backtest/replay.py`) replays the theme
+  scoring pipeline as-of any historical date; `run_theme_track`
+  (`src/backtest/engine.py`) runs a monthly top-N rotation strategy against ACWI
+  (default top-3, configurable via `--theme-top-n`). `backtest.py` now fetches
+  theme tickers alongside sectors and writes theme results to
+  `backtests_themes/summary.json` (separate from the sector backtest).
+  `_build_theme_backtest_context` (`dashboard/figures.py`) loads the results and
+  builds a Plotly equity curve; `themes.html.j2` renders the Backtest tab with
+  metrics table + chart, EN+SV i18n, and Guide section. No rotations event-study
+  for themes (no curated historical events yet). *(2026-07-15)*
 - **Theme sentiment (Google Trends for themes)** — the thematic ETF cohort now
   gets a Trends sentiment dimension, mirroring the sector path. A `trends:`
   section in `config/themes.yaml` maps each theme to a real search phrase

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.pipeline import SIGNAL_COLUMNS, build_signals_rows
+from src.pipeline import SIGNAL_COLUMNS, build_signals_rows, build_theme_signals_rows
 from src.scoring import score_all
 
 
@@ -34,6 +34,21 @@ def score_as_of(
     truncated = truncate_prices(prices, as_of)
     rows = build_signals_rows(universe, truncated)
     rows = [r for r in rows if r["region"] == region]
+    if not rows:
+        return None
+    wide = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
+    scored = score_all(wide, weights_path="config/weights.yaml",
+                       sentiment_score=None, blend_sentiment=False)
+    return scored
+
+
+def score_themes_as_of(
+    themes_cfg: dict,
+    prices: dict[str, pd.DataFrame],
+    as_of: pd.Timestamp,
+) -> pd.DataFrame | None:
+    truncated = truncate_prices(prices, as_of)
+    rows = build_theme_signals_rows(themes_cfg, truncated)
     if not rows:
         return None
     wide = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]

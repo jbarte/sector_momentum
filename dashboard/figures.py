@@ -498,6 +498,53 @@ def _build_backtest_context(backtests_dir: str) -> dict:
     }
 
 
+def _build_theme_backtest_context(backtests_dir: str) -> dict:
+    """Load theme backtest summary and shape it for the template."""
+    import json as _json
+    from src.backtest.results import load_summary
+
+    summary = load_summary(backtests_dir)
+    track = summary.get("track") if summary else None
+    fig_json = "null"
+    rows: list[dict] = []
+
+    if track and track.get("equity_curve"):
+        dates = [p["date"] for p in track["equity_curve"]]
+        strat = [p["strategy"] for p in track["equity_curve"]]
+        bench = [p["benchmark"] for p in track["equity_curve"]]
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=dates, y=strat, mode="lines",
+                                 name=f"Top {track['top_n']} strategy",
+                                 line=dict(color=_WARM_PALETTE[0])))
+        fig.add_trace(go.Scatter(x=dates, y=bench, mode="lines",
+                                 name=f"Benchmark ({track['benchmark']})",
+                                 line=dict(color=_WARM_PALETTE[3], dash="dash")))
+        fig.update_layout(**_base_layout(
+            title=dict(text="Themes — growth of 1.0", font=dict(size=13, color="#3E392B")),
+            xaxis=dict(title="Date", gridcolor="#DFD5BE"),
+            yaxis=dict(title="Equity (×)", gridcolor="#DFD5BE"),
+        ))
+        fig_json = pio.to_json(fig)
+
+        m = track["metrics"]
+        rows.append({
+            "region": "THEME", "start": track["start"], "end": track["end"],
+            "benchmark": track["benchmark"], "top_n": track["top_n"],
+            "cagr": f"{100 * m['cagr']:.1f}%",
+            "benchmark_cagr": f"{100 * m['benchmark_cagr']:.1f}%",
+            "sharpe": f"{m['sharpe']:.2f}",
+            "max_drawdown": f"{100 * m['max_drawdown']:.1f}%",
+            "hit_rate": f"{100 * m['hit_rate']:.0f}%",
+            "avg_turnover": f"{100 * m['avg_turnover']:.0f}%",
+        })
+
+    return {
+        "theme_backtest_json": fig_json,
+        "theme_backtest_metrics": rows,
+        "has_theme_backtest": bool(fig_json),
+    }
+
+
 def _build_rescore_data(history_df) -> dict:
     """Per-scan x per-sector data_score and sentiment_score arrays for the
     client-side leaderboard rescoring."""
