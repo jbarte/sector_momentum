@@ -104,15 +104,6 @@ historical-stats panels.
 above a composite threshold?) before implementing — that choice drives the
 whole stat. Info-only, no scoring impact.
 
-## RSS/Atom feed of scan results
-
-**What:** `build.py` emits `docs/feed.xml` — one entry per scan with the date,
-top-5 per region, and biggest movers, linking to the dashboard.
-
-**Why:** Subscribable without visiting the page; very static-site-friendly
-(Pages serves the XML as-is). Keep the last ~30 scans in the feed. No JS, no
-schema changes; one new builder function + template.
-
 ## Macro regime context bar
 
 **What:** A small risk-on/risk-off context header on the dashboard — e.g. SPY
@@ -166,6 +157,13 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **RSS/Atom feed of scan results** — `build.py` now emits `docs/feed.xml`, an Atom
+  feed with one entry per scan (last 30). Each entry lists the top-5 sectors per region
+  and biggest rank movers. All three HTML pages link to the feed via
+  `<link rel="alternate">`. New module `dashboard/feed.py` builds entries from
+  `all_scores_df`; template `dashboard/templates/feed.xml.j2` renders the Atom XML.
+  No schema changes, no JS. *(2026-07-15)*
 
 - **Theme backtest tab** — the Themes page now has a Backtest tab matching the
   sector page. `score_themes_as_of` (`src/backtest/replay.py`) replays the theme
