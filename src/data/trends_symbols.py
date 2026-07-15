@@ -23,6 +23,10 @@ DEFAULT_ANCHOR = "YouTube"
 DEFAULT_REGION_GEOS = {"US": ["US"], "EU": ["DE", "FR", "GB"]}
 
 _MIN_LIVE_SECTORS = 8
+# Themes are a ~10-item cohort, so the sector-sized bar of 8 would demand 80%
+# coverage; require a simple majority (~half) instead, proportionate to the
+# ~36% (8/22) the sector cross-section demands.
+_MIN_LIVE_THEMES = 5
 _MOMENTUM_WINDOW = 13
 
 
@@ -120,6 +124,38 @@ def build_symbol_map(
             if symbols:
                 out[f"{region}|{sector}"] = symbols
     return out
+
+
+def build_theme_symbol_map(themes_cfg: dict) -> dict[str, list[str]]:
+    """Build {"THEME|<name>": [search term]} from a themes config.
+
+    Themes map to real search phrases (defence, uranium, robotics), so the query
+    term is the string in the config's ``trends:`` section — not an ETF ticker.
+    A theme without a curated term falls back to its own name. Themes with no
+    name are skipped. The resulting map is keyed with the ``THEME`` region prefix
+    so the existing region-aware fetch/score functions handle it via the same
+    ``region_geos.get(region, [""])`` path used for US/EU sectors.
+    """
+    trends = themes_cfg.get("trends", {}) or {}
+    out: dict[str, list[str]] = {}
+    for name in themes_cfg.get("themes", {}):
+        if not name:
+            continue
+        term = trends.get(name) or name
+        out[f"THEME|{name}"] = [str(term)]
+    return out
+
+
+def load_theme_entities(themes_cfg: dict) -> dict[str, str]:
+    """Return the {search term: entity mid} overrides from a themes config.
+
+    Mirrors ``load_entities`` but keyed by the search-term string (themes have no
+    tickers). Feeds the same ``entities`` argument of the fetch functions, so a
+    term with a curated mid is queried as that entity instead of the raw string.
+    Empty/missing section yields ``{}`` (every term queried as a plain string).
+    """
+    ents = themes_cfg.get("trends_entities", {}) or {}
+    return {str(k): str(v) for k, v in ents.items() if v}
 
 
 def _slope(series: list[float]) -> float:
@@ -716,16 +752,22 @@ def fetch_symbol_trends(
     return _aggregate(norm_by_symbol, symbol_map, window=window)
 
 
-def score_symbol_sentiment(trends_by_key: dict[str, pd.Series]) -> pd.Series:
+def score_symbol_sentiment(
+    trends_by_key: dict[str, pd.Series],
+    min_live: int = _MIN_LIVE_SECTORS,
+) -> pd.Series:
     """Score symbol sentiment: slope of trailing _MOMENTUM_WINDOW weeks, z-scored.
 
-    Returns a Series indexed by region|sector. If fewer than _MIN_LIVE_SECTORS
-    keys are present, returns all-NaN (cross-section too thin to z-score).
-    Dead keys (absent from trends_by_key) are not in the output.
+    Returns a Series indexed by region|sector. If fewer than ``min_live`` keys
+    are present, returns all-NaN (cross-section too thin to z-score). ``min_live``
+    defaults to the sector cohort's ``_MIN_LIVE_SECTORS`` but should be lowered
+    for smaller cohorts (e.g. the ~10 themes) so a proportionate — not sector-
+    sized — coverage bar applies. Dead keys (absent from trends_by_key) are not
+    in the output.
     """
     if not trends_by_key:
         return pd.Series(dtype=float)
-    if len(trends_by_key) < _MIN_LIVE_SECTORS:
+    if len(trends_by_key) < min_live:
         return pd.Series(float("nan"), index=list(trends_by_key.keys()), dtype=float)
     slopes = {
         key: _slope(list(series)[-_MOMENTUM_WINDOW:])

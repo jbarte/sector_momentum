@@ -21,18 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Theme sentiment (Google Trends for themes)
-
-**What:** Extend the Trends sentiment dimension to the thematic ETF universe.
-Themes map naturally to real search keywords (defence, uranium, robotics…) —
-better Trends material than sector ETF tickers ever were.
-
-**Scope:** keyword (or entity-mid) per theme in `config/themes.yaml`, fetched
-through the existing region-aware/cached `trends_symbols.py` machinery, scored
-in the theme cohort, surfaced on the Themes page. Info-only like sector
-sentiment. This is the last piece of the original thematic-momentum plan
-(Phases 1–2 and full tab parity shipped — see Done).
-
 ## Theme backtest tab
 
 **What:** The Themes page has every sector tab except Backtest. Needs a theme
@@ -186,6 +174,24 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Theme sentiment (Google Trends for themes)** — the thematic ETF cohort now
+  gets a Trends sentiment dimension, mirroring the sector path. A `trends:`
+  section in `config/themes.yaml` maps each theme to a real search phrase
+  (uranium, defense stocks, robotics…) with an optional `trends_entities:`
+  mid override; `build_theme_symbol_map`/`load_theme_entities`
+  (`src/data/trends_symbols.py`) key them as `THEME|<name>` and reuse
+  `fetch_symbol_trends`/`score_symbol_sentiment`/`derived_signals`/
+  `fetch_comparative_interest`/`fetch_rising_queries` verbatim (pulled
+  worldwide — `THEME: [""]` in `config/trends_geo.yaml`). `scan.py`'s themes
+  block fetches sentiment (isolated non-fatal try so price scores still persist),
+  passes it to `score_all` to fill the existing `theme_scores.sentiment_score`
+  (stored, never blended), and saves derived/attention/rising rows to a new
+  `theme_sentiment_signals` table via `save_theme_scan(..., sentiment_signals_df=)`.
+  Surfaced on the shared `docs/sentiment.html` behind a client-side
+  **Sectors ⇄ Themes** toggle (localStorage-persisted, lazy-plotted scatters,
+  EN+SV). `_rows_from_df` now normalizes NaN→NULL for text columns; scatter
+  builder gained a THEME series colour. Full parity with the sector sentiment
+  view. *(2026-07-15)*
 - **Sentiment honesty fixes** — coverage guard (`_aggregate` omits dead
   sector keys, `score_symbol_sentiment` z-scores live subset only with
   `_MIN_LIVE_SECTORS=8` threshold, NaN for dead/under-threshold); pinned

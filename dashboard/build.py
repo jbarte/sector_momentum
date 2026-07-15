@@ -172,7 +172,7 @@ def main() -> None:
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
         get_theme_signals_for_latest_scan, get_theme_scan_history,
-        get_theme_rrg_history,
+        get_theme_rrg_history, get_theme_sentiment_signals_for_latest_scan,
     )
 
     conn = init_db()
@@ -180,6 +180,7 @@ def main() -> None:
     signals_df = get_signals_for_latest_scan(conn)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
     theme_signals_df = get_theme_signals_for_latest_scan(conn)
+    theme_sentiment_signals_df = get_theme_sentiment_signals_for_latest_scan(conn)
     theme_history_df = get_theme_scan_history(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
     theme_rrg_df = get_theme_rrg_history(conn, n_scans=6)
@@ -241,6 +242,11 @@ def main() -> None:
     logger.info("Building sentiment scatter …")
     sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
     sentiment_signal_rows = _build_sentiment_signal_rows(sentiment_signals_df)
+    # Theme sentiment — reuse the sector scatter/row builders. theme_history_df
+    # exposes data_score + sentiment_score aliased region="THEME"; the sentiment
+    # signal getter aliases region/gics_sector so the row builder works verbatim.
+    theme_sentiment_scatter_json = _build_sentiment_scatter_figure(theme_history_df)
+    theme_sentiment_signal_rows = _build_sentiment_signal_rows(theme_sentiment_signals_df)
 
     logger.info("Building rescore data …")
     rescore_data_json = json.dumps(_build_rescore_data(history_df))
@@ -336,6 +342,8 @@ def main() -> None:
             active_scan_id=active_scan_id,
             sentiment_scatter_json=sentiment_scatter_json,
             sentiment_signal_rows=sentiment_signal_rows,
+            theme_sentiment_scatter_json=theme_sentiment_scatter_json,
+            theme_sentiment_signal_rows=theme_sentiment_signal_rows,
             plotly_bundle=plotly_bundle_rel,
         ),
     )

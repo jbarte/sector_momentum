@@ -30,10 +30,12 @@ _COLUMNS = {
     "theme_scores": ("scan_id", "theme", "level_score", "change_score", "data_score",
                      "sentiment_score", "composite", "rank"),
     "theme_signals": ("scan_id", "theme", "signal_name", "raw_value", "z_value"),
+    "theme_sentiment_signals": ("scan_id", "theme", "signal_name", "value", "text_value"),
 }
 
 # FK-safe orderings: parents before children (insert), children before parents (delete).
-_INSERT_ORDER = ("scans", "signals", "scores", "sentiment_signals", "theme_scores", "theme_signals")
+_INSERT_ORDER = ("scans", "signals", "scores", "sentiment_signals", "theme_scores",
+                 "theme_signals", "theme_sentiment_signals")
 _DELETE_ORDER = tuple(reversed(_INSERT_ORDER))
 
 
@@ -85,6 +87,7 @@ def dump_tables(conn) -> dict[str, pd.DataFrame]:
         "sentiment_signals": "ORDER BY scan_id, region, gics_sector, signal_name",
         "theme_scores": "ORDER BY scan_id, theme",
         "theme_signals": "ORDER BY scan_id, theme, signal_name",
+        "theme_sentiment_signals": "ORDER BY scan_id, theme, signal_name",
     }
     out = {}
     for name, cols in _COLUMNS.items():

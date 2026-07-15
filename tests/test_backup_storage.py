@@ -20,6 +20,9 @@ def _tables():
                                        "sentiment_score": 0.0, "composite": 0.45, "rank": 1.0}]),
         "theme_signals": pd.DataFrame([{"scan_id": 1, "theme": "AI", "signal_name": "rs_ratio",
                                         "raw_value": 102.0, "z_value": 0.7}]),
+        "theme_sentiment_signals": pd.DataFrame([{"scan_id": 1, "theme": "AI",
+                                                  "signal_name": "momentum", "value": 0.9,
+                                                  "text_value": None}]),
     }
 
 
