@@ -335,8 +335,12 @@ def test_cache_is_fresh_false_when_start_not_covered(tmp_path):
 
 def test_cache_is_fresh_true_when_start_covered(tmp_path):
     """Cache's earliest date is on/before the requested start (within tolerance)."""
-    df = _make_price_df(n=20, start_date=str(date.today() - timedelta(days=30)))
+    start_date = date.today() - timedelta(days=30)
+    idx = pd.bdate_range(str(start_date), str(date.today()))
+    n = len(idx)
+    df = _make_price_df(n=n, start_date=str(start_date))
     path = str(tmp_path / "covered.parquet")
     df.to_parquet(path)
-    recent_start = str(date.today() - timedelta(days=25))
+    earliest = df.index.min().date()
+    recent_start = str(earliest + timedelta(days=5))
     assert _cache_is_fresh(path, start=recent_start) is True
