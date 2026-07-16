@@ -32,7 +32,7 @@
   --terra-400: #BF6F50;
   --terra-500: #A55A3C;
 
-  --bg:           var(--beige-100);
+  --bg:           var(--canvas);
   --bg-raised:    var(--beige-50);
   --bg-sunken:    var(--beige-200);
   --fg1:          var(--beige-900);
@@ -56,6 +56,9 @@
 
   --shadow-xs: 0 1px 2px rgba(62,57,43,0.06);
   --shadow-sm: 0 1px 2px rgba(62,57,43,0.05), 0 2px 6px rgba(62,57,43,0.04);
+  --canvas:      #f1ecdf;
+  --surface:     #ffffff;
+  --shadow-card: 0 1px 5px rgba(60,55,40,0.10);
 
   --ease-standard: cubic-bezier(0.2,0.6,0.2,1);
   --duration-fast: 140ms;
@@ -74,36 +77,35 @@ html, body {
 }
 
 /* =========================================================
-   Header
+   Command bar
    ========================================================= */
-header {
-  background: var(--bg-raised);
-  border-bottom: 1px solid var(--border);
-  padding: 16px 28px;
+.command-bar {
   display: flex;
-  align-items: baseline;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 28px;
   flex-wrap: wrap;
 }
-header h1 {
+.command-bar h1 {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--fg1);
   letter-spacing: -0.02em;
   line-height: 1;
+  white-space: nowrap;
 }
-.scan-date {
-  font-size: 12px;
-  color: var(--fg4);
-}
-.disclaimer {
+.meta-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+.scan-meta {
   font-size: 11px;
   color: var(--fg4);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-pill);
-  padding: 3px 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .lang-toggle {
   font-family: var(--font-body);
@@ -111,7 +113,7 @@ header h1 {
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--fg3);
-  background: var(--bg-raised);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   padding: 3px 12px;
@@ -122,20 +124,44 @@ header h1 {
 .lang-toggle:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
 
 /* =========================================================
-   Macro regime bar — SPY vs 200-DMA + VIX band, below header.
+   Chips (macro indicators in command bar)
    ========================================================= */
-.macro-bar { display:flex; align-items:center; justify-content:center; gap:20px; padding:6px 16px; font-size:12px; font-family:var(--font-body); color:var(--fg2); border-bottom:1px solid var(--border); }
-.macro-item { display:flex; align-items:center; gap:6px; }
-.macro-label { font-weight:600; color:var(--fg1); }
-.macro-value { font-variant-numeric:tabular-nums; }
-.macro-sub { font-size:11px; }
-.macro-sep { width:1px; height:14px; background:var(--border); }
-.macro-up { color:var(--up); }
-.macro-down { color:var(--down); }
-.macro-band { font-size:11px; font-weight:600; padding:1px 8px; border-radius:var(--radius-pill); }
-.macro-band-calm { color:var(--up); background:color-mix(in srgb, var(--up) 12%, transparent); }
-.macro-band-elevated { color:var(--fg1); background:color-mix(in srgb, var(--fg1) 10%, transparent); }
-.macro-band-stressed { color:var(--down); background:color-mix(in srgb, var(--down) 12%, transparent); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
+.chip-up   { background: color-mix(in srgb, var(--up) 12%, transparent); color: var(--up); }
+.chip-down { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); }
+.chip-calm      { background: color-mix(in srgb, var(--up) 12%, transparent); color: var(--up); }
+.chip-elevated  { background: color-mix(in srgb, var(--fg1) 8%, transparent); color: var(--fg1); }
+.chip-stressed  { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); }
+
+/* =========================================================
+   Card shell
+   ========================================================= */
+.card {
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  margin: 16px 28px 24px;
+  overflow: hidden;
+}
+.card > .tabs {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0 20px;
+  border-radius: 10px 10px 0 0;
+}
+.card > .tab-panel { padding: 20px 24px; }
 
 /* =========================================================
    Segment toggle (Sectors ⇄ Sentiment) — top-level page switcher,
@@ -264,6 +290,16 @@ header h1 {
 .digest-cluster { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .digest-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .digest-chip { white-space: nowrap; }
+.digest-collapsed .digest-cluster[data-cluster="up"],
+.digest-collapsed .digest-cluster[data-cluster="down"] { display: none; }
+.digest-toggle {
+  cursor: pointer;
+  color: var(--fg4);
+  font-size: 12px;
+  margin-left: 4px;
+  user-select: none;
+}
+.digest-toggle:hover { color: var(--fg2); }
 table {
   width: 100%;
   border-collapse: collapse;
@@ -393,38 +429,47 @@ select.sector-select:focus {
   box-shadow: 0 0 0 3px rgba(143,167,122,0.2);
 }
 
-/* Tab interpretation guides */
+/* Tab interpretation guides (compact ⓘ variant) */
+.utility-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 0;
+}
 .tab-guide {
-  background: color-mix(in srgb, var(--bg-sunken) 60%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  margin-bottom: 18px;
+  border: none;
+  background: none;
+  margin: 0;
   padding: 0;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 .tab-guide summary {
-  padding: 10px 16px;
+  padding: 0;
   cursor: pointer;
-  color: var(--fg3);
+  color: var(--fg4);
   font-weight: 500;
+  font-size: 12px;
   list-style: none;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   user-select: none;
 }
 .tab-guide summary::before {
-  content: "▶";
-  font-size: 0.65em;
-  transition: transform 0.15s;
+  content: "ⓘ";
+  font-size: 1em;
 }
+.tab-guide summary:hover { color: var(--fg2); }
+.tab-guide[open] summary { color: var(--fg2); }
 .tab-guide[open] summary::before {
-  transform: rotate(90deg);
+  content: "ⓘ";
 }
 .tab-guide-body {
-  padding: 0 18px 16px 18px;
+  padding: 12px 0 8px;
   color: var(--fg2);
   line-height: 1.65;
+  font-size: 0.875rem;
 }
 .tab-guide-body h4 {
   margin: 12px 0 4px;
@@ -437,41 +482,58 @@ select.sector-select:focus {
   margin: 4px 0 0 0;
   padding-left: 18px;
 }
-.tab-guide-body li {
-  margin-bottom: 3px;
-}
+.tab-guide-body li { margin-bottom: 3px; }
 .tab-guide-body .signal-hi { color: var(--up); font-weight: 600; }
 .tab-guide-body .signal-lo { color: var(--down); font-weight: 600; }
 
 /* =========================================================
-   Guide panel
+   Rank settings popover (sentiment control)
    ========================================================= */
-.guide {
-  max-width: 680px;
-  line-height: 1.7;
+.rank-settings {
+  position: relative;
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0;
 }
-.guide h2 {
-  font-family: var(--font-display);
-  font-size: 18px;
+.rank-settings summary {
+  cursor: pointer;
+  color: var(--fg4);
+  font-size: 12px;
   font-weight: 500;
-  color: var(--fg1);
-  letter-spacing: -0.01em;
-  margin-top: 28px;
-  margin-bottom: 8px;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
 }
-.guide h2:first-child { margin-top: 0; }
-.guide p { color: var(--fg3); margin-bottom: 10px; font-size: 14px; }
-.guide ul { padding-left: 18px; color: var(--fg3); margin-bottom: 10px; font-size: 14px; }
-.guide li { margin-bottom: 5px; }
-.guide strong { color: var(--fg2); font-weight: 500; }
+.rank-settings summary:hover { color: var(--fg2); }
+.rank-settings .sentiment-control {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 12px 16px;
+  z-index: 100;
+  white-space: nowrap;
+  min-width: 260px;
+}
 
 /* =========================================================
    Responsive
    ========================================================= */
 @media (max-width: 600px) {
-  header { padding: 12px 16px; }
-  .tab-panel { padding: 14px 16px; }
-  .tabs { padding: 0 8px; }
+  .command-bar { padding: 10px 16px; }
+  .card { margin: 12px 12px 16px; }
+  .card > .tab-panel { padding: 14px 16px; }
+  .card > .tabs { padding: 0 8px; }
+  .site-footer { padding: 14px 16px; }
+}
+@media (max-width: 420px) {
+  .scan-meta { display: none; }
 }
 
 /* =========================================================
@@ -649,241 +711,6 @@ select.sector-select:focus {
 .sentiment-control .sw-weight[data-disabled="true"] { opacity:0.45; }
 .tab-note { font-size:0.8em; color:#8C8370; margin:0 0 8px; }
 
-/* =========================================================
-   Guide modal overlay
-   ========================================================= */
-.guide-open-btn {
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--fg3);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: 3px 12px;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-standard),
-              border-color var(--duration-fast) var(--ease-standard);
-}
-.guide-open-btn:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
-
-.guide-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: rgba(31,28,21,0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.25s var(--ease-standard), visibility 0.25s;
-}
-.guide-overlay.open { opacity: 1; visibility: visible; }
-
-.guide-modal {
-  position: relative;
-  width: 100%;
-  max-width: 540px;
-  max-height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  transform: translateY(12px);
-  transition: transform 0.3s var(--ease-standard);
-}
-.guide-overlay.open .guide-modal { transform: translateY(0); }
-
-.guide-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  font-size: 20px;
-  line-height: 1;
-  color: var(--fg3);
-  cursor: pointer;
-  transition: color var(--duration-fast), border-color var(--duration-fast);
-}
-.guide-close:hover { color: var(--fg1); border-color: var(--fg4); }
-
-.guide-viewport {
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm), 0 8px 32px rgba(31,28,21,0.12);
-}
-
-.guide-track {
-  display: flex;
-  transition: transform 0.42s var(--ease-standard);
-  will-change: transform;
-}
-
-.guide-card { flex: 0 0 100%; min-width: 0; }
-
-.guide-card-illust {
-  background: var(--bg-sunken);
-  height: 196px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 1px solid var(--border-soft);
-  padding: 24px 32px;
-  overflow: hidden;
-}
-.guide-card-illust svg { display: block; width: 100%; max-width: 340px; height: auto; }
-
-.guide-card-body { padding: 28px 32px 24px; }
-
-.guide-eyebrow {
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--brand-strong);
-  margin-bottom: 6px;
-}
-
-.guide-card-body h2 {
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  color: var(--fg1);
-  margin-bottom: 14px;
-  text-wrap: balance;
-}
-
-.guide-card-body p { color: var(--fg3); font-size: 14px; line-height: 1.65; }
-.guide-card-body p + p { margin-top: 10px; }
-.guide-card-body strong { color: var(--fg2); font-weight: 600; }
-
-.guide-card-body ul { margin-top: 10px; padding: 0; list-style: none; }
-.guide-card-body li {
-  position: relative;
-  padding-left: 16px;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--fg3);
-}
-.guide-card-body li + li { margin-top: 5px; }
-.guide-card-body ul + p { margin-top: 14px; }
-.guide-card-body li::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 9px;
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: var(--brand-strong);
-  opacity: 0.45;
-}
-
-.guide-tip {
-  margin-top: 14px;
-  padding: 10px 14px;
-  background: rgba(90,111,73,0.07);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--fg3);
-}
-.guide-tip strong { color: var(--brand-strong); }
-
-.guide-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
-  padding: 0 2px;
-  gap: 12px;
-}
-
-.guide-nav-btn {
-  appearance: none;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  width: 40px; height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--fg1);
-  font-size: 20px;
-  line-height: 1;
-  flex-shrink: 0;
-  transition: background var(--duration-fast), border-color var(--duration-fast), color var(--duration-fast);
-}
-.guide-nav-btn:hover:not(:disabled) {
-  background: rgba(90,111,73,0.07);
-  border-color: var(--brand-strong);
-  color: var(--brand-strong);
-}
-.guide-nav-btn:disabled { opacity: 0.25; cursor: default; }
-.guide-nav-btn:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 2px; }
-
-.guide-dots { display: flex; gap: 6px; align-items: center; }
-.guide-dot {
-  appearance: none;
-  width: 7px; height: 7px;
-  border-radius: 4px;
-  background: var(--border);
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.28s var(--ease-standard);
-}
-.guide-dot:hover { background: var(--fg4); }
-.guide-dot.active { background: var(--brand-strong); width: 22px; }
-.guide-dot:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 2px; }
-
-.guide-counter {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg4);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  min-width: 38px;
-  text-align: center;
-}
-
-.guide-hint {
-  text-align: center;
-  margin-top: 10px;
-  font-size: 11px;
-  color: var(--fg4);
-  opacity: 0.6;
-}
-.guide-hint kbd {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 5px;
-  margin: 0 1px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .guide-track { transition: none; }
-  .guide-dot { transition: none; }
-  .guide-overlay { transition: none; }
-  .guide-modal { transition: none; }
-}
-
 /* --- Sentiment: seasonal + rising queries --- */
 .seasonal-hi { color: var(--up); }
 .seasonal-lo { color: var(--down); }
@@ -918,11 +745,24 @@ select.sector-select:focus {
 }
 .rising-table tbody td { padding: 4px 12px; }
 
-@media (max-width: 520px) {
-  .guide-card-body { padding: 22px 20px 20px; }
-  .guide-card-body h2 { font-size: 21px; }
-  .guide-card-illust { height: 160px; padding: 20px 24px; }
+/* =========================================================
+   Site footer
+   ========================================================= */
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 11px;
+  color: var(--fg4);
 }
+.site-footer a {
+  color: var(--fg3);
+  text-decoration: none;
+}
+.site-footer a:hover { color: var(--brand-strong); }
 
 </style>
 </head>
@@ -930,9 +770,8 @@ select.sector-select:focus {
 
 <!-- Header -->
 
-<header>
+<div class="command-bar">
   <h1 data-i18n="title">Sector momentum</h1>
-  <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> #132 · 2026-07-16 09:49 UTC</span>
   <div class="segment-toggle" role="tablist" aria-label="Dashboard segment">
     
     <span class="segment-btn active" aria-current="page" data-i18n="segment_sectors">Sectors</span>
@@ -944,27 +783,21 @@ select.sector-select:focus {
     <a class="segment-btn" href="sentiment.html" data-i18n="segment_sentiment">Sentiment</a>
     
   </div>
-  <span class="disclaimer" data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
-  <button id="guide-open-btn" class="guide-open-btn" type="button" aria-label="Open guide" data-i18n="guide_open_btn">Guide</button>
-  <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
-</header>
-
-<div class="macro-bar">
-  <span class="macro-item">
-    <span class="macro-label">SPY</span>
-    <span class="macro-value macro-up">+9.0%</span>
-    <span class="macro-sub" data-i18n="macro_vs_200dma">vs 200-DMA</span>
-  </span>
-  <span class="macro-sep"></span>
-  <span class="macro-item">
-    <span class="macro-label">VIX</span>
-    <span class="macro-value">15.7</span>
-    <span class="macro-band macro-band-elevated" data-i18n="macro_vix_elevated">Elevated</span>
-  </span>
+  <div class="meta-cluster">
+    
+    <span class="chip chip-up"
+          title="vs 200-DMA — above"
+          data-i18n-title="macro_chip_spy_above">SPY +9.0%</span>
+    <span class="chip chip-elevated"
+          title="Elevated"
+          data-i18n-title="macro_vix_elevated">VIX 15.7</span>
+    
+    <span class="scan-meta">#132 · 2026-07-16 09:49 UTC</span>
+    <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
+  </div>
 </div>
 
-
-
+<div class="card">
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
   <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" aria-selected="true" aria-controls="tab-leaderboard" data-i18n="tab_leaderboard">Leaderboard</button>
@@ -973,52 +806,57 @@ select.sector-select:focus {
   <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers" data-i18n="tab_movers">Movers</button>
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history" data-i18n="tab_history">History</button>
   <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest" data-i18n="tab_backtest">Backtest</button>
-  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" aria-selected="false" aria-controls="tab-guide" data-i18n="tab_guide">Guide</button>
 </nav>
 
 <!-- ============================================================
      Tab: Leaderboard
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_leaderboard">
-      <p>Every sector is ranked by <strong>composite score</strong> — a cross-sectional z-score blending level momentum (how strong the sector is now) and change momentum (whether it's accelerating or decelerating). A score of <strong>0</strong> means average across all sectors; <strong>+1.0</strong> means one standard deviation above average.</p>
-      <h4>Trend badge — the most actionable signal</h4>
-      <p>Computed as the linear slope of rank over the last 3–5 scans. A falling rank number means the sector is climbing the leaderboard.</p>
-      <ul>
-        <li><span class="signal-hi">↑↑ Rising fast</span> — rank improving 1.5+ places per scan. Strong entry signal.</li>
-        <li><span class="signal-hi">↑ Rising</span> — rank improving 0.3–1.5 places per scan. Emerging momentum.</li>
-        <li>→ Flat — rank stable. Momentum is neither building nor unwinding.</li>
-        <li><span class="signal-lo">↓ Falling</span> — rank deteriorating even if it is still high. Momentum is fading.</li>
-        <li><span class="signal-lo">↓↓ Falling fast</span> — avoid or consider exiting.</li>
-      </ul>
-      <h4>Macro regime bar</h4>
-      <p>The thin strip above the leaderboard shows two broad-market indicators refreshed each build:</p>
-      <ul>
-        <li><strong>SPY vs 200-DMA</strong> — The S&amp;P 500 ETF's distance from its 200-day simple moving average. <span class="signal-hi">Green / positive</span> = price above the 200-DMA (long-term uptrend, risk-on); <span class="signal-lo">red / negative</span> = below (risk-off). The percentage tells you how stretched the market is from the trend line.</li>
-        <li><strong>VIX band</strong> — The CBOE Volatility Index bucketed into three regimes: <strong>Calm</strong> (&lt;&nbsp;15), <strong>Elevated</strong> (15–25), and <strong>Stressed</strong> (&gt;&nbsp;25). Higher VIX = more fear and uncertainty.</li>
-      </ul>
-      <p>The bar is <strong>info-only</strong> — it does not affect sector scores or rankings. Use it as context: the same sector ranking can mean different things depending on whether the broad market is in a healthy uptrend with low volatility or a stressed, risk-off environment. If both indicators flash caution (below 200-DMA + Stressed VIX), even top-ranked sectors carry higher absolute risk.</p>
-      <h4>Entry setup</h4>
-      <p>Composite &gt; 0 with <span class="signal-hi">↑</span> or <span class="signal-hi">↑↑</span> trajectory and a positive Change score. Click any row to see the full signal breakdown.</p>
-      <h4>Exit / avoid signal</h4>
-      <p><span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span> trajectory even when rank is still high — the sector is topping. Rank Δ turning negative confirms the reversal.</p>
-    </div>
-  </details>
-  <div id="sentiment-control" class="sentiment-control">
-    <label>
-      <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>
-    </label>
-    <span class="sw-weight">
-      <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
-    </span>
+  <div class="utility-row">
+    <details class="rank-settings">
+      <summary aria-label="Rank settings">⚙</summary>
+      <div id="sentiment-control" class="sentiment-control">
+        <label>
+          <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>
+        </label>
+        <span class="sw-weight">
+          <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
+        </span>
+      </div>
+    </details>
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_leaderboard">
+        <p>Every sector is ranked by <strong>composite score</strong> — a cross-sectional z-score blending level momentum (how strong the sector is now) and change momentum (whether it's accelerating or decelerating). A score of <strong>0</strong> means average across all sectors; <strong>+1.0</strong> means one standard deviation above average.</p>
+        <h4>Trend badge — the most actionable signal</h4>
+        <p>Computed as the linear slope of rank over the last 3–5 scans. A falling rank number means the sector is climbing the leaderboard.</p>
+        <ul>
+          <li><span class="signal-hi">↑↑ Rising fast</span> — rank improving 1.5+ places per scan. Strong entry signal.</li>
+          <li><span class="signal-hi">↑ Rising</span> — rank improving 0.3–1.5 places per scan. Emerging momentum.</li>
+          <li>→ Flat — rank stable. Momentum is neither building nor unwinding.</li>
+          <li><span class="signal-lo">↓ Falling</span> — rank deteriorating even if it is still high. Momentum is fading.</li>
+          <li><span class="signal-lo">↓↓ Falling fast</span> — avoid or consider exiting.</li>
+        </ul>
+        <h4>Macro regime chips</h4>
+        <p>The SPY and VIX chips in the header show two broad-market indicators refreshed each build:</p>
+        <ul>
+          <li><strong>SPY vs 200-DMA</strong> — The S&amp;P 500 ETF's distance from its 200-day simple moving average. <span class="signal-hi">Green / positive</span> = price above the 200-DMA (long-term uptrend, risk-on); <span class="signal-lo">red / negative</span> = below (risk-off). The percentage tells you how stretched the market is from the trend line.</li>
+          <li><strong>VIX band</strong> — The CBOE Volatility Index bucketed into three regimes: <strong>Calm</strong> (&lt;&nbsp;15), <strong>Elevated</strong> (15–25), and <strong>Stressed</strong> (&gt;&nbsp;25). Higher VIX = more fear and uncertainty.</li>
+        </ul>
+        <p>The chips are <strong>info-only</strong> — they do not affect sector scores or rankings. Use them as context: the same sector ranking can mean different things depending on whether the broad market is in a healthy uptrend with low volatility or a stressed, risk-off environment. If both indicators flash caution (below 200-DMA + Stressed VIX), even top-ranked sectors carry higher absolute risk.</p>
+        <h4>Entry setup</h4>
+        <p>Composite &gt; 0 with <span class="signal-hi">↑</span> or <span class="signal-hi">↑↑</span> trajectory and a positive Change score. Click any row to see the full signal breakdown.</p>
+        <h4>Exit / avoid signal</h4>
+        <p><span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span> trajectory even when rank is still high — the sector is topping. Rank Δ turning negative confirms the reversal.</p>
+      </div>
+    </details>
   </div>
-  <div id="scan-digest-banner" style="display:none">
+  <div id="scan-digest-banner" class="digest-collapsed" style="display:none">
     <span class="digest-cluster" data-cluster="entries">
       <span data-i18n="digest_new_top5">New in Top 5:</span>
       <span class="digest-chips" id="digest-chips-entries"></span>
     </span>
+    <span class="digest-toggle" role="button" tabindex="0" onclick="this.closest('#scan-digest-banner').classList.toggle('digest-collapsed'); this.textContent = this.textContent === 'more ▾' ? 'less ▴' : 'more ▾'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">more ▾</span>
     <span class="digest-cluster" data-cluster="up">
       <span data-i18n="digest_gains">Biggest gains:</span>
       <span class="digest-chips" id="digest-chips-up"></span>
@@ -1566,22 +1404,24 @@ select.sector-select:focus {
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_rrg">
-      <p>Sectors are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
-      <h4>Four quadrants</h4>
-      <ul>
-        <li><strong>Leading (top-right):</strong> Outperforming AND accelerating. Currently strong — but watch for rotation into Weakening.</li>
-        <li><strong>Weakening (bottom-right):</strong> Outperforming but decelerating. <span class="signal-lo">Prime exit / reduce signal.</span></li>
-        <li><strong>Lagging (bottom-left):</strong> Underperforming AND decelerating. Avoid.</li>
-        <li><strong>Improving (top-left):</strong> Underperforming but accelerating. <span class="signal-hi">Prime entry signal</span> — sectors typically rotate counter-clockwise from here into Leading.</li>
-      </ul>
-      <h4>How to use</h4>
-      <p>Sectors rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show the last 3 scan positions — the direction of the tail matters more than the current position.</p>
-      <p><em>Note: current axes are composite-based proxies. True JdK RS-Ratio/Momentum requires daily price data relative to a benchmark.</em></p>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_rrg">
+        <p>Sectors are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
+        <h4>Four quadrants</h4>
+        <ul>
+          <li><strong>Leading (top-right):</strong> Outperforming AND accelerating. Currently strong — but watch for rotation into Weakening.</li>
+          <li><strong>Weakening (bottom-right):</strong> Outperforming but decelerating. <span class="signal-lo">Prime exit / reduce signal.</span></li>
+          <li><strong>Lagging (bottom-left):</strong> Underperforming AND decelerating. Avoid.</li>
+          <li><strong>Improving (top-left):</strong> Underperforming but accelerating. <span class="signal-hi">Prime entry signal</span> — sectors typically rotate counter-clockwise from here into Leading.</li>
+        </ul>
+        <h4>How to use</h4>
+        <p>Sectors rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show the last 3 scan positions — the direction of the tail matters more than the current position.</p>
+        <p><em>Note: current axes are composite-based proxies. True JdK RS-Ratio/Momentum requires daily price data relative to a benchmark.</em></p>
+      </div>
+    </details>
+  </div>
   <div class="chart-container" id="rrg-chart" style="height:520px"></div>
 </section>
 
@@ -1589,21 +1429,23 @@ select.sector-select:focus {
      Tab: Drill-down
      ============================================================ -->
 <section id="tab-drilldown" class="tab-panel" role="tabpanel">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_drilldown">
-      <p>Select a sector to see its score component history across all stored scans.</p>
-      <h4>Key patterns</h4>
-      <ul>
-        <li><span class="signal-hi">Composite rising + Change score rising:</span> sustained acceleration. Highest-conviction entry setup.</li>
-        <li><span class="signal-lo">Composite near peak + Change score turning negative:</span> the sector is topping. Reduce or exit.</li>
-        <li>Composite falling but Change score rising: bottoming process. Watch for a second consecutive scan confirming before entering.</li>
-        <li>Level score and Change score diverging: momentum structure is breaking down — treat with caution.</li>
-      </ul>
-      <h4>How to use</h4>
-      <p>Pair with the leaderboard Trend badge. A sector showing <span class="signal-hi">↑</span> on the leaderboard that also has rising composite and change_score in the drill-down is the highest-conviction setup. A sector with a high rank but flat or falling change_score is likely to slip in the next scan.</p>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_drilldown">
+        <p>Select a sector to see its score component history across all stored scans.</p>
+        <h4>Key patterns</h4>
+        <ul>
+          <li><span class="signal-hi">Composite rising + Change score rising:</span> sustained acceleration. Highest-conviction entry setup.</li>
+          <li><span class="signal-lo">Composite near peak + Change score turning negative:</span> the sector is topping. Reduce or exit.</li>
+          <li>Composite falling but Change score rising: bottoming process. Watch for a second consecutive scan confirming before entering.</li>
+          <li>Level score and Change score diverging: momentum structure is breaking down — treat with caution.</li>
+        </ul>
+        <h4>How to use</h4>
+        <p>Pair with the leaderboard Trend badge. A sector showing <span class="signal-hi">↑</span> on the leaderboard that also has rising composite and change_score in the drill-down is the highest-conviction setup. A sector with a high rank but flat or falling change_score is likely to slip in the next scan.</p>
+      </div>
+    </details>
+  </div>
   <div class="drilldown-controls">
     <label for="sector-select">Sector:</label>
     <select class="sector-select" id="sector-select" onchange="updateDrilldown()">
@@ -1662,18 +1504,20 @@ select.sector-select:focus {
      ============================================================ -->
 <section id="tab-movers" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_movers">
-      <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = sectors that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = sectors that slipped.</p>
-      <h4>How to use</h4>
-      <ul>
-        <li>A single large positive move can be a data event rather than sustained momentum — confirm in the Drill-down tab before acting.</li>
-        <li>Sectors with 2+ consecutive large positive moves in the History tab carry more conviction than single-scan jumps.</li>
-        <li><span class="signal-lo">Red flag:</span> a top-ranked sector with a large negative bar here is an early topping signal. Check the leaderboard Trend badge — if it shows <span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span>, the reversal is likely real.</li>
-      </ul>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_movers">
+        <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = sectors that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = sectors that slipped.</p>
+        <h4>How to use</h4>
+        <ul>
+          <li>A single large positive move can be a data event rather than sustained momentum — confirm in the Drill-down tab before acting.</li>
+          <li>Sectors with 2+ consecutive large positive moves in the History tab carry more conviction than single-scan jumps.</li>
+          <li><span class="signal-lo">Red flag:</span> a top-ranked sector with a large negative bar here is an early topping signal. Check the leaderboard Trend badge — if it shows <span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span>, the reversal is likely real.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
   <div class="chart-container" id="movers-chart"></div>
 </section>
 
@@ -1682,21 +1526,23 @@ select.sector-select:focus {
      ============================================================ -->
 <section id="tab-history" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_history">
-      <p>Composite score trend across all stored scans for every sector. The composite is a cross-sectional z-score — 0 = sector-average for that scan.</p>
-      <h4>Key patterns</h4>
-      <ul>
-        <li><span class="signal-hi">Consistent upward slope:</span> quality momentum. The sector has been outperforming for multiple scans — this is the highest-quality signal.</li>
-        <li><span class="signal-lo">Sharp spike then reversal:</span> likely a one-time data event, not sustainable momentum. Treat with caution.</li>
-        <li>Gradual recovery from negative territory: potential emerging opportunity — cross-check the leaderboard Trend badge for confirmation.</li>
-        <li>Flat around zero: sector in line with average; no edge.</li>
-      </ul>
-      <h4>How to use</h4>
-      <p>Use as context for current rank. A sector ranked #1 after steadily rising for 10 scans is a different risk profile from one that jumped from #8 last scan. Long, smooth uptrends are the entries worth holding; V-shaped reversals are the ones to trade quickly or skip.</p>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_history">
+        <p>Composite score trend across all stored scans for every sector. The composite is a cross-sectional z-score — 0 = sector-average for that scan.</p>
+        <h4>Key patterns</h4>
+        <ul>
+          <li><span class="signal-hi">Consistent upward slope:</span> quality momentum. The sector has been outperforming for multiple scans — this is the highest-quality signal.</li>
+          <li><span class="signal-lo">Sharp spike then reversal:</span> likely a one-time data event, not sustainable momentum. Treat with caution.</li>
+          <li>Gradual recovery from negative territory: potential emerging opportunity — cross-check the leaderboard Trend badge for confirmation.</li>
+          <li>Flat around zero: sector in line with average; no edge.</li>
+        </ul>
+        <h4>How to use</h4>
+        <p>Use as context for current rank. A sector ranked #1 after steadily rising for 10 scans is a different risk profile from one that jumped from #8 last scan. Long, smooth uptrends are the entries worth holding; V-shaped reversals are the ones to trade quickly or skip.</p>
+      </div>
+    </details>
+  </div>
   <div class="table-wrap scan-index">
     <table>
       <thead>
@@ -1940,105 +1786,7 @@ select.sector-select:focus {
   
   
 </section>
-
-<!-- ============================================================
-     Tab: Guide
-     ============================================================ -->
-<section id="tab-guide" class="tab-panel" role="tabpanel">
-  <div class="guide" data-i18n-html="guide_tab">
-    <h2>Leaderboard</h2>
-    <p>
-      The leaderboard ranks every sector by its <strong>composite score</strong> — a
-      weighted blend of level, momentum-change, and data-quality sub-scores. A higher
-      composite (more positive z-score) means the sector is exhibiting stronger relative
-      momentum versus its benchmark.
-    </p>
-    <ul>
-      <li><strong>Level score</strong> — captures the current absolute momentum level
-          (returns, MA structure, OBV trend).</li>
-      <li><strong>Change score</strong> — captures how momentum is accelerating or
-          decelerating versus the prior scan.</li>
-      <li><strong>Data score</strong> — reflects data completeness; sectors with missing
-          signals are penalised.</li>
-      <li><strong>Rank Δ</strong> — how many ranks the sector climbed (▲) or fell (▼)
-          versus the previous scan.</li>
-    </ul>
-    <p>Click any column header to sort the table.</p>
-
-    <h2>Relative Rotation Graph (RRG)</h2>
-    <p>
-      The RRG plots sectors on two axes derived from their relative strength vs the
-      benchmark index:
-    </p>
-    <ul>
-      <li><strong>X-axis (RS-Ratio)</strong> — whether the sector is outperforming (&gt; 100)
-          or underperforming (&lt; 100) the benchmark.</li>
-      <li><strong>Y-axis (RS-Momentum)</strong> — whether relative strength is
-          accelerating (&gt; 100) or decelerating (&lt; 100).</li>
-    </ul>
-    <p>Quadrant interpretation:</p>
-    <ul>
-      <li><strong>Leading</strong> (top-right) — outperforming and accelerating.</li>
-      <li><strong>Weakening</strong> (bottom-right) — outperforming but decelerating.</li>
-      <li><strong>Lagging</strong> (bottom-left) — underperforming and decelerating.</li>
-      <li><strong>Improving</strong> (top-left) — underperforming but accelerating.</li>
-    </ul>
-    <p>
-      Dotted tail lines show the last 5 scan positions per sector, indicating rotation
-      direction. Sectors rotating clockwise from Improving → Leading are the strongest
-      early-trend setups.
-    </p>
-
-    <h2>Drill-down</h2>
-    <p>
-      Select a sector from the dropdown to view how each score component has evolved over
-      time. Useful for spotting multi-scan trends — a rising <em>change_score</em>
-      alongside a rising <em>composite</em> is a strong signal of sustained momentum.
-    </p>
-
-    <h2>Movers</h2>
-    <p>
-      The movers panel shows the rank change between the two most recent scans.
-      <span style="color:var(--up)">Green bars</span> indicate sectors that climbed the
-      leaderboard; <span style="color:var(--down)">terracotta bars</span> indicate sectors that
-      slipped. Large moves may reflect data updates, macro events, or genuine momentum
-      shifts.
-    </p>
-
-    <h2>History</h2>
-    <p>
-      A line chart of composite score across all stored scans. Persistent upward trends
-      in a sector's composite score indicate sustained momentum, while reversals may
-      signal rotation into or out of the sector.
-    </p>
-
-    <h2>Macro Regime Bar</h2>
-    <p>
-      The strip below the header shows two broad-market context indicators, refreshed each
-      time the dashboard is built:
-    </p>
-    <ul>
-      <li><strong>SPY vs 200-DMA</strong> — the S&amp;P 500 ETF's percentage distance from
-          its 200-day simple moving average. Above = risk-on uptrend; below = risk-off.</li>
-      <li><strong>VIX band</strong> — the CBOE Volatility Index grouped into Calm (&lt; 15),
-          Elevated (15–25), or Stressed (&gt; 25).</li>
-    </ul>
-    <p>
-      These indicators are <strong>info-only</strong> and never affect sector scores or
-      rankings. They provide macro context so you can gauge absolute risk alongside relative
-      momentum. If the bar is hidden, the data was unavailable at build time.
-    </p>
-
-    <h2>Disclaimer</h2>
-    <p>
-      <strong>This tool is for analytical and educational purposes only.</strong>
-      It does not constitute investment advice or a recommendation to buy, sell, or hold
-      any security. Past momentum is not indicative of future returns. Always perform
-      your own due diligence and consult a qualified financial adviser before making
-      investment decisions.
-    </p>
-  </div>
-</section>
+</div>
 
 <!-- ============================================================
      JavaScript
@@ -2355,7 +2103,6 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 (function () {
   var SV = {
     title: "Sektormomentum",
-    lastScan: "Senaste skanning:",
     disclaimer: "Analysverktyg, inte investeringsrådgivning.",
     tab_leaderboard: "Topplista",
     tab_rrg: "RRG",
@@ -2363,7 +2110,6 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     tab_movers: "Rörelser",
     tab_history: "Historik",
     tab_backtest: "Backtest",
-    tab_guide: "Guide",
     segment_sectors: "Sektorer",
     segment_themes: "Teman",
     segment_sentiment: "Sentiment",
@@ -2426,27 +2172,11 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     rising_col_growth: "Tillväxt",
     badge_entry: "▲ Insteg",
     badge_exit: "▼ Ursteg",
-    guide_open_btn: "Guide",
-    guide_modal_eyebrow_1: "Kom igång",
-    guide_modal_title_1: "Sektormomentum",
-    guide_modal_eyebrow_2: "Sektorsidan",
-    guide_modal_title_2: "Topplistan",
-    guide_modal_eyebrow_3: "Mest handlingsbar signal",
-    guide_modal_title_3: "Trend-märken",
-    guide_modal_eyebrow_4: "RRG-fliken",
-    guide_modal_title_4: "Relativ rotation",
-    guide_modal_eyebrow_5: "Detaljvy, Rörelser, Historik & Backtest",
-    guide_modal_title_5: "Gå djupare",
-    guide_modal_eyebrow_6: "Sentimentsidan",
-    guide_modal_title_6: "Sökuppmärksamhet",
-    guide_modal_eyebrow_7: "Redo att utforska",
-    guide_modal_title_7: "Snabbstart",
-    guide_modal_hint: "eller svep för att navigera",
-    guide_modal_hint_close: "för att stänga",
-    macro_vs_200dma: "mot 200-DMA",
     macro_vix_calm: "Lugnt",
     macro_vix_elevated: "Förhöjt",
-    macro_vix_stressed: "Stressat"
+    macro_vix_stressed: "Stressat",
+    macro_chip_spy_above: "mot 200-DMA — över",
+    macro_chip_spy_below: "mot 200-DMA — under"
   };
 
   // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
@@ -2462,13 +2192,13 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
         <li><span class="signal-lo">↓ Faller</span> — rangen försämras även om den fortfarande är hög. Momentum mattas av.</li>
         <li><span class="signal-lo">↓↓ Faller snabbt</span> — undvik eller överväg att gå ur.</li>
       </ul>
-      <h4>Makroregim-remsa</h4>
-      <p>Den tunna remsan ovanför topplistan visar två breda marknadsindikatorer som uppdateras vid varje bygge:</p>
+      <h4>Makroregim-chips</h4>
+      <p>SPY- och VIX-chipsen i rubriken visar två breda marknadsindikatorer som uppdateras vid varje bygge:</p>
       <ul>
         <li><strong>SPY mot 200-DMA</strong> — S&amp;P 500 ETF:ens avstånd från sitt 200-dagars glidande medelvärde. <span class="signal-hi">Grönt / positivt</span> = pris över 200-DMA (långsiktig upptrend, risk-on); <span class="signal-lo">rött / negativt</span> = under (risk-off). Procentsatsen visar hur långt marknaden sträckt sig från trendlinjen.</li>
         <li><strong>VIX-band</strong> — CBOE Volatilitetsindex indelat i tre regimer: <strong>Lugnt</strong> (&lt;&nbsp;15), <strong>Förhöjt</strong> (15–25) och <strong>Stressat</strong> (&gt;&nbsp;25). Högre VIX = mer rädsla och osäkerhet.</li>
       </ul>
-      <p>Remsan är <strong>enbart information</strong> — den påverkar inte sektorpoäng eller rankning. Använd den som kontext: samma sektorsrankning kan betyda olika saker beroende på om den breda marknaden är i en hälsosam upptrend med låg volatilitet eller i en stressad risk-off-miljö. Om båda indikatorerna blinkar varning (under 200-DMA + Stressat VIX) bär även topprankade sektorer högre absolut risk.</p>
+      <p>Chipsen är <strong>enbart information</strong> — de påverkar inte sektorpoäng eller rankning. Använd dem som kontext: samma sektorsrankning kan betyda olika saker beroende på om den breda marknaden är i en hälsosam upptrend med låg volatilitet eller i en stressad risk-off-miljö. Om båda indikatorerna blinkar varning (under 200-DMA + Stressat VIX) bär även topprankade sektorer högre absolut risk.</p>
       <h4>Insteg-läge</h4>
       <p>Komposit &gt; 0 med <span class="signal-hi">↑</span>- eller <span class="signal-hi">↑↑</span>-bana och positiv förändringspoäng. Klicka på en rad för att se hela signaluppdelningen.</p>
       <h4>Ur-/undvik-signal</h4>
@@ -2580,94 +2310,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             med ▶ för att expandera.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
-      <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`,
-    guide_tab: `
-    <h2>Topplista</h2>
-    <p>Topplistan rankar varje sektor efter dess <strong>kompositpoäng</strong> — en viktad blandning av delpoängen nivå, momentumförändring och datakvalitet. En högre komposit (mer positivt z-värde) betyder att sektorn uppvisar starkare relativt momentum mot sitt jämförelseindex.</p>
-    <ul>
-      <li><strong>Nivåpoäng</strong> — fångar den nuvarande absoluta momentumnivån (avkastning, MA-struktur, OBV-trend).</li>
-      <li><strong>Förändringspoäng</strong> — fångar hur momentum accelererar eller bromsar in mot föregående skanning.</li>
-      <li><strong>Datapoäng</strong> — speglar datafullständighet; sektorer med saknade signaler straffas.</li>
-      <li><strong>Rang-Δ</strong> — hur många placeringar sektorn klättrade (▲) eller föll (▼) mot föregående skanning.</li>
-    </ul>
-    <p>Klicka på en kolumnrubrik för att sortera tabellen.</p>
-    <h2>Relativ rotationsgraf (RRG)</h2>
-    <p>RRG:n plottar sektorer på två axlar härledda från deras relativa styrka mot jämförelseindexet:</p>
-    <ul>
-      <li><strong>X-axel (RS-Ratio)</strong> — om sektorn överpresterar (&gt; 100) eller underpresterar (&lt; 100) jämförelseindexet.</li>
-      <li><strong>Y-axel (RS-Momentum)</strong> — om den relativa styrkan accelererar (&gt; 100) eller bromsar in (&lt; 100).</li>
-    </ul>
-    <p>Tolkning av kvadranter:</p>
-    <ul>
-      <li><strong>Ledande</strong> (uppe till höger) — överpresterar och accelererar.</li>
-      <li><strong>Försvagas</strong> (nere till höger) — överpresterar men bromsar in.</li>
-      <li><strong>Eftersläpar</strong> (nere till vänster) — underpresterar och bromsar in.</li>
-      <li><strong>Förbättras</strong> (uppe till vänster) — underpresterar men accelererar.</li>
-    </ul>
-    <p>Prickade svanslinjer visar de senaste 5 skanningspositionerna per sektor och anger rotationsriktning. Sektorer som roterar medurs från Förbättras → Ledande är de starkaste tidiga trendlägena.</p>
-    <h2>Detaljvy</h2>
-    <p>Välj en sektor i rullistan för att se hur varje poängkomponent har utvecklats över tid. Användbart för att upptäcka trender över flera skanningar — en stigande <em>change_score</em> tillsammans med en stigande <em>komposit</em> är en stark signal om ihållande momentum.</p>
-    <h2>Rörelser</h2>
-    <p>Rörelsepanelen visar rangförändringen mellan de två senaste skanningarna. <span style="color:var(--up)">Gröna staplar</span> anger sektorer som klättrade på topplistan; <span style="color:var(--down)">terrakotta-staplar</span> anger sektorer som halkade. Stora rörelser kan spegla datauppdateringar, makrohändelser eller äkta momentumskiften.</p>
-    <h2>Historik</h2>
-    <p>Ett linjediagram över kompositpoängen för alla lagrade skanningar. Ihållande uppåtgående trender i en sektors kompositpoäng indikerar uthålligt momentum, medan vändningar kan signalera rotation in i eller ut ur sektorn.</p>
-    <h2>Makroregim-remsa</h2>
-    <p>Remsan under rubriken visar två breda marknadsindikatorer som uppdateras vid varje bygge:</p>
-    <ul>
-      <li><strong>SPY mot 200-DMA</strong> — S&amp;P 500 ETF:ens procentuella avstånd från sitt 200-dagars glidande medelvärde. Över = risk-on upptrend; under = risk-off.</li>
-      <li><strong>VIX-band</strong> — CBOE Volatilitetsindex grupperat i Lugnt (&lt; 15), Förhöjt (15–25) eller Stressat (&gt; 25).</li>
-    </ul>
-    <p>Dessa indikatorer är <strong>enbart information</strong> och påverkar aldrig sektorpoäng eller rankning. De ger makrokontext så att du kan bedöma absolut risk vid sidan av relativt momentum. Om remsan är dold var data otillgänglig vid byggtillfället.</p>
-    <h2>Ansvarsfriskrivning</h2>
-    <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning eller en rekommendation att köpa, sälja eller behålla något värdepapper. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys och rådgör med en kvalificerad finansiell rådgivare innan du fattar investeringsbeslut.</p>`,
-    guide_tab_themes: `
-    <h2>Topplista</h2>
-    <p>Topplistan rankar varje tematisk ETF efter dess <strong>kompositpoäng</strong> — en viktad blandning av nivå, momentumförändring och datakvalitets-delpoäng mätta mot ett globalt jämförelseindex (ACWI). En högre komposit betyder att temat uppvisar starkare relativt momentum.</p>
-    <ul>
-      <li><strong>Nivåpoäng</strong> — nuvarande absolut momentumnivå (avkastning, MA-struktur, OBV-trend).</li>
-      <li><strong>Förändringspoäng</strong> — hur momentum accelererar eller bromsar in mot föregående skanning.</li>
-      <li><strong>Datapoäng</strong> — datakomplettering; teman med saknade signaler straffas.</li>
-      <li><strong>Rang-Δ</strong> — hur många platser temat klättrade (▲) eller föll (▼) mot föregående skanning.</li>
-    </ul>
-    <p>Klicka på en rad för att se hela signaluppdelningen och UCITS-alternativa instrument.</p>
-    <h2>Relativ rotationsgraf (RRG)</h2>
-    <p>RRG:n plottar teman på två axlar härledda från deras relativa styrka mot jämförelseindexet:</p>
-    <ul>
-      <li><strong>X-axel (RS-Ratio)</strong> — om temat överpresterar (&gt; 100) eller underpresterar (&lt; 100) jämförelseindexet.</li>
-      <li><strong>Y-axel (RS-Momentum)</strong> — om den relativa styrkan accelererar (&gt; 100) eller bromsar in (&lt; 100).</li>
-    </ul>
-    <p>Prickade svanslinjer visar de senaste skanningspositionerna per tema och anger rotationsriktning. Teman som roterar från Förbättras → Ledande är de starkaste tidiga trendlägena.</p>
-    <h2>Detaljvy</h2>
-    <p>Välj ett tema i rullistan för att se hur varje poängkomponent har utvecklats över tid. En stigande <em>change_score</em> tillsammans med en stigande <em>komposit</em> signalerar ihållande momentum.</p>
-    <h2>Rörelser</h2>
-    <p>Rangförändring mellan de två senaste skanningarna. <span style="color:var(--up)">Gröna staplar</span> anger teman som klättrade; <span style="color:var(--down)">terrakotta-staplar</span> anger teman som halkade.</p>
-    <h2>Historik</h2>
-    <p>Ett linjediagram över kompositpoängen för alla lagrade skanningar. Ihållande uppåtgående trender indikerar ihållande momentum; vändningar kan signalera rotation in i eller ut ur temat.</p>
-    <h2>Backtest</h2>
-    <p>Månatlig topp-N-rotationsbacktest: vid varje månadsslut poängsätter scannern alla teman med enbart prisdata tillgänglig fram till det datumet (inget framåtblickande), väljer topp N och håller dem likaviktat nästa månad. Aktiekurvan jämför strategin mot ACWI-jämförelseindexet. Mätvärden: CAGR, Sharpe (riskfri = 0 %), maximal nedgång, träffsäkerhet (% av månaderna strategin slog index) och genomsnittlig månatlig omsättning. Kör <code>python backtest.py</code> för att generera om.</p>
-    <h2>Ansvarsfriskrivning</h2>
-    <p><strong>Detta verktyg är endast för analytiska och utbildande syften.</strong> Det utgör inte investeringsrådgivning. Tidigare momentum är ingen garanti för framtida avkastning. Gör alltid din egen analys.</p>`,
-    guide_modal_body_1: `Denna dashboard spårar relativt momentum över de 11 GICS-sektorerna för både <strong>US</strong> (SPDR ETF:er) och <strong>EU</strong> (STOXX 600). Automatiska dagliga skanningar rankar sektorer efter momentumstyrka, upptäcker trendskiften och lyfter fram insteg- och utstegsupplägg.`,
-    guide_modal_body_1b: `Tre sidor &mdash; <strong>Sektorer</strong>, <strong>Teman</strong> och <strong>Sentiment</strong> &mdash; tillgängliga från toppnavigationen. Låt oss gå igenom vad varje sida visar.`,
-    guide_modal_body_2: `Din startsida. Varje sektor rankas efter <strong>kompositpoäng</strong> &mdash; ett tvärsnitts-z-värde som väger samman:`,
-    guide_modal_list_2: `<li><strong>Nivå</strong> &mdash; aktuell momentumstyrka (avkastning, MA-struktur, OBV-trend)</li><li><strong>Förändring</strong> &mdash; om momentum accelererar eller bromsar in</li><li><strong>Data</strong> &mdash; signalkomplettering; sektorer med luckor bestraffas</li>`,
-    guide_modal_body_2b: `Noll betyder genomsnitt bland sektorerna; +1,0 är en standardavvikelse över. Klicka på valfri rad för hela signaluppdelningen.`,
-    guide_modal_body_3: `Beräknas från ranglutningen över de senaste 3&ndash;5 skanningarna. Ett sjunkande rangnummer innebär att sektorn klättrar på topplistan.`,
-    guide_modal_list_3: `<li><span class="signal-hi">↑↑ Stiger snabbt</span> &mdash; rangen förbättras 1,5+ platser/skanning</li><li><span class="signal-hi">↑ Stiger</span> &mdash; framväxande momentum (0,3&ndash;1,5 platser)</li><li><strong>→ Platt</strong> &mdash; ingen riktningssignal</li><li><span class="signal-lo">↓ Faller</span> &mdash; momentum mattas av, även vid hög rang</li><li><span class="signal-lo">↓↓ Faller snabbt</span> &mdash; undvik eller överväg att gå ur</li>`,
-    guide_modal_tip_3: `<strong>Insteg:</strong> Komposit &gt; 0 med ↑ eller ↑↑ och positiv förändringspoäng. <strong>Ursteg:</strong> ↓ eller ↓↓ även vid hög rang &mdash; sektorn toppar.`,
-    guide_modal_body_4: `Sektorer plottas på två axlar: <strong>relativ styrka</strong> mot index (x) och om den styrkan <strong>accelererar</strong> (y). Sektorer roterar moturs genom fyra kvadranter:`,
-    guide_modal_list_4: `<li><span class="signal-hi">Ledande</span> (uppe till höger) &mdash; överpresterar och accelererar</li><li><span class="signal-lo">Försvagas</span> (nere till höger) &mdash; överpresterar men bromsar in</li><li><strong>Eftersläpande</strong> (nere till vänster) &mdash; underpresterar och bromsar in</li><li><span class="signal-hi">Förbättras</span> (uppe till vänster) &mdash; instegszonen</li>`,
-    guide_modal_tip_4: `<strong>Nyckel:</strong> Köp i Förbättras innan flytten till Ledande. Sälj i Försvagas innan fallet till Eftersläpande. Den prickade svansen visar de senaste 3 skanningarna &mdash; riktning betyder mer än position.`,
-    guide_modal_body_5a: `<strong>Detaljvy</strong> &mdash; välj en sektor för att se dess poängkomponenter över alla lagrade skanningar. Stigande komposit + stigande förändring = ihållande acceleration (starkaste insteg). Hög komposit + fallande förändring = sektorn toppar.`,
-    guide_modal_body_5b: `<strong>Rörelser</strong> &mdash; rangförändring mellan de två senaste skanningarna. Stora enstegshopp kräver detaljvybekräftelse innan du agerar.`,
-    guide_modal_body_5c: `<strong>Historik</strong> &mdash; alla sektorers komposittrender över tid. Långa, jämna uppåttrender är instegen värda att hålla; V-formade reversaler är de att handla snabbt eller hoppa över.`,
-    guide_modal_body_5d: `<strong>Backtest</strong> &mdash; månatlig topp-5-rotationsstrategi mot index, med CAGR, Sharpe, max nedgång och träffsäkerhet. Validerar om momentumsignalerna historiskt hade genererat edge.`,
-    guide_modal_body_6: `Google Trends-baserat sökintresse, hämtat per region (US direkt, EU genomsnitt av DE/FR/GB). Sex härledda signaler per sektor:`,
-    guide_modal_list_6: `<li><strong>Momentum</strong> &mdash; trendlutning för sökintresse</li><li><strong>Acceleration</strong> &mdash; ökar trenden i hastighet?</li><li><strong>Intervallposition</strong> &mdash; aktuellt vs. 13-veckors min/max</li><li><strong>Spik</strong> &amp; <strong>Volatilitet</strong> &mdash; utbrottsdetektering och hackighet</li><li><strong>Uppmärksamhet</strong> &mdash; head-to-head-jämförelse över alla sektorer i samma region</li>`,
-    guide_modal_tip_6: `<strong>Enbart information som standard.</strong> Aktivera sentimentväxlaren på topplistan för att blanda in det i kompositrankningen med den vikt du väljer.`,
-    guide_modal_body_7: `Viktiga åtgärder att prova:`,
-    guide_modal_list_7: `<li>Kolla <strong>Trend-märken</strong> först &mdash; de är den mest handlingsbara signalen</li><li><strong>Klicka på valfri rad</strong> för att expandera hela signaluppdelningen</li><li>Använd <strong>RRG</strong> för rotationstiming och <strong>Historik</strong> för övertygelse</li><li>Besök <strong>Teman</strong> för tematiska ETF:er rankade med samma momentumpelare</li><li>Öppna <strong>&ldquo;Hur du läser den här fliken&rdquo;</strong> på valfri flik för detaljerad signaltolkning</li><li>Byt språk med <strong>SV / EN</strong>-växlaren i rubriken</li>`,
-    guide_modal_body_7b: `Dashboarden uppdateras dagligen via automatiska skanningar. Använd Historik-fliken och skanningsarkivet för att följa hur signaler utvecklas över tid.`
+      <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`
   };
 
   var els = document.querySelectorAll("[data-i18n]");
@@ -2686,6 +2329,11 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
       if (!enHtml.has(el)) enHtml.set(el, el.innerHTML);
       var key = el.getAttribute("data-i18n-html");
       el.innerHTML = (lang === "sv" && SV_HTML[key] != null) ? SV_HTML[key] : enHtml.get(el);
+    });
+    document.querySelectorAll("[data-i18n-title]").forEach(function (el) {
+      if (!el.getAttribute("data-en-title")) el.setAttribute("data-en-title", el.getAttribute("title") || "");
+      var key = el.getAttribute("data-i18n-title");
+      el.setAttribute("title", (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en-title"));
     });
     document.documentElement.lang = (lang === "sv") ? "sv" : "en";
     var btn = document.getElementById("lang-toggle");
@@ -2709,373 +2357,10 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 <script src="assets/scan-history.js"></script>
 <script src="assets/scan-digest.js"></script>
 
-<!-- Onboarding guide modal — included in all pages -->
-<div class="guide-overlay" id="guide-overlay" aria-hidden="true">
-  <div class="guide-modal" role="dialog" aria-modal="true" aria-label="Dashboard guide">
-    <button class="guide-close" id="guide-close" aria-label="Close guide">&times;</button>
-    <div class="guide-viewport">
-      <div class="guide-track" id="guide-track">
-
-        <!-- 1. Welcome -->
-        <article class="guide-card">
-          <div class="guide-card-illust">
-            <svg viewBox="0 0 340 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <line x1="28" y1="124" x2="312" y2="124" stroke="var(--border)" stroke-width="1"/>
-              <line x1="28" y1="94" x2="312" y2="94" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="4 6"/>
-              <line x1="28" y1="64" x2="312" y2="64" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="4 6"/>
-              <line x1="28" y1="34" x2="312" y2="34" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="4 6"/>
-              <path d="M 36 112 C 72 108, 90 100, 118 88 S 170 58, 210 46 S 260 28, 296 20"
-                    stroke="var(--brand-strong)" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M 36 112 C 72 108, 90 100, 118 88 S 170 58, 210 46 S 260 28, 296 20 L 296 124 L 36 124 Z"
-                    fill="var(--brand-strong)" opacity="0.06"/>
-              <circle cx="36" cy="112" r="3.5" fill="var(--bg-raised)" stroke="var(--brand-strong)" stroke-width="1.5"/>
-              <circle cx="82" cy="102" r="3" fill="var(--bg-raised)" stroke="var(--brand-strong)" stroke-width="1.5"/>
-              <circle cx="136" cy="82" r="3" fill="var(--bg-raised)" stroke="var(--brand-strong)" stroke-width="1.5"/>
-              <circle cx="190" cy="56" r="3" fill="var(--bg-raised)" stroke="var(--brand-strong)" stroke-width="1.5"/>
-              <circle cx="244" cy="34" r="3" fill="var(--bg-raised)" stroke="var(--brand-strong)" stroke-width="1.5"/>
-              <circle cx="296" cy="20" r="4.5" fill="var(--brand-strong)"/>
-              <polygon points="308,16 296,10 296,22" fill="var(--brand-strong)" opacity="0.6"/>
-            </svg>
-          </div>
-          <div class="guide-card-body">
-            <div class="guide-eyebrow" data-i18n="guide_modal_eyebrow_1">Getting started</div>
-            <h2 data-i18n="guide_modal_title_1">Sector Momentum</h2>
-            <p data-i18n-html="guide_modal_body_1">This dashboard tracks relative momentum across the 11 GICS sectors for both <strong>US</strong> (SPDR ETFs) and <strong>EU</strong> (STOXX 600). Automated daily scans rank sectors by momentum strength, detect trend shifts, and surface entry and exit setups.</p>
-            <p data-i18n-html="guide_modal_body_1b">Three pages &mdash; <strong>Sectors</strong>, <strong>Themes</strong>, and <strong>Sentiment</strong> &mdash; accessible from the top navigation. Let&rsquo;s walk through what each one shows you.</p>
-          </div>
-        </article>
-
-        <!-- 2. Leaderboard -->
-        <article class="guide-card">
-          <div class="guide-card-illust">
-            <svg viewBox="0 0 340 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="40" cy="30" r="12" fill="var(--brand-strong)" opacity="0.15"/>
-              <text x="40" y="34" text-anchor="middle" fill="var(--brand-strong)" font-family="var(--font-mono)" font-size="11" font-weight="600">1</text>
-              <rect x="62" y="22" width="200" height="16" rx="3" fill="var(--brand-strong)" opacity="0.35"/>
-              <text x="272" y="34" text-anchor="start" fill="var(--brand-strong)" font-family="var(--font-mono)" font-size="10" font-weight="500">+1.42</text>
-              <circle cx="40" cy="64" r="12" fill="var(--fg4)" opacity="0.15"/>
-              <text x="40" y="68" text-anchor="middle" fill="var(--fg4)" font-family="var(--font-mono)" font-size="11" font-weight="500">2</text>
-              <rect x="62" y="56" width="156" height="16" rx="3" fill="var(--fg4)" opacity="0.18"/>
-              <text x="228" y="68" text-anchor="start" fill="var(--fg4)" font-family="var(--font-mono)" font-size="10">+0.87</text>
-              <circle cx="40" cy="98" r="12" fill="var(--fg4)" opacity="0.12"/>
-              <text x="40" y="102" text-anchor="middle" fill="var(--fg4)" font-family="var(--font-mono)" font-size="11" font-weight="500">3</text>
-              <rect x="62" y="90" width="118" height="16" rx="3" fill="var(--fg4)" opacity="0.14"/>
-              <text x="190" y="102" text-anchor="start" fill="var(--fg4)" font-family="var(--font-mono)" font-size="10">+0.51</text>
-              <rect x="290" y="22" width="36" height="16" rx="8" fill="var(--up)" opacity="0.15"/>
-              <text x="308" y="33.5" text-anchor="middle" fill="var(--up)" font-size="10" font-weight="600">↑↑</text>
-            </svg>
-          </div>
-          <div class="guide-card-body">
-            <div class="guide-eyebrow" data-i18n="guide_modal_eyebrow_2">Sectors page</div>
-            <h2 data-i18n="guide_modal_title_2">The Leaderboard</h2>
-            <p data-i18n-html="guide_modal_body_2">Your home screen. Every sector is ranked by <strong>composite score</strong> &mdash; a cross-sectional z-score blending:</p>
-            <ul data-i18n-html="guide_modal_list_2">
-              <li><strong>Level</strong> &mdash; current momentum strength (returns, MA structure, OBV trend)</li>
-              <li><strong>Change</strong> &mdash; whether momentum is accelerating or decelerating</li>
-              <li><strong>Data</strong> &mdash; signal completeness; sectors with gaps are penalized</li>
-            </ul>
-            <p data-i18n-html="guide_modal_body_2b">Zero means average across sectors; +1.0 is one standard deviation above. Click any row for the full signal breakdown.</p>
-          </div>
-        </article>
-
-        <!-- 3. Trend Badges -->
-        <article class="guide-card">
-          <div class="guide-card-illust">
-            <svg viewBox="0 0 340 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="46" cy="62" r="22" fill="var(--up)" opacity="0.12" stroke="var(--up)" stroke-width="1.5"/>
-              <path d="M 40 72 L 46 52 L 52 72" stroke="var(--up)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <path d="M 36 66 L 46 46 L 56 66" stroke="var(--up)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.5"/>
-              <text x="46" y="100" text-anchor="middle" fill="var(--up)" font-family="var(--font-mono)" font-size="9" opacity="0.7">fast</text>
-              <circle cx="112" cy="62" r="22" fill="var(--up)" opacity="0.08" stroke="var(--up)" stroke-width="1"/>
-              <path d="M 106 72 L 112 54 L 118 72" stroke="var(--up)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <text x="112" y="100" text-anchor="middle" fill="var(--up)" font-family="var(--font-mono)" font-size="9" opacity="0.7">rising</text>
-              <circle cx="178" cy="62" r="22" fill="var(--fg4)" opacity="0.1" stroke="var(--fg4)" stroke-width="1"/>
-              <line x1="166" y1="62" x2="190" y2="62" stroke="var(--fg4)" stroke-width="2" stroke-linecap="round"/>
-              <path d="M 186 57 L 192 62 L 186 67" stroke="var(--fg4)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <text x="178" y="100" text-anchor="middle" fill="var(--fg4)" font-family="var(--font-mono)" font-size="9" opacity="0.7">flat</text>
-              <circle cx="244" cy="62" r="22" fill="var(--down)" opacity="0.08" stroke="var(--down)" stroke-width="1"/>
-              <path d="M 238 52 L 244 70 L 250 52" stroke="var(--down)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <text x="244" y="100" text-anchor="middle" fill="var(--down)" font-family="var(--font-mono)" font-size="9" opacity="0.7">falling</text>
-              <circle cx="310" cy="62" r="22" fill="var(--down)" opacity="0.12" stroke="var(--down)" stroke-width="1.5"/>
-              <path d="M 304 52 L 310 72 L 316 52" stroke="var(--down)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <path d="M 300 58 L 310 78 L 320 58" stroke="var(--down)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.5"/>
-              <text x="310" y="100" text-anchor="middle" fill="var(--down)" font-family="var(--font-mono)" font-size="9" opacity="0.7">fast</text>
-            </svg>
-          </div>
-          <div class="guide-card-body">
-            <div class="guide-eyebrow" data-i18n="guide_modal_eyebrow_3">Most actionable signal</div>
-            <h2 data-i18n="guide_modal_title_3">Trend Badges</h2>
-            <p data-i18n-html="guide_modal_body_3">Computed from rank slope over the last 3&ndash;5 scans. A falling rank number means the sector is climbing the leaderboard.</p>
-            <ul data-i18n-html="guide_modal_list_3">
-              <li><span class="signal-hi">↑↑ Rising fast</span> &mdash; rank improving 1.5+ places/scan</li>
-              <li><span class="signal-hi">↑ Rising</span> &mdash; emerging momentum (0.3&ndash;1.5 places)</li>
-              <li><strong>→ Flat</strong> &mdash; no directional signal</li>
-              <li><span class="signal-lo">↓ Falling</span> &mdash; momentum fading, even at high rank</li>
-              <li><span class="signal-lo">↓↓ Falling fast</span> &mdash; avoid or consider exiting</li>
-            </ul>
-            <div class="guide-tip" data-i18n-html="guide_modal_tip_3"><strong>Entry setup:</strong> Composite &gt; 0 with ↑ or ↑↑ and a positive Change score. <strong>Exit:</strong> ↓ or ↓↓ even at a high rank &mdash; the sector is topping.</div>
-          </div>
-        </article>
-
-        <!-- 4. RRG -->
-        <article class="guide-card">
-          <div class="guide-card-illust">
-            <svg viewBox="0 0 340 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="172" y="4" width="162" height="64" fill="var(--up)" opacity="0.04"/>
-              <rect x="172" y="68" width="162" height="68" fill="var(--down)" opacity="0.03"/>
-              <rect x="6" y="68" width="166" height="68" fill="var(--down)" opacity="0.05"/>
-              <rect x="6" y="4" width="166" height="64" fill="var(--up)" opacity="0.06"/>
-              <line x1="6" y1="68" x2="334" y2="68" stroke="var(--border)" stroke-width="1"/>
-              <line x1="172" y1="4" x2="172" y2="136" stroke="var(--border)" stroke-width="1"/>
-              <text x="253" y="20" text-anchor="middle" fill="var(--up)" font-family="var(--font-body)" font-size="9.5" font-weight="600" opacity="0.6">Leading</text>
-              <text x="253" y="120" text-anchor="middle" fill="var(--down)" font-family="var(--font-body)" font-size="9.5" font-weight="500" opacity="0.5">Weakening</text>
-              <text x="89" y="120" text-anchor="middle" fill="var(--fg4)" font-family="var(--font-body)" font-size="9.5" font-weight="500" opacity="0.5">Lagging</text>
-              <text x="89" y="20" text-anchor="middle" fill="var(--up)" font-family="var(--font-body)" font-size="9.5" font-weight="500" opacity="0.55">Improving</text>
-              <path d="M 260 40 C 280 30, 280 90, 240 105" stroke="var(--fg4)" stroke-width="1" stroke-dasharray="3 4" fill="none" opacity="0.4"/>
-              <path d="M 240 105 C 200 115, 130 115, 100 100" stroke="var(--fg4)" stroke-width="1" stroke-dasharray="3 4" fill="none" opacity="0.4"/>
-              <path d="M 100 100 C 70 85, 70 40, 110 26" stroke="var(--fg4)" stroke-width="1" stroke-dasharray="3 4" fill="none" opacity="0.4"/>
-              <circle cx="96" cy="42" r="5" fill="var(--up)" opacity="0.7"/>
-              <circle cx="108" cy="50" r="3" fill="var(--up)" opacity="0.25"/>
-              <circle cx="116" cy="56" r="2.5" fill="var(--up)" opacity="0.12"/>
-              <circle cx="250" cy="36" r="5" fill="var(--brand-strong)"/>
-              <circle cx="238" cy="34" r="3" fill="var(--brand-strong)" opacity="0.25"/>
-              <circle cx="224" cy="38" r="2.5" fill="var(--brand-strong)" opacity="0.12"/>
-              <circle cx="232" cy="100" r="5" fill="var(--down)" opacity="0.6"/>
-              <circle cx="244" cy="94" r="3" fill="var(--down)" opacity="0.2"/>
-            </svg>
-          </div>
-          <div class="guide-card-body">
-            <div class="guide-eyebrow" data-i18n="guide_modal_eyebrow_4">RRG tab</div>
-            <h2 data-i18n="guide_modal_title_4">Relative Rotation</h2>
-            <p data-i18n-html="guide_modal_body_4">Sectors plotted on two axes: <strong>relative strength</strong> vs. benchmark (x) and whether that strength is <strong>accelerating</strong> (y). Sectors rotate counter-clockwise through four quadrants:</p>
-            <ul data-i18n-html="guide_modal_list_4">
-              <li><span class="signal-hi">Leading</span> (top-right) &mdash; outperforming and accelerating</li>
-              <li><span class="signal-lo">Weakening</span> (bottom-right) &mdash; outperforming but decelerating</li>
-              <li><strong>Lagging</strong> (bottom-left) &mdash; underperforming and decelerating</li>
-              <li><span class="signal-hi">Improving</span> (top-left) &mdash; the entry zone</li>
-            </ul>
-            <div class="guide-tip" data-i18n-html="guide_modal_tip_4"><strong>Key:</strong> Buy in Improving before the move to Leading. Sell in Weakening before the drop to Lagging. The dotted tail shows the last 3 scans &mdash; direction matters more than position.</div>
-          </div>
-        </article>
-
-        <!-- 5. Going Deeper -->
-        <article class="guide-card">
-          <div class="guide-card-illust">
-            <svg viewBox="0 0 340 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <line x1="32" y1="122" x2="310" y2="122" stroke="var(--border)" stroke-width="1"/>
-              <line x1="32" y1="92" x2="310" y2="92" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 5"/>
-              <line x1="32" y1="62" x2="310" y2="62" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 5"/>
-              <line x1="32" y1="32" x2="310" y2="32" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 5"/>
-              <path d="M 40 105 L 80 98 L 120 90 L 160 72 L 200 58 L 240 42 L 280 30 L 300 26"
-                    stroke="var(--brand-strong)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M 40 80 L 80 70 L 120 95 L 160 60 L 200 75 L 240 48 L 280 55 L 300 40"
-                    stroke="var(--fg4)" stroke-width="1.5" stroke-dasharray="5 4" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
-              <circle cx="240" cy="42" r="4" fill="var(--bg-raised)" stroke="var(--brand-strong)" stroke-width="2"/>
-              <line x1="40" y1="14" x2="58" y2="14" stroke="var(--brand-strong)" stroke-width="2"/>
-              <text x="64" y="17" fill="var(--brand-strong)" font-family="var(--font-mono)" font-size="9">Composite</text>
-              <line x1="140" y1="14" x2="158" y2="14" stroke="var(--fg4)" stroke-width="1.5" stroke-dasharray="4 3"/>
-              <text x="164" y="17" fill="var(--fg4)" font-family="var(--font-mono)" font-size="9">Change</text>
-            </svg>
-          </div>
-          <div class="guide-card-body">
-            <div class="guide-eyebrow" data-i18n="guide_modal_eyebrow_5">Drill-down, Movers, History &amp; Backtest</div>
-            <h2 data-i18n="guide_modal_title_5">Going Deeper</h2>
-            <p data-i18n-html="guide_modal_body_5a"><strong>Drill-down</strong> &mdash; select a sector to see its score components across all stored scans. Rising composite + rising Change = sustained acceleration (highest-conviction entry). High composite + falling Change = the sector is topping.</p>
-            <p data-i18n-html="guide_modal_body_5b"><strong>Movers</strong> &mdash; rank change between the two most recent scans. Large single-scan jumps need Drill-down confirmation before acting.</p>
-            <p data-i18n-html="guide_modal_body_5c"><strong>History</strong> &mdash; all sectors' composite trends over time. Long, smooth uptrends are the entries worth holding; V-shaped reversals are the ones to trade quickly or skip.</p>
-            <p data-i18n-html="guide_modal_body_5d"><strong>Backtest</strong> &mdash; monthly top-5 rotation strategy vs benchmark, with CAGR, Sharpe, max drawdown, and hit rate. Validates whether the momentum signals would have generated edge historically.</p>
-          </div>
-        </article>
-
-        <!-- 6. Sentiment -->
-        <article class="guide-card">
-          <div class="guide-card-illust">
-            <svg viewBox="0 0 340 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="32" y="82" width="22" height="40" rx="2" fill="var(--brand-strong)" opacity="0.15"/>
-              <rect x="60" y="66" width="22" height="56" rx="2" fill="var(--brand-strong)" opacity="0.2"/>
-              <rect x="88" y="72" width="22" height="50" rx="2" fill="var(--brand-strong)" opacity="0.18"/>
-              <rect x="116" y="56" width="22" height="66" rx="2" fill="var(--brand-strong)" opacity="0.25"/>
-              <rect x="144" y="44" width="22" height="78" rx="2" fill="var(--brand-strong)" opacity="0.3"/>
-              <rect x="172" y="52" width="22" height="70" rx="2" fill="var(--brand-strong)" opacity="0.27"/>
-              <rect x="200" y="36" width="22" height="86" rx="2" fill="var(--brand-strong)" opacity="0.35"/>
-              <rect x="228" y="42" width="22" height="80" rx="2" fill="var(--brand-strong)" opacity="0.32"/>
-              <rect x="256" y="28" width="22" height="94" rx="2" fill="var(--brand-strong)" opacity="0.4"/>
-              <rect x="284" y="24" width="22" height="98" rx="2" fill="var(--brand-strong)" opacity="0.45"/>
-              <line x1="28" y1="122" x2="312" y2="122" stroke="var(--border)" stroke-width="1"/>
-              <path d="M 43 82 C 80 72, 120 68, 155 52 S 230 38, 295 24"
-                    stroke="var(--brand-strong)" stroke-width="2" stroke-linecap="round" fill="none"/>
-              <circle cx="295" cy="24" r="3.5" fill="var(--brand-strong)"/>
-              <text x="170" y="14" text-anchor="middle" fill="var(--fg4)" font-family="var(--font-mono)" font-size="9" opacity="0.7">search interest (13 wk)</text>
-            </svg>
-          </div>
-          <div class="guide-card-body">
-            <div class="guide-eyebrow" data-i18n="guide_modal_eyebrow_6">Sentiment page</div>
-            <h2 data-i18n="guide_modal_title_6">Search Attention</h2>
-            <p data-i18n-html="guide_modal_body_6">Google Trends&ndash;based search interest, pulled per region (US direct, EU averaged across DE/FR/GB). Six derived signals per sector:</p>
-            <ul data-i18n-html="guide_modal_list_6">
-              <li><strong>Momentum</strong> &mdash; trend slope of search interest</li>
-              <li><strong>Acceleration</strong> &mdash; is the trend speeding up?</li>
-              <li><strong>Range position</strong> &mdash; current vs. 13-week min/max</li>
-              <li><strong>Spike</strong> &amp; <strong>Volatility</strong> &mdash; breakout detection and choppiness</li>
-              <li><strong>Attention</strong> &mdash; head-to-head comparison across all sectors in the same region</li>
-            </ul>
-            <div class="guide-tip" data-i18n-html="guide_modal_tip_6"><strong>Info-only by default.</strong> Enable the Sentiment toggle on the leaderboard to blend it into composite rankings at the weight you choose.</div>
-          </div>
-        </article>
-
-        <!-- 7. Quick Start -->
-        <article class="guide-card">
-          <div class="guide-card-illust">
-            <svg viewBox="0 0 340 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="48" y="16" width="16" height="16" rx="3" fill="var(--brand-strong)" opacity="0.15" stroke="var(--brand-strong)" stroke-width="1.2"/>
-              <path d="M 52 24 L 56 28 L 62 20" stroke="var(--brand-strong)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <rect x="74" y="18" width="110" height="10" rx="2" fill="var(--fg1)" opacity="0.1"/>
-              <rect x="48" y="44" width="16" height="16" rx="3" fill="var(--brand-strong)" opacity="0.15" stroke="var(--brand-strong)" stroke-width="1.2"/>
-              <path d="M 52 52 L 56 56 L 62 48" stroke="var(--brand-strong)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <rect x="74" y="46" width="140" height="10" rx="2" fill="var(--fg1)" opacity="0.1"/>
-              <rect x="48" y="72" width="16" height="16" rx="3" fill="var(--brand-strong)" opacity="0.15" stroke="var(--brand-strong)" stroke-width="1.2"/>
-              <path d="M 52 80 L 56 84 L 62 76" stroke="var(--brand-strong)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <rect x="74" y="74" width="96" height="10" rx="2" fill="var(--fg1)" opacity="0.1"/>
-              <rect x="48" y="100" width="16" height="16" rx="3" stroke="var(--border)" stroke-width="1.2" fill="none"/>
-              <rect x="74" y="102" width="124" height="10" rx="2" fill="var(--fg1)" opacity="0.06"/>
-              <path d="M 230 30 L 250 60 L 230 55 L 270 90" stroke="var(--brand-strong)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.3"/>
-              <circle cx="270" cy="90" r="8" stroke="var(--brand-strong)" stroke-width="1.5" fill="var(--brand-strong)" opacity="0.08"/>
-            </svg>
-          </div>
-          <div class="guide-card-body">
-            <div class="guide-eyebrow" data-i18n="guide_modal_eyebrow_7">Ready to explore</div>
-            <h2 data-i18n="guide_modal_title_7">Quick Start</h2>
-            <p data-i18n-html="guide_modal_body_7">Key actions to try:</p>
-            <ul data-i18n-html="guide_modal_list_7">
-              <li>Check <strong>Trend badges</strong> first &mdash; they're the most actionable signal</li>
-              <li><strong>Click any row</strong> to expand the full signal breakdown</li>
-              <li>Use the <strong>RRG</strong> for rotation timing and <strong>History</strong> for conviction</li>
-              <li>Visit <strong>Themes</strong> for thematic ETFs ranked by the same momentum pillars</li>
-              <li>Open <strong>&ldquo;How to read this tab&rdquo;</strong> on any tab for detailed signal interpretation</li>
-              <li>Switch language with the <strong>SV / EN</strong> toggle in the header</li>
-            </ul>
-            <p data-i18n-html="guide_modal_body_7b">The dashboard updates daily via automated scans. Use the History tab and scan archive to track how signals develop over time.</p>
-          </div>
-        </article>
-
-      </div>
-    </div>
-
-    <nav class="guide-nav" aria-label="Guide navigation">
-      <button class="guide-nav-btn" id="guide-prev" aria-label="Previous card">&#8249;</button>
-      <div class="guide-dots" id="guide-dots" role="tablist"></div>
-      <span class="guide-counter" id="guide-counter">1 / 7</span>
-      <button class="guide-nav-btn" id="guide-next" aria-label="Next card">&#8250;</button>
-    </nav>
-    <p class="guide-hint"><kbd>←</kbd> <kbd>→</kbd> <span data-i18n="guide_modal_hint">or swipe to navigate</span> · <kbd>Esc</kbd> <span data-i18n="guide_modal_hint_close">to close</span></p>
-  </div>
-</div>
-
-<script>
-(function () {
-  var TOTAL = 7;
-  var current = 0;
-  var overlay = document.getElementById('guide-overlay');
-  var track = document.getElementById('guide-track');
-  var prevBtn = document.getElementById('guide-prev');
-  var nextBtn = document.getElementById('guide-next');
-  var dotsEl = document.getElementById('guide-dots');
-  var counterEl = document.getElementById('guide-counter');
-  var closeBtn = document.getElementById('guide-close');
-  var openBtn = document.getElementById('guide-open-btn');
-  var _previousFocus = null;
-
-  for (var i = 0; i < TOTAL; i++) {
-    var d = document.createElement('button');
-    d.className = 'guide-dot' + (i === 0 ? ' active' : '');
-    d.setAttribute('role', 'tab');
-    d.setAttribute('aria-label', 'Card ' + (i + 1));
-    d.dataset.index = i;
-    dotsEl.appendChild(d);
-  }
-  var dots = dotsEl.querySelectorAll('.guide-dot');
-
-  function go(idx) {
-    current = Math.max(0, Math.min(TOTAL - 1, idx));
-    track.style.transform = 'translateX(-' + (current * 100) + '%)';
-    prevBtn.disabled = current === 0;
-    nextBtn.disabled = current === TOTAL - 1;
-    counterEl.textContent = (current + 1) + ' / ' + TOTAL;
-    dots.forEach(function (d, i) { d.classList.toggle('active', i === current); });
-  }
-
-  function openGuide() {
-    _previousFocus = document.activeElement;
-    overlay.classList.add('open');
-    overlay.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-    go(0);
-    closeBtn.focus();
-  }
-
-  function closeGuide() {
-    overlay.classList.remove('open');
-    overlay.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    if (_previousFocus) { _previousFocus.focus(); _previousFocus = null; }
-  }
-
-  if (openBtn) openBtn.addEventListener('click', openGuide);
-  closeBtn.addEventListener('click', closeGuide);
-
-  overlay.addEventListener('click', function (e) {
-    if (e.target === overlay) closeGuide();
-  });
-
-  prevBtn.addEventListener('click', function () { go(current - 1); });
-  nextBtn.addEventListener('click', function () { go(current + 1); });
-  dotsEl.addEventListener('click', function (e) {
-    if (e.target.classList.contains('guide-dot')) {
-      go(parseInt(e.target.dataset.index, 10));
-    }
-  });
-
-  document.addEventListener('keydown', function (e) {
-    if (!overlay.classList.contains('open')) return;
-    if (e.key === 'Escape') closeGuide();
-    else if (e.key === 'ArrowLeft') go(current - 1);
-    else if (e.key === 'ArrowRight') go(current + 1);
-  });
-
-  // Focus trap: keep Tab within the modal while open
-  overlay.addEventListener('keydown', function(e) {
-    if (e.key !== 'Tab') return;
-    var focusable = overlay.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])');
-    if (!focusable.length) return;
-    var first = focusable[0];
-    var last = focusable[focusable.length - 1];
-    if (e.shiftKey) {
-      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-    } else {
-      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  });
-
-  var x0 = null;
-  track.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
-  track.addEventListener('touchend', function (e) {
-    if (x0 === null) return;
-    var dx = e.changedTouches[0].clientX - x0;
-    if (Math.abs(dx) > 40) go(current + (dx < 0 ? 1 : -1));
-    x0 = null;
-  }, { passive: true });
-
-  go(0);
-
-  window.openGuide = openGuide;
-
-  if (window.applyLang) {
-    var lang = "en";
-    try { lang = localStorage.getItem("lang") || "en"; } catch (e) {}
-    window.applyLang(lang);
-  }
-})();
-</script>
+<footer class="site-footer">
+  <span data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
+  <a href="feed.xml">RSS</a>
+</footer>
 
 
 </body>
