@@ -16,8 +16,8 @@
 <!-- Header -->
 {% set active_segment = "sectors" %}
 {% include '_header.html.j2' %}
-{% include '_macro_bar.html.j2' %}
 
+<div class="card">
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
   <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" aria-selected="true" aria-controls="tab-leaderboard" data-i18n="tab_leaderboard">Leaderboard</button>
@@ -26,52 +26,57 @@
   <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers" data-i18n="tab_movers">Movers</button>
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history" data-i18n="tab_history">History</button>
   <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest" data-i18n="tab_backtest">Backtest</button>
-  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" aria-selected="false" aria-controls="tab-guide" data-i18n="tab_guide">Guide</button>
 </nav>
 
 <!-- ============================================================
      Tab: Leaderboard
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_leaderboard">
-      <p>Every sector is ranked by <strong>composite score</strong> — a cross-sectional z-score blending level momentum (how strong the sector is now) and change momentum (whether it's accelerating or decelerating). A score of <strong>0</strong> means average across all sectors; <strong>+1.0</strong> means one standard deviation above average.</p>
-      <h4>Trend badge — the most actionable signal</h4>
-      <p>Computed as the linear slope of rank over the last 3–5 scans. A falling rank number means the sector is climbing the leaderboard.</p>
-      <ul>
-        <li><span class="signal-hi">↑↑ Rising fast</span> — rank improving 1.5+ places per scan. Strong entry signal.</li>
-        <li><span class="signal-hi">↑ Rising</span> — rank improving 0.3–1.5 places per scan. Emerging momentum.</li>
-        <li>→ Flat — rank stable. Momentum is neither building nor unwinding.</li>
-        <li><span class="signal-lo">↓ Falling</span> — rank deteriorating even if it is still high. Momentum is fading.</li>
-        <li><span class="signal-lo">↓↓ Falling fast</span> — avoid or consider exiting.</li>
-      </ul>
-      <h4>Macro regime bar</h4>
-      <p>The thin strip above the leaderboard shows two broad-market indicators refreshed each build:</p>
-      <ul>
-        <li><strong>SPY vs 200-DMA</strong> — The S&amp;P 500 ETF's distance from its 200-day simple moving average. <span class="signal-hi">Green / positive</span> = price above the 200-DMA (long-term uptrend, risk-on); <span class="signal-lo">red / negative</span> = below (risk-off). The percentage tells you how stretched the market is from the trend line.</li>
-        <li><strong>VIX band</strong> — The CBOE Volatility Index bucketed into three regimes: <strong>Calm</strong> (&lt;&nbsp;15), <strong>Elevated</strong> (15–25), and <strong>Stressed</strong> (&gt;&nbsp;25). Higher VIX = more fear and uncertainty.</li>
-      </ul>
-      <p>The bar is <strong>info-only</strong> — it does not affect sector scores or rankings. Use it as context: the same sector ranking can mean different things depending on whether the broad market is in a healthy uptrend with low volatility or a stressed, risk-off environment. If both indicators flash caution (below 200-DMA + Stressed VIX), even top-ranked sectors carry higher absolute risk.</p>
-      <h4>Entry setup</h4>
-      <p>Composite &gt; 0 with <span class="signal-hi">↑</span> or <span class="signal-hi">↑↑</span> trajectory and a positive Change score. Click any row to see the full signal breakdown.</p>
-      <h4>Exit / avoid signal</h4>
-      <p><span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span> trajectory even when rank is still high — the sector is topping. Rank Δ turning negative confirms the reversal.</p>
-    </div>
-  </details>
-  <div id="sentiment-control" class="sentiment-control">
-    <label>
-      <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>
-    </label>
-    <span class="sw-weight">
-      <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
-    </span>
+  <div class="utility-row">
+    <details class="rank-settings">
+      <summary aria-label="Rank settings">⚙</summary>
+      <div id="sentiment-control" class="sentiment-control">
+        <label>
+          <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>
+        </label>
+        <span class="sw-weight">
+          <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
+        </span>
+      </div>
+    </details>
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_leaderboard">
+        <p>Every sector is ranked by <strong>composite score</strong> — a cross-sectional z-score blending level momentum (how strong the sector is now) and change momentum (whether it's accelerating or decelerating). A score of <strong>0</strong> means average across all sectors; <strong>+1.0</strong> means one standard deviation above average.</p>
+        <h4>Trend badge — the most actionable signal</h4>
+        <p>Computed as the linear slope of rank over the last 3–5 scans. A falling rank number means the sector is climbing the leaderboard.</p>
+        <ul>
+          <li><span class="signal-hi">↑↑ Rising fast</span> — rank improving 1.5+ places per scan. Strong entry signal.</li>
+          <li><span class="signal-hi">↑ Rising</span> — rank improving 0.3–1.5 places per scan. Emerging momentum.</li>
+          <li>→ Flat — rank stable. Momentum is neither building nor unwinding.</li>
+          <li><span class="signal-lo">↓ Falling</span> — rank deteriorating even if it is still high. Momentum is fading.</li>
+          <li><span class="signal-lo">↓↓ Falling fast</span> — avoid or consider exiting.</li>
+        </ul>
+        <h4>Macro regime chips</h4>
+        <p>The SPY and VIX chips in the header show two broad-market indicators refreshed each build:</p>
+        <ul>
+          <li><strong>SPY vs 200-DMA</strong> — The S&amp;P 500 ETF's distance from its 200-day simple moving average. <span class="signal-hi">Green / positive</span> = price above the 200-DMA (long-term uptrend, risk-on); <span class="signal-lo">red / negative</span> = below (risk-off). The percentage tells you how stretched the market is from the trend line.</li>
+          <li><strong>VIX band</strong> — The CBOE Volatility Index bucketed into three regimes: <strong>Calm</strong> (&lt;&nbsp;15), <strong>Elevated</strong> (15–25), and <strong>Stressed</strong> (&gt;&nbsp;25). Higher VIX = more fear and uncertainty.</li>
+        </ul>
+        <p>The chips are <strong>info-only</strong> — they do not affect sector scores or rankings. Use them as context: the same sector ranking can mean different things depending on whether the broad market is in a healthy uptrend with low volatility or a stressed, risk-off environment. If both indicators flash caution (below 200-DMA + Stressed VIX), even top-ranked sectors carry higher absolute risk.</p>
+        <h4>Entry setup</h4>
+        <p>Composite &gt; 0 with <span class="signal-hi">↑</span> or <span class="signal-hi">↑↑</span> trajectory and a positive Change score. Click any row to see the full signal breakdown.</p>
+        <h4>Exit / avoid signal</h4>
+        <p><span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span> trajectory even when rank is still high — the sector is topping. Rank Δ turning negative confirms the reversal.</p>
+      </div>
+    </details>
   </div>
-  <div id="scan-digest-banner" style="display:none">
+  <div id="scan-digest-banner" class="digest-collapsed" style="display:none">
     <span class="digest-cluster" data-cluster="entries">
       <span data-i18n="digest_new_top5">New in Top 5:</span>
       <span class="digest-chips" id="digest-chips-entries"></span>
     </span>
+    <span class="digest-toggle" role="button" tabindex="0" onclick="this.closest('#scan-digest-banner').classList.toggle('digest-collapsed'); this.textContent = this.textContent === 'more ▾' ? 'less ▴' : 'more ▾'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">more ▾</span>
     <span class="digest-cluster" data-cluster="up">
       <span data-i18n="digest_gains">Biggest gains:</span>
       <span class="digest-chips" id="digest-chips-up"></span>
@@ -138,22 +143,24 @@
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_rrg">
-      <p>Sectors are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
-      <h4>Four quadrants</h4>
-      <ul>
-        <li><strong>Leading (top-right):</strong> Outperforming AND accelerating. Currently strong — but watch for rotation into Weakening.</li>
-        <li><strong>Weakening (bottom-right):</strong> Outperforming but decelerating. <span class="signal-lo">Prime exit / reduce signal.</span></li>
-        <li><strong>Lagging (bottom-left):</strong> Underperforming AND decelerating. Avoid.</li>
-        <li><strong>Improving (top-left):</strong> Underperforming but accelerating. <span class="signal-hi">Prime entry signal</span> — sectors typically rotate counter-clockwise from here into Leading.</li>
-      </ul>
-      <h4>How to use</h4>
-      <p>Sectors rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show the last 3 scan positions — the direction of the tail matters more than the current position.</p>
-      <p><em>Note: current axes are composite-based proxies. True JdK RS-Ratio/Momentum requires daily price data relative to a benchmark.</em></p>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_rrg">
+        <p>Sectors are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
+        <h4>Four quadrants</h4>
+        <ul>
+          <li><strong>Leading (top-right):</strong> Outperforming AND accelerating. Currently strong — but watch for rotation into Weakening.</li>
+          <li><strong>Weakening (bottom-right):</strong> Outperforming but decelerating. <span class="signal-lo">Prime exit / reduce signal.</span></li>
+          <li><strong>Lagging (bottom-left):</strong> Underperforming AND decelerating. Avoid.</li>
+          <li><strong>Improving (top-left):</strong> Underperforming but accelerating. <span class="signal-hi">Prime entry signal</span> — sectors typically rotate counter-clockwise from here into Leading.</li>
+        </ul>
+        <h4>How to use</h4>
+        <p>Sectors rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show the last 3 scan positions — the direction of the tail matters more than the current position.</p>
+        <p><em>Note: current axes are composite-based proxies. True JdK RS-Ratio/Momentum requires daily price data relative to a benchmark.</em></p>
+      </div>
+    </details>
+  </div>
   <div class="chart-container" id="rrg-chart" style="height:520px"></div>
 </section>
 
@@ -161,21 +168,23 @@
      Tab: Drill-down
      ============================================================ -->
 <section id="tab-drilldown" class="tab-panel" role="tabpanel">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_drilldown">
-      <p>Select a sector to see its score component history across all stored scans.</p>
-      <h4>Key patterns</h4>
-      <ul>
-        <li><span class="signal-hi">Composite rising + Change score rising:</span> sustained acceleration. Highest-conviction entry setup.</li>
-        <li><span class="signal-lo">Composite near peak + Change score turning negative:</span> the sector is topping. Reduce or exit.</li>
-        <li>Composite falling but Change score rising: bottoming process. Watch for a second consecutive scan confirming before entering.</li>
-        <li>Level score and Change score diverging: momentum structure is breaking down — treat with caution.</li>
-      </ul>
-      <h4>How to use</h4>
-      <p>Pair with the leaderboard Trend badge. A sector showing <span class="signal-hi">↑</span> on the leaderboard that also has rising composite and change_score in the drill-down is the highest-conviction setup. A sector with a high rank but flat or falling change_score is likely to slip in the next scan.</p>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_drilldown">
+        <p>Select a sector to see its score component history across all stored scans.</p>
+        <h4>Key patterns</h4>
+        <ul>
+          <li><span class="signal-hi">Composite rising + Change score rising:</span> sustained acceleration. Highest-conviction entry setup.</li>
+          <li><span class="signal-lo">Composite near peak + Change score turning negative:</span> the sector is topping. Reduce or exit.</li>
+          <li>Composite falling but Change score rising: bottoming process. Watch for a second consecutive scan confirming before entering.</li>
+          <li>Level score and Change score diverging: momentum structure is breaking down — treat with caution.</li>
+        </ul>
+        <h4>How to use</h4>
+        <p>Pair with the leaderboard Trend badge. A sector showing <span class="signal-hi">↑</span> on the leaderboard that also has rising composite and change_score in the drill-down is the highest-conviction setup. A sector with a high rank but flat or falling change_score is likely to slip in the next scan.</p>
+      </div>
+    </details>
+  </div>
   <div class="drilldown-controls">
     <label for="sector-select">Sector:</label>
     <select class="sector-select" id="sector-select" onchange="updateDrilldown()">
@@ -192,18 +201,20 @@
      ============================================================ -->
 <section id="tab-movers" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_movers">
-      <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = sectors that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = sectors that slipped.</p>
-      <h4>How to use</h4>
-      <ul>
-        <li>A single large positive move can be a data event rather than sustained momentum — confirm in the Drill-down tab before acting.</li>
-        <li>Sectors with 2+ consecutive large positive moves in the History tab carry more conviction than single-scan jumps.</li>
-        <li><span class="signal-lo">Red flag:</span> a top-ranked sector with a large negative bar here is an early topping signal. Check the leaderboard Trend badge — if it shows <span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span>, the reversal is likely real.</li>
-      </ul>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_movers">
+        <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = sectors that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = sectors that slipped.</p>
+        <h4>How to use</h4>
+        <ul>
+          <li>A single large positive move can be a data event rather than sustained momentum — confirm in the Drill-down tab before acting.</li>
+          <li>Sectors with 2+ consecutive large positive moves in the History tab carry more conviction than single-scan jumps.</li>
+          <li><span class="signal-lo">Red flag:</span> a top-ranked sector with a large negative bar here is an early topping signal. Check the leaderboard Trend badge — if it shows <span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span>, the reversal is likely real.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
   <div class="chart-container" id="movers-chart"></div>
 </section>
 
@@ -212,21 +223,23 @@
      ============================================================ -->
 <section id="tab-history" class="tab-panel" role="tabpanel">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_history">
-      <p>Composite score trend across all stored scans for every sector. The composite is a cross-sectional z-score — 0 = sector-average for that scan.</p>
-      <h4>Key patterns</h4>
-      <ul>
-        <li><span class="signal-hi">Consistent upward slope:</span> quality momentum. The sector has been outperforming for multiple scans — this is the highest-quality signal.</li>
-        <li><span class="signal-lo">Sharp spike then reversal:</span> likely a one-time data event, not sustainable momentum. Treat with caution.</li>
-        <li>Gradual recovery from negative territory: potential emerging opportunity — cross-check the leaderboard Trend badge for confirmation.</li>
-        <li>Flat around zero: sector in line with average; no edge.</li>
-      </ul>
-      <h4>How to use</h4>
-      <p>Use as context for current rank. A sector ranked #1 after steadily rising for 10 scans is a different risk profile from one that jumped from #8 last scan. Long, smooth uptrends are the entries worth holding; V-shaped reversals are the ones to trade quickly or skip.</p>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_history">
+        <p>Composite score trend across all stored scans for every sector. The composite is a cross-sectional z-score — 0 = sector-average for that scan.</p>
+        <h4>Key patterns</h4>
+        <ul>
+          <li><span class="signal-hi">Consistent upward slope:</span> quality momentum. The sector has been outperforming for multiple scans — this is the highest-quality signal.</li>
+          <li><span class="signal-lo">Sharp spike then reversal:</span> likely a one-time data event, not sustainable momentum. Treat with caution.</li>
+          <li>Gradual recovery from negative territory: potential emerging opportunity — cross-check the leaderboard Trend badge for confirmation.</li>
+          <li>Flat around zero: sector in line with average; no edge.</li>
+        </ul>
+        <h4>How to use</h4>
+        <p>Use as context for current rank. A sector ranked #1 after steadily rising for 10 scans is a different risk profile from one that jumped from #8 last scan. Long, smooth uptrends are the entries worth holding; V-shaped reversals are the ones to trade quickly or skip.</p>
+      </div>
+    </details>
+  </div>
   <div class="table-wrap scan-index">
     <table>
       <thead>
@@ -278,105 +291,7 @@
   <p style="text-align:center;padding:24px;color:var(--fg4)">No backtest run yet. Run <code>python backtest.py</code>.</p>
   {% endif %}
 </section>
-
-<!-- ============================================================
-     Tab: Guide
-     ============================================================ -->
-<section id="tab-guide" class="tab-panel" role="tabpanel">
-  <div class="guide" data-i18n-html="guide_tab">
-    <h2>Leaderboard</h2>
-    <p>
-      The leaderboard ranks every sector by its <strong>composite score</strong> — a
-      weighted blend of level, momentum-change, and data-quality sub-scores. A higher
-      composite (more positive z-score) means the sector is exhibiting stronger relative
-      momentum versus its benchmark.
-    </p>
-    <ul>
-      <li><strong>Level score</strong> — captures the current absolute momentum level
-          (returns, MA structure, OBV trend).</li>
-      <li><strong>Change score</strong> — captures how momentum is accelerating or
-          decelerating versus the prior scan.</li>
-      <li><strong>Data score</strong> — reflects data completeness; sectors with missing
-          signals are penalised.</li>
-      <li><strong>Rank Δ</strong> — how many ranks the sector climbed (▲) or fell (▼)
-          versus the previous scan.</li>
-    </ul>
-    <p>Click any column header to sort the table.</p>
-
-    <h2>Relative Rotation Graph (RRG)</h2>
-    <p>
-      The RRG plots sectors on two axes derived from their relative strength vs the
-      benchmark index:
-    </p>
-    <ul>
-      <li><strong>X-axis (RS-Ratio)</strong> — whether the sector is outperforming (&gt; 100)
-          or underperforming (&lt; 100) the benchmark.</li>
-      <li><strong>Y-axis (RS-Momentum)</strong> — whether relative strength is
-          accelerating (&gt; 100) or decelerating (&lt; 100).</li>
-    </ul>
-    <p>Quadrant interpretation:</p>
-    <ul>
-      <li><strong>Leading</strong> (top-right) — outperforming and accelerating.</li>
-      <li><strong>Weakening</strong> (bottom-right) — outperforming but decelerating.</li>
-      <li><strong>Lagging</strong> (bottom-left) — underperforming and decelerating.</li>
-      <li><strong>Improving</strong> (top-left) — underperforming but accelerating.</li>
-    </ul>
-    <p>
-      Dotted tail lines show the last 5 scan positions per sector, indicating rotation
-      direction. Sectors rotating clockwise from Improving → Leading are the strongest
-      early-trend setups.
-    </p>
-
-    <h2>Drill-down</h2>
-    <p>
-      Select a sector from the dropdown to view how each score component has evolved over
-      time. Useful for spotting multi-scan trends — a rising <em>change_score</em>
-      alongside a rising <em>composite</em> is a strong signal of sustained momentum.
-    </p>
-
-    <h2>Movers</h2>
-    <p>
-      The movers panel shows the rank change between the two most recent scans.
-      <span style="color:var(--up)">Green bars</span> indicate sectors that climbed the
-      leaderboard; <span style="color:var(--down)">terracotta bars</span> indicate sectors that
-      slipped. Large moves may reflect data updates, macro events, or genuine momentum
-      shifts.
-    </p>
-
-    <h2>History</h2>
-    <p>
-      A line chart of composite score across all stored scans. Persistent upward trends
-      in a sector's composite score indicate sustained momentum, while reversals may
-      signal rotation into or out of the sector.
-    </p>
-
-    <h2>Macro Regime Bar</h2>
-    <p>
-      The strip below the header shows two broad-market context indicators, refreshed each
-      time the dashboard is built:
-    </p>
-    <ul>
-      <li><strong>SPY vs 200-DMA</strong> — the S&amp;P 500 ETF's percentage distance from
-          its 200-day simple moving average. Above = risk-on uptrend; below = risk-off.</li>
-      <li><strong>VIX band</strong> — the CBOE Volatility Index grouped into Calm (&lt; 15),
-          Elevated (15–25), or Stressed (&gt; 25).</li>
-    </ul>
-    <p>
-      These indicators are <strong>info-only</strong> and never affect sector scores or
-      rankings. They provide macro context so you can gauge absolute risk alongside relative
-      momentum. If the bar is hidden, the data was unavailable at build time.
-    </p>
-
-    <h2>Disclaimer</h2>
-    <p>
-      <strong>This tool is for analytical and educational purposes only.</strong>
-      It does not constitute investment advice or a recommendation to buy, sell, or hold
-      any security. Past momentum is not indicative of future returns. Always perform
-      your own due diligence and consult a qualified financial adviser before making
-      investment decisions.
-    </p>
-  </div>
-</section>
+</div>
 
 <!-- ============================================================
      JavaScript
@@ -664,7 +579,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 <script src="assets/scan-history.js"></script>
 <script src="assets/scan-digest.js"></script>
 
-{% include "_guide_modal.html.j2" %}
+{% include '_footer.html.j2' %}
 
 </body>
 </html>
