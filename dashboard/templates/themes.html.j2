@@ -13,8 +13,8 @@
 <body>
 {% set active_segment = "themes" %}
 {% include '_header.html.j2' %}
-{% include '_macro_bar.html.j2' %}
 
+<div class="card">
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
   <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" aria-selected="true" aria-controls="tab-leaderboard" data-i18n="tab_leaderboard">Leaderboard</button>
@@ -23,7 +23,6 @@
   <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers" data-i18n="tab_movers">Movers</button>
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history" data-i18n="tab_history">History</button>
   <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest" data-i18n="tab_backtest">Backtest</button>
-  <button class="tab-btn" onclick="switchTab('guide', this)" role="tab" aria-selected="false" aria-controls="tab-guide" data-i18n="tab_guide">Guide</button>
 </nav>
 
 <!-- ============================================================
@@ -79,21 +78,23 @@
      Tab: RRG
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel" role="tabpanel">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_rrg_themes">
-      <p>Themes are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
-      <h4>Four quadrants</h4>
-      <ul>
-        <li><strong>Leading (top-right):</strong> Outperforming AND accelerating.</li>
-        <li><strong>Weakening (bottom-right):</strong> Outperforming but decelerating. <span class="signal-lo">Prime exit / reduce signal.</span></li>
-        <li><strong>Lagging (bottom-left):</strong> Underperforming AND decelerating. Avoid.</li>
-        <li><strong>Improving (top-left):</strong> Underperforming but accelerating. <span class="signal-hi">Prime entry signal.</span></li>
-      </ul>
-      <h4>How to use</h4>
-      <p>Themes rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show the last scan positions — the direction of the tail matters more than the current position.</p>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_rrg_themes">
+        <p>Themes are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
+        <h4>Four quadrants</h4>
+        <ul>
+          <li><strong>Leading (top-right):</strong> Outperforming AND accelerating.</li>
+          <li><strong>Weakening (bottom-right):</strong> Outperforming but decelerating. <span class="signal-lo">Prime exit / reduce signal.</span></li>
+          <li><strong>Lagging (bottom-left):</strong> Underperforming AND decelerating. Avoid.</li>
+          <li><strong>Improving (top-left):</strong> Underperforming but accelerating. <span class="signal-hi">Prime entry signal.</span></li>
+        </ul>
+        <h4>How to use</h4>
+        <p>Themes rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show the last scan positions — the direction of the tail matters more than the current position.</p>
+      </div>
+    </details>
+  </div>
   <div class="chart-container" id="rrg-chart" style="height:520px"></div>
 </section>
 
@@ -101,18 +102,20 @@
      Tab: Drill-down
      ============================================================ -->
 <section id="tab-drilldown" class="tab-panel" role="tabpanel">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_drilldown_themes">
-      <p>Select a theme to see its score component history across all stored scans.</p>
-      <h4>Key patterns</h4>
-      <ul>
-        <li><span class="signal-hi">Composite rising + Change score rising:</span> sustained acceleration. Highest-conviction entry setup.</li>
-        <li><span class="signal-lo">Composite near peak + Change score turning negative:</span> the theme is topping. Reduce or exit.</li>
-        <li>Composite falling but Change score rising: bottoming process. Watch for confirmation before entering.</li>
-      </ul>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_drilldown_themes">
+        <p>Select a theme to see its score component history across all stored scans.</p>
+        <h4>Key patterns</h4>
+        <ul>
+          <li><span class="signal-hi">Composite rising + Change score rising:</span> sustained acceleration. Highest-conviction entry setup.</li>
+          <li><span class="signal-lo">Composite near peak + Change score turning negative:</span> the theme is topping. Reduce or exit.</li>
+          <li>Composite falling but Change score rising: bottoming process. Watch for confirmation before entering.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
   <div class="drilldown-controls">
     <label for="theme-select">Theme:</label>
     <select class="sector-select" id="theme-select" onchange="updateDrilldown()">
@@ -128,17 +131,19 @@
      Tab: Movers
      ============================================================ -->
 <section id="tab-movers" class="tab-panel" role="tabpanel">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_movers_themes">
-      <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = themes that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = themes that slipped.</p>
-      <h4>How to use</h4>
-      <ul>
-        <li>A single large positive move can be noise — confirm in the Drill-down tab before acting.</li>
-        <li>Themes with 2+ consecutive large positive moves in the History tab carry more conviction.</li>
-      </ul>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_movers_themes">
+        <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = themes that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = themes that slipped.</p>
+        <h4>How to use</h4>
+        <ul>
+          <li>A single large positive move can be noise — confirm in the Drill-down tab before acting.</li>
+          <li>Themes with 2+ consecutive large positive moves in the History tab carry more conviction.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
   <div class="chart-container" id="movers-chart"></div>
 </section>
 
@@ -146,18 +151,20 @@
      Tab: History
      ============================================================ -->
 <section id="tab-history" class="tab-panel" role="tabpanel">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary">How to read this tab</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_history_themes">
-      <p>Composite score trend across all stored scans for every theme. The composite is a cross-sectional z-score — 0 = theme-average for that scan.</p>
-      <h4>Key patterns</h4>
-      <ul>
-        <li><span class="signal-hi">Consistent upward slope:</span> quality momentum sustained over multiple scans.</li>
-        <li><span class="signal-lo">Sharp spike then reversal:</span> likely a one-time event, not sustainable.</li>
-        <li>Gradual recovery from negative territory: potential emerging opportunity.</li>
-      </ul>
-    </div>
-  </details>
+  <div class="utility-row">
+    <details class="tab-guide">
+      <summary data-i18n="guide_summary">How to read this tab</summary>
+      <div class="tab-guide-body" data-i18n-html="guide_body_history_themes">
+        <p>Composite score trend across all stored scans for every theme. The composite is a cross-sectional z-score — 0 = theme-average for that scan.</p>
+        <h4>Key patterns</h4>
+        <ul>
+          <li><span class="signal-hi">Consistent upward slope:</span> quality momentum sustained over multiple scans.</li>
+          <li><span class="signal-lo">Sharp spike then reversal:</span> likely a one-time event, not sustainable.</li>
+          <li>Gradual recovery from negative territory: potential emerging opportunity.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
   <div class="chart-container" id="history-chart" style="height:520px"></div>
 </section>
 
@@ -182,77 +189,7 @@
   <p style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="bt_themes_empty">No theme backtest yet. Run <code>python backtest.py</code>.</p>
   {% endif %}
 </section>
-
-<!-- ============================================================
-     Tab: Guide
-     ============================================================ -->
-<section id="tab-guide" class="tab-panel" role="tabpanel">
-  <div class="guide" data-i18n-html="guide_tab_themes">
-    <h2>Leaderboard</h2>
-    <p>
-      The leaderboard ranks every thematic ETF by its <strong>composite score</strong> — a
-      weighted blend of level, momentum-change, and data-quality sub-scores measured against
-      a global benchmark (ACWI). A higher composite means the theme is exhibiting stronger
-      relative momentum.
-    </p>
-    <ul>
-      <li><strong>Level score</strong> — current absolute momentum level (returns, MA structure, OBV trend).</li>
-      <li><strong>Change score</strong> — how momentum is accelerating or decelerating versus the prior scan.</li>
-      <li><strong>Data score</strong> — data completeness; themes with missing signals are penalised.</li>
-      <li><strong>Rank Δ</strong> — how many ranks the theme climbed (▲) or fell (▼) versus the previous scan.</li>
-    </ul>
-    <p>Click any row to see the full signal breakdown and UCITS alternative instruments.</p>
-
-    <h2>Relative Rotation Graph (RRG)</h2>
-    <p>
-      The RRG plots themes on two axes derived from their relative strength vs the benchmark:
-    </p>
-    <ul>
-      <li><strong>X-axis (RS-Ratio)</strong> — whether the theme is outperforming (&gt; 100) or underperforming (&lt; 100) the benchmark.</li>
-      <li><strong>Y-axis (RS-Momentum)</strong> — whether relative strength is accelerating (&gt; 100) or decelerating (&lt; 100).</li>
-    </ul>
-    <p>
-      Dotted tail lines show the last scan positions per theme, indicating rotation direction.
-      Themes rotating from Improving → Leading are the strongest early-trend setups.
-    </p>
-
-    <h2>Drill-down</h2>
-    <p>
-      Select a theme from the dropdown to view how each score component has evolved over time.
-      A rising <em>change_score</em> alongside a rising <em>composite</em> signals sustained momentum.
-    </p>
-
-    <h2>Movers</h2>
-    <p>
-      Rank change between the two most recent scans.
-      <span style="color:var(--up)">Green bars</span> indicate themes that climbed;
-      <span style="color:var(--down)">terracotta bars</span> indicate themes that slipped.
-    </p>
-
-    <h2>History</h2>
-    <p>
-      A line chart of composite score across all stored scans. Persistent upward trends
-      indicate sustained momentum; reversals may signal rotation into or out of the theme.
-    </p>
-
-    <h2>Backtest</h2>
-    <p>
-      Monthly top-N rotation backtest: at each month-end the scanner scores all themes
-      using only price data available up to that date (no look-ahead), picks the top N,
-      and holds them equal-weight for the next month. The equity curve compares the
-      strategy to the ACWI benchmark. Metrics: CAGR, Sharpe (risk-free = 0%), maximum
-      drawdown, hit rate (% of months the strategy beat the benchmark), and average
-      monthly turnover. Run <code>python backtest.py</code> to regenerate.
-    </p>
-
-    <h2>Disclaimer</h2>
-    <p>
-      <strong>This tool is for analytical and educational purposes only.</strong>
-      It does not constitute investment advice. Past momentum is not indicative of future
-      returns. Always perform your own due diligence.
-    </p>
-  </div>
-</section>
+</div>
 
 <!-- ============================================================
      JavaScript
@@ -349,7 +286,7 @@ document.getElementById('themes-table')?.addEventListener('keydown', function(e)
 {% include "_i18n.html.j2" %}
 </script>
 
-{% include "_guide_modal.html.j2" %}
+{% include '_footer.html.j2' %}
 
 </body>
 </html>
