@@ -87,8 +87,8 @@
 <!-- Header -->
 {% set active_segment = "sentiment" %}
 {% include '_header.html.j2' %}
-{% include '_macro_bar.html.j2' %}
 
+<div class="card">
 <section class="tab-panel active">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
 
@@ -98,6 +98,7 @@
     <button type="button" class="segment-btn" id="sent-tab-themes" data-cohort="themes" role="tab" aria-selected="false" aria-controls="sent-panel-themes" data-i18n="segment_themes">Themes</button>
   </div>
 
+  <div class="utility-row">
   <details class="tab-guide">
     <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
     <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
@@ -158,6 +159,7 @@
          driver — search interest is noisy and can lag price.</p>
     </div>
   </details>
+  </div>
 
   <!-- ===== Sectors cohort ===== -->
   <div class="cohort-panel" data-cohort="sectors" id="sent-panel-sectors" role="tabpanel" aria-labelledby="sent-tab-sectors">
@@ -182,6 +184,7 @@
     {% endif %}
   </div>
 </section>
+</div>
 
 <script>
 var SENTIMENT_DATA = {{ sentiment_scatter_json | js_json }};
@@ -281,7 +284,7 @@ var THEME_SENTIMENT_DATA = {{ theme_sentiment_scatter_json | js_json }};
 {% include "_i18n.html.j2" %}
 </script>
 
-{% include "_guide_modal.html.j2" %}
+{% include '_footer.html.j2' %}
 
 </body>
 </html>
