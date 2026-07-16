@@ -43,3 +43,12 @@ def fetch_macro_data(cache_dir="data/cache"):
         logger.warning("Macro price fetch failed: %s", exc)
         return None
     return build_macro_context(prices.get("SPY"), prices.get("^VIX"))
+
+
+def build_page_context(shared: dict) -> dict:
+    """Assemble macro regime context (used by all pages)."""
+    return {
+        "macro": fetch_macro_data(
+            cache_dir=str(shared["project_root"] / "data" / "cache"),
+        ),
+    }

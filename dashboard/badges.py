@@ -186,3 +186,14 @@ def build_badge_scorecard(
             })
 
     return result
+
+
+def build_page_context(shared: dict) -> dict:
+    """Assemble badge scorecard context for the sectors page."""
+    return {
+        "badge_scorecard": build_badge_scorecard(
+            shared["all_scores_df"],
+            shared["universe"],
+            price_cache_dir=str(shared["project_root"] / "data/cache"),
+        ),
+    }
