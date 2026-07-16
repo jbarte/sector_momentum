@@ -287,6 +287,38 @@
   <p class="tab-note">Scanner rank (inverted: up = better) vs the sector ETF's indexed price across each curated rotation.</p>
   <div id="rotation-charts"></div>
   {% endif %}
+  {% if badge_scorecard %}
+  <h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)" data-i18n="badge_scorecard_title">Badge scorecard</h3>
+  <p class="tab-note" data-i18n="badge_scorecard_desc">5-day forward return after each badge appeared.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-i18n="badge_sc_badge">Badge</th>
+          <th data-i18n="badge_sc_count">Count</th>
+          <th data-i18n="badge_sc_hit_rate">Hit rate</th>
+          <th data-i18n="badge_sc_mean">Mean</th>
+          <th data-i18n="badge_sc_median">Median</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in badge_scorecard %}
+        <tr>
+          <td><span data-i18n="badge_{{ row.badge_key }}">{{ row.badge }}</span></td>
+          <td>{{ row.count }}</td>
+          {% if row.hit_rate is not none %}
+          <td>{{ "%.0f%%"|format(row.hit_rate * 100) }}</td>
+          <td class="{% if row.mean_return > 0 %}signal-hi{% elif row.mean_return < 0 %}signal-lo{% endif %}">{{ "%+.1f%%"|format(row.mean_return * 100) }}</td>
+          <td class="{% if row.median_return > 0 %}signal-hi{% elif row.median_return < 0 %}signal-lo{% endif %}">{{ "%+.1f%%"|format(row.median_return * 100) }}</td>
+          {% else %}
+          <td>—</td><td>—</td><td>—</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
   {% else %}
   <p style="text-align:center;padding:24px;color:var(--fg4)">No backtest run yet. Run <code>python backtest.py</code>.</p>
   {% endif %}

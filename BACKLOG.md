@@ -34,30 +34,6 @@ directionless, and ambiguous-ticker-contaminated. FinBERT sidesteps search-term
 ambiguity entirely and adds direction. Base FinBERT is English-only; EU/Swedish
 needs a multilingual variant or translate-then-score.
 
-## Unify regional benchmarks for true cross-region scoring
-
-**What:** Re-base US and EU scoring onto a common footing so sector scores are
-comparable *in absolute terms across regions*, not just within each region.
-
-**Why (the gap):** Each region's `data_score` is z-scored within its own
-11-sector cohort, so both cohorts are centered at zero by construction. Any
-cross-region combination measures "leads within both regions" — it cannot see
-that one whole region is broadly stronger than the other.
-
-**Two layers to the fix:**
-- **Global z-score re-pool** — z-score the price-based signals (returns, MA
-  distances, slopes) across all 22 region-sectors in one pool. These signals
-  are already absolute, so re-pooling makes them genuinely comparable.
-- **Common benchmark** — RS-ratio/RS-momentum are measured against each
-  region's own benchmark (US `RSP`, EU `EXSA.DE`); true comparability needs
-  both re-based to a single global benchmark (e.g. ACWI). The larger change.
-
-**Cost / notes:** Touches core scoring (`src/scoring.py`, `scan.py`), breaks
-client-side parity for the sentiment toggle. Only worth it if absolute
-cross-region ranking becomes a real need — within-region semantics are a
-defensible default for a rotation scanner. From the sector-view-toggle design
-discussion (2026-06-25).
-
 ## Forward-return validation (do the rankings predict anything?)
 
 **What:** For each historical scan, compute the forward 1-month return of that
@@ -72,17 +48,6 @@ dashboard-build time; scans younger than the horizon show "pending".
 **Design notes:** pick the horizon (1M to match the rotation backtest), handle
 the price-cache `start` truncation issue (see Maintenance sweep) if longer
 history is needed, and keep it info-only.
-
-## Entry/Exit badge scorecard
-
-**What:** Historical hit rate for the Entry/Exit setup badges: each time a
-badge appeared on a past scan, measure the sector's forward return over a
-fixed horizon, and show per-badge stats (count, hit rate, avg forward return).
-
-**Why:** The badges are currently decorative heuristics; this measures whether
-they earn their place. Natural companion to forward-return validation above —
-same data plumbing (past ranks/trajectories + forward prices), so consider
-building them together.
 
 ## Holding-period stats (how long to hold a position)
 
@@ -153,6 +118,25 @@ dashboard's drill-down tab covers most of the need.
   `dashboard/macro.py` computes the indicators; `_macro_bar.html.j2` renders the strip
   on all three pages. Info-only, no scoring impact. *(2026-07-15)*
 
+- **Entry/Exit badge scorecard** — historical hit-rate table for all 7 badge
+  types (Entry, Exit, 5 trajectory states) plus a no-badge baseline. For each
+  badge that appeared on a past scan, computes the 5-trading-day forward ETF
+  return and aggregates count, hit rate, mean, and median. Displayed in the
+  Backtest tab below the equity curves. Computed at `build.py` time from
+  `get_scan_history(n_scans=None)` + cached prices; no new DB tables.
+  `dashboard/badges.py` holds the logic. EN+SV i18n. Info-only — no scoring
+  impact. *(2026-07-16)*
+- **Dashboard UX redesign** — compact command bar (scan info + page nav +
+  disclaimer + guide + lang toggle), card-shell surfaces on all three pages
+  (sectors, themes, sentiment), utility-row pattern for tab actions, footer
+  with version/feed/GitHub links. Deleted macro bar (absorbed into command
+  bar), guide modal, and several legacy layout patterns. Full CSS variable
+  foundation. *(2026-07-16)*
+- **Macro regime context bar** — risk-on/risk-off context bar: SPY vs 200-DMA
+  (above/below + distance) and VIX band (calm/elevated/stressed) from cached
+  daily prices. Displayed in the command bar's macro context section.
+  `dashboard/macro.py` builds the context; info-only, no scoring impact.
+  *(2026-07-15)*
 - **RSS/Atom feed of scan results** — `build.py` now emits `docs/feed.xml`, an Atom
   feed with one entry per scan (last 30). Each entry lists the top-5 sectors per region
   and biggest rank movers. All three HTML pages link to the feed via
