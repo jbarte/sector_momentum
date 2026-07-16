@@ -79,6 +79,9 @@ from dashboard.macro import (                     # noqa: E402, F401
     build_macro_context,
     fetch_macro_data,
 )
+from dashboard.badges import (                    # noqa: E402, F401
+    build_badge_scorecard,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +309,12 @@ def main() -> None:
     else:
         logger.warning("Macro data unavailable — regime bar will be hidden")
 
+    logger.info("Building badge scorecard …")
+    badge_scorecard = build_badge_scorecard(
+        all_scores_df, _universe,
+        price_cache_dir=str(project_root / "data/cache"),
+    )
+
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
     import shutil
     docs_assets = out_dir / "assets"
@@ -351,6 +360,7 @@ def main() -> None:
             rotation_json=backtest_ctx["rotation_json"],
             has_rotations=backtest_ctx["has_rotations"],
             macro=macro_ctx,
+            badge_scorecard=badge_scorecard,
         ),
     )
 
