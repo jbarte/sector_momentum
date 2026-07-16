@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --beige-50:  #FAF7F0;
+  --beige-100: #F5F0E6;
+  --beige-200: #EDE6D6;
+  --beige-300: #DFD5BE;
+  --beige-400: #C4B89A;
+  --beige-500: #8F8568;
+  --beige-600: #5E5742;
+  --beige-700: #3E392B;
+  --beige-900: #1F1C15;
+
+  --green-100: #E2EBD9;
+  --green-300: #A9BF95;
+  --green-400: #8FA77A;
+  --green-600: #5A6F49;
+  --green-700: #455636;
+
+  --terra-400: #BF6F50;
+  --terra-500: #A55A3C;
+
+  --bg:           var(--canvas);
+  --bg-raised:    var(--beige-50);
+  --bg-sunken:    var(--beige-200);
+  --fg1:          var(--beige-900);
+  --fg2:          var(--beige-700);
+  --fg3:          var(--beige-600);
+  --fg4:          var(--beige-500);
+  --brand-strong: var(--green-600);
+  --border:       var(--beige-300);
+  --border-soft:  var(--beige-200);
+  --up:           var(--green-600);
+  --down:         var(--terra-500);
+
+  --font-display: 'Familjen Grotesk', 'Helvetica Neue', system-ui, sans-serif;
+  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   14px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(62,57,43,0.06);
+  --shadow-sm: 0 1px 2px rgba(62,57,43,0.05), 0 2px 6px rgba(62,57,43,0.04);
+  --canvas:      #f1ecdf;
+  --surface:     #ffffff;
+  --shadow-card: 0 1px 5px rgba(60,55,40,0.10);
+
+  --ease-standard: cubic-bezier(0.2,0.6,0.2,1);
+  --duration-fast: 140ms;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg2);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+/* =========================================================
+   Responsive
+   ========================================================= */
+@media (max-width: 600px) {
+  .command-bar { padding: 10px 16px; }
+  .card { margin: 12px 12px 16px; }
+  .card > .tab-panel { padding: 14px 16px; }
+  .card > .tabs { padding: 0 8px; }
+  .site-footer { padding: 14px 16px; }
+}
+@media (max-width: 420px) {
+  .scan-meta { display: none; }
+}
