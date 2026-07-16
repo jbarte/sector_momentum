@@ -1,6 +1,5 @@
-<header>
+<div class="command-bar">
   <h1 data-i18n="title">Sector momentum</h1>
-  <span class="scan-date"><span data-i18n="lastScan">Last scan:</span> {% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
   <div class="segment-toggle" role="tablist" aria-label="Dashboard segment">
     {% if active_segment == "sectors" %}
     <span class="segment-btn active" aria-current="page" data-i18n="segment_sectors">Sectors</span>
@@ -18,7 +17,16 @@
     <a class="segment-btn" href="sentiment.html" data-i18n="segment_sentiment">Sentiment</a>
     {% endif %}
   </div>
-  <span class="disclaimer" data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
-  <button id="guide-open-btn" class="guide-open-btn" type="button" aria-label="Open guide" data-i18n="guide_open_btn">Guide</button>
-  <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
-</header>
+  <div class="meta-cluster">
+    {% if macro %}
+    <span class="chip {{ 'chip-up' if macro.spy_above else 'chip-down' }}"
+          title="vs 200-DMA — {{ 'above' if macro.spy_above else 'below' }}"
+          data-i18n-title="{{ 'macro_chip_spy_above' if macro.spy_above else 'macro_chip_spy_below' }}">SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%</span>
+    <span class="chip chip-{{ macro.vix_band|lower }}"
+          title="{{ macro.vix_band }}"
+          data-i18n-title="macro_vix_{{ macro.vix_band|lower }}">VIX {{ "%.1f"|format(macro.vix_last) }}</span>
+    {% endif %}
+    <span class="scan-meta">{% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
+    <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
+  </div>
+</div>
