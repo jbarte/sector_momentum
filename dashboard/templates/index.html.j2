@@ -34,7 +34,7 @@
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <div class="utility-row">
     <details class="rank-settings">
-      <summary>⚙</summary>
+      <summary aria-label="Rank settings">⚙</summary>
       <div id="sentiment-control" class="sentiment-control">
         <label>
           <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>
@@ -76,7 +76,7 @@
       <span data-i18n="digest_new_top5">New in Top 5:</span>
       <span class="digest-chips" id="digest-chips-entries"></span>
     </span>
-    <span class="digest-toggle" onclick="this.closest('#scan-digest-banner').classList.toggle('digest-collapsed'); this.textContent = this.textContent === 'more ▾' ? 'less ▴' : 'more ▾'">more ▾</span>
+    <span class="digest-toggle" role="button" tabindex="0" onclick="this.closest('#scan-digest-banner').classList.toggle('digest-collapsed'); this.textContent = this.textContent === 'more ▾' ? 'less ▴' : 'more ▾'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">more ▾</span>
     <span class="digest-cluster" data-cluster="up">
       <span data-i18n="digest_gains">Biggest gains:</span>
       <span class="digest-chips" id="digest-chips-up"></span>
