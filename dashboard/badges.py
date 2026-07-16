@@ -174,7 +174,7 @@ def build_badge_scorecard(
                 hits = sum(1 for r in obs if r > 0)
             elif bullish is False:
                 hits = sum(1 for r in obs if r < 0)
-            else:
+            else:  # neutral (flat / no-badge): % positive as baseline
                 hits = sum(1 for r in obs if r > 0)
             result.append({
                 "badge": label,

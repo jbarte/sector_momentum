@@ -4,12 +4,10 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pandas as pd
-import pytest
-
 from dashboard.badges import build_badge_scorecard
 
 
-def _make_history(n_scans: int = 8, n_sectors: int = 4) -> pd.DataFrame:
+def _make_history(n_scans: int = 8) -> pd.DataFrame:
     """Synthetic scan history with controllable ranks.
 
     Sector layout (region=US):
