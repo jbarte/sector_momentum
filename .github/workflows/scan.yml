@@ -33,6 +33,7 @@ jobs:
       - name: Run scan
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python scan.py --no-dashboard
 

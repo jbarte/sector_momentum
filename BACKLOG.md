@@ -69,18 +69,6 @@ historical-stats panels.
 above a composite threshold?) before implementing — that choice drives the
 whole stat. Info-only, no scoring impact.
 
-## Threshold alerts (daily scan notifications)
-
-**What:** A post-scan step in `scan.yml` that sends a notification when a
-threshold event occurs: sector enters/exits the top 3, or a trajectory flips.
-Delivery via a free push channel (e.g. ntfy.sh topic, or GitHub Issues as a
-poor-man's inbox) — decide in design.
-
-**Why:** The dashboard is pull-only; rank transitions are exactly the moments
-worth a push. Needs: event detection (compare latest two scans — trivially
-derivable from the DB), a delivery secret/topic, and a "no events, no noise"
-rule. Non-fatal like the other post-scan steps.
-
 ---
 
 # Parked
@@ -111,6 +99,15 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Threshold alerts (daily scan notifications)** — post-scan step (Step 15 in
+  `scan.py`) compares the two latest scans and sends a ntfy.sh push notification
+  when a sector or theme enters or exits the top 3 ranks. Covers both US/EU
+  sectors and themes. "No events, no noise" — nothing sent if the top 3 is
+  unchanged. `src/alerts.py` handles event detection, formatting, and delivery
+  (stdlib `urllib`, no new dependency). Fail-open: missing `NTFY_TOPIC` env var
+  silently skips; `--no-alerts` CLI flag to suppress. CI wired via
+  `scan.yml` secret. *(2026-07-17)*
 
 - **Macro regime context bar** — a thin info strip below the dashboard header showing
   SPY vs 200-DMA (above/below + distance %) and VIX band (Calm/Elevated/Stressed).
