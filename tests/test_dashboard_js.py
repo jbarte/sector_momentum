@@ -43,37 +43,56 @@ def _template_js_vars() -> set[str]:
     return set(re.findall(r"var\s+[A-Z_]+\s*=\s*\{\{\s*(\w+)\s*\|?\s*safe\s*\}\}", text))
 
 
-def _render_context_keys() -> set[str]:
-    """Extract the keys passed to _render(context=dict(...)) in build.py's main().
+def _dict_literal_keys(text: str, marker_re: "re.Pattern[str]") -> set[str]:
+    """Find every `{ "key": value, ... }` dict literal whose opening brace is
+    matched by ``marker_re``, and return the union of their string keys.
 
-    Finds ALL _render() calls (there are 3: index, sentiment, themes) and collects
-    context keys from each one. Uses parenthesis depth-counting to handle nested
-    calls like json.dumps(...). This approach is more robust than matching a single
-    `context=dict(` marker — it finds all render calls and extracts the union of
-    their context keys.
+    Uses brace depth-counting so nested dicts/lists inside a value don't
+    confuse the block boundary.
     """
-    text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
-    all_keys: set[str] = set()
-    marker = "context=dict("
-    search_start = 0
-    while True:
-        start = text.find(marker, search_start)
-        if start == -1:
-            break
-        paren_start = start + len(marker) - 1
+    keys: set[str] = set()
+    for m in marker_re.finditer(text):
+        start = m.end() - 1  # position of the opening "{"
         depth = 0
-        context_block = ""
-        for i, ch in enumerate(text[paren_start:], paren_start):
-            if ch == "(":
+        block = None
+        for i, ch in enumerate(text[start:], start):
+            if ch == "{":
                 depth += 1
-            elif ch == ")":
+            elif ch == "}":
                 depth -= 1
                 if depth == 0:
-                    context_block = text[paren_start + 1 : i]
+                    block = text[start + 1:i]
                     break
-        keys = set(re.findall(r"^\s*(\w+)\s*=", context_block, re.MULTILINE))
-        all_keys.update(keys)
-        search_start = start + len(marker)
+        if block is not None:
+            keys.update(re.findall(r'"(\w+)"\s*:', block))
+    return keys
+
+
+def _render_context_keys() -> set[str]:
+    """Collect the union of keys that end up in the three page render contexts.
+
+    Post hub-file-split refactor, build.py no longer builds one flat
+    `context=dict(...)` call per page — it assembles a `{...}` dict literal
+    (`sectors_ctx`, `sentiment_ctx`, `themes_ctx`) and merges in the keys
+    returned by each module's `build_page_context` / `build_sectors_context` /
+    `build_themes_context` via `.update(...)`. This walks both sources:
+      1. The literal `xxx_ctx = { ... }` dicts declared in build.py's main().
+      2. The `return { ... }` dict literals of the context-builder functions
+         in dashboard/figures.py, sentiment.py, badges.py, and macro.py.
+    """
+    dashboard_dir = Path(__file__).parent.parent / "dashboard"
+    all_keys: set[str] = set()
+
+    build_text = (dashboard_dir / "build.py").read_text()
+    all_keys |= _dict_literal_keys(build_text, re.compile(r"\w+_ctx\s*=\s*\{"))
+
+    for module_name in ("figures.py", "sentiment.py", "badges.py", "macro.py"):
+        module_text = (dashboard_dir / module_name).read_text()
+        # Grabs every `return { ... }` dict literal in the module — a superset
+        # of just the context-builder functions is fine here since extra keys
+        # (e.g. macro.build_macro_context's nested "spy_last" etc.) only widen
+        # the set, never cause a false "missing" report below.
+        all_keys |= _dict_literal_keys(module_text, re.compile(r"return \{"))
     return all_keys
 
 

@@ -623,3 +623,58 @@ def _build_scan_history_data(all_scores_df) -> dict:
         scores[str(int(sid))] = sid_scores
 
     return {"scans": scans, "scores": scores}
+
+
+# ---------------------------------------------------------------------------
+# Page context builders
+# ---------------------------------------------------------------------------
+
+def build_sectors_context(shared: dict) -> dict:
+    """Assemble all figure + backtest context entries for the sectors page."""
+    import json as _json
+
+    rrg_json = _build_rrg_figure(shared["rrg_df"])
+    sector_signal_data, sector_keys, signals_list = _build_drilldown_data(shared["history_df"])
+    movers_json = _build_movers_figure(shared["history_df"])
+    history_json = _build_history_figure(shared["history_df"])
+    rescore_data_json = _json.dumps(_build_rescore_data(shared["history_df"]))
+    scan_history_json = _json.dumps(_build_scan_history_data(shared["all_scores_df"]))
+    bt = _build_backtest_context(str(shared["project_root"] / "backtests"))
+
+    return {
+        "rrg_data_json": rrg_json,
+        "drilldown_data": _json.dumps(sector_signal_data),
+        "sector_keys": sector_keys,
+        "signals_list": signals_list,
+        "movers_json": movers_json,
+        "history_json": history_json,
+        "rescore_data_json": rescore_data_json,
+        "scan_history_json": scan_history_json,
+        "backtest_json": bt["backtest_json"],
+        "backtest_metrics": bt["backtest_metrics"],
+        "has_backtest": bt["has_backtest"],
+        "rotation_json": bt["rotation_json"],
+        "has_rotations": bt["has_rotations"],
+    }
+
+
+def build_themes_context(shared: dict) -> dict:
+    """Assemble all figure + backtest context entries for the themes page."""
+    import json as _json
+
+    theme_rrg_json = _build_rrg_figure(shared["theme_rrg_df"])
+    theme_dd, theme_keys, _ = _build_drilldown_data(shared["theme_history_df"])
+    theme_movers_json = _build_movers_figure(shared["theme_history_df"])
+    theme_history_json = _build_history_figure(shared["theme_history_df"])
+    bt = _build_theme_backtest_context(str(shared["project_root"] / "backtests_themes"))
+
+    return {
+        "theme_rrg_json": theme_rrg_json,
+        "theme_drilldown_data": _json.dumps(theme_dd),
+        "theme_keys": theme_keys,
+        "theme_movers_json": theme_movers_json,
+        "theme_history_json": theme_history_json,
+        "theme_backtest_json": bt["theme_backtest_json"],
+        "theme_backtest_metrics": bt["theme_backtest_metrics"],
+        "has_theme_backtest": bt["has_theme_backtest"],
+    }

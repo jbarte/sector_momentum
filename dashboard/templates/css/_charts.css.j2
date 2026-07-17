@@ -1,0 +1,46 @@
+/* =========================================================
+   Plotly chart containers
+   ========================================================= */
+.chart-container {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-height: 420px;
+  box-shadow: var(--shadow-xs);
+}
+
+/* =========================================================
+   Drill-down panel
+   ========================================================= */
+.drilldown-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.drilldown-controls label {
+  color: var(--fg4);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
+select.sector-select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg1);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 7px 12px;
+  cursor: pointer;
+  min-width: 220px;
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+select.sector-select:focus {
+  border-color: var(--green-400);
+  box-shadow: 0 0 0 3px rgba(143,167,122,0.2);
+}

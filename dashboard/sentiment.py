@@ -61,3 +61,15 @@ def _build_sentiment_signal_rows(sent_df) -> list[dict]:
         })
     rows.sort(key=lambda r: r["_momentum"], reverse=True)
     return rows
+
+
+def build_page_context(shared: dict) -> dict:
+    """Assemble sentiment page context (both sector and theme cohorts)."""
+    from dashboard.figures import _build_sentiment_scatter_figure
+
+    return {
+        "sentiment_scatter_json": _build_sentiment_scatter_figure(shared["history_df"]),
+        "sentiment_signal_rows": _build_sentiment_signal_rows(shared["sentiment_signals_df"]),
+        "theme_sentiment_scatter_json": _build_sentiment_scatter_figure(shared["theme_history_df"]),
+        "theme_sentiment_signal_rows": _build_sentiment_signal_rows(shared["theme_sentiment_signals_df"]),
+    }

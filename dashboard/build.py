@@ -9,7 +9,6 @@ Run after scan.py:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 from pathlib import Path
@@ -34,53 +33,58 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 
-# Re-export public API so existing imports keep working
-from dashboard.rows import (                      # noqa: E402, F401
-    _safe_float,
-    _format_raw_value,
-    _compute_rank_trajectories,
-    _compute_setup,
-    _build_leaderboard_rows,
-    _build_theme_leaderboard_rows,
+# Re-export public API so existing imports keep working (alphabetized)
+from dashboard.badges import (                      # noqa: E402, F401
+    build_badge_scorecard,
+    build_page_context as _badges_ctx,
 )
-from dashboard.breakdown import (                 # noqa: E402, F401
+from dashboard.breakdown import (                   # noqa: E402, F401
     _build_breakdown_html,
     _build_instruments_html,
-    _SIGNAL_META,
     _SIGNAL_DESCRIPTIONS,
+    _SIGNAL_META,
 )
-from dashboard.figures import (                   # noqa: E402, F401
-    _build_rrg_figure,
-    _build_sentiment_scatter_figure,
-    _build_drilldown_data,
-    _build_movers_figure,
-    _build_history_figure,
-    _build_backtest_figures,
-    _build_rotation_figures,
-    _build_backtest_context,
-    _build_theme_backtest_context,
-    _build_rescore_data,
-    _build_scan_history_data,
-    _WARM_PALETTE,
-    _SCORE_SIGNAL_COLORS,
-)
-from dashboard.sentiment import (                 # noqa: E402, F401
-    _build_sentiment_signal_rows,
-)
-from dashboard.reports import (                   # noqa: E402, F401
-    build_scan_index,
-    _generate_scan_reports,
-)
-from dashboard.feed import (                      # noqa: E402, F401
+from dashboard.feed import (                         # noqa: E402, F401
     build_feed_entries,
     feed_updated_timestamp,
 )
-from dashboard.macro import (                     # noqa: E402, F401
+from dashboard.figures import (                      # noqa: E402, F401
+    _SCORE_SIGNAL_COLORS,
+    _WARM_PALETTE,
+    _build_backtest_context,
+    _build_backtest_figures,
+    _build_drilldown_data,
+    _build_history_figure,
+    _build_movers_figure,
+    _build_rescore_data,
+    _build_rotation_figures,
+    _build_rrg_figure,
+    _build_scan_history_data,
+    _build_sentiment_scatter_figure,
+    _build_theme_backtest_context,
+    build_sectors_context as _figures_sectors_ctx,
+    build_themes_context as _figures_themes_ctx,
+)
+from dashboard.macro import (                        # noqa: E402, F401
     build_macro_context,
+    build_page_context as _macro_ctx,
     fetch_macro_data,
 )
-from dashboard.badges import (                    # noqa: E402, F401
-    build_badge_scorecard,
+from dashboard.reports import (                      # noqa: E402, F401
+    build_scan_index,
+    _generate_scan_reports,
+)
+from dashboard.rows import (                         # noqa: E402, F401
+    _build_leaderboard_rows,
+    _build_theme_leaderboard_rows,
+    _compute_rank_trajectories,
+    _compute_setup,
+    _format_raw_value,
+    _safe_float,
+)
+from dashboard.sentiment import (                    # noqa: E402, F401
+    _build_sentiment_signal_rows,
+    build_page_context as _sentiment_ctx,
 )
 
 
@@ -203,9 +207,6 @@ def main() -> None:
     active_scan_id = scan_index[0]["scan_id"] if scan_index else None
     _generate_scan_reports(all_scores_df, out_dir / "reports")
 
-    logger.info("Building scan history data …")
-    scan_history_data = _build_scan_history_data(all_scores_df)
-
     conn.close()
 
     if history_df.empty:
@@ -223,51 +224,39 @@ def main() -> None:
     _etfs_path = project_root / "config/sector_etfs.yaml"
     _sector_etfs = _yaml.safe_load(_etfs_path.read_text()) if _etfs_path.exists() else {}
 
-    # Themes leaderboard rows (Phase 1 — read-only)
     _themes_path = project_root / "config/themes.yaml"
     _themes_cfg = _yaml.safe_load(_themes_path.read_text()) if _themes_path.exists() else {}
+
+    # ------------------------------------------------------------------
+    # Shared dependencies for module context builders
+    # ------------------------------------------------------------------
+    shared = {
+        "project_root": project_root,
+        "all_scores_df": all_scores_df,
+        "history_df": history_df,
+        "theme_history_df": theme_history_df,
+        "rrg_df": rrg_df,
+        "theme_rrg_df": theme_rrg_df,
+        "universe": _universe,
+        "sentiment_signals_df": sentiment_signals_df,
+        "theme_sentiment_signals_df": theme_sentiment_signals_df,
+    }
+
+    # ------------------------------------------------------------------
+    # Page-specific context that stays in build.py (complex, stable)
+    # ------------------------------------------------------------------
+
+    # Themes leaderboard rows
     theme_trajectories = _compute_rank_trajectories(theme_history_df)
     theme_rows = _build_theme_leaderboard_rows(
         theme_history_df, theme_signals_df, _themes_cfg, _weights, theme_trajectories,
     )
 
-    # Theme figures — reuse the same builders used for sectors
-    logger.info("Building theme figures …")
-    theme_rrg_json = _build_rrg_figure(theme_rrg_df)
-    theme_drilldown_data, theme_keys, _ = _build_drilldown_data(theme_history_df)
-    theme_movers_json = _build_movers_figure(theme_history_df)
-    theme_history_json = _build_history_figure(theme_history_df)
-
-    # 3. Build figures
-    logger.info("Building RRG figure …")
-    rrg_json = _build_rrg_figure(rrg_df)
-
-    logger.info("Building drill-down data …")
-    sector_signal_data, sector_keys, signals_list = _build_drilldown_data(history_df)
-
-    logger.info("Building movers figure …")
-    movers_json = _build_movers_figure(history_df)
-
-    logger.info("Building history figure …")
-    history_json = _build_history_figure(history_df)
-
-    logger.info("Building sentiment scatter …")
-    sentiment_scatter_json = _build_sentiment_scatter_figure(history_df)
-    sentiment_signal_rows = _build_sentiment_signal_rows(sentiment_signals_df)
-    # Theme sentiment — reuse the sector scatter/row builders. theme_history_df
-    # exposes data_score + sentiment_score aliased region="THEME"; the sentiment
-    # signal getter aliases region/gics_sector so the row builder works verbatim.
-    theme_sentiment_scatter_json = _build_sentiment_scatter_figure(theme_history_df)
-    theme_sentiment_signal_rows = _build_sentiment_signal_rows(theme_sentiment_signals_df)
-
-    logger.info("Building rescore data …")
-    rescore_data_json = json.dumps(_build_rescore_data(history_df))
-
+    # Leaderboard rows + enrichment
     logger.info("Building leaderboard …")
     leaderboard_rows, scan_date = _build_leaderboard_rows(history_df)
     trajectories = _compute_rank_trajectories(history_df)
 
-    # Enrich rows with breakdown HTML (keyed by sector_id for JS toggle)
     latest_scan_id = history_df["scan_id"].max()
     latest_scores  = history_df[history_df["scan_id"] == latest_scan_id]
     for row in leaderboard_rows:
@@ -296,25 +285,6 @@ def main() -> None:
             key, score_row_dict, row_signals, _universe, _weights, _sector_etfs
         )
 
-    logger.info("Building backtest context …")
-    backtest_ctx = _build_backtest_context(str(project_root / "backtests"))
-    theme_backtest_ctx = _build_theme_backtest_context(str(project_root / "backtests_themes"))
-
-    logger.info("Fetching macro regime data …")
-    macro_ctx = fetch_macro_data(cache_dir=str(project_root / "data" / "cache"))
-    if macro_ctx:
-        logger.info("Macro: SPY %+.1f%% vs 200-DMA, VIX %.1f (%s)",
-                     macro_ctx["spy_distance_pct"], macro_ctx["vix_last"],
-                     macro_ctx["vix_band"])
-    else:
-        logger.warning("Macro data unavailable — regime bar will be hidden")
-
-    logger.info("Building badge scorecard …")
-    badge_scorecard = build_badge_scorecard(
-        all_scores_df, _universe,
-        price_cache_dir=str(project_root / "data/cache"),
-    )
-
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
     import shutil
     docs_assets = out_dir / "assets"
@@ -333,70 +303,65 @@ def main() -> None:
         shutil.copy2(scan_digest_src, docs_assets / "scan-digest.js")
     plotly_bundle_rel = "assets/plotly.min.js"
 
-    # 5. Render template
-    template_path = Path(__file__).parent / "templates" / "index.html.j2"
-    out_path = out_dir / "index.html"
+    # ------------------------------------------------------------------
+    # 5. Assemble + render pages via module context builders
+    # ------------------------------------------------------------------
+    template_dir = Path(__file__).parent / "templates"
+
+    # Compute cross-page contexts once (macro makes a network call)
+    logger.info("Fetching macro regime data …")
+    macro_page_ctx = _macro_ctx(shared)
+
+    # --- Sectors page ---
+    logger.info("Building sectors page context …")
+    sectors_ctx = {
+        "scan_date": scan_date,
+        "scan_index": scan_index,
+        "active_scan_id": active_scan_id,
+        "leaderboard_rows": leaderboard_rows,
+        "plotly_bundle": plotly_bundle_rel,
+    }
+    sectors_ctx.update(_figures_sectors_ctx(shared))
+    sectors_ctx.update(_badges_ctx(shared))
+    sectors_ctx.update(macro_page_ctx)
 
     _render(
-        template_path=template_path,
-        out_path=out_path,
-        context=dict(
-            scan_date=scan_date,
-            scan_index=scan_index,
-            active_scan_id=active_scan_id,
-            leaderboard_rows=leaderboard_rows,
-            rrg_data_json=rrg_json,
-            drilldown_data=json.dumps(sector_signal_data),
-            sector_keys=sector_keys,
-            movers_json=movers_json,
-            history_json=history_json,
-            rescore_data_json=rescore_data_json,
-            scan_history_json=json.dumps(scan_history_data),
-            signals_list=signals_list,
-            plotly_bundle=plotly_bundle_rel,
-            backtest_json=backtest_ctx["backtest_json"],
-            backtest_metrics=backtest_ctx["backtest_metrics"],
-            has_backtest=backtest_ctx["has_backtest"],
-            rotation_json=backtest_ctx["rotation_json"],
-            has_rotations=backtest_ctx["has_rotations"],
-            macro=macro_ctx,
-            badge_scorecard=badge_scorecard,
-        ),
+        template_path=template_dir / "index.html.j2",
+        out_path=out_dir / "index.html",
+        context=sectors_ctx,
     )
 
+    # --- Sentiment page ---
+    logger.info("Building sentiment page context …")
+    sentiment_ctx = {
+        "scan_date": scan_date,
+        "active_scan_id": active_scan_id,
+        "plotly_bundle": plotly_bundle_rel,
+    }
+    sentiment_ctx.update(_sentiment_ctx(shared))
+    sentiment_ctx.update(macro_page_ctx)
+
     _render(
-        template_path=Path(__file__).parent / "templates" / "sentiment.html.j2",
+        template_path=template_dir / "sentiment.html.j2",
         out_path=out_dir / "sentiment.html",
-        context=dict(
-            scan_date=scan_date,
-            active_scan_id=active_scan_id,
-            sentiment_scatter_json=sentiment_scatter_json,
-            sentiment_signal_rows=sentiment_signal_rows,
-            theme_sentiment_scatter_json=theme_sentiment_scatter_json,
-            theme_sentiment_signal_rows=theme_sentiment_signal_rows,
-            plotly_bundle=plotly_bundle_rel,
-            macro=macro_ctx,
-        ),
+        context=sentiment_ctx,
     )
 
+    # --- Themes page ---
+    logger.info("Building themes page context …")
+    themes_ctx = {
+        "scan_date": scan_date,
+        "active_scan_id": active_scan_id,
+        "theme_rows": theme_rows,
+        "plotly_bundle": plotly_bundle_rel,
+    }
+    themes_ctx.update(_figures_themes_ctx(shared))
+    themes_ctx.update(macro_page_ctx)
+
     _render(
-        template_path=Path(__file__).parent / "templates" / "themes.html.j2",
+        template_path=template_dir / "themes.html.j2",
         out_path=out_dir / "themes.html",
-        context=dict(
-            scan_date=scan_date,
-            active_scan_id=active_scan_id,
-            theme_rows=theme_rows,
-            plotly_bundle=plotly_bundle_rel,
-            theme_rrg_json=theme_rrg_json,
-            theme_drilldown_data=json.dumps(theme_drilldown_data),
-            theme_keys=theme_keys,
-            theme_movers_json=theme_movers_json,
-            theme_history_json=theme_history_json,
-            theme_backtest_json=theme_backtest_ctx["theme_backtest_json"],
-            theme_backtest_metrics=theme_backtest_ctx["theme_backtest_metrics"],
-            has_theme_backtest=theme_backtest_ctx["has_theme_backtest"],
-            macro=macro_ctx,
-        ),
+        context=themes_ctx,
     )
 
     # 6. Atom feed
@@ -407,7 +372,7 @@ def main() -> None:
 
     from jinja2 import Environment, FileSystemLoader
     feed_env = Environment(
-        loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
+        loader=FileSystemLoader(str(template_dir)),
         autoescape=False,
         keep_trailing_newline=True,
     )
@@ -425,7 +390,7 @@ def main() -> None:
     # 7. Disable Jekyll on GitHub Pages (the published artifact is static).
     _disable_jekyll(out_dir)
 
-    print(f"Dashboard built: {out_path}")
+    print(f"Dashboard built: {out_dir / 'index.html'}")
 
 
 if __name__ == "__main__":
