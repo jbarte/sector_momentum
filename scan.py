@@ -75,6 +75,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Bypass the durable Trends day-cache (always live-fetch, no save).",
     )
+    parser.add_argument(
+        "--no-alerts",
+        action="store_true",
+        help="Skip threshold alert notifications after scan.",
+    )
     return parser.parse_args()
 
 
@@ -634,6 +639,16 @@ def run(args: argparse.Namespace) -> int:
         # Step 14: Print summary
         # ------------------------------------------------------------------
         _print_summary(scan_date, scored_with_deltas)
+
+        # ------------------------------------------------------------------
+        # Step 15: Threshold alerts (non-fatal)
+        # ------------------------------------------------------------------
+        if not args.dry_run and not args.no_alerts:
+            try:
+                from src.alerts import send_alerts
+                send_alerts(conn, scan_date)
+            except Exception as exc:
+                logger.warning("Alert step failed: %s", exc)
     finally:
         conn.close()
 
