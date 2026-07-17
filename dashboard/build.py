@@ -86,6 +86,9 @@ from dashboard.sentiment import (                    # noqa: E402, F401
     _build_sentiment_signal_rows,
     build_page_context as _sentiment_ctx,
 )
+from dashboard.validation import (                    # noqa: E402, F401
+    build_validation_context as _validation_ctx,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -323,6 +326,7 @@ def main() -> None:
     }
     sectors_ctx.update(_figures_sectors_ctx(shared))
     sectors_ctx.update(_badges_ctx(shared))
+    sectors_ctx.update(_validation_ctx(shared))
     sectors_ctx.update(macro_page_ctx)
 
     _render(

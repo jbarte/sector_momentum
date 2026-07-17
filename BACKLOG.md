@@ -34,41 +34,6 @@ directionless, and ambiguous-ticker-contaminated. FinBERT sidesteps search-term
 ambiguity entirely and adds direction. Base FinBERT is English-only; EU/Swedish
 needs a multilingual variant or translate-then-score.
 
-## Forward-return validation (do the rankings predict anything?)
-
-**What:** For each historical scan, compute the forward 1-month return of that
-day's top-5 sectors vs the region benchmark, and surface a rolling hit-rate /
-average-edge panel (likely a new tab or a section in Backtest).
-
-**Why:** The backtest is a one-off artifact over a fixed history; this
-continuously validates *live* scans as they age. All inputs already exist:
-per-scan ranks in the DB (`get_scan_history`), prices in the cache. Compute at
-dashboard-build time; scans younger than the horizon show "pending".
-
-**Design notes:** pick the horizon (1M to match the rotation backtest), handle
-the price-cache `start` truncation issue (see Maintenance sweep) if longer
-history is needed, and keep it info-only.
-
-## Holding-period stats (how long to hold a position)
-
-**What:** Historical stats on how long a sector typically stays "worth
-holding" once it enters the top ranks — e.g. median/typical scan-count (or
-calendar days) a sector spends in the top 5 before falling out, distribution
-of holding periods, and how that compares to the Entry/Exit badge timing.
-
-**Why:** Rank and trajectory tell you *that* a sector is a leader; this tells
-you *how long that tends to last*, which is the practical question someone
-actually holding a position asks. Same data family as forward-return
-validation and the Entry/Exit scorecard above — all three answer variations
-of "what happens after a signal fires," and likely share plumbing (per-sector
-top-N run-length from `get_scan_history`, no new data source). Worth designing
-together with those two rather than separately, to avoid three overlapping
-historical-stats panels.
-
-**Design notes:** define "holding a position" precisely (in top-5? top-3?
-above a composite threshold?) before implementing — that choice drives the
-whole stat. Info-only, no scoring impact.
-
 ---
 
 # Parked
@@ -99,6 +64,15 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Forward-return validation & holding-period stats** — two info-only panels
+  in the Backtest tab. For every scan where a sector ranks top-5, computes
+  5-day and 1-month excess return vs the region benchmark (RSP / EXSA.DE) and
+  aggregates hit rate, mean, and median by region. Separately, extracts
+  contiguous top-5 rank streaks and reports median/mean/min/max duration.
+  `dashboard/validation.py` handles all computation at build time from
+  `all_scores_df` + cached prices; `_validation.html.j2` renders both tables.
+  EN+SV i18n. No schema changes, no scoring impact. *(2026-07-17)*
 
 - **Threshold alerts (daily scan notifications)** — post-scan step (Step 15 in
   `scan.py`) computes Entry/Exit setup badges for the latest scan (using rank
