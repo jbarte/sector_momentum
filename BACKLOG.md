@@ -101,13 +101,15 @@ dashboard's drill-down tab covers most of the need.
 # Done
 
 - **Threshold alerts (daily scan notifications)** — post-scan step (Step 15 in
-  `scan.py`) compares the two latest scans and sends a ntfy.sh push notification
-  when a sector or theme enters or exits the top 3 ranks. Covers both US/EU
-  sectors and themes. "No events, no noise" — nothing sent if the top 3 is
-  unchanged. `src/alerts.py` handles event detection, formatting, and delivery
-  (stdlib `urllib`, no new dependency). Fail-open: missing `NTFY_TOPIC` env var
-  silently skips; `--no-alerts` CLI flag to suppress. CI wired via
-  `scan.yml` secret. *(2026-07-17)*
+  `scan.py`) computes Entry/Exit setup badges for the latest scan (using rank
+  trajectories over the last 5 scans) and sends a ntfy.sh push notification
+  when any sector or theme gets an Entry or Exit badge. Covers both US/EU
+  sectors and themes. "No events, no noise" — nothing sent if no badges fire.
+  `src/alerts.py` handles event detection (reuses `_compute_rank_trajectories`
+  and `_compute_setup` from `dashboard/rows.py`), formatting, and delivery
+  (ntfy JSON API, stdlib `urllib`, no new dependency). Fail-open: missing
+  `NTFY_TOPIC` env var silently skips; `--no-alerts` CLI flag to suppress.
+  CI wired via `scan.yml` secret. *(2026-07-17)*
 
 - **Macro regime context bar** — a thin info strip below the dashboard header showing
   SPY vs 200-DMA (above/below + distance %) and VIX band (Calm/Elevated/Stressed).

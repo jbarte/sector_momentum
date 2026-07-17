@@ -1,4 +1,4 @@
-"""Threshold alerts — notify on top-N rank transitions after each scan."""
+"""Threshold alerts — notify on Entry/Exit badge appearances after each scan."""
 from __future__ import annotations
 
 import json
@@ -9,21 +9,23 @@ import urllib.error
 
 import pandas as pd
 
+from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_float
 from src.state import get_scan_history, get_theme_scan_history
 
 logger = logging.getLogger(__name__)
 
-RANK_THRESHOLD = 3
+TRAJECTORY_WINDOW = 5
 
 
-def detect_top_n_events(
-    history_df: pd.DataFrame,
-    n: int = RANK_THRESHOLD,
-) -> list[dict]:
-    """Compare the two latest scans and return top-N entry/exit events.
+def detect_badge_events(history_df: pd.DataFrame) -> list[dict]:
+    """Detect Entry/Exit setup badges in the latest scan.
 
-    Works on any DataFrame with columns: scan_id, region, gics_sector, rank.
-    Returns [] if fewer than 2 scans exist.
+    Computes rank trajectories over the last 5 scans and evaluates each
+    sector/theme in the latest scan for an Entry or Exit badge.
+
+    Works on any DataFrame with the standard scan history columns:
+    scan_id, region, gics_sector, composite, change_score, rank.
+    Returns [] if fewer than 2 scans exist (trajectory needs history).
     """
     if history_df.empty:
         return []
@@ -32,37 +34,33 @@ def detect_top_n_events(
     if len(scan_ids) < 2:
         return []
 
-    prev_id, curr_id = scan_ids[-2], scan_ids[-1]
-    prev = history_df[history_df["scan_id"] == prev_id]
-    curr = history_df[history_df["scan_id"] == curr_id]
+    trajectories = _compute_rank_trajectories(history_df)
 
-    def _top_n(df: pd.DataFrame) -> dict[tuple[str, str], int]:
-        top = df[df["rank"] <= n]
-        return {
-            (row["region"], row["gics_sector"]): int(row["rank"])
-            for _, row in top.iterrows()
-        }
-
-    prev_top = _top_n(prev)
-    curr_top = _top_n(curr)
+    latest_id = scan_ids[-1]
+    latest = history_df[history_df["scan_id"] == latest_id]
 
     events: list[dict] = []
-    for key, rank in curr_top.items():
-        if key not in prev_top:
-            events.append({
-                "cohort": key[0],
-                "sector": key[1],
-                "event": "entry",
-                "rank": rank,
-            })
+    for _, row_data in latest.iterrows():
+        region = row_data["region"]
+        sector = row_data["gics_sector"]
+        sk = f"{region}|{sector}"
 
-    for key, rank in prev_top.items():
-        if key not in curr_top:
+        traj = trajectories.get(sk, {"state": "flat"})
+
+        row_dict = {
+            "_raw_composite": _safe_float(row_data.get("composite")),
+            "_raw_change": _safe_float(row_data.get("change_score")),
+            "trajectory_state": traj["state"],
+        }
+        _compute_setup(row_dict)
+        setup = row_dict["setup"]
+
+        if setup in ("entry", "exit"):
             events.append({
-                "cohort": key[0],
-                "sector": key[1],
-                "event": "exit",
-                "rank": rank,
+                "cohort": region,
+                "sector": sector,
+                "event": setup,
+                "rank": int(row_data["rank"]) if pd.notna(row_data["rank"]) else None,
             })
 
     return events
@@ -83,41 +81,46 @@ def format_alert_body(events: list[dict]) -> str:
     for label in cohort_order:
         lines.append(label)
         for ev in grouped[label]:
+            rank_info = f" (rank {ev['rank']})" if ev["rank"] is not None else ""
             if ev["event"] == "entry":
-                lines.append(f"  ▲ {ev['sector']} entered top {RANK_THRESHOLD} (rank {ev['rank']})")
+                lines.append(f"  ▲ Entry: {ev['sector']}{rank_info}")
             else:
-                lines.append(f"  ▼ {ev['sector']} exited top {RANK_THRESHOLD} (was rank {ev['rank']})")
+                lines.append(f"  ▼ Exit: {ev['sector']}{rank_info}")
         lines.append("")
 
     return "\n".join(lines).rstrip()
 
 
 def post_ntfy(topic: str, title: str, body: str) -> None:
-    """POST a notification to ntfy.sh."""
-    url = f"https://ntfy.sh/{topic}"
-    data = body.encode("utf-8")
-    req = urllib.request.Request(url, data=data, method="POST")
-    req.add_header("Title", title)
-    req.add_header("Content-Type", "text/markdown")
-    req.add_header("Tags", "chart_with_upwards_trend")
+    """POST a notification to ntfy.sh using the JSON API."""
+    url = f"https://ntfy.sh/"
+    payload = json.dumps({
+        "topic": topic,
+        "title": title,
+        "message": body,
+        "markdown": True,
+        "tags": ["chart_with_upwards_trend"],
+    }).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, method="POST")
+    req.add_header("Content-Type", "application/json")
     with urllib.request.urlopen(req, timeout=10) as resp:
         resp.read()
 
 
 def send_alerts(conn, scan_date: str) -> None:
-    """Detect top-N rank transitions and send a ntfy notification if any."""
+    """Detect Entry/Exit badge events and send a ntfy notification if any."""
     topic = os.environ.get("NTFY_TOPIC")
     if not topic:
         return
 
-    sector_history = get_scan_history(conn, n_scans=2)
-    theme_history = get_theme_scan_history(conn, n_scans=2)
+    sector_history = get_scan_history(conn, n_scans=TRAJECTORY_WINDOW)
+    theme_history = get_theme_scan_history(conn, n_scans=TRAJECTORY_WINDOW)
 
-    events = detect_top_n_events(sector_history)
-    events.extend(detect_top_n_events(theme_history))
+    events = detect_badge_events(sector_history)
+    events.extend(detect_badge_events(theme_history))
 
     if not events:
-        logger.info("No top-%d rank transitions — skipping alert.", RANK_THRESHOLD)
+        logger.info("No Entry/Exit badges — skipping alert.")
         return
 
     title = f"Sector Momentum — {scan_date}"
