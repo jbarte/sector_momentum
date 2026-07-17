@@ -319,6 +319,7 @@
     </table>
   </div>
   {% endif %}
+  {% include '_validation.html.j2' %}
   {% else %}
   <p style="text-align:center;padding:24px;color:var(--fg4)">No backtest run yet. Run <code>python backtest.py</code>.</p>
   {% endif %}
