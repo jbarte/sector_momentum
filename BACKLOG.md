@@ -36,7 +36,7 @@ contamination worse, not better. Key findings kept for the record:
 - Ambiguous tickers dominate the cross-sectional z (`VOX` → Vox Media z +4.16,
   `LOGS` → the English word z +1.27). Blocklisting is whack-a-mole; the real
   fixes are entity mids (since shipped for sectors, 2026-07-04) or the FinBERT
-  pivot (queued above).
+  pivot (since shipped, 2026-07-17).
 - If ever revived: needs top-N liquidity ranking (no market-cap source in
   `fetch_sp500_constituents()`), aggregation weighting, and the Trends
   day-cache (since shipped, 2026-07-07).

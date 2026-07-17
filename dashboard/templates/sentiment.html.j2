@@ -17,7 +17,7 @@
    name_i18n/name_default label the first column; show_region drops the Region
    column for themes (it is always "THEME"). -#}
 {% macro sentiment_table(rows, id_prefix, name_i18n, name_default, show_region, show_news=false) %}
-{% set span = 10 + (1 if show_region else 0) + (4 if show_news else 0) %}
+{% set span = 9 + (1 if show_region else 0) + (4 if show_news else 0) %}
 <div style="overflow-x:auto">
   <table>
     <thead>
