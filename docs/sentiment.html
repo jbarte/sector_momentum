@@ -76,6 +76,20 @@ html, body {
 }
 
 /* =========================================================
+   Responsive
+   ========================================================= */
+@media (max-width: 600px) {
+  .command-bar { padding: 10px 16px; }
+  .card { margin: 12px 12px 16px; }
+  .card > .tab-panel { padding: 14px 16px; }
+  .card > .tabs { padding: 0 8px; }
+  .site-footer { padding: 14px 16px; }
+}
+@media (max-width: 420px) {
+  .scan-meta { display: none; }
+}
+
+/* =========================================================
    Command bar
    ========================================================= */
 .command-bar {
@@ -240,6 +254,25 @@ html, body {
 .tab-panel.active { display: block; }
 
 /* =========================================================
+   Site footer
+   ========================================================= */
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 11px;
+  color: var(--fg4);
+}
+.site-footer a {
+  color: var(--fg3);
+  text-decoration: none;
+}
+.site-footer a:hover { color: var(--brand-strong); }
+
+/* =========================================================
    Leaderboard table
    ========================================================= */
 .table-wrap {
@@ -380,160 +413,6 @@ tbody td:nth-child(n+4) {
 .traj-badge.traj-flat        { color: var(--fg4); background: color-mix(in srgb, var(--fg4) 10%, transparent); }
 .traj-badge.traj-down        { color: var(--down); background: color-mix(in srgb, var(--down) 8%, transparent); }
 .traj-badge.traj-strong_down { color: var(--down); background: color-mix(in srgb, var(--down) 15%, transparent); }
-
-/* =========================================================
-   Plotly chart containers
-   ========================================================= */
-.chart-container {
-  background: var(--bg-raised);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  min-height: 420px;
-  box-shadow: var(--shadow-xs);
-}
-
-/* =========================================================
-   Drill-down panel
-   ========================================================= */
-.drilldown-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-.drilldown-controls label {
-  color: var(--fg4);
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.10em;
-}
-select.sector-select {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--fg1);
-  font-family: var(--font-body);
-  font-size: 13px;
-  padding: 7px 12px;
-  cursor: pointer;
-  min-width: 220px;
-  outline: none;
-  transition: border-color var(--duration-fast) var(--ease-standard);
-}
-select.sector-select:focus {
-  border-color: var(--green-400);
-  box-shadow: 0 0 0 3px rgba(143,167,122,0.2);
-}
-
-/* Tab interpretation guides (compact ⓘ variant) */
-.utility-row {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 0 0;
-}
-.tab-guide {
-  border: none;
-  background: none;
-  margin: 0;
-  padding: 0;
-  font-size: 0.8rem;
-}
-.tab-guide summary {
-  padding: 0;
-  cursor: pointer;
-  color: var(--fg4);
-  font-weight: 500;
-  font-size: 12px;
-  list-style: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  user-select: none;
-}
-.tab-guide summary::before {
-  content: "ⓘ";
-  font-size: 1em;
-}
-.tab-guide summary:hover { color: var(--fg2); }
-.tab-guide[open] summary { color: var(--fg2); }
-.tab-guide[open] summary::before {
-  content: "ⓘ";
-}
-.tab-guide-body {
-  padding: 12px 0 8px;
-  color: var(--fg2);
-  line-height: 1.65;
-  font-size: 0.875rem;
-}
-.tab-guide-body h4 {
-  margin: 12px 0 4px;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--fg4);
-}
-.tab-guide-body ul {
-  margin: 4px 0 0 0;
-  padding-left: 18px;
-}
-.tab-guide-body li { margin-bottom: 3px; }
-.signal-hi { color: var(--up); font-weight: 600; }
-.signal-lo { color: var(--down); font-weight: 600; }
-
-/* =========================================================
-   Rank settings popover (sentiment control)
-   ========================================================= */
-.rank-settings {
-  position: relative;
-  border: none;
-  background: none;
-  margin: 0;
-  padding: 0;
-}
-.rank-settings summary {
-  cursor: pointer;
-  color: var(--fg4);
-  font-size: 12px;
-  font-weight: 500;
-  list-style: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  user-select: none;
-}
-.rank-settings summary:hover { color: var(--fg2); }
-.rank-settings .sentiment-control {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: 12px 16px;
-  z-index: 100;
-  white-space: nowrap;
-  min-width: 260px;
-}
-
-/* =========================================================
-   Responsive
-   ========================================================= */
-@media (max-width: 600px) {
-  .command-bar { padding: 10px 16px; }
-  .card { margin: 12px 12px 16px; }
-  .card > .tab-panel { padding: 14px 16px; }
-  .card > .tabs { padding: 0 8px; }
-  .site-footer { padding: 14px 16px; }
-}
-@media (max-width: 420px) {
-  .scan-meta { display: none; }
-}
 
 /* =========================================================
    Leaderboard row breakdown
@@ -703,6 +582,146 @@ select.sector-select:focus {
 .etf-link a:hover { color: var(--brand-strong); }
 
 /* =========================================================
+   Plotly chart containers
+   ========================================================= */
+.chart-container {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-height: 420px;
+  box-shadow: var(--shadow-xs);
+}
+
+/* =========================================================
+   Drill-down panel
+   ========================================================= */
+.drilldown-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.drilldown-controls label {
+  color: var(--fg4);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
+select.sector-select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg1);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 7px 12px;
+  cursor: pointer;
+  min-width: 220px;
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+select.sector-select:focus {
+  border-color: var(--green-400);
+  box-shadow: 0 0 0 3px rgba(143,167,122,0.2);
+}
+
+/* Tab interpretation guides (compact ⓘ variant) */
+.utility-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 0;
+}
+.tab-guide {
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+}
+.tab-guide summary {
+  padding: 0;
+  cursor: pointer;
+  color: var(--fg4);
+  font-weight: 500;
+  font-size: 12px;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+.tab-guide summary::before {
+  content: "ⓘ";
+  font-size: 1em;
+}
+.tab-guide summary:hover { color: var(--fg2); }
+.tab-guide[open] summary { color: var(--fg2); }
+.tab-guide[open] summary::before {
+  content: "ⓘ";
+}
+.tab-guide-body {
+  padding: 12px 0 8px;
+  color: var(--fg2);
+  line-height: 1.65;
+  font-size: 0.875rem;
+}
+.tab-guide-body h4 {
+  margin: 12px 0 4px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg4);
+}
+.tab-guide-body ul {
+  margin: 4px 0 0 0;
+  padding-left: 18px;
+}
+.tab-guide-body li { margin-bottom: 3px; }
+.signal-hi { color: var(--up); font-weight: 600; }
+.signal-lo { color: var(--down); font-weight: 600; }
+
+/* =========================================================
+   Rank settings popover (sentiment control)
+   ========================================================= */
+.rank-settings {
+  position: relative;
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0;
+}
+.rank-settings summary {
+  cursor: pointer;
+  color: var(--fg4);
+  font-size: 12px;
+  font-weight: 500;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+.rank-settings summary:hover { color: var(--fg2); }
+.rank-settings .sentiment-control {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 12px 16px;
+  z-index: 100;
+  white-space: nowrap;
+  min-width: 260px;
+}
+
+/* =========================================================
    Sentiment toggle control
    ========================================================= */
 .sentiment-control { display:flex; align-items:center; gap:16px; margin:8px 0 12px; font-size:0.9em; color:#3E392B; }
@@ -744,24 +763,6 @@ select.sector-select:focus {
 }
 .rising-table tbody td { padding: 4px 12px; }
 
-/* =========================================================
-   Site footer
-   ========================================================= */
-.site-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 28px;
-  margin-top: 8px;
-  border-top: 1px solid var(--border-soft);
-  font-size: 11px;
-  color: var(--fg4);
-}
-.site-footer a {
-  color: var(--fg3);
-  text-decoration: none;
-}
-.site-footer a:hover { color: var(--brand-strong); }
 
 </style>
 </head>
@@ -786,10 +787,10 @@ select.sector-select:focus {
     
     <span class="chip chip-up"
           title="vs 200-DMA — above"
-          data-i18n-title="macro_chip_spy_above">SPY +9.0%</span>
+          data-i18n-title="macro_chip_spy_above">SPY +8.3%</span>
     <span class="chip chip-elevated"
           title="Elevated"
-          data-i18n-title="macro_vix_elevated">VIX 15.7</span>
+          data-i18n-title="macro_vix_elevated">VIX 16.7</span>
     
     <span class="scan-meta">#132 · 2026-07-16 09:49 UTC</span>
     <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
@@ -1495,105 +1496,115 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
   });
 })();
 
-// ----- Language toggle (EN default ⇄ SV), chrome only -----
-// English is the source text in the DOM. Swedish overrides live here; any
-// chrome string without an entry simply stays English. Long help prose and
-// Plotly chart labels are intentionally not translated.
 (function () {
-  var SV = {
-    title: "Sektormomentum",
-    disclaimer: "Analysverktyg, inte investeringsrådgivning.",
-    tab_leaderboard: "Topplista",
-    tab_rrg: "RRG",
-    tab_drilldown: "Detaljvy",
-    tab_movers: "Rörelser",
-    tab_history: "Historik",
-    tab_backtest: "Backtest",
-    segment_sectors: "Sektorer",
-    segment_themes: "Teman",
-    segment_sentiment: "Sentiment",
-    col_theme: "Tema",
-    note_themes: "Tematiska ETF:er rankade med samma momentumpelare, mot ett globalt jämförelseindex (ACWI). Endast information; separat från sektortopplistan.",
-    themes_empty: "Ingen temadata än — kör en skanning.",
-    includeSentiment: "Inkludera sentiment i rankningen",
-    weight: "Vikt:",
-    col_rank: "#",
-    col_sector: "Sektor",
-    col_region: "Region",
-    col_composite: "Komposit",
-    col_level: "Nivå",
-    col_change: "Förändring",
-    col_data: "Data",
-    col_sentiment: "Sentiment",
-    col_rankdelta: "Rank Δ",
-    col_trend: "Trend",
-    note_sentiment: "Sentimentvikten påverkar endast topplistans rankning.",
-    note_sentiment_themes: "Temasentiment hämtar världsomspännande sökintresse för varje temas nyckelord, z-poängsatt över temana. Endast information — påverkar aldrig någon rankning.",
-    sent_themes_empty: "Ingen temasentimentdata än — kör en skanning.",
-    note_backtest: "Månatlig rotation av topprankade sektorer, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje region poängsätts inom sin egen kohort.",
-    note_backtest_themes: "Månatlig rotation av topprankade teman, likaviktad, endast lång. Endast prisbaserade signaler (sentiment exkluderat). Teman poängsätts inom sin egen kohort mot ACWI.",
-    bt_themes_empty: "Ingen temabacktest ännu. Kör <code>python backtest.py</code>.",
-    bt_track: "Spår",
-    bt_window: "Period",
-    bt_stratcagr: "Strategi CAGR",
-    bt_benchcagr: "Index CAGR",
-    bt_sharpe: "Sharpe (rf=0)",
-    bt_maxdd: "Max nedgång",
-    bt_hitrate: "Träffsäkerhet",
-    bt_turnover: "Omsättning",
-    si_scan: "Skanning",
-    si_run: "Körning (UTC)",
-    si_sectors: "Sektorer",
-    si_top: "Topp-sektor",
-    si_report: "Rapport",
-    si_download: "ladda ner",
-    leaderboard_empty: "Ingen data tillgänglig ännu.",
-    scans_empty: "Inga skanningar ännu.",
-    guide_summary: "Hur du läser den här fliken",
-    guide_summary_sentiment: "Hur beräknas sentimentpoängen?",
-    sent_derived_heading: "Härledda Trends-signaler",
-    sent_col_sector: "Sektor",
-    sent_col_region: "Region",
-    sent_col_momentum: "Momentum",
-    sent_col_acceleration: "Acceleration",
-    sent_col_range: "Intervallpos.",
-    sent_col_spike: "Spik",
-    sent_col_volatility: "Volatilitet",
-    sent_col_attention: "Uppmärksamhet",
-    sent_col_seasonal: "Säsong",
-    scan_viewing: "Visar skanning #",
-    scan_back_to_latest: "Tillbaka till senaste",
-    digest_new_top5: "Nya i topp 5:",
-    digest_gains: "Störst uppgång:",
-    digest_drops: "Störst nedgång:",
-    rising_heading: "Stigande sökningar",
-    rising_col_query: "Sökterm",
-    rising_col_growth: "Tillväxt",
-    badge_entry: "▲ Insteg",
-    badge_exit: "▼ Ursteg",
-    macro_vix_calm: "Lugnt",
-    macro_vix_elevated: "Förhöjt",
-    macro_vix_stressed: "Stressat",
-    macro_chip_spy_above: "mot 200-DMA — över",
-    macro_chip_spy_below: "mot 200-DMA — under",
-    badge_scorecard_title: "Badgepoäng",
-    badge_scorecard_desc: "5-dagars framåtavkastning efter varje badge.",
-    badge_sc_badge: "Badge",
-    badge_sc_count: "Antal",
-    badge_sc_hit_rate: "Träffgrad",
-    badge_sc_mean: "Medel",
-    badge_sc_median: "Median",
-    badge_rising_fast: "↑↑ Stiger snabbt",
-    badge_rising: "↑ Stiger",
-    badge_flat: "→ Flat",
-    badge_falling: "↓ Faller",
-    badge_falling_fast: "↓↓ Faller snabbt",
-    badge_no_badge: "Ingen badge"
-  };
+  var SV = {};
+  var SV_HTML = {};
 
-  // Rich-HTML guide bodies (swapped via innerHTML so markup/styling survives).
-  var SV_HTML = {
-    guide_body_leaderboard: `
+  Object.assign(SV, {
+  title: "Sektormomentum",
+  disclaimer: "Analysverktyg, inte investeringsrådgivning.",
+  tab_leaderboard: "Topplista",
+  tab_rrg: "RRG",
+  tab_drilldown: "Detaljvy",
+  tab_movers: "Rörelser",
+  tab_history: "Historik",
+  tab_backtest: "Backtest",
+  segment_sectors: "Sektorer",
+  segment_themes: "Teman",
+  segment_sentiment: "Sentiment",
+  col_theme: "Tema",
+  note_themes: "Tematiska ETF:er rankade med samma momentumpelare, mot ett globalt jämförelseindex (ACWI). Endast information; separat från sektortopplistan.",
+  themes_empty: "Ingen temadata än — kör en skanning.",
+  includeSentiment: "Inkludera sentiment i rankningen",
+  weight: "Vikt:",
+  col_rank: "#",
+  col_sector: "Sektor",
+  col_region: "Region",
+  col_composite: "Komposit",
+  col_level: "Nivå",
+  col_change: "Förändring",
+  col_data: "Data",
+  col_sentiment: "Sentiment",
+  col_rankdelta: "Rank Δ",
+  col_trend: "Trend",
+  note_sentiment: "Sentimentvikten påverkar endast topplistans rankning.",
+  leaderboard_empty: "Ingen data tillgänglig ännu.",
+  scans_empty: "Inga skanningar ännu.",
+  guide_summary: "Hur du läser den här fliken",
+  guide_summary_sentiment: "Hur beräknas sentimentpoängen?",
+  scan_viewing: "Visar skanning #",
+  scan_back_to_latest: "Tillbaka till senaste",
+  si_scan: "Skanning",
+  si_run: "Körning (UTC)",
+  si_sectors: "Sektorer",
+  si_top: "Topp-sektor",
+  si_report: "Rapport",
+  si_download: "ladda ner",
+  digest_new_top5: "Nya i topp 5:",
+  digest_gains: "Störst uppgång:",
+  digest_drops: "Störst nedgång:"
+});
+
+  Object.assign(SV, {
+  note_sentiment_themes: "Temasentiment hämtar världsomspännande sökintresse för varje temas nyckelord, z-poängsatt över temana. Endast information — påverkar aldrig någon rankning.",
+  sent_themes_empty: "Ingen temasentimentdata än — kör en skanning.",
+  sent_derived_heading: "Härledda Trends-signaler",
+  sent_col_sector: "Sektor",
+  sent_col_region: "Region",
+  sent_col_momentum: "Momentum",
+  sent_col_acceleration: "Acceleration",
+  sent_col_range: "Intervallpos.",
+  sent_col_spike: "Spik",
+  sent_col_volatility: "Volatilitet",
+  sent_col_attention: "Uppmärksamhet",
+  sent_col_seasonal: "Säsong",
+  rising_heading: "Stigande sökningar",
+  rising_col_query: "Sökterm",
+  rising_col_growth: "Tillväxt"
+});
+
+  Object.assign(SV, {
+  note_backtest: "Månatlig rotation av topprankade sektorer, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje region poängsätts inom sin egen kohort.",
+  note_backtest_themes: "Månatlig rotation av topprankade teman, likaviktad, endast lång. Endast prisbaserade signaler (sentiment exkluderat). Teman poängsätts inom sin egen kohort mot ACWI.",
+  bt_themes_empty: "Ingen temabacktest ännu. Kör <code>python backtest.py</code>.",
+  bt_track: "Spår",
+  bt_window: "Period",
+  bt_stratcagr: "Strategi CAGR",
+  bt_benchcagr: "Index CAGR",
+  bt_sharpe: "Sharpe (rf=0)",
+  bt_maxdd: "Max nedgång",
+  bt_hitrate: "Träffsäkerhet",
+  bt_turnover: "Omsättning"
+});
+
+  Object.assign(SV, {
+  badge_entry: "▲ Insteg",
+  badge_exit: "▼ Ursteg",
+  badge_scorecard_title: "Badgepoäng",
+  badge_scorecard_desc: "5-dagars framåtavkastning efter varje badge.",
+  badge_sc_badge: "Badge",
+  badge_sc_count: "Antal",
+  badge_sc_hit_rate: "Träffgrad",
+  badge_sc_mean: "Medel",
+  badge_sc_median: "Median",
+  badge_rising_fast: "↑↑ Stiger snabbt",
+  badge_rising: "↑ Stiger",
+  badge_flat: "→ Flat",
+  badge_falling: "↓ Faller",
+  badge_falling_fast: "↓↓ Faller snabbt",
+  badge_no_badge: "Ingen badge"
+});
+
+  Object.assign(SV, {
+  macro_vix_calm: "Lugnt",
+  macro_vix_elevated: "Förhöjt",
+  macro_vix_stressed: "Stressat",
+  macro_chip_spy_above: "mot 200-DMA — över",
+  macro_chip_spy_below: "mot 200-DMA — under"
+});
+
+  Object.assign(SV_HTML, {
+  guide_body_leaderboard: `
       <p>Varje sektor rankas efter <strong>kompositpoäng</strong> — ett tvärsnitts-z-värde som väger samman nivåmomentum (hur stark sektorn är just nu) och förändringsmomentum (om den accelererar eller bromsar in). Poängen <strong>0</strong> betyder genomsnitt över alla sektorer; <strong>+1,0</strong> betyder en standardavvikelse över genomsnittet.</p>
       <h4>Trend-märke — den mest handlingsbara signalen</h4>
       <p>Beräknas som den linjära lutningen av rangen över de senaste 3–5 skanningarna. Ett sjunkande rangnummer betyder att sektorn klättrar på topplistan.</p>
@@ -1615,7 +1626,7 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
       <p>Komposit &gt; 0 med <span class="signal-hi">↑</span>- eller <span class="signal-hi">↑↑</span>-bana och positiv förändringspoäng. Klicka på en rad för att se hela signaluppdelningen.</p>
       <h4>Ur-/undvik-signal</h4>
       <p><span class="signal-lo">↓</span>- eller <span class="signal-lo">↓↓</span>-bana även när rangen fortfarande är hög — sektorn toppar. Rang-Δ som vänder negativt bekräftar vändningen.</p>`,
-    guide_body_rrg: `
+  guide_body_rrg: `
       <p>Sektorer plottas efter <strong>relativ styrka mot jämförelseindex</strong> (x-axel) och om den relativa styrkan <strong>accelererar eller bromsar in</strong> (y-axel). Båda axlarna är centrerade kring 100.</p>
       <h4>Fyra kvadranter</h4>
       <ul>
@@ -1627,7 +1638,7 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
       <h4>Så använder du den</h4>
       <p>Sektorer roterar Ledande → Försvagas → Eftersläpar → Förbättras → Ledande. Köp i <span class="signal-hi">Förbättras</span> före rörelsen till Ledande; sälj i <span class="signal-lo">Försvagas</span> före fallet till Eftersläpar. Prickade svanslinjer visar de senaste 3 skanningspositionerna — svansens riktning betyder mer än nuvarande position.</p>
       <p><em>Obs: nuvarande axlar är kompositbaserade approximationer. Äkta JdK RS-Ratio/Momentum kräver daglig prisdata relativt ett jämförelseindex.</em></p>`,
-    guide_body_rrg_themes: `
+  guide_body_rrg_themes: `
       <p>Teman plottas efter <strong>relativ styrka mot jämförelseindex</strong> (x-axel) och om den relativa styrkan <strong>accelererar eller bromsar in</strong> (y-axel). Båda axlarna är centrerade kring 100.</p>
       <h4>Fyra kvadranter</h4>
       <ul>
@@ -1638,7 +1649,7 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
       </ul>
       <h4>Så använder du den</h4>
       <p>Teman roterar Ledande → Försvagas → Eftersläpar → Förbättras → Ledande. Köp i <span class="signal-hi">Förbättras</span> före rörelsen till Ledande; sälj i <span class="signal-lo">Försvagas</span> före fallet till Eftersläpar. Prickade svanslinjer visar de senaste skanningspositionerna — svansens riktning betyder mer än nuvarande position.</p>`,
-    guide_body_drilldown: `
+  guide_body_drilldown: `
       <p>Välj en sektor för att se historiken för dess poängkomponenter över alla lagrade skanningar.</p>
       <h4>Viktiga mönster</h4>
       <ul>
@@ -1649,7 +1660,7 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
       </ul>
       <h4>Så använder du den</h4>
       <p>Kombinera med topplistans Trend-märke. En sektor som visar <span class="signal-hi">↑</span> på topplistan och som även har stigande komposit och change_score i detaljvyn är läget med högst övertygelse. En sektor med hög rang men platt eller fallande change_score halkar sannolikt i nästa skanning.</p>`,
-    guide_body_drilldown_themes: `
+  guide_body_drilldown_themes: `
       <p>Välj ett tema för att se historiken för dess poängkomponenter över alla lagrade skanningar.</p>
       <h4>Viktiga mönster</h4>
       <ul>
@@ -1657,7 +1668,7 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
         <li><span class="signal-lo">Komposit nära topp + förändringspoäng vänder negativt:</span> temat toppar. Minska eller gå ur.</li>
         <li>Komposit faller men förändringspoäng stiger: bottenprocess. Invänta bekräftelse innan insteg.</li>
       </ul>`,
-    guide_body_movers: `
+  guide_body_movers: `
       <p>Rangförändring mellan de två senaste skanningarna. <span class="signal-hi">Gröna staplar</span> = sektorer som klättrade på topplistan; <span class="signal-lo">terrakotta-staplar</span> = sektorer som halkade.</p>
       <h4>Så använder du den</h4>
       <ul>
@@ -1665,14 +1676,14 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
         <li>Sektorer med 2+ stora positiva rörelser i rad i Historik-fliken bär mer övertygelse än enstaka hopp.</li>
         <li><span class="signal-lo">Varningsflagga:</span> en högt rankad sektor med en stor negativ stapel här är en tidig topp-signal. Kolla topplistans Trend-märke — om det visar <span class="signal-lo">↓</span> eller <span class="signal-lo">↓↓</span> är vändningen sannolikt verklig.</li>
       </ul>`,
-    guide_body_movers_themes: `
+  guide_body_movers_themes: `
       <p>Rangförändring mellan de två senaste skanningarna. <span class="signal-hi">Gröna staplar</span> = teman som klättrade på topplistan; <span class="signal-lo">terrakotta-staplar</span> = teman som halkade.</p>
       <h4>Så använder du den</h4>
       <ul>
         <li>En enskild stor positiv rörelse kan vara brus — bekräfta i Detaljvy-fliken innan du agerar.</li>
         <li>Teman med 2+ stora positiva rörelser i rad i Historik-fliken bär mer övertygelse.</li>
       </ul>`,
-    guide_body_history: `
+  guide_body_history: `
       <p>Kompositpoängens trend över alla lagrade skanningar för varje sektor. Kompositen är ett tvärsnitts-z-värde — 0 = sektorgenomsnitt för den skanningen.</p>
       <h4>Viktiga mönster</h4>
       <ul>
@@ -1683,7 +1694,7 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
       </ul>
       <h4>Så använder du den</h4>
       <p>Använd som kontext för nuvarande rang. En sektor rankad #1 efter att stadigt ha stigit under 10 skanningar har en annan riskprofil än en som hoppade från #8 förra skanningen. Långa, jämna uppgångar är de insteg värda att behålla; V-formade vändningar är de att handla snabbt eller hoppa över.</p>`,
-    guide_body_history_themes: `
+  guide_body_history_themes: `
       <p>Kompositpoängens trend över alla lagrade skanningar för varje tema. Kompositen är ett tvärsnitts-z-värde — 0 = temagenomsnitt för den skanningen.</p>
       <h4>Viktiga mönster</h4>
       <ul>
@@ -1691,12 +1702,12 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
         <li><span class="signal-lo">Skarp spik följt av vändning:</span> sannolikt en engångshändelse, ej hållbart.</li>
         <li>Gradvis återhämtning från negativt territorium: möjlig framväxande chans.</li>
       </ul>`,
-    sentiment_footnote: `
+  sentiment_footnote: `
     Nedre högra kvadranten (data före sentiment) är den tidiga rotationszonen.
     Ihåliga punkter = ingen sentimentdata denna skanning (källa otillgänglig eller enbart EU).
     Sentiment är en bekräftande signal — brusig, manipulerbar, privatspararpartisk.
     Detta är ett analysverktyg, inte investeringsrådgivning.`,
-    guide_body_sentiment: `
+  guide_body_sentiment: `
       <h4>Källa — endast Google Trends</h4>
       <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
       <h4>Metod</h4>
@@ -1723,7 +1734,8 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`
-  };
+});
+
 
   var els = document.querySelectorAll("[data-i18n]");
   els.forEach(function (el) { el.setAttribute("data-en", el.textContent); });
