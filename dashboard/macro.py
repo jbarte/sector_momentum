@@ -47,8 +47,18 @@ def fetch_macro_data(cache_dir="data/cache"):
 
 def build_page_context(shared: dict) -> dict:
     """Assemble macro regime context (used by all pages)."""
+    macro = fetch_macro_data(
+        cache_dir=str(shared["project_root"] / "data" / "cache"),
+    )
+    if macro:
+        logger.info(
+            "Macro: SPY %+.1f%% vs 200-DMA, VIX %.1f (%s)",
+            macro["spy_distance_pct"],
+            macro["vix_last"],
+            macro["vix_band"],
+        )
+    else:
+        logger.warning("Macro data unavailable — regime bar will be hidden")
     return {
-        "macro": fetch_macro_data(
-            cache_dir=str(shared["project_root"] / "data" / "cache"),
-        ),
+        "macro": macro,
     }

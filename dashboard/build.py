@@ -9,7 +9,6 @@ Run after scan.py:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 from pathlib import Path
@@ -50,21 +49,21 @@ from dashboard.feed import (                         # noqa: E402, F401
     feed_updated_timestamp,
 )
 from dashboard.figures import (                      # noqa: E402, F401
-    build_sectors_context as _figures_sectors_ctx,
-    build_themes_context as _figures_themes_ctx,
-    _build_rrg_figure,
-    _build_sentiment_scatter_figure,
-    _build_drilldown_data,
-    _build_movers_figure,
-    _build_history_figure,
-    _build_backtest_figures,
-    _build_rotation_figures,
-    _build_backtest_context,
-    _build_theme_backtest_context,
-    _build_rescore_data,
-    _build_scan_history_data,
     _SCORE_SIGNAL_COLORS,
     _WARM_PALETTE,
+    _build_backtest_context,
+    _build_backtest_figures,
+    _build_drilldown_data,
+    _build_history_figure,
+    _build_movers_figure,
+    _build_rescore_data,
+    _build_rotation_figures,
+    _build_rrg_figure,
+    _build_scan_history_data,
+    _build_sentiment_scatter_figure,
+    _build_theme_backtest_context,
+    build_sectors_context as _figures_sectors_ctx,
+    build_themes_context as _figures_themes_ctx,
 )
 from dashboard.macro import (                        # noqa: E402, F401
     build_macro_context,
