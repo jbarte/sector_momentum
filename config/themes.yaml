@@ -18,6 +18,9 @@ themes:
   Space: UFO
   Lithium & Battery: LIT
   Biotech: XBI
+  Quantum Computing: QTUM
+  Data Centers & Digital Infra: DTCR
+  AgTech & Food Innovation: KROP
 
 # Google Trends search term per theme (info-only sentiment). Unlike sectors —
 # which query ambiguous ETF tickers resolved to Knowledge-Graph entity mids —
@@ -39,6 +42,9 @@ trends:
   Space: space exploration
   Lithium & Battery: lithium battery
   Biotech: biotech
+  Quantum Computing: quantum computing
+  Data Centers & Digital Infra: data center infrastructure
+  AgTech & Food Innovation: agritech food innovation
 
 # Optional {term: entity mid} overrides for any trends term that still collides
 # with a common word. Same mechanism as config/trends_entities.yaml but keyed by
@@ -136,3 +142,31 @@ ucits:
       issuer: iShares
       match: partial
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00BYXG2H39
+
+  Quantum Computing:
+    - ticker: QUTM
+      name: VanEck Quantum Computing UCITS ETF
+      isin: IE0007Y8Y157
+      ter: "0.55%"
+      issuer: VanEck
+      match: close
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE0007Y8Y157
+
+  Data Centers & Digital Infra:
+    - ticker: V9N
+      name: Global X Data Center REITs & Digital Infrastructure UCITS ETF
+      isin: IE00BMH5Y327
+      ter: "0.50%"
+      issuer: Global X
+      match: exact
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BMH5Y327
+
+  AgTech & Food Innovation:
+    - ticker: KROP
+      name: Global X AgTech & Food Innovation UCITS ETF
+      isin: IE000EBFYWX3
+      ter: "0.50%"
+      issuer: Global X
+      match: exact
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE000EBFYWX3
+
