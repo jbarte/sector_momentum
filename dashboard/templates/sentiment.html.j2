@@ -16,8 +16,8 @@
    id_prefix keeps the rising-queries panel ids unique across the two tables;
    name_i18n/name_default label the first column; show_region drops the Region
    column for themes (it is always "THEME"). -#}
-{% macro sentiment_table(rows, id_prefix, name_i18n, name_default, show_region) %}
-{% set span = 14 if show_region else 13 %}
+{% macro sentiment_table(rows, id_prefix, name_i18n, name_default, show_region, show_news=false) %}
+{% set span = 10 + (1 if show_region else 0) + (4 if show_news else 0) %}
 <div style="overflow-x:auto">
   <table>
     <thead>
@@ -32,10 +32,12 @@
         <th data-i18n="sent_col_volatility">Volatility</th>
         <th data-i18n="sent_col_attention">Attention</th>
         <th data-i18n="sent_col_seasonal">Seasonal</th>
+        {% if show_news %}
         <th data-i18n="sent_col_news_polarity">Polarity</th>
         <th data-i18n="sent_col_news_count">Articles</th>
         <th data-i18n="sent_col_news_pos">Pos%</th>
         <th data-i18n="sent_col_news_neg">Neg%</th>
+        {% endif %}
       </tr>
     </thead>
     <tbody>
@@ -51,10 +53,12 @@
         <td>{{ r.volatility }}</td>
         <td>{{ r.attention }}</td>
         <td class="seasonal{% if r.seasonal_ratio != '—' %} {% if r.seasonal_ratio.replace('x','')|float > 1.0 %}seasonal-hi{% elif r.seasonal_ratio.replace('x','')|float < 1.0 %}seasonal-lo{% endif %}{% endif %}">{{ r.seasonal_ratio }}</td>
+        {% if show_news %}
         <td class="{% if r.news_polarity != '—' %}{% if r.news_polarity.startswith('+') %}signal-hi{% elif r.news_polarity.startswith('-') %}signal-lo{% endif %}{% endif %}">{{ r.news_polarity }}</td>
         <td>{{ r.news_count }}</td>
         <td>{{ r.news_positive_pct }}</td>
         <td>{{ r.news_negative_pct }}</td>
+        {% endif %}
       </tr>
       {% if r.rising_queries %}
       <tr class="rising-panel" id="rising-{{ id_prefix }}-{{ loop.index }}" style="display:none">
@@ -175,7 +179,7 @@
     {{ scatter_footnote() }}
     {% if sentiment_signal_rows %}
     <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
-    {{ sentiment_table(sentiment_signal_rows, "s", "sent_col_sector", "Sector", true) }}
+    {{ sentiment_table(sentiment_signal_rows, "s", "sent_col_sector", "Sector", true, show_news=true) }}
     {% endif %}
   </div>
 
