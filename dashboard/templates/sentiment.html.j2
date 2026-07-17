@@ -17,7 +17,7 @@
    name_i18n/name_default label the first column; show_region drops the Region
    column for themes (it is always "THEME"). -#}
 {% macro sentiment_table(rows, id_prefix, name_i18n, name_default, show_region) %}
-{% set span = 10 if show_region else 9 %}
+{% set span = 14 if show_region else 13 %}
 <div style="overflow-x:auto">
   <table>
     <thead>
@@ -32,6 +32,10 @@
         <th data-i18n="sent_col_volatility">Volatility</th>
         <th data-i18n="sent_col_attention">Attention</th>
         <th data-i18n="sent_col_seasonal">Seasonal</th>
+        <th data-i18n="sent_col_news_polarity">Polarity</th>
+        <th data-i18n="sent_col_news_count">Articles</th>
+        <th data-i18n="sent_col_news_pos">Pos%</th>
+        <th data-i18n="sent_col_news_neg">Neg%</th>
       </tr>
     </thead>
     <tbody>
@@ -47,6 +51,10 @@
         <td>{{ r.volatility }}</td>
         <td>{{ r.attention }}</td>
         <td class="seasonal{% if r.seasonal_ratio != '—' %} {% if r.seasonal_ratio.replace('x','')|float > 1.0 %}seasonal-hi{% elif r.seasonal_ratio.replace('x','')|float < 1.0 %}seasonal-lo{% endif %}{% endif %}">{{ r.seasonal_ratio }}</td>
+        <td class="{% if r.news_polarity != '—' %}{% if r.news_polarity.startswith('+') %}signal-hi{% elif r.news_polarity.startswith('-') %}signal-lo{% endif %}{% endif %}">{{ r.news_polarity }}</td>
+        <td>{{ r.news_count }}</td>
+        <td>{{ r.news_positive_pct }}</td>
+        <td>{{ r.news_negative_pct }}</td>
       </tr>
       {% if r.rising_queries %}
       <tr class="rising-panel" id="rising-{{ id_prefix }}-{{ loop.index }}" style="display:none">

@@ -57,6 +57,10 @@ def _build_sentiment_signal_rows(sent_df) -> list[dict]:
             "volatility": _fmt(vals.get("volatility"), pct=True),
             "attention": _fmt_attn(vals.get("attention_level")),
             "seasonal_ratio": _fmt_seasonal(vals.get("seasonal_ratio")),
+            "news_polarity": _fmt(vals.get("news_polarity")),
+            "news_count": str(int(vals["news_count"])) if vals.get("news_count") is not None and not (isinstance(vals.get("news_count"), float) and math.isnan(vals["news_count"])) else "—",
+            "news_positive_pct": _fmt(vals.get("news_positive_pct"), pct=True),
+            "news_negative_pct": _fmt(vals.get("news_negative_pct"), pct=True),
             "rising_queries": rising,
         })
     rows.sort(key=lambda r: r["_momentum"], reverse=True)
