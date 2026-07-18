@@ -18,3 +18,21 @@ def test_markdown_has_all_sections():
 def test_write_report_uses_same_markdown(tmp_path):
     path = write_report("2026-06-25", "R", "M", "S", output_dir=str(tmp_path))
     assert Path(path).read_text() == build_report_markdown("2026-06-25", "R", "M", "S")
+
+
+def test_swedish_overlay_matches_subsector_via_parent(tmp_path):
+    import pandas as pd
+
+    from src.report import build_swedish_overlay
+
+    csv = tmp_path / "swedish_tickers.csv"
+    csv.write_text(
+        "ticker,name,gics_sector,market_cap_bn_sek,exchange\n"
+        "SEB-A.ST,SEB A,Financials,300,Nasdaq Stockholm\n"
+    )
+    scores = pd.DataFrame([
+        {"region": "EU", "gics_sector": "Banks", "composite": 2.0, "rank": 1},
+    ])
+    md = build_swedish_overlay(scores, swedish_tickers_path=str(csv), top_n=1)
+    assert "Banks (EU)" in md        # displayed under the sub-sector's own name
+    assert "SEB-A.ST" in md          # matched via parent Financials

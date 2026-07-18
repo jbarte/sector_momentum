@@ -39,7 +39,7 @@ Keep the subject line under 72 characters. No body unless the change needs conte
 
 ## Project overview
 
-Sector momentum scanner: US SPDR + STOXX Europe 600 sectors → GICS 11 → data-pillar signals → composite score → Supabase/Postgres snapshots → static dashboard (GitHub Pages).
+Sector momentum scanner: US SPDR (GICS 11) + STOXX Europe 600 sectors (14, incl. standalone sub-sectors) → data-pillar signals → composite score → Supabase/Postgres snapshots → static dashboard (GitHub Pages).
 
 - Entry point: `scan.py`
 - Dashboard build: `dashboard/build.py` → `docs/`

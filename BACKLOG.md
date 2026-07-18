@@ -21,21 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Split EU composite sectors into standalone sectors (research)
-
-Two EU sectors are equal-weight composites built only to force GICS-11
-parity with the US universe (`config/universe.yaml` `eu_sectors`):
-**Financials** = Banks (EXV1.DE) + Financial Services (EXH2.DE) + Insurance
-(EXH5.DE), and **Materials** = Basic Resources (EXV6.DE) + Chemicals
-(EXV7.DE). The composite blends aren't tradeable as-is and aren't useful —
-research replacing them with the underlying STOXX sub-sector ETFs as their
-own standalone sectors (EU: 14 sectors, US: 11).
-
-**Key question:** how scoring, cross-sectional ranking, and the dashboard
-handle EU sectors with no 1:1 US GICS counterpart (US↔EU pairing in
-comparisons, sector_map.yaml, themes/rotations that key on GICS names).
-Outcome is a design decision + implementation plan, not necessarily code.
-
 ## Position tracking
 
 Allow logged-in users to track their sector/theme positions (holdings,
@@ -76,6 +61,19 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Split EU composite sectors into standalone sectors** — the two untradeable
+  equal-weight EU composites replaced by their STOXX sub-sector ETFs as
+  first-class sectors: Financials → Banks (EXV1.DE) + Financial Services
+  (EXH2.DE) + Insurance (EXH5.DE); Materials → Basic Resources (EXV6.DE) +
+  Chemicals (EXV7.DE). EU universe 11 → 14 sectors; composite-building code
+  removed from the pipeline. `config/sector_map.yaml` `stoxx_to_gics` became
+  live config (`src/sector_map.py`): FinBERT news sentiment and Swedish-ticker
+  matching resolve sub-sectors to their GICS parent (identity fallback).
+  Research basis (3y daily): Basic Resources↔Chemicals correlation 0.50 with
+  37% 6m-momentum sign disagreement; Financials components ~0.70 with ~15pp
+  median best-vs-worst momentum spread — the blends were averaging away the
+  signal the scanner exists to find. *(2026-07-18)*
 
 - **User authentication (login foundation)** — invite-only magic-link sign-in
   on the static dashboard via Supabase Auth + supabase-js v2 (UMD bundle
