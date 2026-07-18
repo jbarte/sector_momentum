@@ -171,7 +171,7 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     import pandas as pd
     import scan
 
-    argv = ["scan.py"] + (extra_argv or [])
+    argv = ["scan.py", "--no-finbert"] + (extra_argv or [])
     monkeypatch.setattr(sys, "argv", argv)
 
     universe = _make_minimal_universe()
@@ -333,7 +333,7 @@ def test_coverage_guard_aborts_on_partial_scan(monkeypatch):
          **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
     ]
 
-    monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run"])
+    monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run", "--no-finbert"])
     monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
     monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: {})
     monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: {})
@@ -373,7 +373,7 @@ def test_coverage_guard_passes_at_80_percent(monkeypatch):
         for i in range(4)
     ]
 
-    monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run"])
+    monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run", "--no-finbert"])
     monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
     monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: {})
     monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: {})
@@ -440,7 +440,7 @@ def test_conn_closed_on_exception(monkeypatch):
 
     fake_conn = MagicMock()
 
-    monkeypatch.setattr(sys, "argv", ["scan.py"])
+    monkeypatch.setattr(sys, "argv", ["scan.py", "--no-finbert"])
     monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
     monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: prices)
     monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: prices)
