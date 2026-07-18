@@ -44,20 +44,38 @@
               border-color var(--duration-fast) var(--ease-standard);
 }
 .lang-toggle:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
-.auth-root { display: inline-flex; align-items: center; gap: 8px; }
-.auth-form { display: inline-flex; align-items: center; gap: 6px; }
+.auth-root { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+.auth-root .lang-toggle { white-space: nowrap; }
+/* Email form opens as a dropdown card anchored under the Sign in button, so
+   the input/send/status group reads as one unit instead of reflowing the
+   command bar. Same surface treatment as the .card shell. */
+.auth-form {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+}
 .auth-form[hidden] { display: none; }
 .auth-form input[type="email"] {
-  background: transparent;
+  background: var(--bg-raised);
   color: var(--fg1);
-  border: 1px solid var(--fg4);
-  border-radius: 4px;
-  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
   font: inherit;
   font-size: 0.8rem;
   width: 14em;
 }
-.auth-status { color: var(--fg4); font-size: 0.75rem; }
+.auth-status { color: var(--fg4); font-size: 0.75rem; max-width: 16em; }
+.auth-status:empty { display: none; }
 
 /* =========================================================
    Chips (macro indicators in command bar)
