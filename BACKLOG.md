@@ -21,6 +21,21 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Split EU composite sectors into standalone sectors (research)
+
+Two EU sectors are equal-weight composites built only to force GICS-11
+parity with the US universe (`config/universe.yaml` `eu_sectors`):
+**Financials** = Banks (EXV1.DE) + Financial Services (EXH2.DE) + Insurance
+(EXH5.DE), and **Materials** = Basic Resources (EXV6.DE) + Chemicals
+(EXV7.DE). The composite blends aren't tradeable as-is and aren't useful —
+research replacing them with the underlying STOXX sub-sector ETFs as their
+own standalone sectors (EU: 14 sectors, US: 11).
+
+**Key question:** how scoring, cross-sectional ranking, and the dashboard
+handle EU sectors with no 1:1 US GICS counterpart (US↔EU pairing in
+comparisons, sector_map.yaml, themes/rotations that key on GICS names).
+Outcome is a design decision + implementation plan, not necessarily code.
+
 ## Position tracking
 
 Allow logged-in users to track their sector/theme positions (holdings,
