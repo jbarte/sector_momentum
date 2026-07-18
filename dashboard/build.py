@@ -340,6 +340,13 @@ def main() -> None:
             key, score_row_dict, row_signals, _universe, _weights, _sector_etfs
         )
 
+    # Compute auth context (fail-open: disabled if key not set or bundle fails)
+    # before the docs asset copy below, so the supabase bundle is downloaded
+    # in time to be copied into docs/assets/ on a fresh checkout.
+    auth_ctx = _auth_ctx()
+    if auth_ctx["auth"] and _ensure_supabase_bundle() is None:
+        auth_ctx = {"auth": None, "auth_config_json": ""}
+
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
     import shutil
     docs_assets = out_dir / "assets"
@@ -356,12 +363,13 @@ def main() -> None:
     scan_digest_src = _ASSETS_DIR / "scan-digest.js"
     if scan_digest_src.exists():
         shutil.copy2(scan_digest_src, docs_assets / "scan-digest.js")
-    auth_src = _ASSETS_DIR / "auth.js"
-    if auth_src.exists():
-        shutil.copy2(auth_src, docs_assets / "auth.js")
-    supabase_src = _ASSETS_DIR / "supabase.min.js"
-    if supabase_src.exists():
-        shutil.copy2(supabase_src, docs_assets / "supabase.min.js")
+    if auth_ctx["auth"]:
+        auth_src = _ASSETS_DIR / "auth.js"
+        if auth_src.exists():
+            shutil.copy2(auth_src, docs_assets / "auth.js")
+        supabase_src = _ASSETS_DIR / "supabase.min.js"
+        if supabase_src.exists():
+            shutil.copy2(supabase_src, docs_assets / "supabase.min.js")
     plotly_bundle_rel = "assets/plotly.min.js"
 
     # ------------------------------------------------------------------
@@ -372,11 +380,6 @@ def main() -> None:
     # Compute cross-page contexts once (macro makes a network call)
     logger.info("Fetching macro regime data …")
     macro_page_ctx = _macro_ctx(shared)
-
-    # Compute auth context (fail-open: disabled if key not set or bundle fails)
-    auth_ctx = _auth_ctx()
-    if auth_ctx["auth"] and _ensure_supabase_bundle() is None:
-        auth_ctx = {"auth": None, "auth_config_json": ""}
 
     # --- Sectors page ---
     logger.info("Building sectors page context …")

@@ -115,3 +115,28 @@ def test_footer_omits_auth_when_disabled():
     assert "SUPABASE_CONFIG" not in html
     assert "supabase.min.js" not in html
     assert "auth.js" not in html
+
+
+# ---------------------------------------------------------------------------
+# main() ordering: auth context must be computed before the docs asset copy
+# ---------------------------------------------------------------------------
+#
+# dashboard/assets/supabase.min.js is gitignored, so on a fresh checkout the
+# bundle only exists once _auth_ctx() + _ensure_supabase_bundle() have run.
+# If the docs/assets copy block executes first, it silently skips
+# auth.js/supabase.min.js and the built pages reference assets that 404 in
+# production. This test pins the ordering at the source level so a future
+# reshuffle of main() can't reintroduce that bug.
+
+_BUILD_SRC = Path(__file__).parent.parent / "dashboard" / "build.py"
+
+
+def test_main_computes_auth_ctx_before_docs_asset_copy():
+    text = _BUILD_SRC.read_text()
+    auth_ctx_idx = text.index("auth_ctx = _auth_ctx()")
+    docs_assets_idx = text.index("docs_assets = out_dir")
+    assert auth_ctx_idx < docs_assets_idx, (
+        "_auth_ctx() must be computed before the docs asset copy block, "
+        "otherwise supabase.min.js is copied before it's downloaded on a "
+        "fresh checkout"
+    )
