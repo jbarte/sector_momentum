@@ -785,13 +785,6 @@ select.sector-select:focus {
   </div>
   <div class="meta-cluster">
     
-    <span class="chip chip-up"
-          title="vs 200-DMA — above"
-          data-i18n-title="macro_chip_spy_above">SPY +8.3%</span>
-    <span class="chip chip-elevated"
-          title="Elevated"
-          data-i18n-title="macro_vix_elevated">VIX 16.7</span>
-    
     <span class="scan-meta">#133 · 2026-07-17 09:30 UTC</span>
     <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
   </div>
@@ -899,6 +892,12 @@ select.sector-select:focus {
         <th data-i18n="sent_col_volatility">Volatility</th>
         <th data-i18n="sent_col_attention">Attention</th>
         <th data-i18n="sent_col_seasonal">Seasonal</th>
+        
+        <th data-i18n="sent_col_news_polarity">Polarity</th>
+        <th data-i18n="sent_col_news_count">Articles</th>
+        <th data-i18n="sent_col_news_pos">Pos%</th>
+        <th data-i18n="sent_col_news_neg">Neg%</th>
+        
       </tr>
     </thead>
     <tbody>
@@ -914,6 +913,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -928,6 +933,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -942,6 +953,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.1</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -956,6 +973,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.2</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -970,6 +993,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -984,6 +1013,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -998,6 +1033,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1012,6 +1053,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1026,6 +1073,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1040,6 +1093,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1054,6 +1113,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1068,6 +1133,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1082,6 +1153,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1096,6 +1173,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1110,6 +1193,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1124,6 +1213,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1138,6 +1233,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1152,6 +1253,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1166,6 +1273,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1180,6 +1293,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1194,6 +1313,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1208,6 +1333,12 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
+        <td class="">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        
       </tr>
       
       
@@ -1248,6 +1379,7 @@ select.sector-select:focus {
         <th data-i18n="sent_col_volatility">Volatility</th>
         <th data-i18n="sent_col_attention">Attention</th>
         <th data-i18n="sent_col_seasonal">Seasonal</th>
+        
       </tr>
     </thead>
     <tbody>
@@ -1263,6 +1395,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1277,6 +1410,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1291,6 +1425,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1305,6 +1440,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1319,6 +1455,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>0.0</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1333,6 +1470,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1347,6 +1485,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1361,6 +1500,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1375,6 +1515,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1389,6 +1530,7 @@ select.sector-select:focus {
         <td>—</td>
         <td>—</td>
         <td class="seasonal">—</td>
+        
       </tr>
       
       
@@ -1558,6 +1700,10 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
   sent_col_volatility: "Volatilitet",
   sent_col_attention: "Uppmärksamhet",
   sent_col_seasonal: "Säsong",
+  sent_col_news_polarity: "Polaritet",
+  sent_col_news_count: "Artiklar",
+  sent_col_news_pos: "Pos%",
+  sent_col_news_neg: "Neg%",
   rising_heading: "Stigande sökningar",
   rising_col_query: "Sökterm",
   rising_col_growth: "Tillväxt"
