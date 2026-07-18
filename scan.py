@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import os
 import subprocess
 import sys
@@ -79,6 +80,11 @@ def _parse_args() -> argparse.Namespace:
         "--no-alerts",
         action="store_true",
         help="Skip threshold alert notifications after scan.",
+    )
+    parser.add_argument(
+        "--no-finbert",
+        action="store_true",
+        help="Skip FinBERT news sentiment step (avoids ~400MB model download).",
     )
     return parser.parse_args()
 
@@ -486,6 +492,55 @@ def run(args: argparse.Namespace) -> int:
 
     if _use_cache:
         trends_cache.save_cache(_cache_date, _cache)
+
+    # ------------------------------------------------------------------
+    # Step 8d: FinBERT news sentiment (signed polarity from GDELT headlines)
+    # ------------------------------------------------------------------
+    if not args.no_finbert:
+        logger.info("Fetching GDELT headlines + FinBERT scoring …")
+        try:
+            from src.data.news_sentiment import (
+                fetch_news_headlines, score_headlines, zscore_polarity,
+            )
+            _headlines = fetch_news_headlines()
+            _total_articles = sum(len(h) for h in _headlines.values())
+            logger.info("GDELT: %d headlines across %d sectors",
+                        _total_articles, len(_headlines))
+
+            _finbert_scores = score_headlines(_headlines)
+            _finbert_z = zscore_polarity(_finbert_scores)
+
+            _live_finbert = sum(1 for v in _finbert_z.values() if not math.isnan(v))
+            logger.info("FinBERT: %d/%d sectors scored", _live_finbert, len(_finbert_z))
+
+            if _live_finbert >= 2:
+                for key in sentiment_score.index:
+                    _region, _, _sector = key.partition("|")
+                    if _sector in _finbert_z and not math.isnan(_finbert_z[_sector]):
+                        sentiment_score[key] = _finbert_z[_sector]
+                logger.info("sentiment_score overwritten with FinBERT polarity z-scores")
+
+            _finbert_signal_rows = []
+            for _sector, _sc in _finbert_scores.items():
+                for _region in ("US", "EU"):
+                    _finbert_signal_rows.extend([
+                        {"region": _region, "gics_sector": _sector,
+                         "signal_name": "news_polarity", "value": _sc["mean_polarity"]},
+                        {"region": _region, "gics_sector": _sector,
+                         "signal_name": "news_count", "value": float(_sc["count"])},
+                        {"region": _region, "gics_sector": _sector,
+                         "signal_name": "news_positive_pct", "value": _sc["positive_pct"]},
+                        {"region": _region, "gics_sector": _sector,
+                         "signal_name": "news_negative_pct", "value": _sc["negative_pct"]},
+                    ])
+            sentiment_signals_df = pd.concat(
+                [sentiment_signals_df, pd.DataFrame(_finbert_signal_rows)],
+                ignore_index=True,
+            )
+        except Exception as exc:
+            logger.warning("FinBERT sentiment failed (%s) — continuing with Trends score", exc)
+    else:
+        logger.info("FinBERT sentiment skipped (--no-finbert)")
 
     logger.info("Scoring sectors …")
     # Canonical composite stays pure-data; sentiment is stored but not blended.

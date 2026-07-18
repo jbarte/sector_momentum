@@ -21,19 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Multilingual news sentiment (FinBERT) — recommended sentiment direction
-
-**What:** Signed sentiment (positive/negative polarity, not just attention)
-from a finance-tuned model over a free news feed — **GDELT** (global tone) or
-**Alpha Vantage** `NEWS_SENTIMENT` (free tier). Local inference
-(`transformers` + `torch`, ~400 MB model, CPU, no API key) fits the free-only
-constraint but is a heavier dependency than anything in the current stack.
-
-**Why:** The 2026-06-26 Trends validation showed search-attention is noisy,
-directionless, and ambiguous-ticker-contaminated. FinBERT sidesteps search-term
-ambiguity entirely and adds direction. Base FinBERT is English-only; EU/Swedish
-needs a multilingual variant or translate-then-score.
-
 ---
 
 # Parked
@@ -49,7 +36,7 @@ contamination worse, not better. Key findings kept for the record:
 - Ambiguous tickers dominate the cross-sectional z (`VOX` → Vox Media z +4.16,
   `LOGS` → the English word z +1.27). Blocklisting is whack-a-mole; the real
   fixes are entity mids (since shipped for sectors, 2026-07-04) or the FinBERT
-  pivot (queued above).
+  pivot (since shipped, 2026-07-17).
 - If ever revived: needs top-N liquidity ranking (no market-cap source in
   `fetch_sp500_constituents()`), aggregation weighting, and the Trends
   day-cache (since shipped, 2026-07-07).
@@ -64,6 +51,18 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **FinBERT news sentiment** — signed (positive/negative) news polarity per
+  GICS sector using ProsusAI/finbert over GDELT DOC 2.0 API headlines
+  (English, 24h window, 11 sector queries via GDELT theme codes). Replaces
+  the directionless Google Trends slope as `sentiment_score` in the composite
+  scoring path, making the dashboard's blend toggle meaningful. Google Trends
+  derived signals stay info-only. Four new info columns on the sentiment page:
+  Polarity, Articles, Pos%, Neg%. Non-fatal step 8d in scan.py with
+  `--no-finbert` CLI flag; Trends z-score is the fallback if FinBERT fails.
+  `src/data/news_sentiment.py` handles GDELT fetch, FinBERT inference, and
+  cross-sectional z-scoring. Sectors only — themes stay Trends-only. EN+SV
+  i18n. No DDL changes. *(2026-07-17)*
 
 - **Forward-return validation & holding-period stats** — two info-only panels
   in the Backtest tab. For every scan where a sector ranks top-5, computes

@@ -1,7 +1,7 @@
-# Sentiment is toggle-only by design: the composite score is pure data.
-# Revisit pillar blending only if/when FinBERT provides signed polarity.
-# (The old pillars: {data: 0.70, sentiment: 0.30} block was removed because
-# scan.py always passes blend_sentiment=False and the weight was dead config.)
+# Sentiment uses FinBERT news polarity (ProsusAI/finbert over GDELT headlines).
+# The composite score is pure data by default (blend_sentiment=False); the
+# dashboard toggle lets the user blend sentiment at a configurable weight.
+# Google Trends signals remain info-only on the sentiment page.
 
 # Within data pillar: level vs change split
 data_pillar:
