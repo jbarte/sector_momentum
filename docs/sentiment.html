@@ -804,55 +804,60 @@ select.sector-select:focus {
   <details class="tab-guide">
     <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
     <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
-      <h4>Source — Google Trends only</h4>
-      <p>Sentiment measures <strong>search attention</strong> using Google Trends.
-         Reddit and news-headline sources were evaluated and dropped — no reliable
-         free access.</p>
-      <h4>Method</h4>
-      <p>For each sector we pull ~13 weeks of worldwide search interest for its primary
-         keyword (e.g. Technology&nbsp;→&nbsp;<em>semiconductor</em>,
-         Energy&nbsp;→&nbsp;<em>oil</em>). The headline score is the
-         <strong>trend (slope)</strong> of that interest, standardized across the
-         11 sectors (z-score):
-         <span class="signal-hi">positive = rising attention vs peers</span>,
-         <span class="signal-lo">negative = fading</span>.
-         Where a ticker maps to a known Google Knowledge&nbsp;Graph <strong>entity</strong>,
-         we query that entity rather than the raw ticker string, to avoid name
-         collisions (e.g. a ticker that is also a common word); tickers without a
-         known entity fall back to the plain string.
-         Interest is pulled per region — <strong>US</strong> sectors in US search,
-         <strong>EU</strong> sectors averaged across Germany, France and the UK —
-         and normalized against a neutral, ubiquitous anchor term rather than a
-         market ticker. (This anchor change means sentiment values from before it
-         are not directly comparable to later ones.)</p>
+      <h4>Source — FinBERT news sentiment</h4>
+      <p>The headline <strong>sentiment score</strong> is built from recent financial
+         news, not search attention. For each of the 11 GICS sectors we fetch the
+         latest 24&nbsp;hours of English-language headlines from the
+         <strong>GDELT</strong> global news index (up to 250 per sector, matched via
+         sector-specific topic codes). Each headline is scored by
+         <strong>ProsusAI/finbert</strong>, a finance-tuned BERT model that classifies
+         text as positive, negative or neutral with a confidence score. The per-sector
+         <em>mean signed polarity</em> (positive&nbsp;=&nbsp;+score,
+         negative&nbsp;=&nbsp;&minus;score, neutral&nbsp;=&nbsp;0) is then z-scored
+         across the 11 sectors:
+         <span class="signal-hi">positive = more bullish news vs peers</span>,
+         <span class="signal-lo">negative = more bearish</span>.
+         Both US and EU rows for the same GICS sector share the same score — financial
+         news sentiment is global. If FinBERT or GDELT is unavailable, the score falls
+         back to the Google Trends slope z-score.</p>
+      <h4>Google Trends derived signals</h4>
+      <p>The table also shows <strong>search-attention</strong> signals from Google
+         Trends (information-only — they do not affect the ranking). For each sector we
+         pull ~13 weeks of worldwide search interest for its primary keyword
+         (e.g. Technology&nbsp;&rarr;&nbsp;<em>semiconductor</em>,
+         Energy&nbsp;&rarr;&nbsp;<em>oil</em>), queried per region
+         (<strong>US</strong> in US search, <strong>EU</strong> averaged across
+         Germany, France and the UK) and normalized against a neutral anchor term.</p>
       <h4>Themes</h4>
-      <p>The <strong>Themes</strong> cohort works the same way, but themes map to real
-         search phrases (<em>uranium</em>, <em>defense stocks</em>, <em>robotics</em>)
-         rather than ETF tickers. Theme interest is pulled <strong>worldwide</strong>
-         (themes are global) and z-scored across the theme cohort. Switch cohorts with
-         the toggle above.</p>
-      <h4>Derived signals</h4>
-      <p>From the same interest series we read out a few complementary views (shown
-         in the table below, information-only — only Momentum can affect the ranking):</p>
+      <p>The <strong>Themes</strong> cohort uses Google Trends only (no FinBERT).
+         Themes map to real search phrases (<em>uranium</em>, <em>defense stocks</em>,
+         <em>robotics</em>) rather than ETF tickers. Theme interest is pulled
+         <strong>worldwide</strong> (themes are global) and z-scored across the theme
+         cohort. Switch cohorts with the toggle above.</p>
+      <h4>Table columns</h4>
+      <p>The sector table shows both FinBERT and Trends signals (all information-only
+         except Polarity, which feeds the ranking via the blend toggle):</p>
       <ul>
-        <li><strong>Momentum</strong> — the trend/slope, same series the headline
-            score is built from.</li>
-        <li><strong>Acceleration</strong> — recent-half slope minus earlier-half
-            slope; positive means attention is picking up speed.</li>
-        <li><strong>Range position</strong> — where the latest reading sits within
-            its own 13-week min–max (0% = window low, 100% = window high).</li>
-        <li><strong>Spike</strong> — z-score of the latest point vs the trailing
+        <li><strong>Momentum</strong> (Trends) — trend/slope of search interest.</li>
+        <li><strong>Acceleration</strong> (Trends) — recent-half slope minus
+            earlier-half; positive = attention picking up speed.</li>
+        <li><strong>Range position</strong> (Trends) — latest reading within its
+            13-week min–max (0% = low, 100% = high).</li>
+        <li><strong>Spike</strong> (Trends) — z-score of the latest point vs trailing
             weeks; a breakout in interest.</li>
-        <li><strong>Volatility</strong> — how choppy week-to-week interest has been.</li>
-        <li><strong>Attention</strong> — relative search interest compared
-            head-to-head against all other members of the same cohort.
-            Higher = more attention.</li>
-        <li><strong>Seasonal</strong> — compares the last 13 weeks of search interest
-            to the prior 39-week baseline. Above 1.0 = interest exceeding its
-            historical norm; below 1.0 = below norm.</li>
-        <li><strong>Rising Queries</strong> — emerging search terms surfaced by
-            Google Trends for each row's representative keyword/entity. Click a row
-            with &#x25B6; to expand.</li>
+        <li><strong>Volatility</strong> (Trends) — how choppy week-to-week interest
+            has been.</li>
+        <li><strong>Attention</strong> (Trends) — relative search interest compared
+            head-to-head against all other sectors. Higher = more attention.</li>
+        <li><strong>Seasonal</strong> (Trends) — last 13 weeks vs prior 39-week
+            baseline. Above 1.0 = exceeding historical norm.</li>
+        <li><strong>Polarity</strong> (FinBERT) — mean signed sentiment from recent
+            news headlines. Green = bullish, red = bearish.</li>
+        <li><strong>Articles</strong> (FinBERT) — number of headlines scored.</li>
+        <li><strong>Pos%</strong> (FinBERT) — fraction classified as positive.</li>
+        <li><strong>Neg%</strong> (FinBERT) — fraction classified as negative.</li>
+        <li><strong>Rising Queries</strong> (Trends) — emerging search terms. Click a
+            row with &#x25B6; to expand.</li>
       </ul>
       <h4>It does not drive the ranking by default</h4>
       <p>The leaderboard composite is built from price/momentum signals only. Sentiment
@@ -1873,32 +1878,30 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text}\u003c
     Sentiment är en bekräftande signal — brusig, manipulerbar, privatspararpartisk.
     Detta är ett analysverktyg, inte investeringsrådgivning.`,
   guide_body_sentiment: `
-      <h4>Källa — endast Google Trends</h4>
-      <p>Sentiment mäter <strong>sökuppmärksamhet</strong> via Google Trends. Reddit- och nyhetsrubrik-källor utvärderades och valdes bort — ingen pålitlig gratis åtkomst.</p>
-      <h4>Metod</h4>
-      <p>För varje sektor hämtar vi ~13 veckors världsomspännande sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;→&nbsp;<em>semiconductor</em>, Energi&nbsp;→&nbsp;<em>oil</em>). Huvudpoängen är <strong>trenden (lutningen)</strong> i det intresset, standardiserad över de 11 sektorerna (z-värde): <span class="signal-hi">positivt = stigande uppmärksamhet mot jämnåriga</span>, <span class="signal-lo">negativt = avtagande</span>. Där en ticker motsvarar en känd Google Knowledge&nbsp;Graph-<strong>entitet</strong> frågar vi efter den entiteten i stället för den råa ticker-strängen, för att undvika namnkrockar; tickers utan känd entitet faller tillbaka på strängen. Intresset hämtas per region — <strong>US</strong>-sektorer i amerikanska sökningar, <strong>EU</strong>-sektorer som ett genomsnitt av Tyskland, Frankrike och Storbritannien — och normaliseras mot en neutral, allmänt spridd ankarterm i stället för en marknadsticker. (Denna ankarändring gör att sentimentvärden från före ändringen inte är direkt jämförbara med senare.)</p>
+      <h4>Källa — FinBERT-nyhetssentiment</h4>
+      <p><strong>Sentimentpoängen</strong> bygger på färska finansnyheter, inte sökuppmärksamhet. För var och en av de 11 GICS-sektorerna hämtas de senaste 24&nbsp;timmarnas engelskspråkiga rubriker från det globala nyhetsindexet <strong>GDELT</strong> (upp till 250 per sektor, matchade via sektorsspecifika ämneskodar). Varje rubrik poängsätts av <strong>ProsusAI/finbert</strong>, en finansanpassad BERT-modell som klassificerar text som positiv, negativ eller neutral. Den sektorvisa <em>medelpolariteten</em> (positiv&nbsp;=&nbsp;+poäng, negativ&nbsp;=&nbsp;&minus;poäng, neutral&nbsp;=&nbsp;0) z-poängsätts sedan över de 11 sektorerna: <span class="signal-hi">positivt = mer hausseartade nyheter mot jämnåriga</span>, <span class="signal-lo">negativt = mer baisseartade</span>. Både US- och EU-rader för samma GICS-sektor delar samma poäng — nyhetssentimentet är globalt. Om FinBERT eller GDELT är otillgängligt faller poängen tillbaka på Google Trends lutnings-z-poäng.</p>
+      <h4>Google Trends härledda signaler</h4>
+      <p>Tabellen visar även <strong>sökuppmärksamhetssignaler</strong> från Google Trends (enbart information — de påverkar inte rankningen). För varje sektor hämtas ~13 veckors sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;&rarr;&nbsp;<em>semiconductor</em>, Energi&nbsp;&rarr;&nbsp;<em>oil</em>), per region (<strong>US</strong> i amerikanska sökningar, <strong>EU</strong> som genomsnitt av Tyskland, Frankrike och Storbritannien), normaliserat mot en neutral ankarterm.</p>
       <h4>Teman</h4>
-      <p><strong>Teman</strong>-kohorten fungerar likadant, men teman motsvarar riktiga sökfraser (<em>uranium</em>, <em>defense stocks</em>, <em>robotics</em>) i stället för ETF-tickers. Temaintresse hämtas <strong>världsomspännande</strong> (teman är globala) och z-poängsätts över temakohorten. Byt kohort med växeln ovanför.</p>
-      <h4>Härledda signaler</h4>
-      <p>Ur samma intresseserie läser vi också ut några kompletterande vyer (visas i tabellen nedan, endast information — bara Momentum kan påverka rankningen):</p>
+      <p><strong>Teman</strong>-kohorten använder enbart Google Trends (inget FinBERT). Teman motsvarar riktiga sökfraser (<em>uranium</em>, <em>defense stocks</em>, <em>robotics</em>) i stället för ETF-tickers. Temaintresse hämtas <strong>världsomspännande</strong> (teman är globala) och z-poängsätts över temakohorten. Byt kohort med växeln ovanför.</p>
+      <h4>Tabellkolumner</h4>
+      <p>Sektortabellen visar både FinBERT- och Trends-signaler (alla enbart information förutom Polaritet, som matar rankningen via blandningsväxeln):</p>
       <ul>
-        <li><strong>Momentum</strong> — trenden/lutningen, samma serie som huvudpoängen bygger på.</li>
-        <li><strong>Acceleration</strong> — senaste halvans lutning minus tidigare halvans; positivt betyder att uppmärksamheten tar fart.</li>
-        <li><strong>Intervallposition</strong> — var senaste värdet ligger inom sitt eget 13-veckors min–max (0% = lägsta, 100% = högsta).</li>
-        <li><strong>Spik</strong> — z-värde för senaste punkten mot föregående veckor; ett genombrott i intresse.</li>
-        <li><strong>Volatilitet</strong> — hur ryckigt intresset varit vecka för vecka.</li>
-        <li><strong>Uppmärksamhet</strong> — relativt sökintresse jämfört
-            head-to-head mot alla andra medlemmar i samma kohort.
-            Högre = mer uppmärksamhet.</li>
-        <li><strong>Säsong</strong> — jämför senaste 13 veckors sökintresse mot de
-            föregående 39 veckorna. Över 1,0 = intresset överstiger sin historiska norm;
-            under 1,0 = under normen.</li>
-        <li><strong>Stigande sökningar</strong> — framväxande söktermer som Google Trends
-            identifierar för varje rads representativa nyckelord/entitet. Klicka på en rad
-            med ▶ för att expandera.</li>
+        <li><strong>Momentum</strong> (Trends) — trenden/lutningen i sökintresse.</li>
+        <li><strong>Acceleration</strong> (Trends) — senaste halvans lutning minus tidigare halvans; positivt = uppmärksamheten tar fart.</li>
+        <li><strong>Intervallposition</strong> (Trends) — senaste värdet inom 13-veckors min–max (0% = lägsta, 100% = högsta).</li>
+        <li><strong>Spik</strong> (Trends) — z-värde för senaste punkten mot föregående veckor; genombrott i intresse.</li>
+        <li><strong>Volatilitet</strong> (Trends) — hur ryckigt intresset varit vecka för vecka.</li>
+        <li><strong>Uppmärksamhet</strong> (Trends) — relativt sökintresse jämfört head-to-head mot alla andra sektorer. Högre = mer uppmärksamhet.</li>
+        <li><strong>Säsong</strong> (Trends) — senaste 13 veckor mot föregående 39-veckors baslinjen. Över 1,0 = överstiger historisk norm.</li>
+        <li><strong>Polaritet</strong> (FinBERT) — genomsnittligt signerat sentiment från senaste nyhetsrubrikerna. Grön = hausseartad, röd = baisseartad.</li>
+        <li><strong>Artiklar</strong> (FinBERT) — antal poängsatta rubriker.</li>
+        <li><strong>Pos%</strong> (FinBERT) — andel klassificerade som positiva.</li>
+        <li><strong>Neg%</strong> (FinBERT) — andel klassificerade som negativa.</li>
+        <li><strong>Stigande sökningar</strong> (Trends) — framväxande söktermer. Klicka på en rad med ▶ för att expandera.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
-      <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft — sökintresse är brusigt och kan släpa efter priset.</p>`
+      <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft.</p>`
 });
 
 
