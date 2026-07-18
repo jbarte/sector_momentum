@@ -9,6 +9,7 @@
   {% include "i18n/_validation.js.j2" %}
   {% include "i18n/_macro.js.j2" %}
   {% include "i18n/_guides.js.j2" %}
+  {% include "i18n/_auth.js.j2" %}
 
   var els = document.querySelectorAll("[data-i18n]");
   els.forEach(function (el) { el.setAttribute("data-en", el.textContent); });

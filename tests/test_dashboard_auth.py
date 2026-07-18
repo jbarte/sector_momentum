@@ -74,3 +74,44 @@ def test_auth_ctx_never_contains_secrets(monkeypatch):
     blob = _auth_ctx()["auth_config_json"]
     assert "SERVICE-ROLE-SECRET" not in blob
     assert "DBPASS" not in blob
+
+
+# ---------------------------------------------------------------------------
+# Template rendering
+# ---------------------------------------------------------------------------
+
+_AUTH = {"url": "https://abc.supabase.co", "key": "sb_publishable_test123"}
+_HEADER_CTX = {
+    "active_segment": "sectors",
+    "macro": None,
+    "active_scan_id": 7,
+    "scan_date": "2026-07-18",
+}
+
+
+def test_header_renders_auth_control_when_enabled():
+    html = _render_partial("_header.html.j2", auth=_AUTH, **_HEADER_CTX)
+    for el_id in ("auth-root", "auth-signin", "auth-form", "auth-email",
+                  "auth-status", "auth-user", "auth-signout"):
+        assert f'id="{el_id}"' in html
+
+
+def test_header_omits_auth_control_when_disabled():
+    html = _render_partial("_header.html.j2", auth=None, **_HEADER_CTX)
+    assert "auth-root" not in html
+
+
+def test_footer_emits_config_and_scripts_when_enabled():
+    html = _render_partial("_footer.html.j2", auth=_AUTH,
+                           auth_config_json=json.dumps(_AUTH))
+    assert "window.SUPABASE_CONFIG" in html
+    assert "assets/supabase.min.js" in html
+    assert "assets/auth.js" in html
+    assert "sb_publishable_test123" in html
+
+
+def test_footer_omits_auth_when_disabled():
+    html = _render_partial("_footer.html.j2", auth=None, auth_config_json="")
+    assert "SUPABASE_CONFIG" not in html
+    assert "supabase.min.js" not in html
+    assert "auth.js" not in html

@@ -44,6 +44,20 @@
               border-color var(--duration-fast) var(--ease-standard);
 }
 .lang-toggle:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
+.auth-root { display: inline-flex; align-items: center; gap: 8px; }
+.auth-form { display: inline-flex; align-items: center; gap: 6px; }
+.auth-form[hidden] { display: none; }
+.auth-form input[type="email"] {
+  background: transparent;
+  color: var(--fg1);
+  border: 1px solid var(--fg4);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 0.8rem;
+  width: 14em;
+}
+.auth-status { color: var(--fg4); font-size: 0.75rem; }
 
 /* =========================================================
    Chips (macro indicators in command bar)
