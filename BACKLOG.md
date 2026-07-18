@@ -21,15 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## User authentication (login)
-
-Add user authentication so individual users can log in to the dashboard.
-This is a prerequisite for position tracking — positions are per-user and
-require an authenticated identity.
-
-**Scope TBD** — auth provider (Supabase Auth, OAuth, passkeys), session
-handling, and protected routes to be designed during brainstorming.
-
 ## Position tracking
 
 Allow logged-in users to track their sector/theme positions (holdings,
@@ -70,6 +61,18 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **User authentication (login foundation)** — invite-only magic-link sign-in
+  on the static dashboard via Supabase Auth + supabase-js v2 (UMD bundle
+  vendored at build time like Plotly, gitignored). Sign in/out control in the
+  command-bar meta-cluster (EN+SV); session persisted in localStorage;
+  `dashboard/assets/auth.js` + `window.SUPABASE_CONFIG` baked by `build.py`
+  only when `SUPABASE_PUBLISHABLE_KEY` is set — fail-open, without the key
+  the dashboard is unchanged. Allowlist is server-side: Supabase sign-ups
+  disabled + `shouldCreateUser: false`; invitees added via the Supabase
+  dashboard. RLS enabled (no policies) on all 7 pipeline tables
+  (`scripts/enable_rls.sql`) — anon/authenticated blocked, postgres-role
+  pipeline unaffected. Foundation for Position tracking (queued). *(2026-07-18)*
 
 - **FinBERT news sentiment** — signed (positive/negative) news polarity per
   GICS sector using ProsusAI/finbert over GDELT DOC 2.0 API headlines

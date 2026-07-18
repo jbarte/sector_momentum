@@ -2,3 +2,8 @@
   <span data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
   <a href="feed.xml">RSS</a>
 </footer>
+{% if auth %}
+<script>window.SUPABASE_CONFIG = {{ auth_config_json | js_json }};</script>
+<script src="assets/supabase.min.js"></script>
+<script src="assets/auth.js"></script>
+{% endif %}
