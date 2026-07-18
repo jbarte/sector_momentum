@@ -21,6 +21,7 @@ data/momentum.db-shm
 
 # Dashboard assets (large downloaded binary — fetched on first run)
 dashboard/assets/plotly.min.js
+dashboard/assets/supabase.min.js
 
 # Worktrees
 .worktrees/

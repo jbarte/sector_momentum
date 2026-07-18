@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -96,6 +97,12 @@ from dashboard.validation import (                    # noqa: E402, F401
 # ---------------------------------------------------------------------------
 
 PLOTLY_CDN = "https://cdn.plot.ly/plotly-basic-2.27.0.min.js"
+# Pinned supabase-js v2 UMD build, vendored like Plotly (downloaded once,
+# gitignored). Bump deliberately; the dashboard has no JS build toolchain.
+SUPABASE_JS_CDN = (
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.7"
+    "/dist/umd/supabase.min.js"
+)
 _ASSETS_DIR = Path(__file__).parent / "assets"
 
 
@@ -121,6 +128,51 @@ def _ensure_plotly_bundle() -> Path:
             )
             sys.exit(1)
     return bundle
+
+
+def _ensure_supabase_bundle() -> Path | None:
+    """Download supabase.min.js once to dashboard/assets/ if not present.
+
+    Fail-open (returns None) unlike the Plotly bundle: a missing auth bundle
+    degrades to a dashboard without login, not a broken build.
+    """
+    _ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+    bundle = _ASSETS_DIR / "supabase.min.js"
+    if not bundle.exists():
+        import requests
+
+        logger.info("Downloading supabase-js bundle from %s …", SUPABASE_JS_CDN)
+        try:
+            resp = requests.get(SUPABASE_JS_CDN, timeout=30)
+            resp.raise_for_status()
+            bundle.write_bytes(resp.content)
+        except Exception as exc:
+            logger.warning(
+                "Failed to download supabase-js bundle: %s — auth disabled", exc
+            )
+            return None
+    return bundle
+
+
+def _auth_ctx() -> dict:
+    """Browser auth config: project URL + publishable key, or disabled.
+
+    Only these two values may reach the browser; the publishable key is
+    public by design (protection is RLS/grants, not key secrecy).
+    """
+    import json as _json
+
+    key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+    if not key:
+        return {"auth": None, "auth_config_json": ""}
+    try:
+        from src.storage_backup import _base_url
+        url = _base_url()
+    except Exception as exc:
+        logger.warning("Auth disabled: cannot resolve Supabase URL (%s)", exc)
+        return {"auth": None, "auth_config_json": ""}
+    cfg = {"url": url, "key": key}
+    return {"auth": cfg, "auth_config_json": _json.dumps(cfg)}
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +356,12 @@ def main() -> None:
     scan_digest_src = _ASSETS_DIR / "scan-digest.js"
     if scan_digest_src.exists():
         shutil.copy2(scan_digest_src, docs_assets / "scan-digest.js")
+    auth_src = _ASSETS_DIR / "auth.js"
+    if auth_src.exists():
+        shutil.copy2(auth_src, docs_assets / "auth.js")
+    supabase_src = _ASSETS_DIR / "supabase.min.js"
+    if supabase_src.exists():
+        shutil.copy2(supabase_src, docs_assets / "supabase.min.js")
     plotly_bundle_rel = "assets/plotly.min.js"
 
     # ------------------------------------------------------------------
@@ -314,6 +372,11 @@ def main() -> None:
     # Compute cross-page contexts once (macro makes a network call)
     logger.info("Fetching macro regime data …")
     macro_page_ctx = _macro_ctx(shared)
+
+    # Compute auth context (fail-open: disabled if key not set or bundle fails)
+    auth_ctx = _auth_ctx()
+    if auth_ctx["auth"] and _ensure_supabase_bundle() is None:
+        auth_ctx = {"auth": None, "auth_config_json": ""}
 
     # --- Sectors page ---
     logger.info("Building sectors page context …")
@@ -328,6 +391,7 @@ def main() -> None:
     sectors_ctx.update(_badges_ctx(shared))
     sectors_ctx.update(_validation_ctx(shared))
     sectors_ctx.update(macro_page_ctx)
+    sectors_ctx.update(auth_ctx)
 
     _render(
         template_path=template_dir / "index.html.j2",
@@ -344,6 +408,7 @@ def main() -> None:
     }
     sentiment_ctx.update(_sentiment_ctx(shared))
     sentiment_ctx.update(macro_page_ctx)
+    sentiment_ctx.update(auth_ctx)
 
     _render(
         template_path=template_dir / "sentiment.html.j2",
@@ -361,6 +426,7 @@ def main() -> None:
     }
     themes_ctx.update(_figures_themes_ctx(shared))
     themes_ctx.update(macro_page_ctx)
+    themes_ctx.update(auth_ctx)
 
     _render(
         template_path=template_dir / "themes.html.j2",
