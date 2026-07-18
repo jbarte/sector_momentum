@@ -135,6 +135,38 @@ html, body {
               border-color var(--duration-fast) var(--ease-standard);
 }
 .lang-toggle:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
+.auth-root { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+.auth-root .lang-toggle { white-space: nowrap; }
+/* Email form opens as a dropdown card anchored under the Sign in button, so
+   the input/send/status group reads as one unit instead of reflowing the
+   command bar. Same surface treatment as the .card shell. */
+.auth-form {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+}
+.auth-form[hidden] { display: none; }
+.auth-form input[type="email"] {
+  background: var(--bg-raised);
+  color: var(--fg1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.8rem;
+  width: 14em;
+}
+.auth-status { color: var(--fg4); font-size: 0.75rem; max-width: 16em; }
+.auth-status:empty { display: none; }
 
 /* =========================================================
    Chips (macro indicators in command bar)
@@ -784,6 +816,7 @@ select.sector-select:focus {
   <div class="meta-cluster">
     
     <span class="scan-meta">#133 · 2026-07-17 09:30 UTC</span>
+    
     <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
   </div>
 </div>
@@ -1546,6 +1579,12 @@ document.getElementById('themes-table')?.addEventListener('keydown', function(e)
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft.</p>`
 });
 
+  Object.assign(SV, {
+  auth_sign_in: "Logga in",
+  auth_send_link: "Skicka länk",
+  auth_sign_out: "Logga ut",
+});
+
 
   var els = document.querySelectorAll("[data-i18n]");
   els.forEach(function (el) { el.setAttribute("data-en", el.textContent); });
@@ -1593,6 +1632,7 @@ document.getElementById('themes-table')?.addEventListener('keydown', function(e)
   <span data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
   <a href="feed.xml">RSS</a>
 </footer>
+
 
 
 </body>
