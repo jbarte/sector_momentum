@@ -21,6 +21,25 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## User authentication (login)
+
+Add user authentication so individual users can log in to the dashboard.
+This is a prerequisite for position tracking — positions are per-user and
+require an authenticated identity.
+
+**Scope TBD** — auth provider (Supabase Auth, OAuth, passkeys), session
+handling, and protected routes to be designed during brainstorming.
+
+## Position tracking
+
+Allow logged-in users to track their sector/theme positions (holdings,
+entry dates, size) against the scanner's signals. Depends on **User
+authentication** being shipped first.
+
+**Scope TBD** — data model, UI surface (overlay on leaderboard, dedicated
+tab, or both), and interaction with the existing ranking to be designed
+during brainstorming.
+
 ---
 
 # Parked
