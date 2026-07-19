@@ -106,6 +106,7 @@ def build_swedish_overlay(
     scores_with_deltas: pd.DataFrame,
     swedish_tickers_path: str = "config/swedish_tickers.csv",
     top_n: int = 5,
+    parent_map: dict[str, str] | None = None,
 ) -> str:
     """
     For the top_n sectors by composite score, list matching Swedish tickers.
@@ -126,7 +127,8 @@ def build_swedish_overlay(
         return "## 🇸🇪 Swedish Expression\n\n*Swedish tickers file not found.*"
 
     tickers_df = pd.read_csv(tickers_path)
-    parent_map = load_parent_map()
+    if parent_map is None:
+        parent_map = load_parent_map()
 
     top_sectors = (
         scores_with_deltas

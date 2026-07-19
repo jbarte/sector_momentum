@@ -36,20 +36,12 @@ _TRAJ_STATE_TO_KEY = {
 
 
 def _sector_ticker_map(universe: dict) -> dict[str, str]:
-    """Build {region|sector: ticker} from universe config.
-
-    EU sectors may be lists (composites); use the first ticker.
-    """
+    """Build {region|sector: ticker} from universe config."""
     result: dict[str, str] = {}
     for sector, ticker in universe.get("us_sectors", {}).items():
         result[f"US|{sector}"] = ticker
-    for sector, ticker_or_list in universe.get("eu_sectors", {}).items():
-        if isinstance(ticker_or_list, list):
-            ticker = ticker_or_list[0] if ticker_or_list else None
-        else:
-            ticker = ticker_or_list
-        if ticker:
-            result[f"EU|{sector}"] = ticker
+    for sector, ticker in universe.get("eu_sectors", {}).items():
+        result[f"EU|{sector}"] = ticker
     return result
 
 

@@ -36,8 +36,6 @@ def event_study(
         key = f"{region}|{sector}"
         sector_map = universe.get("us_sectors" if region == "US" else "eu_sectors", {})
         ticker = sector_map.get(sector)
-        if isinstance(ticker, list):
-            ticker = ticker[0] if ticker else None
         if not ticker or ticker not in prices:
             logger.warning("Rotation '%s' skipped — no price for %s (%s)", rot.get("name"), sector, ticker)
             continue

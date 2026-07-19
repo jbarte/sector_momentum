@@ -13,6 +13,8 @@ import time
 
 import requests
 
+from src.sector_map import parent_sector
+
 logger = logging.getLogger(__name__)
 
 GDELT_ENDPOINT = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -224,8 +226,6 @@ def apply_polarity_to_keys(
     """Overwrite per-key sentiment with FinBERT z-scores, resolving sub-sectors
     to their GICS parent (identity fallback). Returns a copy; NaN/unscored
     parents leave the existing value untouched."""
-    from src.sector_map import parent_sector
-
     out = sentiment_score.copy()
     for key in out.index:
         _, _, sector = key.partition("|")
@@ -244,8 +244,6 @@ def build_news_signal_rows(
     """Info-only news signal rows keyed by the universe's actual sector names.
     Sub-sectors inherit their GICS parent's numbers; sectors whose parent has
     no headline scores emit nothing."""
-    from src.sector_map import parent_sector
-
     rows: list[dict] = []
     for region, cfg_key in (("US", "us_sectors"), ("EU", "eu_sectors")):
         for name in universe.get(cfg_key, {}):
