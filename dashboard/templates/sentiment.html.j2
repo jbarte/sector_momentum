@@ -12,86 +12,42 @@
 </head>
 <body>
 
-{#- Shared derived-signals table. Reused for both the Sectors and Themes cohorts.
-   id_prefix keeps the rising-queries panel ids unique across the two tables;
-   name_i18n/name_default label the first column; show_region drops the Region
-   column for themes (it is always "THEME"). -#}
-{% macro sentiment_table(rows, id_prefix, name_i18n, name_default, show_region, show_news=false) %}
-{% set span = 9 + (1 if show_region else 0) + (4 if show_news else 0) %}
+{#- FinBERT news-sentiment table (sectors only). -#}
+{% macro sentiment_table(rows) %}
 <div style="overflow-x:auto">
   <table>
     <thead>
       <tr>
-        <th style="width:1.2em"></th>
-        <th data-i18n="{{ name_i18n }}">{{ name_default }}</th>
-        {% if show_region %}<th data-i18n="sent_col_region">Region</th>{% endif %}
-        <th data-i18n="sent_col_momentum">Momentum</th>
-        <th data-i18n="sent_col_acceleration">Acceleration</th>
-        <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
-        <th data-i18n="sent_col_spike">Spike</th>
-        <th data-i18n="sent_col_volatility">Volatility</th>
-        <th data-i18n="sent_col_attention">Attention</th>
-        <th data-i18n="sent_col_seasonal">Seasonal</th>
-        {% if show_news %}
+        <th data-i18n="sent_col_sector">Sector</th>
+        <th data-i18n="sent_col_region">Region</th>
         <th data-i18n="sent_col_news_polarity">Polarity</th>
         <th data-i18n="sent_col_news_count">Articles</th>
         <th data-i18n="sent_col_news_pos">Pos%</th>
         <th data-i18n="sent_col_news_neg">Neg%</th>
-        {% endif %}
       </tr>
     </thead>
     <tbody>
       {% for r in rows %}
-      <tr{% if r.rising_queries %} class="has-rising" data-rising-id="rising-{{ id_prefix }}-{{ loop.index }}" tabindex="0"{% endif %}>
-        <td class="rising-toggle">{% if r.rising_queries %}&#x25B6;{% endif %}</td>
+      <tr>
         <td>{{ r.sector }}</td>
-        {% if show_region %}<td>{{ r.region }}</td>{% endif %}
-        <td>{{ r.momentum }}</td>
-        <td>{{ r.acceleration }}</td>
-        <td>{{ r.range_position }}</td>
-        <td>{{ r.spike }}</td>
-        <td>{{ r.volatility }}</td>
-        <td>{{ r.attention }}</td>
-        <td class="seasonal{% if r.seasonal_ratio != '—' %} {% if r.seasonal_ratio.replace('x','')|float > 1.0 %}seasonal-hi{% elif r.seasonal_ratio.replace('x','')|float < 1.0 %}seasonal-lo{% endif %}{% endif %}">{{ r.seasonal_ratio }}</td>
-        {% if show_news %}
+        <td>{{ r.region }}</td>
         <td class="{% if r.news_polarity != '—' %}{% if r.news_polarity.startswith('+') %}signal-hi{% elif r.news_polarity.startswith('-') %}signal-lo{% endif %}{% endif %}">{{ r.news_polarity }}</td>
         <td>{{ r.news_count }}</td>
         <td>{{ r.news_positive_pct }}</td>
         <td>{{ r.news_negative_pct }}</td>
-        {% endif %}
       </tr>
-      {% if r.rising_queries %}
-      <tr class="rising-panel" id="rising-{{ id_prefix }}-{{ loop.index }}" style="display:none">
-        <td colspan="{{ span }}">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                {% for q in r.rising_queries %}
-                <tr><td>{{ q.query }}</td><td>{{ q.growth }}</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      {% endif %}
       {% endfor %}
     </tbody>
   </table>
 </div>
 {% endmacro %}
 
-{#- Shared scatter footnote, identical under both cohort scatters. -#}
+{#- Scatter footnote. -#}
 {% macro scatter_footnote() %}
 <p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px" data-i18n-html="sentiment_footnote">
   Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
-  Hollow points = no sentiment data this scan (source unavailable or EU-only).
-  Sentiment is a confirming signal — noisy, gameable, retail-biased.
+  Hollow points = no news sentiment this scan (source unavailable).
+  Sentiment is a confirming signal — noisy and news-driven.
   This is analytical tooling, not investment advice.
 </p>
 {% endmacro %}
@@ -104,198 +60,61 @@
 <section class="tab-panel active">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
 
-  <!-- Cohort toggle: Sectors ⇄ Themes -->
-  <div class="segment-toggle" role="tablist" aria-label="Sentiment cohort" id="sent-cohort-toggle" style="margin:0 0 16px 4px">
-    <button type="button" class="segment-btn active" id="sent-tab-sectors" data-cohort="sectors" role="tab" aria-selected="true" aria-controls="sent-panel-sectors" data-i18n="segment_sectors">Sectors</button>
-    <button type="button" class="segment-btn" id="sent-tab-themes" data-cohort="themes" role="tab" aria-selected="false" aria-controls="sent-panel-themes" data-i18n="segment_themes">Themes</button>
-  </div>
-
   <div class="utility-row">
   <details class="tab-guide">
     <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
     <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
       <h4>Source — FinBERT news sentiment</h4>
-      <p>The headline <strong>sentiment score</strong> is built from recent financial
-         news, not search attention. For each of the 11 GICS sectors we fetch the
-         latest 24&nbsp;hours of English-language headlines from the
-         <strong>GDELT</strong> global news index (up to 250 per sector, matched via
-         sector-specific topic codes). Each headline is scored by
-         <strong>ProsusAI/finbert</strong>, a finance-tuned BERT model that classifies
-         text as positive, negative or neutral with a confidence score. The per-sector
-         <em>mean signed polarity</em> (positive&nbsp;=&nbsp;+score,
-         negative&nbsp;=&nbsp;&minus;score, neutral&nbsp;=&nbsp;0) is then z-scored
-         across the 11 sectors:
+      <p>The <strong>sentiment score</strong> is built from recent financial
+         news. For each of the 11 GICS sectors we fetch the latest 24&nbsp;hours
+         of English-language headlines from the <strong>GDELT</strong> global
+         news index (up to 250 per sector, matched via sector-specific topic
+         codes). Each headline is scored by <strong>ProsusAI/finbert</strong>, a
+         finance-tuned BERT model that classifies text as positive, negative or
+         neutral with a confidence score. The per-sector <em>mean signed
+         polarity</em> (positive&nbsp;=&nbsp;+score,
+         negative&nbsp;=&nbsp;&minus;score, neutral&nbsp;=&nbsp;0) is then
+         z-scored across the 11 sectors:
          <span class="signal-hi">positive = more bullish news vs peers</span>,
          <span class="signal-lo">negative = more bearish</span>.
-         Both US and EU rows for the same GICS sector share the same score — financial
-         news sentiment is global. If FinBERT or GDELT is unavailable, the score falls
-         back to the Google Trends slope z-score.</p>
-      <h4>Google Trends derived signals</h4>
-      <p>The table also shows <strong>search-attention</strong> signals from Google
-         Trends (information-only — they do not affect the ranking). For each sector we
-         pull ~13 weeks of worldwide search interest for its primary keyword
-         (e.g. Technology&nbsp;&rarr;&nbsp;<em>semiconductor</em>,
-         Energy&nbsp;&rarr;&nbsp;<em>oil</em>), queried per region
-         (<strong>US</strong> in US search, <strong>EU</strong> averaged across
-         Germany, France and the UK) and normalized against a neutral anchor term.</p>
-      <h4>Themes</h4>
-      <p>The <strong>Themes</strong> cohort uses Google Trends only (no FinBERT).
-         Themes map to real search phrases (<em>uranium</em>, <em>defense stocks</em>,
-         <em>robotics</em>) rather than ETF tickers. Theme interest is pulled
-         <strong>worldwide</strong> (themes are global) and z-scored across the theme
-         cohort. Switch cohorts with the toggle above.</p>
+         Both US and EU rows for the same GICS sector share the same score —
+         financial news sentiment is global. If FinBERT or GDELT is unavailable,
+         the score is left blank for that scan.</p>
       <h4>Table columns</h4>
-      <p>The sector table shows both FinBERT and Trends signals (all information-only
-         except Polarity, which feeds the ranking via the blend toggle):</p>
       <ul>
-        <li><strong>Momentum</strong> (Trends) — trend/slope of search interest.</li>
-        <li><strong>Acceleration</strong> (Trends) — recent-half slope minus
-            earlier-half; positive = attention picking up speed.</li>
-        <li><strong>Range position</strong> (Trends) — latest reading within its
-            13-week min–max (0% = low, 100% = high).</li>
-        <li><strong>Spike</strong> (Trends) — z-score of the latest point vs trailing
-            weeks; a breakout in interest.</li>
-        <li><strong>Volatility</strong> (Trends) — how choppy week-to-week interest
-            has been.</li>
-        <li><strong>Attention</strong> (Trends) — relative search interest compared
-            head-to-head against all other sectors. Higher = more attention.</li>
-        <li><strong>Seasonal</strong> (Trends) — last 13 weeks vs prior 39-week
-            baseline. Above 1.0 = exceeding historical norm.</li>
-        <li><strong>Polarity</strong> (FinBERT) — mean signed sentiment from recent
-            news headlines. Green = bullish, red = bearish.</li>
-        <li><strong>Articles</strong> (FinBERT) — number of headlines scored.</li>
-        <li><strong>Pos%</strong> (FinBERT) — fraction classified as positive.</li>
-        <li><strong>Neg%</strong> (FinBERT) — fraction classified as negative.</li>
-        <li><strong>Rising Queries</strong> (Trends) — emerging search terms. Click a
-            row with &#x25B6; to expand.</li>
+        <li><strong>Polarity</strong> — mean signed sentiment from recent news
+            headlines. Green = bullish, red = bearish.</li>
+        <li><strong>Articles</strong> — number of headlines scored.</li>
+        <li><strong>Pos%</strong> — fraction classified as positive.</li>
+        <li><strong>Neg%</strong> — fraction classified as negative.</li>
       </ul>
       <h4>It does not drive the ranking by default</h4>
-      <p>The leaderboard composite is built from price/momentum signals only. Sentiment
-         changes the ranking <em>only</em> when you enable the <strong>Sentiment
-         toggle</strong>, at the weight you choose. Treat it as a confirmer, not a
-         driver — search interest is noisy and can lag price.</p>
+      <p>The leaderboard composite is built from price/momentum signals only.
+         Sentiment changes the ranking <em>only</em> when you enable the
+         <strong>Sentiment toggle</strong>, at the weight you choose. Treat it as
+         a confirmer, not a driver — news sentiment is noisy and can lag price.</p>
     </div>
   </details>
   </div>
 
-  <!-- ===== Sectors cohort ===== -->
-  <div class="cohort-panel" data-cohort="sectors" id="sent-panel-sectors" role="tabpanel" aria-labelledby="sent-tab-sectors">
-    <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
-    {{ scatter_footnote() }}
-    {% if sentiment_signal_rows %}
-    <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
-    {{ sentiment_table(sentiment_signal_rows, "s", "sent_col_sector", "Sector", true, show_news=true) }}
-    {% endif %}
-  </div>
-
-  <!-- ===== Themes cohort ===== -->
-  <div class="cohort-panel" data-cohort="themes" id="sent-panel-themes" role="tabpanel" aria-labelledby="sent-tab-themes" style="display:none">
-    <p class="tab-note" data-i18n="note_sentiment_themes">Theme sentiment pulls worldwide search interest for each theme's keyword, z-scored across the themes. Information-only — it never affects any ranking.</p>
-    <div class="chart-container" id="sentiment-scatter-theme" style="height:560px"></div>
-    {{ scatter_footnote() }}
-    {% if theme_sentiment_signal_rows %}
-    <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
-    {{ sentiment_table(theme_sentiment_signal_rows, "t", "col_theme", "Theme", false) }}
-    {% else %}
-    <p style="color:var(--fg4);padding:16px 4px" data-i18n="sent_themes_empty">No theme sentiment data yet — run a scan.</p>
-    {% endif %}
-  </div>
+  <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
+  {{ scatter_footnote() }}
+  {% if sentiment_signal_rows %}
+  <h3 style="margin:24px 0 8px 4px" data-i18n="sent_news_heading">News sentiment</h3>
+  {{ sentiment_table(sentiment_signal_rows) }}
+  {% endif %}
 </section>
 </div>
 
 <script>
 var SENTIMENT_DATA = {{ sentiment_scatter_json | js_json }};
-var THEME_SENTIMENT_DATA = {{ theme_sentiment_scatter_json | js_json }};
 
-// Cohort toggle (Sectors ⇄ Themes), persisted in localStorage. Each scatter is
-// plotted lazily — the first time its cohort becomes visible — because Plotly
-// renders a chart inside a display:none container at a 0-width minimum and never
-// recovers cleanly. Lazy plotting guarantees a real container width at draw time.
+// Plot the scatter once the container is laid out.
 (function () {
-  var KEY = 'sentimentCohort';
-  var toggle = document.getElementById('sent-cohort-toggle');
-  if (!toggle) return;
-  var panels = document.querySelectorAll('.cohort-panel');
-  var plotted = {};
-  var FIG = {sectors: SENTIMENT_DATA, themes: THEME_SENTIMENT_DATA};
-  var DIV = {sectors: 'sentiment-scatter', themes: 'sentiment-scatter-theme'};
-  function reveal(cohort) {
-    if (!window.Plotly) return;
-    var el = document.getElementById(DIV[cohort]);
-    if (!plotted[cohort]) {
-      // First reveal: plot now that the container is laid out (an inline script
-      // on initial load runs before the first layout pass, when a newly-shown
-      // container still measures 0 width — Plotly would bake in a 0 width).
-      var fig = FIG[cohort];
-      Plotly.newPlot(el, fig.data, fig.layout, {responsive: true});
-      plotted[cohort] = true;
-    } else if (el.data) {
-      // Re-reveal: fix a width that may have gone stale (e.g. window resized
-      // while this cohort was hidden, so responsive:true never relaid it out).
-      Plotly.Plots.resize(el);
-    }
-  }
-  function setCohort(cohort) {
-    panels.forEach(function (p) {
-      p.style.display = p.getAttribute('data-cohort') === cohort ? '' : 'none';
-    });
-    toggle.querySelectorAll('.segment-btn').forEach(function (b) {
-      var on = b.getAttribute('data-cohort') === cohort;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-selected', String(on));
-    });
-    requestAnimationFrame(function () { reveal(cohort); });
-  }
-  function select(cohort, focus) {
-    setCohort(cohort);
-    try { localStorage.setItem(KEY, cohort); } catch (e) {}
-    if (focus) {
-      var btn = toggle.querySelector('.segment-btn[data-cohort="' + cohort + '"]');
-      if (btn) btn.focus();
-    }
-  }
-  var saved = null;
-  try { saved = localStorage.getItem(KEY); } catch (e) {}
-  setCohort(saved === 'themes' ? 'themes' : 'sectors');
-  toggle.addEventListener('click', function (e) {
-    var btn = e.target.closest('.segment-btn');
-    if (btn) select(btn.getAttribute('data-cohort'), false);
-  });
-  // Arrow-key navigation between tabs (WAI-ARIA tablist pattern).
-  toggle.addEventListener('keydown', function (e) {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    var order = ['sectors', 'themes'];
-    var active = toggle.querySelector('.segment-btn.active');
-    var i = order.indexOf(active ? active.getAttribute('data-cohort') : 'sectors');
-    var next = e.key === 'ArrowRight' ? (i + 1) % order.length : (i + order.length - 1) % order.length;
-    select(order[next], true);
-  });
-})();
-
-// Delegated toggle for rising-queries expandable panels (both cohort tables).
-(function () {
-  var scope = document.querySelector('.tab-panel');
-  if (!scope) return;
-  function toggle(row) {
-    var id = row.getAttribute('data-rising-id');
-    if (!id) return;
-    var panel = document.getElementById(id);
-    if (!panel) return;
-    var open = panel.style.display !== 'none';
-    panel.style.display = open ? 'none' : '';
-    row.classList.toggle('open', !open);
-    row.setAttribute('aria-expanded', String(!open));
-  }
-  scope.addEventListener('click', function (e) {
-    var row = e.target.closest('.has-rising');
-    if (row) toggle(row);
-  });
-  scope.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    var row = e.target.closest('.has-rising');
-    if (row) { e.preventDefault(); toggle(row); }
-  });
+  if (!window.Plotly) return;
+  var el = document.getElementById('sentiment-scatter');
+  if (!el) return;
+  Plotly.newPlot(el, SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
 })();
 
 {% include "_i18n.html.j2" %}
