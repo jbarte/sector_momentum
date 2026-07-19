@@ -243,7 +243,7 @@ def main() -> None:
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
         get_theme_signals_for_latest_scan, get_theme_scan_history,
-        get_theme_rrg_history, get_theme_sentiment_signals_for_latest_scan,
+        get_theme_rrg_history,
     )
 
     conn = init_db()
@@ -251,7 +251,6 @@ def main() -> None:
     signals_df = get_signals_for_latest_scan(conn)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
     theme_signals_df = get_theme_signals_for_latest_scan(conn)
-    theme_sentiment_signals_df = get_theme_sentiment_signals_for_latest_scan(conn)
     theme_history_df = get_theme_scan_history(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
     theme_rrg_df = get_theme_rrg_history(conn, n_scans=6)
@@ -294,7 +293,6 @@ def main() -> None:
         "theme_rrg_df": theme_rrg_df,
         "universe": _universe,
         "sentiment_signals_df": sentiment_signals_df,
-        "theme_sentiment_signals_df": theme_sentiment_signals_df,
     }
 
     # ------------------------------------------------------------------

@@ -22,36 +22,6 @@ themes:
   Data Centers & Digital Infra: DTCR
   AgTech & Food Innovation: KROP
 
-# Google Trends search term per theme (info-only sentiment). Unlike sectors —
-# which query ambiguous ETF tickers resolved to Knowledge-Graph entity mids —
-# themes map to real search phrases, so the plain string is usually the right
-# query. Terms are pulled worldwide (see config/trends_geo.yaml THEME entry) and
-# z-scored within the theme cohort; never blended into the composite. Ambiguous
-# names use a disambiguating phrase ("Space" alone = disk space / the word); if a
-# phrase still collides with a common word, curate an entity mid in
-# trends_entities below (keyed by the exact term string). Missing/unlisted themes
-# fall back to querying the theme name verbatim.
-trends:
-  Artificial Intelligence & Robotics: artificial intelligence
-  Semiconductors: semiconductor
-  Cybersecurity: cybersecurity
-  Clean Energy: clean energy
-  Defense: defense stocks
-  Blockchain & Crypto: cryptocurrency
-  Uranium & Nuclear: uranium
-  Space: space exploration
-  Lithium & Battery: lithium battery
-  Biotech: biotech
-  Quantum Computing: quantum computing
-  Data Centers & Digital Infra: data center infrastructure
-  AgTech & Food Innovation: agritech food innovation
-
-# Optional {term: entity mid} overrides for any trends term that still collides
-# with a common word. Same mechanism as config/trends_entities.yaml but keyed by
-# the search term (not a ticker). Empty by default — populate only after eyeballing
-# the resolved entity. Example: "space exploration": /m/xyz123
-trends_entities: {}
-
 ucits:
   Artificial Intelligence & Robotics:
     - ticker: XAIX

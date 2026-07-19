@@ -15,7 +15,7 @@ Copy `.env.example` to `.env` and fill in:
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Supabase Postgres connection string (direct, port 5432) |
-| `SUPABASE_SERVICE_KEY` | Service-role key for the `db-backups` and `trends-cache` Storage buckets (optional for local dev -- backup/cache steps degrade gracefully without it) |
+| `SUPABASE_SERVICE_KEY` | Service-role key for the `db-backups` Storage bucket (optional for local dev -- backup step degrades gracefully without it) |
 
 ## Dev commands
 
@@ -30,7 +30,7 @@ python3 scan.py
 pytest
 ```
 
-`scan.py` options: `--dry-run`, `--no-dashboard`, `--no-backup`, `--no-cache`.
+`scan.py` options: `--dry-run`, `--no-dashboard`, `--no-backup`, `--no-alerts`, `--no-finbert`.
 
 ## Project structure (overview)
 
@@ -38,7 +38,7 @@ pytest
 scan.py                  # entrypoint: full pipeline
 config/                  # universe, weights, sector maps, themes
 src/
-  data/                  # price loaders, Google Trends, constituents
+  data/                  # price loaders, FinBERT news sentiment, constituents
   signals/               # momentum, relative strength, technical, breadth
   backtest/              # rotation backtest engine
   scoring.py             # cross-sectional z-scores, composite ranking

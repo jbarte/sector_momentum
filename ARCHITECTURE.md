@@ -53,11 +53,13 @@ their own region cohort; themes form a third independent cohort.
 |---|---|---|
 | Daily price/volume | **stooq** (primary, no key), **yfinance** (fallback) | `src/data/prices.py`; cache-aggressive |
 | US constituent breadth | Wikipedia S&P 500 list + price data | `src/data/constituents.py` + `src/signals/breadth.py`; % above 50-DMA per US sector; EU = N/A |
-| Search attention (sentiment) | **Google Trends** via `pytrends` | `src/data/trends_symbols.py`; symbol-based, entity-mid disambiguation, region-aware (US geo, EU avg of DE/FR/GB) |
+| News sentiment | **GDELT** headlines + **ProsusAI/finbert** | `src/data/news_sentiment.py`; per-GICS-sector signed polarity, z-scored across sectors; sub-sectors inherit their GICS parent's score |
 | Macro context | **FRED** | `src/data/macro.py`; rates, yield curve (not currently wired into scoring) |
 
-**Removed sources:** Reddit/PRAW, Finnhub, StockTwits (all removed; StockTwits
-blocked by Cloudflare, Reddit never shipped past stub, Finnhub US-only free tier).
+**Removed sources:** Reddit/PRAW, Finnhub, StockTwits, and Google Trends (all
+removed; StockTwits blocked by Cloudflare, Reddit never shipped past stub,
+Finnhub US-only free tier, Google Trends 429-blocked from CI and superseded by
+FinBERT 2026-07-19).
 
 ---
 
@@ -79,22 +81,21 @@ All signals are computed in `src/pipeline.py` (`build_signals_rows` /
 | `obv_slope` | `signals/technical.py` | Slope of on-balance volume |
 | `breadth_above_50dma` | `signals/breadth.py` | True constituent breadth (US only; EU = NaN) |
 
-EU multi-component sectors (Financials, Materials) are first blended into an
-equal-weight composite price series (`build_composite_series` in `pipeline.py`)
-before signals are computed.
+EU STOXX sub-sectors (Banks, Financial Services, Insurance, Basic Resources,
+Chemicals) are scored as standalone sectors; each maps to its GICS-11 parent
+via `stoxx_to_gics` (`src/sector_map.py`) for consumers that key by GICS name
+(FinBERT sentiment, Swedish-ticker matching).
 
-### Sentiment signals (info-only)
+### Sentiment signal (info-only)
 
-Google Trends data is processed in `src/data/trends_symbols.py` into:
-
-- `momentum` (slope), `acceleration`, `range_position`, `spike`, `volatility`
-  -- derived from ~13-week interest series.
-- `attention_level` -- comparative cross-sector interest via anchor-chained
-  Trends batches.
-
-These are stored in the `sentiment_signals` table and shown on
-`docs/sentiment.html`. They do **not** affect the canonical composite score
-(the dashboard offers a client-side toggle to blend them in at 30%).
+`src/data/news_sentiment.py` fetches the last 24h of English headlines per
+GICS-11 sector from GDELT, scores each with ProsusAI/finbert, and reduces to a
+per-sector mean signed polarity z-scored across sectors. The z-score is stored
+as `sentiment_score`; the per-sector `news_polarity`/`news_count`/
+`news_positive_pct`/`news_negative_pct` rows go to `sentiment_signals` and are
+shown on `docs/sentiment.html`. Sentiment does **not** affect the canonical
+composite score (the dashboard offers a client-side toggle to blend it in). If
+GDELT or FinBERT is unavailable, `sentiment_score` is left NULL for that scan.
 
 ---
 
@@ -129,7 +130,7 @@ Weights live in `config/weights.yaml`. Signal parameters (e.g.
 | `scans` | One row per scan run (`scan_id`, `run_at`, `config_hash`) |
 | `signals` | Long-format: one row per (scan, region, sector, signal_name) with `raw_value` and `z_value` |
 | `scores` | One row per (scan, region, sector) with `level_score`, `change_score`, `data_score`, `sentiment_score`, `composite`, `rank`, deltas, `emerging_flag` |
-| `sentiment_signals` | Derived Trends signals per (scan, region, sector, signal_name) |
+| `sentiment_signals` | FinBERT news signals per (scan, region, sector, signal_name); historical Google Trends rows retained but no longer written |
 | `theme_scores` | Same shape as `scores` but for thematic ETFs |
 | `theme_signals` | Same shape as `signals` but for thematic ETFs |
 
@@ -146,10 +147,6 @@ the most recent prior scan.
 Before each scan, a full zip of all tables is uploaded to a private Supabase
 Storage bucket (`db-backups`). Requires `SUPABASE_SERVICE_KEY`. Restore via
 `python restore.py` (latest) / `--list` / `--local <dir>`.
-
-A second bucket (`trends-cache`) stores the Google Trends day-cache so
-re-triggered scans reuse already-fetched batches instead of re-hitting Google.
-Fail-open: a missing bucket/key just means scans run uncached.
 
 ---
 
@@ -174,7 +171,7 @@ bundle). The site is self-contained and offline-capable.
 - **Sectors** (`docs/index.html`) -- Leaderboard, RRG rotation plot, Drill-down,
   Movers, History, Backtest, and Guide tabs. EN/SV language toggle.
 - **Themes** (`docs/themes.html`) -- same tab structure for thematic ETFs.
-- **Sentiment** (`docs/sentiment.html`) -- Google Trends attention dashboard
+- **Sentiment** (`docs/sentiment.html`) -- FinBERT news-sentiment dashboard
   (info-only, separate from sector scoring).
 - **Per-scan reports** (`docs/reports/report_<scan_id>.md`) -- Markdown
   snapshots (incrementally generated; existing reports are not regenerated).
@@ -219,12 +216,12 @@ config/weights.yaml ───┤
                        │
          ┌─────────────┼─────────────┐
          ▼             ▼             ▼
-    stooq/yfinance  Trends      S&P 500
-     (prices)      (sentiment)  (breadth)
+    stooq/yfinance  GDELT+FinBERT  S&P 500
+     (prices)      (sentiment)    (breadth)
          │             │             │
          ▼             ▼             ▼
-     src/signals/   trends_      breadth.py
-     momentum.py    symbols.py
+     src/signals/   news_        breadth.py
+     momentum.py    sentiment.py
      relative_strength.py
      technical.py
          │             │             │
@@ -257,10 +254,10 @@ config/weights.yaml ───┤
 | `src/state.py` | Supabase/Postgres DDL, read/write, delta computation |
 | `src/report.py` | Markdown report generation (ranked table, movers, Swedish overlay) |
 | `src/backup.py` | CSV-dump backup helpers |
-| `src/storage_backup.py` | Supabase Storage upload/download for backups and Trends cache |
+| `src/storage_backup.py` | Supabase Storage upload/download for DB backups |
 | `src/data/prices.py` | stooq + yfinance price fetcher with caching and fallback |
-| `src/data/trends_symbols.py` | Google Trends: symbol-based, entity-mid, region-aware, derived signals |
-| `src/data/trends_cache.py` | Durable day-cache for Trends batches (Supabase Storage) |
+| `src/data/news_sentiment.py` | GDELT headlines + ProsusAI/finbert signed polarity, z-scored per GICS sector |
+| `src/sector_map.py` | STOXX sub-sector -> GICS-11 parent map (identity fallback) |
 | `src/data/constituents.py` | S&P 500 constituent list (Wikipedia scrape) |
 | `src/data/macro.py` | FRED macro data loader |
 | `src/signals/momentum.py` | Returns and acceleration |
@@ -281,17 +278,14 @@ config/weights.yaml ───┤
 | `config/sector_map.yaml` | STOXX -> GICS mapping |
 | `config/sector_etfs.yaml` | Reference UCITS ETFs for the instruments panel |
 | `config/rotations.yaml` | Curated historical rotation events for backtesting |
-| `config/trends_entities.yaml` | Google Knowledge Graph entity mids for Trends disambiguation |
-| `config/trends_geo.yaml` | Region -> geo codes and anchor for Trends queries |
-| `config/trends_blocklist.yaml` | Ticker symbols to skip in Trends (ambiguous terms) |
 
 ---
 
 ## 13. Tech stack
 
-Python 3.11+, `pandas`, `numpy`, `scipy`, `psycopg2` (Postgres), `pytrends`
-(Google Trends), `plotly` + `jinja2` (dashboard), `pyyaml`, `requests`,
-`python-dotenv`. See `requirements.txt` for runtime deps and
+Python 3.11+, `pandas`, `numpy`, `scipy`, `psycopg2` (Postgres), `transformers`
++ `torch` (FinBERT news sentiment), `plotly` + `jinja2` (dashboard), `pyyaml`,
+`requests`, `python-dotenv`. See `requirements.txt` for runtime deps and
 `requirements-dev.txt` for test deps; exact pins in `.lock` files.
 
 Hosting: **Supabase** (Postgres + Storage), **GitHub Actions** (CI/CD),

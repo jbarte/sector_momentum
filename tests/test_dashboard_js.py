@@ -494,32 +494,41 @@ def test_render_context_keys_finds_all_render_calls():
 # Sentiment signal row builder tests
 # ---------------------------------------------------------------------------
 
-def test_sentiment_row_includes_seasonal_ratio():
-    """seasonal_ratio signal value is formatted as Nx in the row dict."""
+def test_sentiment_row_includes_finbert_columns():
+    """FinBERT news signals are formatted into the row dict; sorted by polarity."""
     from dashboard.sentiment import _build_sentiment_signal_rows
 
     df = pd.DataFrame([
-        {"region": "US", "gics_sector": "Technology", "signal_name": "momentum", "value": 0.3, "text_value": None},
-        {"region": "US", "gics_sector": "Technology", "signal_name": "seasonal_ratio", "value": 1.25, "text_value": None},
+        {"region": "US", "gics_sector": "Energy", "signal_name": "news_polarity", "value": -0.10},
+        {"region": "US", "gics_sector": "Energy", "signal_name": "news_count", "value": 12.0},
+        {"region": "US", "gics_sector": "Energy", "signal_name": "news_positive_pct", "value": 0.25},
+        {"region": "US", "gics_sector": "Energy", "signal_name": "news_negative_pct", "value": 0.40},
+        {"region": "US", "gics_sector": "Technology", "signal_name": "news_polarity", "value": 0.30},
+        {"region": "US", "gics_sector": "Technology", "signal_name": "news_count", "value": 8.0},
+        {"region": "US", "gics_sector": "Technology", "signal_name": "news_positive_pct", "value": 0.60},
+        {"region": "US", "gics_sector": "Technology", "signal_name": "news_negative_pct", "value": 0.10},
     ])
     rows = _build_sentiment_signal_rows(df)
-    assert len(rows) == 1
-    assert rows[0]["seasonal_ratio"] == "1.25x"
+    assert len(rows) == 2
+    # Sorted by polarity descending: Technology (+0.30) first.
+    assert rows[0]["sector"] == "Technology"
+    assert rows[0]["news_polarity"] == "+0.30"
+    assert rows[0]["news_count"] == "8"
+    assert rows[0]["news_positive_pct"] == "60%"
+    assert rows[1]["sector"] == "Energy"
+    assert rows[1]["news_polarity"] == "-0.10"
 
 
-def test_sentiment_row_includes_rising_queries():
-    """rising_queries JSON in text_value is parsed into a list of dicts."""
+def test_sentiment_row_missing_count_shows_dash():
+    """A sector with no news_count value shows an em-dash for Articles."""
     from dashboard.sentiment import _build_sentiment_signal_rows
 
-    queries = [{"query": "nvidia stock", "growth": "2400%"}, {"query": "ai etf", "growth": "Breakout"}]
     df = pd.DataFrame([
-        {"region": "US", "gics_sector": "Technology", "signal_name": "momentum", "value": 0.3, "text_value": None},
-        {"region": "US", "gics_sector": "Technology", "signal_name": "rising_queries", "value": None, "text_value": json.dumps(queries)},
+        {"region": "EU", "gics_sector": "Banks", "signal_name": "news_polarity", "value": 0.05},
     ])
     rows = _build_sentiment_signal_rows(df)
     assert len(rows) == 1
-    assert rows[0]["rising_queries"] == queries
-    assert rows[0]["rising_queries"][0]["query"] == "nvidia stock"
+    assert rows[0]["news_count"] == "—"
 
 
 # ---------------------------------------------------------------------------
