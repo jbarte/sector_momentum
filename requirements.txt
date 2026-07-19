@@ -14,4 +14,4 @@ python-dotenv>=1.0
 psycopg2-binary>=2.9
 lxml>=5.0
 transformers>=4.30
-torch>=2.0
+torch>=2.4  # transformers 5.x disables torch below 2.4
