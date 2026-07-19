@@ -128,16 +128,17 @@ def test_scorecard_metadata(mock_fetch):
     assert len(result) > 0
 
 
-def test_scorecard_eu_composite_ticker():
-    """EU composite sectors use the first ticker in the list."""
+def test_scorecard_eu_scalar_ticker():
+    """EU sectors map scalar tickers like US sectors."""
     from dashboard.badges import _sector_ticker_map
     universe = {
         "us_sectors": {"Technology": "XLK"},
-        "eu_sectors": {"Financials": ["EXV1.DE", "EXH2.DE", "EXH5.DE"]},
+        "eu_sectors": {"Banks": "EXV1.DE", "Chemicals": "EXV7.DE"},
     }
     m = _sector_ticker_map(universe)
     assert m["US|Technology"] == "XLK"
-    assert m["EU|Financials"] == "EXV1.DE"
+    assert m["EU|Banks"] == "EXV1.DE"
+    assert m["EU|Chemicals"] == "EXV7.DE"
 
 
 @patch("dashboard.badges.fetch_prices")
