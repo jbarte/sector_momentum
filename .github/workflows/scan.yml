@@ -12,6 +12,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 180      # worst-case GDELT backoff is ~80 min; default 6h is too generous
     permissions:
       contents: write         # needed to commit back to repo
 
@@ -51,3 +52,17 @@ jobs:
           git diff --staged --quiet || git commit -m "scan: $(date -u +%Y-%m-%d) automated run"
           git pull --rebase origin main
           git push
+
+      - name: Notify scan failure
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -n "$NTFY_TOPIC" ]; then
+            curl -s \
+              -H "Title: Sector Momentum scan FAILED" \
+              -H "Priority: high" \
+              -H "Tags: rotating_light" \
+              -d "Daily scan failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              "https://ntfy.sh/$NTFY_TOPIC" || true
+          fi
