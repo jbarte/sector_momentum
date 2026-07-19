@@ -252,11 +252,11 @@ def load_last_scan(
         return None
 
     scan_id = row[0]
-    df = pd.read_sql_query(
+    df = _read_sql(
+        conn,
         "SELECT region, gics_sector, composite, rank, scan_id "
         "FROM scores WHERE scan_id = %s",
-        conn,
-        params=(scan_id,),
+        (scan_id,),
     )
     return df if not df.empty else None
 
@@ -418,7 +418,7 @@ def get_theme_rrg_history(
         GROUP BY sc.scan_id, sc.run_at, tsg.theme
         ORDER BY sc.scan_id ASC, tsg.theme
     """
-    return pd.read_sql_query(query, conn, params=params)
+    return _read_sql(conn, query, params)
 
 
 def get_theme_scan_history(
@@ -441,7 +441,7 @@ def get_theme_scan_history(
         WHERE {condition}
         ORDER BY sc.run_at ASC, ts.theme
     """
-    return pd.read_sql_query(query, conn, params=params)
+    return _read_sql(conn, query, params)
 
 
 def get_rrg_history(
@@ -464,7 +464,7 @@ def get_rrg_history(
         GROUP BY sc.scan_id, sc.run_at, sig.region, sig.gics_sector
         ORDER BY sc.scan_id ASC, sig.region, sig.gics_sector
     """
-    return pd.read_sql_query(query, conn, params=params)
+    return _read_sql(conn, query, params)
 
 
 def get_scan_history(
@@ -489,12 +489,26 @@ def get_scan_history(
         WHERE {condition}
         ORDER BY sc.run_at ASC, s.region, s.gics_sector
     """
-    return pd.read_sql_query(query, conn, params=params)
+    return _read_sql(conn, query, params)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _read_sql(conn, query: str, params: tuple | None = None) -> pd.DataFrame:
+    """Run a SELECT on a psycopg2 connection and return a DataFrame.
+
+    Replaces pd.read_sql_query, which warns on every call that raw DBAPI2
+    connections are untested. Column names come from cursor.description;
+    the DataFrame constructor applies the same per-column type inference
+    (None -> NaN in numeric columns) that read_sql produced."""
+    with conn.cursor() as cur:
+        cur.execute(query, params)
+        columns = [d[0] for d in cur.description]
+        rows = cur.fetchall()
+    return pd.DataFrame(rows, columns=columns)
 
 
 def _to_float_or_none(value) -> float | None:
@@ -512,10 +526,10 @@ def _latest_scan_query(conn, table: str, columns: str) -> pd.DataFrame:
     """Shared shape for 'all rows from <table> belonging to the most recent
     scan'. `columns` must reference the table via alias 't'
     (e.g. 't.region, t.gics_sector')."""
-    return pd.read_sql_query(
+    return _read_sql(
+        conn,
         f"SELECT {columns} FROM {table} t "
         f"JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON t.scan_id = m.max_id",
-        conn,
     )
 
 

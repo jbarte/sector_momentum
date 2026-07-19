@@ -31,22 +31,19 @@ authentication** being shipped first.
 tab, or both), and interaction with the existing ranking to be designed
 during brainstorming.
 
-## Scan-failure notification via ntfy
-
-The Jul 18–19 scan failures went unnoticed for two days. Add an
-`if: failure()` step to `scan.yml` that pings the existing `NTFY_TOPIC`
-with the run URL. Five lines, highest value-per-effort item on this list.
-*(From the 2026-07-19 deep review.)*
-
 ## Fix cohort mismatch: live scoring is global, backtest is per-region
 
 The live scan scores all 25 sectors (11 US + 14 EU) in **one** z-score
 cohort (single `score_all` over the combined `wide_df` in `scan.py`), but
 the backtest scores each region **separately** (`score_as_of(..., region)`
 in `src/backtest/engine.py`) — so the Backtest tab validates a different
-strategy than the leaderboard shows. ARCHITECTURE.md claims region cohorts.
-Decide which is intended, then align scan, backtest, and docs. Correctness
-issue in the core product. *(Deep review 2026-07-19.)*
+strategy than the leaderboard shows. Correctness issue in the core product.
+
+**Decision (Jonas, 2026-07-19): per-region cohorts.** The backtest is
+already correct; change the live scan to score US and EU in separate
+cohorts, give the leaderboard per-region ranks (display split TBD at
+brainstorming), and fix ARCHITECTURE.md to match reality.
+*(Deep review 2026-07-19.)*
 
 ## Restore stooq as a working price source
 
@@ -103,19 +100,13 @@ can be internally inconsistent around distributions. Add a weekly full
 re-fetch (or an overlap-consistency check on append) in
 `src/data/prices.py`. *(Deep review 2026-07-19.)*
 
-## Ops hardening sweep
+## Ops hardening sweep (remaining)
 
-Grouped small fixes from the 2026-07-19 deep review:
+Grouped small fixes from the 2026-07-19 deep review (timeout, lock script,
+and SQL-warning fix shipped 2026-07-20 with the failure notification):
 
-- `timeout-minutes: 180` on the scan job (worst-case GDELT backoff ~80 min;
-  GitHub default is 6 h).
 - Backup restore drill: a periodic job (or test) that round-trips a backup
   zip — restores are currently never exercised.
-- `scripts/lock.sh` encoding the exact `uv pip compile … --python-platform
-  x86_64-unknown-linux-gnu --upgrade` commands so the platform flag can't
-  be dropped again (root cause of the Jul 18–19 outage).
-- Silence the per-call `pd.read_sql` UserWarnings by moving `src/state.py`
-  reads to a SQLAlchemy engine (or cursor + DataFrame construction).
 - `scan.py` cleanup: 710-line `run()` with drifting step numbers (8d exists,
   8b/8c gone) — extract steps into functions and renumber.
 
@@ -202,6 +193,16 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Ops quick wins: failure alerting, job timeout, lock script, SQL warnings**
+  — `scan.yml` now pings the existing ntfy topic (`if: failure()`, high
+  priority, run URL) so silent scan failures like Jul 18–19 can't recur, and
+  caps the job at `timeout-minutes: 180`. `scripts/lock.sh` encodes the exact
+  `uv pip compile` invocations (Linux platform + `--upgrade`) whose omission
+  caused that outage. `src/state.py` reads moved from `pd.read_sql_query` on a
+  raw psycopg2 connection to a cursor-based `_read_sql` helper — dashboard
+  builds no longer emit a UserWarning per query. Restore drill + scan.py
+  step cleanup remain queued. *(2026-07-20)*
 
 - **Retired Google Trends sentiment** — removed the Trends pipeline entirely
   (fetch, day-cache, derived signals, comparative attention, rising queries)
