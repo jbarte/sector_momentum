@@ -61,7 +61,6 @@ lxml==6.1.1
     # via
     #   -r requirements.txt
     #   pandas-datareader
-    #   pytrends
 markdown-it-py==4.2.0
     # via rich
 markupsafe==3.0.3
@@ -134,7 +133,6 @@ pandas==3.0.3
     #   -r requirements.txt
     #   fredapi
     #   pandas-datareader
-    #   pytrends
     #   yfinance
 pandas-datareader==0.11.1
     # via -r requirements.txt
@@ -158,8 +156,6 @@ python-dateutil==2.9.0.post0
     # via pandas
 python-dotenv==1.2.2
     # via -r requirements.txt
-pytrends==4.9.2
-    # via -r requirements.txt
 pytz==2026.2
     # via yfinance
 pyyaml==6.0.3
@@ -173,7 +169,6 @@ requests==2.34.2
     # via
     #   -r requirements.txt
     #   pandas-datareader
-    #   pytrends
     #   yfinance
 rich==15.0.0
     # via

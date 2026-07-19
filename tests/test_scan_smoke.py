@@ -225,25 +225,6 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     monkeypatch.setattr(_report_mod, "build_swedish_overlay", lambda *a, **k: {})
     monkeypatch.setattr(_report_mod, "write_report", lambda *a, **k: "/tmp/report.html")
 
-    # Patch symbol-based sentiment to avoid network calls and config file reads
-    import src.data.trends_symbols as _trends_sym_mod
-    monkeypatch.setattr(_trends_sym_mod, "build_symbol_map", lambda *a, **k: {"US|Technology": ["XLK"]})
-    monkeypatch.setattr(_trends_sym_mod, "fetch_symbol_trends", lambda *a, **k: {"US|Technology": pd.Series([0.0] * 13)})
-    monkeypatch.setattr(_trends_sym_mod, "score_symbol_sentiment", lambda *a, **k: pd.Series({"US|Technology": 0.0}))
-    monkeypatch.setattr(_trends_sym_mod, "fetch_comparative_interest", lambda *a, **k: {})
-
-    # Stub open() for sector_etfs.yaml and trends_blocklist.yaml
-    import builtins
-    original_open = builtins.open
-
-    def fake_open(path, *a, **k):
-        if isinstance(path, str) and ("sector_etfs" in path or "trends_blocklist" in path):
-            import io
-            return io.StringIO("{}")
-        return original_open(path, *a, **k)
-
-    monkeypatch.setattr(builtins, "open", fake_open)
-
     # Stub out dashboard build
     monkeypatch.setattr("scan.os.path.exists", lambda p: False)
 
@@ -404,23 +385,6 @@ def test_coverage_guard_passes_at_80_percent(monkeypatch):
     monkeypatch.setattr(_state_mod, "compute_deltas", lambda *a, **k: scored_with_deltas)
     monkeypatch.setattr(scan, "backup_to_storage", lambda *a, **k: "backup.zip")
 
-    # Stub trends
-    import src.data.trends_symbols as _trends_sym_mod
-    monkeypatch.setattr(_trends_sym_mod, "build_symbol_map", lambda *a, **k: {})
-    monkeypatch.setattr(_trends_sym_mod, "fetch_symbol_trends", lambda *a, **k: {})
-    monkeypatch.setattr(_trends_sym_mod, "score_symbol_sentiment",
-                        lambda *a, **k: pd.Series(dtype=float))
-    monkeypatch.setattr(_trends_sym_mod, "fetch_comparative_interest", lambda *a, **k: {})
-
-    import builtins
-    original_open = builtins.open
-    def fake_open(path, *a, **k):
-        if isinstance(path, str) and ("sector_etfs" in path or "trends_blocklist" in path):
-            import io
-            return io.StringIO("{}")
-        return original_open(path, *a, **k)
-    monkeypatch.setattr(builtins, "open", fake_open)
-
     args = scan._parse_args()
     rc = scan.run(args)
     assert rc == 0
@@ -465,48 +429,8 @@ def test_conn_closed_on_exception(monkeypatch):
     monkeypatch.setattr(_state_mod, "save_scan", boom)
     monkeypatch.setattr(scan, "backup_to_storage", lambda *a, **k: "backup.zip")
 
-    import src.data.trends_symbols as _trends_sym_mod
-    monkeypatch.setattr(_trends_sym_mod, "build_symbol_map", lambda *a, **k: {"US|Technology": ["XLK"]})
-    monkeypatch.setattr(_trends_sym_mod, "fetch_symbol_trends", lambda *a, **k: {"US|Technology": pd.Series([0.0] * 13)})
-    monkeypatch.setattr(_trends_sym_mod, "score_symbol_sentiment", lambda *a, **k: pd.Series({"US|Technology": 0.0}))
-    monkeypatch.setattr(_trends_sym_mod, "fetch_comparative_interest", lambda *a, **k: {})
-
-    import builtins
-    original_open = builtins.open
-    def fake_open(path, *a, **k):
-        if isinstance(path, str) and ("sector_etfs" in path or "trends_blocklist" in path):
-            import io
-            return io.StringIO("{}")
-        return original_open(path, *a, **k)
-    monkeypatch.setattr(builtins, "open", fake_open)
-
     args = scan._parse_args()
     with pytest.raises(RuntimeError, match="DB write exploded"):
         scan.run(args)
 
     fake_conn.close.assert_called_once()
-
-
-def test_score_symbol_sentiment_returns_series():
-    """score_symbol_sentiment returns a per-sector-key Series with no NaNs when above threshold."""
-    import pandas as pd
-    from src.data.trends_symbols import score_symbol_sentiment, _MIN_LIVE_SECTORS
-
-    # Supply enough keys to exceed the live-sector guard (_MIN_LIVE_SECTORS = 8).
-    sectors = [
-        "US|Technology", "US|Energy", "US|Health Care", "US|Financials",
-        "US|Consumer Discretionary", "US|Consumer Staples", "US|Industrials",
-        "US|Materials",
-    ]
-    assert len(sectors) >= _MIN_LIVE_SECTORS
-    trends_by_key = {
-        s: pd.Series([float(i) for i in range(13)]) for s in sectors
-    }
-    # Make one flat to verify it still gets a score (z-score of 0)
-    trends_by_key["US|Energy"] = pd.Series([5.0] * 13)
-
-    result = score_symbol_sentiment(trends_by_key)
-
-    assert isinstance(result, pd.Series)
-    assert set(result.index) == set(sectors)
-    assert not result.isna().any()

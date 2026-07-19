@@ -397,22 +397,6 @@ def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> p
     )
 
 
-def get_theme_sentiment_signals_for_latest_scan(
-    conn: psycopg2.extensions.connection,
-) -> pd.DataFrame:
-    """Derived Trends sentiment rows for the theme cohort, most recent scan.
-
-    Aliased ``'THEME' AS region, theme AS gics_sector`` so the shared
-    ``_build_sentiment_signal_rows`` dashboard builder consumes it unchanged.
-    Columns: region, gics_sector, signal_name, value, text_value. Empty DataFrame
-    if no theme sentiment rows exist.
-    """
-    return _latest_scan_query(
-        conn, "theme_sentiment_signals",
-        "'THEME' AS region, t.theme AS gics_sector, t.signal_name, t.value, t.text_value",
-    )
-
-
 def get_theme_rrg_history(
     conn: psycopg2.extensions.connection,
     n_scans: int = 6,
