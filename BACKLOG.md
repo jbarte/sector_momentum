@@ -31,6 +31,147 @@ authentication** being shipped first.
 tab, or both), and interaction with the existing ranking to be designed
 during brainstorming.
 
+## Scan-failure notification via ntfy
+
+The Jul 18–19 scan failures went unnoticed for two days. Add an
+`if: failure()` step to `scan.yml` that pings the existing `NTFY_TOPIC`
+with the run URL. Five lines, highest value-per-effort item on this list.
+*(From the 2026-07-19 deep review.)*
+
+## Fix cohort mismatch: live scoring is global, backtest is per-region
+
+The live scan scores all 25 sectors (11 US + 14 EU) in **one** z-score
+cohort (single `score_all` over the combined `wide_df` in `scan.py`), but
+the backtest scores each region **separately** (`score_as_of(..., region)`
+in `src/backtest/engine.py`) — so the Backtest tab validates a different
+strategy than the leaderboard shows. ARCHITECTURE.md claims region cohorts.
+Decide which is intended, then align scan, backtest, and docs. Correctness
+issue in the core product. *(Deep review 2026-07-19.)*
+
+## Restore stooq as a working price source
+
+`pandas-datareader`'s stooq driver fails with pandas 3.x
+("data_source='stooq' is not implemented"), so the "primary" source is
+silently dead and every scan rides on yfinance alone — the exact single
+point of failure that killed the Jul 18–19 scans. Stooq's raw CSV endpoint
+(`https://stooq.com/q/d/l/?s=xlk.us&i=d`) is fetchable with plain
+`requests`. Replace the pdr call in `src/data/prices.py:_fetch_stooq`, and
+log loudly when a source goes 0-for-N in a run. *(Deep review 2026-07-19.)*
+
+## CI price cache (actions/cache for data/cache)
+
+`data/cache/` is gitignored and CI runners are ephemeral, so every scan
+live-fetches everything — including ~500 S&P 500 constituents for the
+breadth signal, the biggest rate-limit magnet in the pipeline. Add an
+`actions/cache` step (keyed by ISO week) around `data/cache/` in
+`scan.yml`. Cuts both 429 risk and runtime. *(Deep review 2026-07-19.)*
+
+## FX awareness (SEK-based trader, USD/EUR-priced signals)
+
+EU ETFs are priced in EUR, US in USD, and positions are traded in SEK via
+Avanza. Momentum/returns are local-currency, so FX moves silently reshuffle
+the global ranking and "top sector" may underperform in SEK. Phase 1:
+surface EURSEK/USDSEK trend in the macro bar and SEK-adjusted returns in
+the Swedish overlay. Phase 2 (research): convert prices to a common
+currency before signal computation and backtest the difference.
+*(Deep review 2026-07-19.)*
+
+## Signal correlation audit + risk-adjusted momentum
+
+`rs_ratio`, `above_50dma`, `above_200dma`, and `ma50_slope` are heavily
+collinear — the level score largely counts one trend factor four ways. The
+EU split also added 3 correlated financial sub-sectors to the z-pool.
+One-off audit: correlation matrix of the signal panel, then decide on
+de-duplication or weighting. Same effort: test risk-adjusted momentum
+(return/volatility) and a max-drawdown leaderboard column — both
+backtestable before adoption. *(Deep review 2026-07-19.)*
+
+## Deploy Pages via artifact instead of committing docs/
+
+Committing `docs/` causes the recurring merge conflicts, ~1&nbsp;MB/day of
+git-history bloat, and the "never commit docs/ from a branch" rule. Switch
+`build-docs.yml`/`scan.yml` to `actions/upload-pages-artifact` +
+`actions/deploy-pages` and drop `docs/` from git entirely (keep
+`docs/reports` generation in the build). Eliminates the whole problem
+class. *(Deep review 2026-07-19.)*
+
+## Price-cache adjustment consistency
+
+`auto_adjust=True` re-adjusts all history after a dividend/split, but the
+parquet cache appends fresh rows onto rows fetched weeks ago — the series
+can be internally inconsistent around distributions. Add a weekly full
+re-fetch (or an overlap-consistency check on append) in
+`src/data/prices.py`. *(Deep review 2026-07-19.)*
+
+## Ops hardening sweep
+
+Grouped small fixes from the 2026-07-19 deep review:
+
+- `timeout-minutes: 180` on the scan job (worst-case GDELT backoff ~80 min;
+  GitHub default is 6 h).
+- Backup restore drill: a periodic job (or test) that round-trips a backup
+  zip — restores are currently never exercised.
+- `scripts/lock.sh` encoding the exact `uv pip compile … --python-platform
+  x86_64-unknown-linux-gnu --upgrade` commands so the platform flag can't
+  be dropped again (root cause of the Jul 18–19 outage).
+- Silence the per-call `pd.read_sql` UserWarnings by moving `src/state.py`
+  reads to a SQLAlchemy engine (or cursor + DataFrame construction).
+- `scan.py` cleanup: 710-line `run()` with drifting step numbers (8d exists,
+  8b/8c gone) — extract steps into functions and renumber.
+
+## Data-health panel
+
+A small dashboard section (or page) showing per-source fetch success for
+the latest scan (prices per source, FinBERT sectors scored, GDELT 429
+count), coverage vs expected universe, and last-scan status/duration.
+Turns the silent-failure class visible on the page already being looked at.
+*(Deep review 2026-07-19.)*
+
+## Public-repo privacy audit
+
+The repo is **public**: `design/` specs/plans are world-readable (CLAUDE.md
+calls them private, which only holds relative to Pages), and the dashboard's
+invite-only sign-in gates nothing — the content is a static page in a public
+repo. Decide: make the repo private, or accept public data and treat auth as
+the foundation for genuinely-gated features only. Hard constraint for
+Position tracking: user positions must live behind RLS in Supabase and be
+fetched client-side after auth — never baked into the static build.
+*(Deep review 2026-07-19.)*
+
+## Regime-conditional weighting (research)
+
+The macro bar already computes SPY-vs-200DMA and VIX bands. Research
+whether level/change weights or rotation top-N should shift by regime
+(e.g. favour `change` in risk-off transitions). Pure backtest work — no
+live change until it proves out. *(Deep review 2026-07-19.)*
+
+## Walk-forward weight validation (research)
+
+The 0.50/0.50 level/change split is assumed, not validated. Grid the split
+in the backtest with walk-forward evaluation to see whether the choice
+matters and which region prefers what. *(Deep review 2026-07-19.)*
+
+## Rolling correlation heatmap
+
+60-day rolling correlation matrix across the 25 sectors on the dashboard —
+shows when holding several top-5 sectors is fake diversification (e.g. the
+3 EU financial sub-sectors). Build-time computation from cached prices,
+info-only. *(Deep review 2026-07-19.)*
+
+## FinBERT sentiment for themes
+
+Themes lost sentiment entirely in the Trends retirement (they were
+Trends-only). GDELT keyword queries per theme (uranium, defense stocks, …)
+scored with the existing FinBERT pipeline would restore a theme sentiment
+dimension. Watch the GDELT rate-limit budget — 13 extra queries per scan.
+*(Deep review 2026-07-19.)*
+
+## docs/data.json export
+
+Emit a machine-readable `docs/data.json` (latest scan: scores, ranks,
+deltas, badges) alongside the HTML build. Enables notebooks and any future
+integrations for free. *(Deep review 2026-07-19.)*
+
 ---
 
 # Parked
