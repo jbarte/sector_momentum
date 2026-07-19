@@ -21,6 +21,31 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Retire (or demote) Google Trends sentiment
+
+Google Trends has been effectively dead from CI since ~2026-07-14: every
+batch 429-rate-limited (0–1/25 sectors live per scan), so the honesty guard
+NULLs all Trends scores anyway. Meanwhile the fetch + comparative-interest +
+rising-queries passes burn **~40 minutes of every scan run** in backoff
+sleeps for nothing, and FinBERT (shipped 2026-07-17) now feeds
+`sentiment_score` in the composite path.
+
+**Decide scope during brainstorming:**
+- Remove the Trends pipeline entirely (fetch, day-cache, derived signals,
+  attention, rising queries, the sentiment-page Trends tables), or
+- Keep the code but skip the fetch by default (env/CLI gate), preserving
+  the info-only columns for a possible future where CI isn't IP-blocked.
+
+Also fold in: the `trends-cache` bucket load has been failing with a 400
+on recent scans — either fix it or delete it with the rest.
+
+Affected: `src/data/trends_symbols.py`, `src/data/trends_cache.py`,
+`scan.py` Trends steps, `sentiment_signals` info columns,
+`dashboard/sentiment.py`, `config/trends_geo.yaml`,
+`config/trends_entities.yaml`. FinBERT fallback logic in scan.py currently
+falls back to the (dead) Trends z-score — the fallback story needs a
+decision too.
+
 ## Position tracking
 
 Allow logged-in users to track their sector/theme positions (holdings,
