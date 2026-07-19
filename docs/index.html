@@ -762,40 +762,6 @@ select.sector-select:focus {
 .sentiment-control .sw-weight[data-disabled="true"] { opacity:0.45; }
 .tab-note { font-size:0.8em; color:#8C8370; margin:0 0 8px; }
 
-/* --- Sentiment: seasonal + rising queries --- */
-.seasonal-hi { color: var(--up); }
-.seasonal-lo { color: var(--down); }
-.has-rising { cursor: pointer; }
-.has-rising:hover { background: var(--bg-raised); }
-.has-rising:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
-.rising-toggle {
-  width: 1.2em;
-  text-align: center;
-  color: var(--fg4);
-  font-size: 0.7em;
-  transition: transform 0.15s;
-  user-select: none;
-}
-.has-rising.open .rising-toggle { transform: rotate(90deg); }
-.rising-panel td { padding: 0 !important; border-bottom: none !important; }
-.rising-inner {
-  padding: 8px 16px 12px 36px;
-  background: var(--bg-sunken);
-  border-bottom: 1px solid var(--border-soft);
-}
-.rising-inner strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg4); }
-.rising-table {
-  width: auto;
-  margin-top: 4px;
-  font-size: 12px;
-}
-.rising-table thead th {
-  padding: 4px 12px;
-  font-size: 9px;
-  cursor: default;
-}
-.rising-table tbody td { padding: 4px 12px; }
-
 
 </style>
 </head>
@@ -2521,25 +2487,13 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 });
 
   Object.assign(SV, {
-  note_sentiment_themes: "Temasentiment hämtar världsomspännande sökintresse för varje temas nyckelord, z-poängsatt över temana. Endast information — påverkar aldrig någon rankning.",
-  sent_themes_empty: "Ingen temasentimentdata än — kör en skanning.",
-  sent_derived_heading: "Härledda Trends-signaler",
+  sent_news_heading: "Nyhetssentiment",
   sent_col_sector: "Sektor",
   sent_col_region: "Region",
-  sent_col_momentum: "Momentum",
-  sent_col_acceleration: "Acceleration",
-  sent_col_range: "Intervallpos.",
-  sent_col_spike: "Spik",
-  sent_col_volatility: "Volatilitet",
-  sent_col_attention: "Uppmärksamhet",
-  sent_col_seasonal: "Säsong",
   sent_col_news_polarity: "Polaritet",
   sent_col_news_count: "Artiklar",
   sent_col_news_pos: "Pos%",
-  sent_col_news_neg: "Neg%",
-  rising_heading: "Stigande sökningar",
-  rising_col_query: "Sökterm",
-  rising_col_growth: "Tillväxt"
+  sent_col_news_neg: "Neg%"
 });
 
   Object.assign(SV, {
@@ -2707,26 +2661,13 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     Detta är ett analysverktyg, inte investeringsrådgivning.`,
   guide_body_sentiment: `
       <h4>Källa — FinBERT-nyhetssentiment</h4>
-      <p><strong>Sentimentpoängen</strong> bygger på färska finansnyheter, inte sökuppmärksamhet. För var och en av de 11 GICS-sektorerna hämtas de senaste 24&nbsp;timmarnas engelskspråkiga rubriker från det globala nyhetsindexet <strong>GDELT</strong> (upp till 250 per sektor, matchade via sektorsspecifika ämneskodar). Varje rubrik poängsätts av <strong>ProsusAI/finbert</strong>, en finansanpassad BERT-modell som klassificerar text som positiv, negativ eller neutral. Den sektorvisa <em>medelpolariteten</em> (positiv&nbsp;=&nbsp;+poäng, negativ&nbsp;=&nbsp;&minus;poäng, neutral&nbsp;=&nbsp;0) z-poängsätts sedan över de 11 sektorerna: <span class="signal-hi">positivt = mer hausseartade nyheter mot jämnåriga</span>, <span class="signal-lo">negativt = mer baisseartade</span>. Både US- och EU-rader för samma GICS-sektor delar samma poäng — nyhetssentimentet är globalt. Om FinBERT eller GDELT är otillgängligt faller poängen tillbaka på Google Trends lutnings-z-poäng.</p>
-      <h4>Google Trends härledda signaler</h4>
-      <p>Tabellen visar även <strong>sökuppmärksamhetssignaler</strong> från Google Trends (enbart information — de påverkar inte rankningen). För varje sektor hämtas ~13 veckors sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;&rarr;&nbsp;<em>semiconductor</em>, Energi&nbsp;&rarr;&nbsp;<em>oil</em>), per region (<strong>US</strong> i amerikanska sökningar, <strong>EU</strong> som genomsnitt av Tyskland, Frankrike och Storbritannien), normaliserat mot en neutral ankarterm.</p>
-      <h4>Teman</h4>
-      <p><strong>Teman</strong>-kohorten använder enbart Google Trends (inget FinBERT). Teman motsvarar riktiga sökfraser (<em>uranium</em>, <em>defense stocks</em>, <em>robotics</em>) i stället för ETF-tickers. Temaintresse hämtas <strong>världsomspännande</strong> (teman är globala) och z-poängsätts över temakohorten. Byt kohort med växeln ovanför.</p>
+      <p><strong>Sentimentpoängen</strong> bygger på färska finansnyheter. För var och en av de 11 GICS-sektorerna hämtas de senaste 24&nbsp;timmarnas engelskspråkiga rubriker från det globala nyhetsindexet <strong>GDELT</strong> (upp till 250 per sektor, matchade via sektorsspecifika ämneskodar). Varje rubrik poängsätts av <strong>ProsusAI/finbert</strong>, en finansanpassad BERT-modell som klassificerar text som positiv, negativ eller neutral. Den sektorvisa <em>medelpolariteten</em> (positiv&nbsp;=&nbsp;+poäng, negativ&nbsp;=&nbsp;&minus;poäng, neutral&nbsp;=&nbsp;0) z-poängsätts sedan över de 11 sektorerna: <span class="signal-hi">positivt = mer hausseartade nyheter mot jämnåriga</span>, <span class="signal-lo">negativt = mer baisseartade</span>. Både US- och EU-rader för samma GICS-sektor delar samma poäng — nyhetssentimentet är globalt. Om FinBERT eller GDELT är otillgängligt lämnas poängen tom för den skanningen.</p>
       <h4>Tabellkolumner</h4>
-      <p>Sektortabellen visar både FinBERT- och Trends-signaler (alla enbart information förutom Polaritet, som matar rankningen via blandningsväxeln):</p>
       <ul>
-        <li><strong>Momentum</strong> (Trends) — trenden/lutningen i sökintresse.</li>
-        <li><strong>Acceleration</strong> (Trends) — senaste halvans lutning minus tidigare halvans; positivt = uppmärksamheten tar fart.</li>
-        <li><strong>Intervallposition</strong> (Trends) — senaste värdet inom 13-veckors min–max (0% = lägsta, 100% = högsta).</li>
-        <li><strong>Spik</strong> (Trends) — z-värde för senaste punkten mot föregående veckor; genombrott i intresse.</li>
-        <li><strong>Volatilitet</strong> (Trends) — hur ryckigt intresset varit vecka för vecka.</li>
-        <li><strong>Uppmärksamhet</strong> (Trends) — relativt sökintresse jämfört head-to-head mot alla andra sektorer. Högre = mer uppmärksamhet.</li>
-        <li><strong>Säsong</strong> (Trends) — senaste 13 veckor mot föregående 39-veckors baslinjen. Över 1,0 = överstiger historisk norm.</li>
-        <li><strong>Polaritet</strong> (FinBERT) — genomsnittligt signerat sentiment från senaste nyhetsrubrikerna. Grön = hausseartad, röd = baisseartad.</li>
-        <li><strong>Artiklar</strong> (FinBERT) — antal poängsatta rubriker.</li>
-        <li><strong>Pos%</strong> (FinBERT) — andel klassificerade som positiva.</li>
-        <li><strong>Neg%</strong> (FinBERT) — andel klassificerade som negativa.</li>
-        <li><strong>Stigande sökningar</strong> (Trends) — framväxande söktermer. Klicka på en rad med ▶ för att expandera.</li>
+        <li><strong>Polaritet</strong> — genomsnittligt signerat sentiment från senaste nyhetsrubrikerna. Grön = hausseartad, röd = baisseartad.</li>
+        <li><strong>Artiklar</strong> — antal poängsatta rubriker.</li>
+        <li><strong>Pos%</strong> — andel klassificerade som positiva.</li>
+        <li><strong>Neg%</strong> — andel klassificerade som negativa.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft.</p>`

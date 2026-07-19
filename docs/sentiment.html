@@ -761,40 +761,6 @@ select.sector-select:focus {
 .sentiment-control .sw-weight[data-disabled="true"] { opacity:0.45; }
 .tab-note { font-size:0.8em; color:#8C8370; margin:0 0 8px; }
 
-/* --- Sentiment: seasonal + rising queries --- */
-.seasonal-hi { color: var(--up); }
-.seasonal-lo { color: var(--down); }
-.has-rising { cursor: pointer; }
-.has-rising:hover { background: var(--bg-raised); }
-.has-rising:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
-.rising-toggle {
-  width: 1.2em;
-  text-align: center;
-  color: var(--fg4);
-  font-size: 0.7em;
-  transition: transform 0.15s;
-  user-select: none;
-}
-.has-rising.open .rising-toggle { transform: rotate(90deg); }
-.rising-panel td { padding: 0 !important; border-bottom: none !important; }
-.rising-inner {
-  padding: 8px 16px 12px 36px;
-  background: var(--bg-sunken);
-  border-bottom: 1px solid var(--border-soft);
-}
-.rising-inner strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg4); }
-.rising-table {
-  width: auto;
-  margin-top: 4px;
-  font-size: 12px;
-}
-.rising-table thead th {
-  padding: 4px 12px;
-  font-size: 9px;
-  cursor: default;
-}
-.rising-table tbody td { padding: 4px 12px; }
-
 
 </style>
 </head>
@@ -848,1503 +814,311 @@ select.sector-select:focus {
 <section class="tab-panel active">
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
 
-  <!-- Cohort toggle: Sectors ⇄ Themes -->
-  <div class="segment-toggle" role="tablist" aria-label="Sentiment cohort" id="sent-cohort-toggle" style="margin:0 0 16px 4px">
-    <button type="button" class="segment-btn active" id="sent-tab-sectors" data-cohort="sectors" role="tab" aria-selected="true" aria-controls="sent-panel-sectors" data-i18n="segment_sectors">Sectors</button>
-    <button type="button" class="segment-btn" id="sent-tab-themes" data-cohort="themes" role="tab" aria-selected="false" aria-controls="sent-panel-themes" data-i18n="segment_themes">Themes</button>
-  </div>
-
   <div class="utility-row">
   <details class="tab-guide">
     <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
     <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
       <h4>Source — FinBERT news sentiment</h4>
-      <p>The headline <strong>sentiment score</strong> is built from recent financial
-         news, not search attention. For each of the 11 GICS sectors we fetch the
-         latest 24&nbsp;hours of English-language headlines from the
-         <strong>GDELT</strong> global news index (up to 250 per sector, matched via
-         sector-specific topic codes). Each headline is scored by
-         <strong>ProsusAI/finbert</strong>, a finance-tuned BERT model that classifies
-         text as positive, negative or neutral with a confidence score. The per-sector
-         <em>mean signed polarity</em> (positive&nbsp;=&nbsp;+score,
-         negative&nbsp;=&nbsp;&minus;score, neutral&nbsp;=&nbsp;0) is then z-scored
-         across the 11 sectors:
+      <p>The <strong>sentiment score</strong> is built from recent financial
+         news. For each of the 11 GICS sectors we fetch the latest 24&nbsp;hours
+         of English-language headlines from the <strong>GDELT</strong> global
+         news index (up to 250 per sector, matched via sector-specific topic
+         codes). Each headline is scored by <strong>ProsusAI/finbert</strong>, a
+         finance-tuned BERT model that classifies text as positive, negative or
+         neutral with a confidence score. The per-sector <em>mean signed
+         polarity</em> (positive&nbsp;=&nbsp;+score,
+         negative&nbsp;=&nbsp;&minus;score, neutral&nbsp;=&nbsp;0) is then
+         z-scored across the 11 sectors:
          <span class="signal-hi">positive = more bullish news vs peers</span>,
          <span class="signal-lo">negative = more bearish</span>.
-         Both US and EU rows for the same GICS sector share the same score — financial
-         news sentiment is global. If FinBERT or GDELT is unavailable, the score falls
-         back to the Google Trends slope z-score.</p>
-      <h4>Google Trends derived signals</h4>
-      <p>The table also shows <strong>search-attention</strong> signals from Google
-         Trends (information-only — they do not affect the ranking). For each sector we
-         pull ~13 weeks of worldwide search interest for its primary keyword
-         (e.g. Technology&nbsp;&rarr;&nbsp;<em>semiconductor</em>,
-         Energy&nbsp;&rarr;&nbsp;<em>oil</em>), queried per region
-         (<strong>US</strong> in US search, <strong>EU</strong> averaged across
-         Germany, France and the UK) and normalized against a neutral anchor term.</p>
-      <h4>Themes</h4>
-      <p>The <strong>Themes</strong> cohort uses Google Trends only (no FinBERT).
-         Themes map to real search phrases (<em>uranium</em>, <em>defense stocks</em>,
-         <em>robotics</em>) rather than ETF tickers. Theme interest is pulled
-         <strong>worldwide</strong> (themes are global) and z-scored across the theme
-         cohort. Switch cohorts with the toggle above.</p>
+         Both US and EU rows for the same GICS sector share the same score —
+         financial news sentiment is global. If FinBERT or GDELT is unavailable,
+         the score is left blank for that scan.</p>
       <h4>Table columns</h4>
-      <p>The sector table shows both FinBERT and Trends signals (all information-only
-         except Polarity, which feeds the ranking via the blend toggle):</p>
       <ul>
-        <li><strong>Momentum</strong> (Trends) — trend/slope of search interest.</li>
-        <li><strong>Acceleration</strong> (Trends) — recent-half slope minus
-            earlier-half; positive = attention picking up speed.</li>
-        <li><strong>Range position</strong> (Trends) — latest reading within its
-            13-week min–max (0% = low, 100% = high).</li>
-        <li><strong>Spike</strong> (Trends) — z-score of the latest point vs trailing
-            weeks; a breakout in interest.</li>
-        <li><strong>Volatility</strong> (Trends) — how choppy week-to-week interest
-            has been.</li>
-        <li><strong>Attention</strong> (Trends) — relative search interest compared
-            head-to-head against all other sectors. Higher = more attention.</li>
-        <li><strong>Seasonal</strong> (Trends) — last 13 weeks vs prior 39-week
-            baseline. Above 1.0 = exceeding historical norm.</li>
-        <li><strong>Polarity</strong> (FinBERT) — mean signed sentiment from recent
-            news headlines. Green = bullish, red = bearish.</li>
-        <li><strong>Articles</strong> (FinBERT) — number of headlines scored.</li>
-        <li><strong>Pos%</strong> (FinBERT) — fraction classified as positive.</li>
-        <li><strong>Neg%</strong> (FinBERT) — fraction classified as negative.</li>
-        <li><strong>Rising Queries</strong> (Trends) — emerging search terms. Click a
-            row with &#x25B6; to expand.</li>
+        <li><strong>Polarity</strong> — mean signed sentiment from recent news
+            headlines. Green = bullish, red = bearish.</li>
+        <li><strong>Articles</strong> — number of headlines scored.</li>
+        <li><strong>Pos%</strong> — fraction classified as positive.</li>
+        <li><strong>Neg%</strong> — fraction classified as negative.</li>
       </ul>
       <h4>It does not drive the ranking by default</h4>
-      <p>The leaderboard composite is built from price/momentum signals only. Sentiment
-         changes the ranking <em>only</em> when you enable the <strong>Sentiment
-         toggle</strong>, at the weight you choose. Treat it as a confirmer, not a
-         driver — search interest is noisy and can lag price.</p>
+      <p>The leaderboard composite is built from price/momentum signals only.
+         Sentiment changes the ranking <em>only</em> when you enable the
+         <strong>Sentiment toggle</strong>, at the weight you choose. Treat it as
+         a confirmer, not a driver — news sentiment is noisy and can lag price.</p>
     </div>
   </details>
   </div>
 
-  <!-- ===== Sectors cohort ===== -->
-  <div class="cohort-panel" data-cohort="sectors" id="sent-panel-sectors" role="tabpanel" aria-labelledby="sent-tab-sectors">
-    <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
-    
+  <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
+  
 <p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px" data-i18n-html="sentiment_footnote">
   Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
-  Hollow points = no sentiment data this scan (source unavailable or EU-only).
-  Sentiment is a confirming signal — noisy, gameable, retail-biased.
+  Hollow points = no news sentiment this scan (source unavailable).
+  Sentiment is a confirming signal — noisy and news-driven.
   This is analytical tooling, not investment advice.
 </p>
 
-    
-    <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
-    
-
+  
+  <h3 style="margin:24px 0 8px 4px" data-i18n="sent_news_heading">News sentiment</h3>
+  
 <div style="overflow-x:auto">
   <table>
     <thead>
       <tr>
-        <th style="width:1.2em"></th>
         <th data-i18n="sent_col_sector">Sector</th>
         <th data-i18n="sent_col_region">Region</th>
-        <th data-i18n="sent_col_momentum">Momentum</th>
-        <th data-i18n="sent_col_acceleration">Acceleration</th>
-        <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
-        <th data-i18n="sent_col_spike">Spike</th>
-        <th data-i18n="sent_col_volatility">Volatility</th>
-        <th data-i18n="sent_col_attention">Attention</th>
-        <th data-i18n="sent_col_seasonal">Seasonal</th>
-        
         <th data-i18n="sent_col_news_polarity">Polarity</th>
         <th data-i18n="sent_col_news_count">Articles</th>
         <th data-i18n="sent_col_news_pos">Pos%</th>
         <th data-i18n="sent_col_news_neg">Neg%</th>
-        
       </tr>
     </thead>
     <tbody>
       
       <tr>
-        <td class="rising-toggle"></td>
         <td>Banks</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>0.0</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Basic Resources</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>0.0</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Chemicals</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>1.0</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Communication Services</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>0.0</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Consumer Discretionary</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>0.0</td>
-        <td class="seasonal">—</td>
-        
         <td class="signal-lo">-0.04</td>
         <td>220</td>
         <td>15%</td>
         <td>20%</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Consumer Staples</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="signal-lo">-0.19</td>
         <td>195</td>
         <td>7%</td>
         <td>32%</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Energy</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="signal-lo">-0.20</td>
         <td>154</td>
         <td>11%</td>
         <td>36%</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Financial Services</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Health Care</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="signal-lo">-0.18</td>
         <td>216</td>
         <td>9%</td>
         <td>31%</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Industrials</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Insurance</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Real Estate</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="signal-lo">-0.01</td>
         <td>224</td>
         <td>17%</td>
         <td>17%</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Technology</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      
       <tr>
-        <td class="rising-toggle"></td>
         <td>Utilities</td>
         <td>EU</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td class="seasonal">—</td>
-        
         <td class="signal-lo">-0.19</td>
         <td>188</td>
         <td>7%</td>
         <td>30%</td>
-        
       </tr>
       
-      
-      <tr class="has-rising" data-rising-id="rising-s-15" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
+      <tr>
         <td>Communication Services</td>
         <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>1.7</td>
-        <td class="seasonal">—</td>
-        
         <td class="">—</td>
         <td>0</td>
         <td>—</td>
         <td>—</td>
-        
       </tr>
       
-      <tr class="rising-panel" id="rising-s-15" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>xlf</td><td>110%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-16" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
+      <tr>
         <td>Consumer Discretionary</td>
         <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>1.2</td>
-        <td class="seasonal">—</td>
-        
         <td class="signal-lo">-0.04</td>
         <td>220</td>
         <td>15%</td>
         <td>20%</td>
-        
       </tr>
       
-      <tr class="rising-panel" id="rising-s-16" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>xlf etf</td><td>450%</td></tr>
-                
-                <tr><td>xlk etf</td><td>300%</td></tr>
-                
-                <tr><td>xlu</td><td>200%</td></tr>
-                
-                <tr><td>xlp etf</td><td>200%</td></tr>
-                
-                <tr><td>xlb</td><td>190%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-17" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
+      <tr>
         <td>Consumer Staples</td>
         <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>2.2</td>
-        <td class="seasonal">—</td>
-        
         <td class="signal-lo">-0.19</td>
         <td>195</td>
         <td>7%</td>
         <td>32%</td>
-        
       </tr>
-      
-      <tr class="rising-panel" id="rising-s-17" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>xli</td><td>130%</td></tr>
-                
-                <tr><td>xlf</td><td>90%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-18" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Financials</td>
-        <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>3.5</td>
-        <td class="seasonal">—</td>
-        
-        <td class="">—</td>
-        <td>0</td>
-        <td>—</td>
-        <td>—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-s-18" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>xlv etf</td><td>300%</td></tr>
-                
-                <tr><td>xle etf</td><td>200%</td></tr>
-                
-                <tr><td>xlb</td><td>190%</td></tr>
-                
-                <tr><td>xli</td><td>140%</td></tr>
-                
-                <tr><td>xlc</td><td>110%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-19" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Health Care</td>
-        <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>4.4</td>
-        <td class="seasonal">—</td>
-        
-        <td class="signal-lo">-0.18</td>
-        <td>216</td>
-        <td>9%</td>
-        <td>31%</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-s-19" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>googl stock</td><td>36600%</td></tr>
-                
-                <tr><td>xle etf</td><td>350%</td></tr>
-                
-                <tr><td>xlf etf</td><td>300%</td></tr>
-                
-                <tr><td>xlp etf</td><td>250%</td></tr>
-                
-                <tr><td>xlu etf</td><td>180%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-20" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Industrials</td>
-        <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>2.6</td>
-        <td class="seasonal">—</td>
-        
-        <td class="">—</td>
-        <td>0</td>
-        <td>—</td>
-        <td>—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-s-20" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>xlu etf</td><td>250%</td></tr>
-                
-                <tr><td>xle etf</td><td>250%</td></tr>
-                
-                <tr><td>super bowl lxi</td><td>250%</td></tr>
-                
-                <tr><td>crown xli 800</td><td>200%</td></tr>
-                
-                <tr><td>vis etf</td><td>200%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-21" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Materials</td>
-        <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>1.5</td>
-        <td class="seasonal">—</td>
-        
-        <td class="">—</td>
-        <td>0</td>
-        <td>—</td>
-        <td>—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-s-21" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>xle etf</td><td>600%</td></tr>
-                
-                <tr><td>xli</td><td>200%</td></tr>
-                
-                <tr><td>xlp</td><td>200%</td></tr>
-                
-                <tr><td>xly</td><td>200%</td></tr>
-                
-                <tr><td>xle</td><td>200%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-22" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Real Estate</td>
-        <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>0.4</td>
-        <td class="seasonal">—</td>
-        
-        <td class="signal-lo">-0.01</td>
-        <td>224</td>
-        <td>17%</td>
-        <td>17%</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-s-22" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>schh</td><td>120%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-23" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Technology</td>
-        <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>6.7</td>
-        <td class="seasonal">—</td>
-        
-        <td class="">—</td>
-        <td>0</td>
-        <td>—</td>
-        <td>—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-s-23" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>crwv stock</td><td>42800%</td></tr>
-                
-                <tr><td>iren stock</td><td>27450%</td></tr>
-                
-                <tr><td>hood stock</td><td>250%</td></tr>
-                
-                <tr><td>mu stock</td><td>200%</td></tr>
-                
-                <tr><td>xli</td><td>150%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
       
       <tr>
-        <td class="rising-toggle"></td>
-        <td>Utilities</td>
-        <td>US</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>2.1</td>
-        <td class="seasonal">—</td>
-        
-        <td class="signal-lo">-0.19</td>
-        <td>188</td>
-        <td>7%</td>
-        <td>30%</td>
-        
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-s-25" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
         <td>Energy</td>
         <td>US</td>
-        <td>-0.03</td>
-        <td>-0.54</td>
-        <td>0%</td>
-        <td>-0.81</td>
-        <td>58%</td>
-        <td>80.4</td>
-        <td class="seasonal seasonal-hi">2.05x</td>
-        
         <td class="signal-lo">-0.20</td>
         <td>154</td>
         <td>11%</td>
         <td>36%</td>
-        
       </tr>
       
-      <tr class="rising-panel" id="rising-s-25" style="display:none">
-        <td colspan="14">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>2026 camry xle</td><td>2800%</td></tr>
-                
-                <tr><td>2026 rav4</td><td>2300%</td></tr>
-                
-                <tr><td>2026 rav4 xle</td><td>2150%</td></tr>
-                
-                <tr><td>xle holdings</td><td>170%</td></tr>
-                
-                <tr><td>uso stock</td><td>110%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
+      <tr>
+        <td>Financials</td>
+        <td>US</td>
+        <td class="">—</td>
+        <td>0</td>
+        <td>—</td>
+        <td>—</td>
       </tr>
       
+      <tr>
+        <td>Health Care</td>
+        <td>US</td>
+        <td class="signal-lo">-0.18</td>
+        <td>216</td>
+        <td>9%</td>
+        <td>31%</td>
+      </tr>
+      
+      <tr>
+        <td>Industrials</td>
+        <td>US</td>
+        <td class="">—</td>
+        <td>0</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      
+      <tr>
+        <td>Materials</td>
+        <td>US</td>
+        <td class="">—</td>
+        <td>0</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      
+      <tr>
+        <td>Real Estate</td>
+        <td>US</td>
+        <td class="signal-lo">-0.01</td>
+        <td>224</td>
+        <td>17%</td>
+        <td>17%</td>
+      </tr>
+      
+      <tr>
+        <td>Technology</td>
+        <td>US</td>
+        <td class="">—</td>
+        <td>0</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      
+      <tr>
+        <td>Utilities</td>
+        <td>US</td>
+        <td class="signal-lo">-0.19</td>
+        <td>188</td>
+        <td>7%</td>
+        <td>30%</td>
+      </tr>
       
     </tbody>
   </table>
 </div>
 
-    
-  </div>
-
-  <!-- ===== Themes cohort ===== -->
-  <div class="cohort-panel" data-cohort="themes" id="sent-panel-themes" role="tabpanel" aria-labelledby="sent-tab-themes" style="display:none">
-    <p class="tab-note" data-i18n="note_sentiment_themes">Theme sentiment pulls worldwide search interest for each theme's keyword, z-scored across the themes. Information-only — it never affects any ranking.</p>
-    <div class="chart-container" id="sentiment-scatter-theme" style="height:560px"></div>
-    
-<p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px" data-i18n-html="sentiment_footnote">
-  Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
-  Hollow points = no sentiment data this scan (source unavailable or EU-only).
-  Sentiment is a confirming signal — noisy, gameable, retail-biased.
-  This is analytical tooling, not investment advice.
-</p>
-
-    
-    <h3 style="margin:24px 0 8px 4px" data-i18n="sent_derived_heading">Derived Trends signals</h3>
-    
-
-<div style="overflow-x:auto">
-  <table>
-    <thead>
-      <tr>
-        <th style="width:1.2em"></th>
-        <th data-i18n="col_theme">Theme</th>
-        
-        <th data-i18n="sent_col_momentum">Momentum</th>
-        <th data-i18n="sent_col_acceleration">Acceleration</th>
-        <th data-i18n="sent_col_range">Range&nbsp;pos.</th>
-        <th data-i18n="sent_col_spike">Spike</th>
-        <th data-i18n="sent_col_volatility">Volatility</th>
-        <th data-i18n="sent_col_attention">Attention</th>
-        <th data-i18n="sent_col_seasonal">Seasonal</th>
-        
-      </tr>
-    </thead>
-    <tbody>
-      
-      <tr class="has-rising" data-rising-id="rising-t-1" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Artificial Intelligence & Robotics</td>
-        
-        <td>+0.00</td>
-        <td>+0.01</td>
-        <td>61%</td>
-        <td>+0.35</td>
-        <td>5%</td>
-        <td>38.8</td>
-        <td class="seasonal seasonal-hi">1.15x</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-1" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>lidl near me</td><td>42950%</td></tr>
-                
-                <tr><td>openai news today</td><td>19050%</td></tr>
-                
-                <tr><td>health news today</td><td>18500%</td></tr>
-                
-                <tr><td>markets news today</td><td>18100%</td></tr>
-                
-                <tr><td>travel news today</td><td>18050%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-2" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Cybersecurity</td>
-        
-        <td>+0.00</td>
-        <td>+0.01</td>
-        <td>61%</td>
-        <td>+0.35</td>
-        <td>5%</td>
-        <td>36.8</td>
-        <td class="seasonal seasonal-hi">1.12x</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-2" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>openai news today</td><td>58700%</td></tr>
-                
-                <tr><td>lidl near me</td><td>25400%</td></tr>
-                
-                <tr><td>nvidia news today</td><td>20200%</td></tr>
-                
-                <tr><td>apple news today</td><td>20150%</td></tr>
-                
-                <tr><td>anthropic news today</td><td>14000%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-3" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Semiconductors</td>
-        
-        <td>+0.00</td>
-        <td>+0.01</td>
-        <td>61%</td>
-        <td>+0.35</td>
-        <td>5%</td>
-        <td>45.0</td>
-        <td class="seasonal seasonal-hi">1.26x</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-3" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>openai news today</td><td>57350%</td></tr>
-                
-                <tr><td>ai news today</td><td>19900%</td></tr>
-                
-                <tr><td>openai news</td><td>16400%</td></tr>
-                
-                <tr><td>semiconductor industry news today</td><td>8150%</td></tr>
-                
-                <tr><td>semiconductor news today</td><td>7650%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr>
-        <td class="rising-toggle"></td>
-        <td>AgTech & Food Innovation</td>
-        
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>0.0</td>
-        <td class="seasonal">—</td>
-        
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-5" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Biotech</td>
-        
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>16.8</td>
-        <td class="seasonal">—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-5" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>markets news today</td><td>20350%</td></tr>
-                
-                <tr><td>biotech news today</td><td>10150%</td></tr>
-                
-                <tr><td>biotech news</td><td>1750%</td></tr>
-                
-                <tr><td>biotech stocks</td><td>350%</td></tr>
-                
-                <tr><td>biotech etf</td><td>300%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-6" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Blockchain & Crypto</td>
-        
-        <td>+0.00</td>
-        <td>+0.00</td>
-        <td>50%</td>
-        <td>+0.00</td>
-        <td>0%</td>
-        <td>13.4</td>
-        <td class="seasonal seasonal-lo">0.00x</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-6" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>lidl near me</td><td>13600%</td></tr>
-                
-                <tr><td>openai news today</td><td>9550%</td></tr>
-                
-                <tr><td>nvidia news today</td><td>8850%</td></tr>
-                
-                <tr><td>atrium cryptocurrency</td><td>8650%</td></tr>
-                
-                <tr><td>travel news today</td><td>7400%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-7" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Clean Energy</td>
-        
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>5.2</td>
-        <td class="seasonal">—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-7" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>clean energy news</td><td>950%</td></tr>
-                
-                <tr><td>residential clean energy credit</td><td>300%</td></tr>
-                
-                <tr><td>clean energy company</td><td>140%</td></tr>
-                
-                <tr><td>clean energy stocks</td><td>130%</td></tr>
-                
-                <tr><td>clean energy etf</td><td>80%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr>
-        <td class="rising-toggle"></td>
-        <td>Data Centers & Digital Infra</td>
-        
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>2.3</td>
-        <td class="seasonal">—</td>
-        
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-9" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Defense</td>
-        
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>1.3</td>
-        <td class="seasonal">—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-9" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>lidl near me</td><td>43750%</td></tr>
-                
-                <tr><td>natural language processing</td><td>8150%</td></tr>
-                
-                <tr><td>python data analysis</td><td>6900%</td></tr>
-                
-                <tr><td>machine learning algorithms</td><td>6250%</td></tr>
-                
-                <tr><td>microservices architecture</td><td>6100%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-10" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Space</td>
-        
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>1.7</td>
-        <td class="seasonal">—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-10" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>world cup 2026</td><td>251950%</td></tr>
-                
-                <tr><td>what is the hidden tradeoff between space exploration and technology advancement?</td><td>54900%</td></tr>
-                
-                <tr><td>python programming</td><td>51150%</td></tr>
-                
-                <tr><td>react tutorial</td><td>49750%</td></tr>
-                
-                <tr><td>lego space exploration telescope</td><td>38150%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-11" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Uranium & Nuclear</td>
-        
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>—</td>
-        <td>10.1</td>
-        <td class="seasonal">—</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-11" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>lidl near me</td><td>9450%</td></tr>
-                
-                <tr><td>zaylo montagem uranium</td><td>7950%</td></tr>
-                
-                <tr><td>securing iranian enriched uranium</td><td>3100%</td></tr>
-                
-                <tr><td>uranium news today</td><td>2750%</td></tr>
-                
-                <tr><td>uranium price news</td><td>1950%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-12" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Quantum Computing</td>
-        
-        <td>-0.02</td>
-        <td>-0.03</td>
-        <td>0%</td>
-        <td>-0.29</td>
-        <td>0%</td>
-        <td>10.4</td>
-        <td class="seasonal seasonal-lo">0.26x</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-12" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>openai news today</td><td>36200%</td></tr>
-                
-                <tr><td>business news today</td><td>12350%</td></tr>
-                
-                <tr><td>new york times</td><td>11050%</td></tr>
-                
-                <tr><td>semiconductor news today</td><td>9050%</td></tr>
-                
-                <tr><td>health news today</td><td>8800%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-      <tr class="has-rising" data-rising-id="rising-t-13" tabindex="0">
-        <td class="rising-toggle">&#x25B6;</td>
-        <td>Lithium & Battery</td>
-        
-        <td>-0.12</td>
-        <td>-0.24</td>
-        <td>0%</td>
-        <td>-1.66</td>
-        <td>34%</td>
-        <td>18.2</td>
-        <td class="seasonal seasonal-hi">6.78x</td>
-        
-      </tr>
-      
-      <tr class="rising-panel" id="rising-t-13" style="display:none">
-        <td colspan="9">
-          <div class="rising-inner">
-            <strong data-i18n="rising_heading">Rising Queries</strong>
-            <table class="rising-table">
-              <thead><tr>
-                <th data-i18n="rising_col_query">Query</th>
-                <th data-i18n="rising_col_growth">Growth</th>
-              </tr></thead>
-              <tbody>
-                
-                <tr><td>openai news today</td><td>12500%</td></tr>
-                
-                <tr><td>lithium battery recycling</td><td>110%</td></tr>
-                
-                <tr><td>lithium battery price</td><td>90%</td></tr>
-                
-                <tr><td>lithium ion battery price</td><td>70%</td></tr>
-                
-                <tr><td>lithium iron battery</td><td>60%</td></tr>
-                
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-      
-      
-    </tbody>
-  </table>
-</div>
-
-    
-  </div>
+  
 </section>
 </div>
 
 <script>
 var SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text} (US)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#A55A3C","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"US","text":["Consumer Discretionary","Consumer Staples","Energy","Health Care","Real Estate","Utilities"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[-0.552996,-0.133001,0.692165,0.311453,0.102004,-0.346016],"y":[1.13843,-0.67247,-0.712979,-0.562094,1.42929,-0.620172],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{text} (EU)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#5A6F49","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"EU","text":["Consumer Discretionary","Consumer Staples","Energy","Health Care","Real Estate","Utilities"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[0.131287,0.27338,0.413407,-0.355269,-0.784281,0.171422],"y":[1.13843,-0.67247,-0.712979,-0.562094,1.42929,-0.620172],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{text}\u003c\u002fb\u003e\u003cbr\u003eSentiment: N\u002fA\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#C8B89A","size":8,"symbol":"circle-open"},"mode":"markers+text","name":"no sentiment data","text":["Banks","Basic Resources","Chemicals","Communication Services","Financial Services","Industrials","Insurance","Technology","Communication Services","Financials","Industrials","Materials","Technology"],"textfont":{"color":"#8C8370","size":8},"textposition":"top center","x":[0.694349,-0.636459,0.802899,-0.498195,0.55061,-0.423433,0.604042,-0.473918,-0.270336,0.491742,-0.16925,-0.509051,-0.0865551],"y":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"type":"scatter"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":0,"x1":0,"y0":-3,"y1":3},{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":-3,"x1":3,"y0":0,"y1":0}],"annotations":[{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bullish)","x":1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Sentiment\u003cbr\u003eahead","x":-1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bearish)","x":-1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Data ahead","x":1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"}],"font":{"color":"#3E392B","family":"Inter, -apple-system, sans-serif"},"legend":{"font":{"size":9},"bgcolor":"#FAF7F0","bordercolor":"#DFD5BE"},"margin":{"l":50,"r":20,"t":50,"b":50},"xaxis":{"title":{"text":"Data Score"},"gridcolor":"#DFD5BE","zeroline":false},"yaxis":{"title":{"text":"Sentiment Score"},"gridcolor":"#DFD5BE","zeroline":false},"title":{"font":{"size":13,"color":"#3E392B"},"text":"Data \u21c4 Sentiment"},"paper_bgcolor":"#F5F0E6","plot_bgcolor":"#FAF7F0","hovermode":"x unified","height":520}};
-var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text} (THEME)\u003c\u002fb\u003e\u003cbr\u003eData: %{x:.3f}\u003cbr\u003eSentiment: %{y:.3f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#7A5B8E","line":{"color":"#C8B89A","width":1},"size":12},"mode":"markers+text","name":"THEME","text":["Artificial Intelligence & Robotics","Blockchain & Crypto","Cybersecurity","Lithium & Battery","Quantum Computing","Semiconductors"],"textfont":{"color":"#3E392B","size":9},"textposition":"top center","x":[-0.204976,-0.0107535,0.915978,-0.477493,-0.00901114,0.293497],"y":[0.505682,0.445631,0.505682,-2.00804,0.0453598,0.505682],"type":"scatter"},{"hovertemplate":"\u003cb\u003e%{text}\u003c\u002fb\u003e\u003cbr\u003eSentiment: N\u002fA\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#C8B89A","size":8,"symbol":"circle-open"},"mode":"markers+text","name":"no sentiment data","text":["AgTech & Food Innovation","Biotech","Clean Energy","Data Centers & Digital Infra","Defense","Space","Uranium & Nuclear"],"textfont":{"color":"#8C8370","size":8},"textposition":"top center","x":[0.432232,0.544518,-0.134166,0.000457355,0.259381,-0.89045,-0.719213],"y":[0.0,0.0,0.0,0.0,0.0,0.0,0.0],"type":"scatter"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":0,"x1":0,"y0":-3,"y1":3},{"line":{"color":"#DFD5BE","dash":"dot","width":1},"type":"line","x0":-3,"x1":3,"y0":0,"y1":0}],"annotations":[{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bullish)","x":1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Sentiment\u003cbr\u003eahead","x":-1.5,"xanchor":"center","y":1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Agreement\u003cbr\u003e(bearish)","x":-1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"},{"font":{"color":"#8C8370","size":9},"showarrow":false,"text":"Data ahead","x":1.5,"xanchor":"center","y":-1.5,"yanchor":"middle"}],"font":{"color":"#3E392B","family":"Inter, -apple-system, sans-serif"},"legend":{"font":{"size":9},"bgcolor":"#FAF7F0","bordercolor":"#DFD5BE"},"margin":{"l":50,"r":20,"t":50,"b":50},"xaxis":{"title":{"text":"Data Score"},"gridcolor":"#DFD5BE","zeroline":false},"yaxis":{"title":{"text":"Sentiment Score"},"gridcolor":"#DFD5BE","zeroline":false},"title":{"font":{"size":13,"color":"#3E392B"},"text":"Data \u21c4 Sentiment"},"paper_bgcolor":"#F5F0E6","plot_bgcolor":"#FAF7F0","hovermode":"x unified","height":520}};
 
-// Cohort toggle (Sectors ⇄ Themes), persisted in localStorage. Each scatter is
-// plotted lazily — the first time its cohort becomes visible — because Plotly
-// renders a chart inside a display:none container at a 0-width minimum and never
-// recovers cleanly. Lazy plotting guarantees a real container width at draw time.
+// Plot the scatter once the container is laid out.
 (function () {
-  var KEY = 'sentimentCohort';
-  var toggle = document.getElementById('sent-cohort-toggle');
-  if (!toggle) return;
-  var panels = document.querySelectorAll('.cohort-panel');
-  var plotted = {};
-  var FIG = {sectors: SENTIMENT_DATA, themes: THEME_SENTIMENT_DATA};
-  var DIV = {sectors: 'sentiment-scatter', themes: 'sentiment-scatter-theme'};
-  function reveal(cohort) {
-    if (!window.Plotly) return;
-    var el = document.getElementById(DIV[cohort]);
-    if (!plotted[cohort]) {
-      // First reveal: plot now that the container is laid out (an inline script
-      // on initial load runs before the first layout pass, when a newly-shown
-      // container still measures 0 width — Plotly would bake in a 0 width).
-      var fig = FIG[cohort];
-      Plotly.newPlot(el, fig.data, fig.layout, {responsive: true});
-      plotted[cohort] = true;
-    } else if (el.data) {
-      // Re-reveal: fix a width that may have gone stale (e.g. window resized
-      // while this cohort was hidden, so responsive:true never relaid it out).
-      Plotly.Plots.resize(el);
-    }
-  }
-  function setCohort(cohort) {
-    panels.forEach(function (p) {
-      p.style.display = p.getAttribute('data-cohort') === cohort ? '' : 'none';
-    });
-    toggle.querySelectorAll('.segment-btn').forEach(function (b) {
-      var on = b.getAttribute('data-cohort') === cohort;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-selected', String(on));
-    });
-    requestAnimationFrame(function () { reveal(cohort); });
-  }
-  function select(cohort, focus) {
-    setCohort(cohort);
-    try { localStorage.setItem(KEY, cohort); } catch (e) {}
-    if (focus) {
-      var btn = toggle.querySelector('.segment-btn[data-cohort="' + cohort + '"]');
-      if (btn) btn.focus();
-    }
-  }
-  var saved = null;
-  try { saved = localStorage.getItem(KEY); } catch (e) {}
-  setCohort(saved === 'themes' ? 'themes' : 'sectors');
-  toggle.addEventListener('click', function (e) {
-    var btn = e.target.closest('.segment-btn');
-    if (btn) select(btn.getAttribute('data-cohort'), false);
-  });
-  // Arrow-key navigation between tabs (WAI-ARIA tablist pattern).
-  toggle.addEventListener('keydown', function (e) {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    var order = ['sectors', 'themes'];
-    var active = toggle.querySelector('.segment-btn.active');
-    var i = order.indexOf(active ? active.getAttribute('data-cohort') : 'sectors');
-    var next = e.key === 'ArrowRight' ? (i + 1) % order.length : (i + order.length - 1) % order.length;
-    select(order[next], true);
-  });
-})();
-
-// Delegated toggle for rising-queries expandable panels (both cohort tables).
-(function () {
-  var scope = document.querySelector('.tab-panel');
-  if (!scope) return;
-  function toggle(row) {
-    var id = row.getAttribute('data-rising-id');
-    if (!id) return;
-    var panel = document.getElementById(id);
-    if (!panel) return;
-    var open = panel.style.display !== 'none';
-    panel.style.display = open ? 'none' : '';
-    row.classList.toggle('open', !open);
-    row.setAttribute('aria-expanded', String(!open));
-  }
-  scope.addEventListener('click', function (e) {
-    var row = e.target.closest('.has-rising');
-    if (row) toggle(row);
-  });
-  scope.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    var row = e.target.closest('.has-rising');
-    if (row) { e.preventDefault(); toggle(row); }
-  });
+  if (!window.Plotly) return;
+  var el = document.getElementById('sentiment-scatter');
+  if (!el) return;
+  Plotly.newPlot(el, SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
 })();
 
 (function () {
@@ -2397,25 +1171,13 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text} (THEM
 });
 
   Object.assign(SV, {
-  note_sentiment_themes: "Temasentiment hämtar världsomspännande sökintresse för varje temas nyckelord, z-poängsatt över temana. Endast information — påverkar aldrig någon rankning.",
-  sent_themes_empty: "Ingen temasentimentdata än — kör en skanning.",
-  sent_derived_heading: "Härledda Trends-signaler",
+  sent_news_heading: "Nyhetssentiment",
   sent_col_sector: "Sektor",
   sent_col_region: "Region",
-  sent_col_momentum: "Momentum",
-  sent_col_acceleration: "Acceleration",
-  sent_col_range: "Intervallpos.",
-  sent_col_spike: "Spik",
-  sent_col_volatility: "Volatilitet",
-  sent_col_attention: "Uppmärksamhet",
-  sent_col_seasonal: "Säsong",
   sent_col_news_polarity: "Polaritet",
   sent_col_news_count: "Artiklar",
   sent_col_news_pos: "Pos%",
-  sent_col_news_neg: "Neg%",
-  rising_heading: "Stigande sökningar",
-  rising_col_query: "Sökterm",
-  rising_col_growth: "Tillväxt"
+  sent_col_news_neg: "Neg%"
 });
 
   Object.assign(SV, {
@@ -2583,26 +1345,13 @@ var THEME_SENTIMENT_DATA = {"data":[{"hovertemplate":"\u003cb\u003e%{text} (THEM
     Detta är ett analysverktyg, inte investeringsrådgivning.`,
   guide_body_sentiment: `
       <h4>Källa — FinBERT-nyhetssentiment</h4>
-      <p><strong>Sentimentpoängen</strong> bygger på färska finansnyheter, inte sökuppmärksamhet. För var och en av de 11 GICS-sektorerna hämtas de senaste 24&nbsp;timmarnas engelskspråkiga rubriker från det globala nyhetsindexet <strong>GDELT</strong> (upp till 250 per sektor, matchade via sektorsspecifika ämneskodar). Varje rubrik poängsätts av <strong>ProsusAI/finbert</strong>, en finansanpassad BERT-modell som klassificerar text som positiv, negativ eller neutral. Den sektorvisa <em>medelpolariteten</em> (positiv&nbsp;=&nbsp;+poäng, negativ&nbsp;=&nbsp;&minus;poäng, neutral&nbsp;=&nbsp;0) z-poängsätts sedan över de 11 sektorerna: <span class="signal-hi">positivt = mer hausseartade nyheter mot jämnåriga</span>, <span class="signal-lo">negativt = mer baisseartade</span>. Både US- och EU-rader för samma GICS-sektor delar samma poäng — nyhetssentimentet är globalt. Om FinBERT eller GDELT är otillgängligt faller poängen tillbaka på Google Trends lutnings-z-poäng.</p>
-      <h4>Google Trends härledda signaler</h4>
-      <p>Tabellen visar även <strong>sökuppmärksamhetssignaler</strong> från Google Trends (enbart information — de påverkar inte rankningen). För varje sektor hämtas ~13 veckors sökintresse för dess primära nyckelord (t.ex. Teknik&nbsp;&rarr;&nbsp;<em>semiconductor</em>, Energi&nbsp;&rarr;&nbsp;<em>oil</em>), per region (<strong>US</strong> i amerikanska sökningar, <strong>EU</strong> som genomsnitt av Tyskland, Frankrike och Storbritannien), normaliserat mot en neutral ankarterm.</p>
-      <h4>Teman</h4>
-      <p><strong>Teman</strong>-kohorten använder enbart Google Trends (inget FinBERT). Teman motsvarar riktiga sökfraser (<em>uranium</em>, <em>defense stocks</em>, <em>robotics</em>) i stället för ETF-tickers. Temaintresse hämtas <strong>världsomspännande</strong> (teman är globala) och z-poängsätts över temakohorten. Byt kohort med växeln ovanför.</p>
+      <p><strong>Sentimentpoängen</strong> bygger på färska finansnyheter. För var och en av de 11 GICS-sektorerna hämtas de senaste 24&nbsp;timmarnas engelskspråkiga rubriker från det globala nyhetsindexet <strong>GDELT</strong> (upp till 250 per sektor, matchade via sektorsspecifika ämneskodar). Varje rubrik poängsätts av <strong>ProsusAI/finbert</strong>, en finansanpassad BERT-modell som klassificerar text som positiv, negativ eller neutral. Den sektorvisa <em>medelpolariteten</em> (positiv&nbsp;=&nbsp;+poäng, negativ&nbsp;=&nbsp;&minus;poäng, neutral&nbsp;=&nbsp;0) z-poängsätts sedan över de 11 sektorerna: <span class="signal-hi">positivt = mer hausseartade nyheter mot jämnåriga</span>, <span class="signal-lo">negativt = mer baisseartade</span>. Både US- och EU-rader för samma GICS-sektor delar samma poäng — nyhetssentimentet är globalt. Om FinBERT eller GDELT är otillgängligt lämnas poängen tom för den skanningen.</p>
       <h4>Tabellkolumner</h4>
-      <p>Sektortabellen visar både FinBERT- och Trends-signaler (alla enbart information förutom Polaritet, som matar rankningen via blandningsväxeln):</p>
       <ul>
-        <li><strong>Momentum</strong> (Trends) — trenden/lutningen i sökintresse.</li>
-        <li><strong>Acceleration</strong> (Trends) — senaste halvans lutning minus tidigare halvans; positivt = uppmärksamheten tar fart.</li>
-        <li><strong>Intervallposition</strong> (Trends) — senaste värdet inom 13-veckors min–max (0% = lägsta, 100% = högsta).</li>
-        <li><strong>Spik</strong> (Trends) — z-värde för senaste punkten mot föregående veckor; genombrott i intresse.</li>
-        <li><strong>Volatilitet</strong> (Trends) — hur ryckigt intresset varit vecka för vecka.</li>
-        <li><strong>Uppmärksamhet</strong> (Trends) — relativt sökintresse jämfört head-to-head mot alla andra sektorer. Högre = mer uppmärksamhet.</li>
-        <li><strong>Säsong</strong> (Trends) — senaste 13 veckor mot föregående 39-veckors baslinjen. Över 1,0 = överstiger historisk norm.</li>
-        <li><strong>Polaritet</strong> (FinBERT) — genomsnittligt signerat sentiment från senaste nyhetsrubrikerna. Grön = hausseartad, röd = baisseartad.</li>
-        <li><strong>Artiklar</strong> (FinBERT) — antal poängsatta rubriker.</li>
-        <li><strong>Pos%</strong> (FinBERT) — andel klassificerade som positiva.</li>
-        <li><strong>Neg%</strong> (FinBERT) — andel klassificerade som negativa.</li>
-        <li><strong>Stigande sökningar</strong> (Trends) — framväxande söktermer. Klicka på en rad med ▶ för att expandera.</li>
+        <li><strong>Polaritet</strong> — genomsnittligt signerat sentiment från senaste nyhetsrubrikerna. Grön = hausseartad, röd = baisseartad.</li>
+        <li><strong>Artiklar</strong> — antal poängsatta rubriker.</li>
+        <li><strong>Pos%</strong> — andel klassificerade som positiva.</li>
+        <li><strong>Neg%</strong> — andel klassificerade som negativa.</li>
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft.</p>`
