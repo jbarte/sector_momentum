@@ -325,3 +325,11 @@ def test_build_news_signal_rows_emits_universe_names():
     banks = {r["signal_name"]: r["value"] for r in rows if r["gics_sector"] == "Banks"}
     assert banks == {"news_polarity": 0.2, "news_count": 10.0,
                      "news_positive_pct": 60.0, "news_negative_pct": 20.0}
+
+
+def test_fetch_news_headlines_defaults_are_hardened():
+    import inspect
+    from src.data.news_sentiment import fetch_news_headlines
+    sig = inspect.signature(fetch_news_headlines)
+    assert sig.parameters["sleep_s"].default == 20.0
+    assert sig.parameters["max_retries"].default == 4

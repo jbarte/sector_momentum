@@ -57,8 +57,8 @@ def _build_query(themes: list[str]) -> str:
 def fetch_news_headlines(
     sectors: list[str] | None = None,
     timespan: str = "24h",
-    sleep_s: float = 5.0,
-    max_retries: int = 3,
+    sleep_s: float = 20.0,
+    max_retries: int = 4,
 ) -> dict[str, list[str]]:
     """Fetch recent English headlines per GICS sector from GDELT.
 
@@ -85,11 +85,14 @@ def fetch_news_headlines(
             try:
                 resp = requests.get(GDELT_ENDPOINT, params=params, timeout=30)
                 if resp.status_code == 429:
-                    wait = 60 * (2 ** attempt)
-                    logger.warning("GDELT 429 for %s — backing off %ds", sector, wait)
-                    if sleep_s > 0:
-                        time.sleep(wait)
-                    continue
+                    if attempt < max_retries - 1:
+                        wait = 60 * (2 ** attempt)
+                        logger.warning("GDELT 429 for %s — backing off %ds", sector, wait)
+                        if sleep_s > 0:
+                            time.sleep(wait)
+                        continue
+                    logger.warning("GDELT 429 for %s after %d retries — skipping", sector, max_retries)
+                    break
                 resp.raise_for_status()
                 articles = resp.json().get("articles", [])
                 seen: set[str] = set()
