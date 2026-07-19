@@ -97,6 +97,18 @@ _DDL_STATEMENTS = [
     """,
 ]
 
+# Every table with a scan_id FK on scans, deleted before a same-day scan is
+# replaced. Must stay in sync with the DDL above (tests/test_state_schema.py
+# asserts coverage).
+_SCAN_CHILD_TABLES = (
+    "theme_sentiment_signals",
+    "theme_signals",
+    "theme_scores",
+    "sentiment_signals",
+    "scores",
+    "signals",
+)
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -162,10 +174,7 @@ def save_scan(
                     len(dup_ids), run_date_prefix,
                 )
                 placeholders = ",".join(["%s"] * len(dup_ids))
-                for child in (
-                    "theme_signals", "theme_scores", "sentiment_signals",
-                    "scores", "signals",
-                ):
+                for child in _SCAN_CHILD_TABLES:
                     cur.execute(
                         f"DELETE FROM {child} WHERE scan_id IN ({placeholders})",
                         dup_ids,
