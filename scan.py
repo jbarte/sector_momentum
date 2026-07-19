@@ -72,11 +72,6 @@ def _parse_args() -> argparse.Namespace:
         help="Skip writing the database backup after the scan.",
     )
     parser.add_argument(
-        "--no-cache",
-        action="store_true",
-        help="Bypass the durable Trends day-cache (always live-fetch, no save).",
-    )
-    parser.add_argument(
         "--no-alerts",
         action="store_true",
         help="Skip threshold alert notifications after scan.",
@@ -202,85 +197,6 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
     print(f"\n{'='*60}\n")
 
 
-def _fetch_theme_sentiment(
-    themes_cfg: dict,
-    theme_index,
-    anchor: str,
-    region_geos: dict,
-    cache: dict | None,
-) -> tuple[pd.Series, pd.DataFrame]:
-    """Fetch Google Trends sentiment for the theme cohort.
-
-    Mirrors the sector sentiment path (scan Step 8/8b/8c) but keyed by the
-    ``THEME|<name>`` convention and pulled worldwide. Returns:
-      - a sentiment ``pd.Series`` (z-scored slope) reindexed to ``theme_index``
-        for feeding ``score_all`` (populates ``theme_scores.sentiment_score``);
-      - a long DataFrame (``theme, signal_name, value, text_value``) of the
-        info-only derived signals + comparative attention + rising queries, for
-        ``save_theme_scan(..., sentiment_signals_df=...)``.
-
-    Comparative interest and rising queries are each best-effort — a failure in
-    either logs a warning and yields no rows for that signal, but the headline
-    sentiment + derived signals still return.
-    """
-    import json as _json
-
-    from src.data.trends_symbols import (
-        build_theme_symbol_map, load_theme_entities, fetch_symbol_trends,
-        score_symbol_sentiment, derived_signals, fetch_comparative_interest,
-        fetch_rising_queries, _MIN_LIVE_THEMES,
-    )
-
-    _sym_map = build_theme_symbol_map(themes_cfg)
-    # Theme entities are keyed by search term, not ticker, so the sector entity
-    # map is irrelevant here — use only the theme overrides.
-    _theme_entities = load_theme_entities(themes_cfg)
-
-    _trends = fetch_symbol_trends(
-        _sym_map, anchor=anchor, entities=_theme_entities, region_geos=region_geos,
-        cache=cache, timeframe="today 12-m", window=52,
-    )
-    _sentiment = score_symbol_sentiment(_trends, min_live=_MIN_LIVE_THEMES).reindex(theme_index)
-    logger.info("Theme sentiment: %d/%d themes have live Trends data",
-                len(_trends), len(theme_index))
-
-    def _theme_of(key: str) -> str:
-        return key.partition("|")[2]
-
-    rows: list[dict] = []
-    for _key, _series in _trends.items():
-        _theme = _theme_of(_key)
-        for _name, _val in derived_signals(_series).items():
-            rows.append({"theme": _theme, "signal_name": _name,
-                         "value": _val, "text_value": None})
-
-    try:
-        _attn = fetch_comparative_interest(
-            _sym_map, sleep_s=20.0, max_retries=3,
-            entities=_theme_entities, region_geos=region_geos, cache=cache,
-        )
-        for _key, _val in (_attn or {}).items():
-            rows.append({"theme": _theme_of(_key), "signal_name": "attention_level",
-                         "value": _val, "text_value": None})
-        logger.info("Theme comparative interest: %d themes scored", len(_attn or {}))
-    except Exception as exc:
-        logger.warning("Theme comparative interest failed (%s) — continuing", exc)
-
-    try:
-        _rising = fetch_rising_queries(
-            _sym_map, sleep_s=20.0, max_retries=3,
-            entities=_theme_entities, region_geos=region_geos, cache=cache,
-        )
-        for _key, _queries in (_rising or {}).items():
-            rows.append({"theme": _theme_of(_key), "signal_name": "rising_queries",
-                         "value": None, "text_value": _json.dumps(_queries)})
-        logger.info("Theme rising queries: %d themes with results", len(_rising or {}))
-    except Exception as exc:
-        logger.warning("Theme rising queries failed (%s) — continuing", exc)
-
-    return _sentiment, pd.DataFrame(rows)
-
-
 def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     from src.data.prices import fetch_prices, load_universe
@@ -371,124 +287,12 @@ def run(args: argparse.Namespace) -> int:
     wide_df = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
 
     # ------------------------------------------------------------------
-    # Step 8: Sentiment (thin Google Trends) + Score
+    # Step 8: Sentiment — FinBERT only (Google Trends retired 2026-07-19)
     # ------------------------------------------------------------------
-    logger.info("Fetching symbol-based Google Trends sentiment …")
-    from src.data.trends_symbols import (
-        build_symbol_map, fetch_symbol_trends, score_symbol_sentiment,
-        load_entities, derived_signals, load_geo_config, _MIN_LIVE_SECTORS,
+    sentiment_score = pd.Series(float("nan"), index=wide_df.index, dtype=float)
+    sentiment_signals_df = pd.DataFrame(
+        columns=["region", "gics_sector", "signal_name", "value"]
     )
-    with open("config/sector_etfs.yaml", "r") as _fh:
-        _sector_etfs = yaml.safe_load(_fh) or {}
-    try:
-        with open("config/trends_blocklist.yaml", "r") as _fh:
-            _blocklist = set(yaml.safe_load(_fh) or [])
-    except FileNotFoundError:
-        _blocklist = set()
-    _symbol_map = build_symbol_map(universe, _sector_etfs, blocklist=_blocklist)
-    _entities = load_entities("config/trends_entities.yaml")
-    _resolved = sum(1 for syms in _symbol_map.values() for s in syms if s in _entities)
-    _total = sum(len(syms) for syms in _symbol_map.values())
-    logger.info("Trends entities: %d/%d ticker-slots resolved to a mid (rest fall back to strings)",
-                _resolved, _total)
-    _anchor, _region_geos = load_geo_config("config/trends_geo.yaml")
-    logger.info("Trends geos: %s (anchor=%s)",
-                ", ".join(f"{r}→{'/'.join(g)}" for r, g in _region_geos.items()), _anchor)
-    from src.data import trends_cache
-    _use_cache = not args.no_cache
-    _cache_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    _cache = trends_cache.load_cache(_cache_date) if _use_cache else None
-    _trends_by_key = fetch_symbol_trends(
-        _symbol_map, anchor=_anchor, entities=_entities, region_geos=_region_geos,
-        cache=_cache, timeframe="today 12-m", window=52,
-    )
-    sentiment_score = score_symbol_sentiment(_trends_by_key)
-    sentiment_score = sentiment_score.reindex(wide_df.index)
-    _live = len(_trends_by_key)
-    _total = len(wide_df.index)
-    logger.info(
-        "Symbol sentiment: %d/%d sectors have live Trends data (guard threshold: %d)",
-        _live, _total, _MIN_LIVE_SECTORS,
-    )
-    if _live < _MIN_LIVE_SECTORS:
-        logger.warning(
-            "Symbol sentiment: live count %d < threshold %d — all scores NULLed for this scan",
-            _live, _MIN_LIVE_SECTORS,
-        )
-
-    # Derived Trends signals (info-only; not blended into the composite). One long
-    # row per sector-key × signal, keyed for the sentiment_signals table.
-    _sent_signal_rows = []
-    for _key, _series in _trends_by_key.items():
-        _region, _, _sector = _key.partition("|")
-        for _name, _val in derived_signals(_series).items():
-            _sent_signal_rows.append(
-                {"region": _region, "gics_sector": _sector,
-                 "signal_name": _name, "value": _val}
-            )
-    sentiment_signals_df = pd.DataFrame(_sent_signal_rows)
-
-    # ------------------------------------------------------------------
-    # Step 8b: Comparative cross-sector interest (attention_level)
-    # ------------------------------------------------------------------
-    logger.info("Fetching comparative cross-sector interest …")
-    from src.data.trends_symbols import fetch_comparative_interest
-    try:
-        _attention = fetch_comparative_interest(
-            _symbol_map, sleep_s=20.0, max_retries=3,
-            entities=_entities, region_geos=_region_geos, cache=_cache,
-        )
-        if _attention:
-            _attn_rows = []
-            for _key, _val in _attention.items():
-                _region, _, _sector = _key.partition("|")
-                _attn_rows.append({
-                    "region": _region, "gics_sector": _sector,
-                    "signal_name": "attention_level", "value": _val,
-                })
-            sentiment_signals_df = pd.concat(
-                [sentiment_signals_df, pd.DataFrame(_attn_rows)],
-                ignore_index=True,
-            )
-            logger.info("Comparative interest: %d sectors scored", len(_attention))
-        else:
-            logger.info("Comparative interest: no results (skipped or failed)")
-    except Exception as exc:
-        logger.warning("Comparative interest failed (%s) — continuing without", exc)
-
-    # ------------------------------------------------------------------
-    # Step 8c: Rising / breakout queries per sector
-    # ------------------------------------------------------------------
-    logger.info("Fetching rising queries …")
-    from src.data.trends_symbols import fetch_rising_queries
-    try:
-        _rising = fetch_rising_queries(
-            _symbol_map, sleep_s=20.0, max_retries=3,
-            entities=_entities, region_geos=_region_geos, cache=_cache,
-        )
-        if _rising:
-            import json as _json
-            _rising_rows = []
-            for _key, _queries in _rising.items():
-                _region, _, _sector = _key.partition("|")
-                _rising_rows.append({
-                    "region": _region, "gics_sector": _sector,
-                    "signal_name": "rising_queries", "value": None,
-                    "text_value": _json.dumps(_queries),
-                })
-            sentiment_signals_df = pd.concat(
-                [sentiment_signals_df, pd.DataFrame(_rising_rows)],
-                ignore_index=True,
-            )
-            logger.info("Rising queries: %d sectors with results", len(_rising))
-        else:
-            logger.info("Rising queries: no results (skipped or failed)")
-    except Exception as exc:
-        logger.warning("Rising queries failed (%s) — continuing without", exc)
-
-    if _use_cache:
-        trends_cache.save_cache(_cache_date, _cache)
-
     # ------------------------------------------------------------------
     # Step 8d: FinBERT news sentiment (signed polarity from GDELT headlines)
     # ------------------------------------------------------------------
@@ -524,7 +328,7 @@ def run(args: argparse.Namespace) -> int:
                 ignore_index=True,
             )
         except Exception as exc:
-            logger.warning("FinBERT sentiment failed (%s) — continuing with Trends score", exc)
+            logger.warning("FinBERT sentiment failed (%s) — sentiment stays NULL for this scan", exc)
     else:
         logger.info("FinBERT sentiment skipped (--no-finbert)")
 
@@ -602,35 +406,16 @@ def run(args: argparse.Namespace) -> int:
                 if _theme_rows:
                     _theme_wide = pd.DataFrame(_theme_rows).set_index("sector_key")[SIGNAL_COLUMNS]
 
-                    # Theme sentiment (Google Trends). Info-only like sector
-                    # sentiment: stored but never blended (blend_sentiment=False).
-                    # Isolated in its own try so a Trends failure still lets the
-                    # price-based theme scores persist below.
-                    _theme_sentiment = None
-                    _theme_sent_df = None
-                    try:
-                        _theme_sentiment, _theme_sent_df = _fetch_theme_sentiment(
-                            _themes_cfg, _theme_wide.index,
-                            anchor=_anchor, region_geos=_region_geos, cache=_cache,
-                        )
-                    except Exception as exc:  # non-fatal: keep price-based scores
-                        logger.warning("Theme sentiment failed (%s) — themes scored without it", exc)
-                    finally:
-                        # Persist whatever theme batches were fetched, even on a
-                        # mid-fetch failure, so a same-day re-run reuses them
-                        # (the 429 mitigation) instead of re-hitting Google.
-                        if _use_cache:
-                            trends_cache.save_cache(_cache_date, _cache)
-
+                    # Themes are price-pillars only (Google Trends retired
+                    # 2026-07-19; FinBERT covers sectors, not themes).
                     _theme_scored = score_all(
-                        _theme_wide, sentiment_score=_theme_sentiment, blend_sentiment=False,
+                        _theme_wide, sentiment_score=None, blend_sentiment=False,
                     )
                     _theme_scores_df = _build_scored_df_for_db(_theme_scored)
                     _theme_z = zscore_cross_section(_theme_wide)
                     _theme_signals_df = _build_long_signals_df(_theme_rows, z_wide_df=_theme_z)
                     save_theme_scan(
                         conn, scan_id, _theme_scores_df, _theme_signals_df,
-                        sentiment_signals_df=_theme_sent_df,
                     )
                     logger.info("Themes: scored and saved %d themes", len(_theme_rows))
                 else:
