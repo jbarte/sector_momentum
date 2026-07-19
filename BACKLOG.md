@@ -21,31 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Retire (or demote) Google Trends sentiment
-
-Google Trends has been effectively dead from CI since ~2026-07-14: every
-batch 429-rate-limited (0–1/25 sectors live per scan), so the honesty guard
-NULLs all Trends scores anyway. Meanwhile the fetch + comparative-interest +
-rising-queries passes burn **~40 minutes of every scan run** in backoff
-sleeps for nothing, and FinBERT (shipped 2026-07-17) now feeds
-`sentiment_score` in the composite path.
-
-**Decide scope during brainstorming:**
-- Remove the Trends pipeline entirely (fetch, day-cache, derived signals,
-  attention, rising queries, the sentiment-page Trends tables), or
-- Keep the code but skip the fetch by default (env/CLI gate), preserving
-  the info-only columns for a possible future where CI isn't IP-blocked.
-
-Also fold in: the `trends-cache` bucket load has been failing with a 400
-on recent scans — either fix it or delete it with the rest.
-
-Affected: `src/data/trends_symbols.py`, `src/data/trends_cache.py`,
-`scan.py` Trends steps, `sentiment_signals` info columns,
-`dashboard/sentiment.py`, `config/trends_geo.yaml`,
-`config/trends_entities.yaml`. FinBERT fallback logic in scan.py currently
-falls back to the (dead) Trends z-score — the fallback story needs a
-decision too.
-
 ## Position tracking
 
 Allow logged-in users to track their sector/theme positions (holdings,
@@ -86,6 +61,20 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Retired Google Trends sentiment** — removed the Trends pipeline entirely
+  (fetch, day-cache, derived signals, comparative attention, rising queries)
+  after it was 429-blocked from CI since ~2026-07-14 and FinBERT (2026-07-17)
+  took over `sentiment_score`. Deleted `src/data/trends_symbols.py`,
+  `src/data/trends_cache.py`, 11 Trends test files, `config/trends_*.yaml`,
+  `scripts/resolve_trends_entities.py`, the `trends:` sections of
+  `config/themes.yaml`, and the pytrends dependency (~2,900 lines). Themes lose
+  sentiment (were Trends-only); `theme_sentiment_signals` goes dormant.
+  Historical `sentiment_signals`/`theme_sentiment_signals` rows and DDL kept;
+  `sentiment_signals` keeps receiving the FinBERT news_* rows. Same PR hardened
+  the GDELT fetch (inter-query pause 5s→20s, retries 3→4, final-attempt
+  give-up now logged) to lift FinBERT sector coverage. Sentiment page is now
+  FinBERT-only (no cohort toggle, no Trends columns). *(2026-07-19)*
 
 - **Split EU composite sectors into standalone sectors** — the two untradeable
   equal-weight EU composites replaced by their STOXX sub-sector ETFs as
