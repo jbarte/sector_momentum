@@ -275,3 +275,53 @@ class TestZscorePolarity:
         result = zscore_polarity(scores)
         for v in result.values():
             assert v == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Parent-map application (EU sub-sector split)
+# ---------------------------------------------------------------------------
+
+import pandas as pd
+
+from src.data.news_sentiment import apply_polarity_to_keys, build_news_signal_rows
+
+_PMAP = {"Banks": "Financials", "Insurance": "Financials", "Chemicals": "Materials"}
+
+
+def test_apply_polarity_maps_subsector_to_parent_score():
+    idx = ["US|Financials", "EU|Banks", "EU|Insurance", "EU|Technology"]
+    base = pd.Series(0.0, index=idx)
+    z = {"Financials": 1.5, "Technology": -0.5}
+    out = apply_polarity_to_keys(base, z, _PMAP)
+    assert out["US|Financials"] == 1.5
+    assert out["EU|Banks"] == 1.5          # inherited from parent Financials
+    assert out["EU|Insurance"] == 1.5
+    assert out["EU|Technology"] == -0.5    # identity fallback
+    assert base["EU|Banks"] == 0.0         # input not mutated
+
+
+def test_apply_polarity_skips_nan_and_unscored():
+    base = pd.Series(0.0, index=["EU|Banks", "EU|Chemicals"])
+    z = {"Financials": float("nan")}       # Materials absent entirely
+    out = apply_polarity_to_keys(base, z, _PMAP)
+    assert out["EU|Banks"] == 0.0
+    assert out["EU|Chemicals"] == 0.0
+
+
+def test_build_news_signal_rows_emits_universe_names():
+    universe = {
+        "us_sectors": {"Financials": "XLF"},
+        "eu_sectors": {"Banks": "EXV1.DE", "Technology": "EXV3.DE"},
+    }
+    scores = {
+        "Financials": {"mean_polarity": 0.2, "count": 10,
+                       "positive_pct": 60.0, "negative_pct": 20.0},
+    }
+    rows = build_news_signal_rows(scores, universe, _PMAP)
+    keys = {(r["region"], r["gics_sector"]) for r in rows}
+    # Financials scored: US|Financials (identity) and EU|Banks (via parent) emit;
+    # EU|Technology's parent (Technology) wasn't scored -> no rows.
+    assert keys == {("US", "Financials"), ("EU", "Banks")}
+    banks = {r["signal_name"]: r["value"] for r in rows if r["gics_sector"] == "Banks"}
+    assert banks == {"news_polarity": 0.2, "news_count": 10.0,
+                     "news_positive_pct": 60.0, "news_negative_pct": 20.0}

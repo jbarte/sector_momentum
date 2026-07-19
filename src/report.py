@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.sector_map import load_parent_map, parent_sector
+
 
 def build_ranked_table(scores_with_deltas: pd.DataFrame) -> str:
     """
@@ -104,6 +106,7 @@ def build_swedish_overlay(
     scores_with_deltas: pd.DataFrame,
     swedish_tickers_path: str = "config/swedish_tickers.csv",
     top_n: int = 5,
+    parent_map: dict[str, str] | None = None,
 ) -> str:
     """
     For the top_n sectors by composite score, list matching Swedish tickers.
@@ -124,6 +127,8 @@ def build_swedish_overlay(
         return "## 🇸🇪 Swedish Expression\n\n*Swedish tickers file not found.*"
 
     tickers_df = pd.read_csv(tickers_path)
+    if parent_map is None:
+        parent_map = load_parent_map()
 
     top_sectors = (
         scores_with_deltas
@@ -139,7 +144,9 @@ def build_swedish_overlay(
         region = sector_row["region"]
         rank = int(sector_row["rank"])
 
-        matching = tickers_df[tickers_df["gics_sector"] == sector].copy()
+        matching = tickers_df[
+            tickers_df["gics_sector"] == parent_sector(sector, parent_map)
+        ].copy()
         if matching.empty:
             continue
 

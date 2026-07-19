@@ -17,22 +17,26 @@ us_benchmark: RSP  # equal-weight S&P 500 (less mega-cap distorted)
 us_benchmark_alt: SPY
 
 # European sector proxies (STOXX Europe 600 sector UCITS ETFs via iShares/Amundi)
-# Using Yahoo Finance tickers for iShares STOXX Europe 600 sector ETFs
-# Values are lists; single-element = one ETF, multi-element = equal-weight composite.
-# Financials: Banks + Financial Services + Insurance (3-component composite)
-# Materials: Basic Resources + Chemicals (2-component composite)
+# Using Yahoo Finance tickers for iShares STOXX Europe 600 sector ETFs.
+# Banks / Financial Services / Insurance and Basic Resources / Chemicals are
+# standalone STOXX sub-sectors (former GICS composites, split 2026-07-18);
+# config/sector_map.yaml stoxx_to_gics maps them to GICS parents where a
+# GICS-level view is needed (news sentiment, Swedish ticker matching).
 eu_sectors:
-  Technology: [EXV3.DE]
-  Financials: [EXV1.DE, EXH2.DE, EXH5.DE]   # Banks + Financial Services + Insurance
-  Energy: [EXH1.DE]
-  Health Care: [EXV4.DE]
-  Industrials: [EXH4.DE]
-  Consumer Discretionary: [EXH7.DE]
-  Consumer Staples: [EXH3.DE]
-  Utilities: [EXH9.DE]
-  Materials: [EXV6.DE, EXV7.DE]             # Basic Resources + Chemicals
-  Real Estate: [IPRP.L]
-  Communication Services: [EXV2.DE]
+  Technology: EXV3.DE
+  Banks: EXV1.DE
+  Financial Services: EXH2.DE
+  Insurance: EXH5.DE
+  Energy: EXH1.DE
+  Health Care: EXV4.DE
+  Industrials: EXH4.DE
+  Consumer Discretionary: EXH7.DE
+  Consumer Staples: EXH3.DE
+  Utilities: EXH9.DE
+  Basic Resources: EXV6.DE
+  Chemicals: EXV7.DE
+  Real Estate: IPRP.L
+  Communication Services: EXV2.DE
 
 # European benchmark
 eu_benchmark: EXSA.DE  # iShares STOXX Europe 600 UCITS ETF

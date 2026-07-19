@@ -8,7 +8,6 @@ from src.pipeline import (
     SIGNAL_COLUMNS,
     build_signals_rows,
     compute_signals_for_sector,
-    build_composite_series,
 )
 
 
@@ -210,30 +209,6 @@ def test_nan_close_in_sector_produces_nan_signals():
     if result is not None:
         for col in SIGNAL_COLUMNS:
             assert col in result
-
-
-# ---------------------------------------------------------------------------
-# EU composite series
-# ---------------------------------------------------------------------------
-
-def test_build_composite_series_averages_rebased_close():
-    """Composite of two equal-growth series should produce a smooth average."""
-    prices = {
-        "A": _price_df(n=100, start=50, step=0.5),
-        "B": _price_df(n=100, start=200, step=2.0),
-    }
-    comp = build_composite_series(["A", "B"], prices)
-    assert comp is not None
-    assert "Close" in comp.columns
-    # Should start at 100 (rebased)
-    assert abs(comp["Close"].iloc[0] - 100.0) < 0.01
-
-
-def test_build_composite_series_returns_none_for_empty():
-    """No usable components returns None."""
-    prices = {}
-    comp = build_composite_series(["A", "B"], prices)
-    assert comp is None
 
 
 # ---------------------------------------------------------------------------

@@ -285,6 +285,7 @@ def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     from src.data.prices import fetch_prices, load_universe
     from src.scoring import score_all, zscore_cross_section
+    from src.sector_map import load_parent_map
     from src.state import init_db, save_scan, load_last_scan, compute_deltas, save_theme_scan
     from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
 
@@ -293,6 +294,7 @@ def run(args: argparse.Namespace) -> int:
     # ------------------------------------------------------------------
     logger.info("Loading universe config …")
     universe = load_universe("config/universe.yaml")
+    _parent_map = load_parent_map()
     weights_cfg = _load_config("config/weights.yaml")
     signal_params = weights_cfg.get("signal_params", {})
 
@@ -311,19 +313,13 @@ def run(args: argparse.Namespace) -> int:
     # Step 4: Collect all tickers and fetch prices
     # ------------------------------------------------------------------
     us_sectors: dict[str, str] = universe.get("us_sectors", {})
-    eu_sectors: dict[str, str | list[str]] = universe.get("eu_sectors", {})
+    eu_sectors: dict[str, str] = universe.get("eu_sectors", {})
     us_benchmark: str = universe["us_benchmark"]
     eu_benchmark: str = universe["eu_benchmark"]
 
-    def _flatten(values) -> list[str]:
-        out: list[str] = []
-        for v in values:
-            out.extend(v if isinstance(v, list) else [v])
-        return out
-
     all_tickers: list[str] = (
-        _flatten(us_sectors.values())
-        + _flatten(eu_sectors.values())
+        list(us_sectors.values())
+        + list(eu_sectors.values())
         + [us_benchmark, eu_benchmark]
     )
     # Deduplicate while preserving order
@@ -501,6 +497,7 @@ def run(args: argparse.Namespace) -> int:
         try:
             from src.data.news_sentiment import (
                 fetch_news_headlines, score_headlines, zscore_polarity,
+                apply_polarity_to_keys, build_news_signal_rows,
             )
             _headlines = fetch_news_headlines()
             _total_articles = sum(len(h) for h in _headlines.values())
@@ -514,25 +511,14 @@ def run(args: argparse.Namespace) -> int:
             logger.info("FinBERT: %d/%d sectors scored", _live_finbert, len(_finbert_z))
 
             if _live_finbert >= 2:
-                for key in sentiment_score.index:
-                    _region, _, _sector = key.partition("|")
-                    if _sector in _finbert_z and not math.isnan(_finbert_z[_sector]):
-                        sentiment_score[key] = _finbert_z[_sector]
+                sentiment_score = apply_polarity_to_keys(
+                    sentiment_score, _finbert_z, _parent_map,
+                )
                 logger.info("sentiment_score overwritten with FinBERT polarity z-scores")
 
-            _finbert_signal_rows = []
-            for _sector, _sc in _finbert_scores.items():
-                for _region in ("US", "EU"):
-                    _finbert_signal_rows.extend([
-                        {"region": _region, "gics_sector": _sector,
-                         "signal_name": "news_polarity", "value": _sc["mean_polarity"]},
-                        {"region": _region, "gics_sector": _sector,
-                         "signal_name": "news_count", "value": float(_sc["count"])},
-                        {"region": _region, "gics_sector": _sector,
-                         "signal_name": "news_positive_pct", "value": _sc["positive_pct"]},
-                        {"region": _region, "gics_sector": _sector,
-                         "signal_name": "news_negative_pct", "value": _sc["negative_pct"]},
-                    ])
+            _finbert_signal_rows = build_news_signal_rows(
+                _finbert_scores, universe, _parent_map,
+            )
             sentiment_signals_df = pd.concat(
                 [sentiment_signals_df, pd.DataFrame(_finbert_signal_rows)],
                 ignore_index=True,

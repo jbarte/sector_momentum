@@ -13,6 +13,8 @@ import time
 
 import requests
 
+from src.sector_map import parent_sector
+
 logger = logging.getLogger(__name__)
 
 GDELT_ENDPOINT = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -214,3 +216,48 @@ def zscore_polarity(scores: dict[str, dict]) -> dict[str, float]:
         s: (v - mean) / std if not math.isnan(v) else float("nan")
         for s, v in raw.items()
     }
+
+
+def apply_polarity_to_keys(
+    sentiment_score: "pd.Series",
+    finbert_z: dict[str, float],
+    parent_map: dict[str, str],
+) -> "pd.Series":
+    """Overwrite per-key sentiment with FinBERT z-scores, resolving sub-sectors
+    to their GICS parent (identity fallback). Returns a copy; NaN/unscored
+    parents leave the existing value untouched."""
+    out = sentiment_score.copy()
+    for key in out.index:
+        _, _, sector = key.partition("|")
+        parent = parent_sector(sector, parent_map)
+        z = finbert_z.get(parent)
+        if z is not None and not math.isnan(z):
+            out[key] = z
+    return out
+
+
+def build_news_signal_rows(
+    finbert_scores: dict[str, dict],
+    universe: dict,
+    parent_map: dict[str, str],
+) -> list[dict]:
+    """Info-only news signal rows keyed by the universe's actual sector names.
+    Sub-sectors inherit their GICS parent's numbers; sectors whose parent has
+    no headline scores emit nothing."""
+    rows: list[dict] = []
+    for region, cfg_key in (("US", "us_sectors"), ("EU", "eu_sectors")):
+        for name in universe.get(cfg_key, {}):
+            sc = finbert_scores.get(parent_sector(name, parent_map))
+            if sc is None:
+                continue
+            rows.extend([
+                {"region": region, "gics_sector": name,
+                 "signal_name": "news_polarity", "value": sc["mean_polarity"]},
+                {"region": region, "gics_sector": name,
+                 "signal_name": "news_count", "value": float(sc["count"])},
+                {"region": region, "gics_sector": name,
+                 "signal_name": "news_positive_pct", "value": sc["positive_pct"]},
+                {"region": region, "gics_sector": name,
+                 "signal_name": "news_negative_pct", "value": sc["negative_pct"]},
+            ])
+    return rows
