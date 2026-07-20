@@ -191,7 +191,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
         out_path=out,
         context=dict(
             scan_date="2026-06-23",
-            leaderboard_rows=[],
+            leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             rrg_data_json=_make_mock_plotly_json(),
             drilldown_data=json.dumps({}),
             sector_keys=[],
@@ -254,7 +254,7 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
         out_path=out,
         context=dict(
             scan_date="2026-06-23",
-            leaderboard_rows=[],
+            leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             rrg_data_json=_make_mock_plotly_json(),
             drilldown_data=json.dumps({}),
             sector_keys=[],
@@ -298,7 +298,7 @@ def test_history_tab_has_scan_index(tmp_path):
     out = tmp_path / "index.html"
     _render(_TEMPLATE, out, dict(
         scan_date="2026-06-02 06:00 UTC", active_scan_id=2, scan_index=scan_index,
-        leaderboard_rows=[], rrg_data_json="{}", drilldown_data="{}",
+        leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[], rrg_data_json="{}", drilldown_data="{}",
         sector_keys=[], movers_json="{}", history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
@@ -331,6 +331,8 @@ def test_built_html_has_no_composite_toggle(tmp_path):
     out = tmp_path / "index.html"
     _render(_TEMPLATE, out, dict(
         scan_date=scan_date, leaderboard_rows=lb_rows,
+        us_leaderboard_rows=[r for r in lb_rows if r["region"] == "US"],
+        eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
         rrg_data_json="{}", drilldown_data="{}", sector_keys=[], movers_json="{}",
         history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
@@ -381,6 +383,8 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
     out = tmp_path / "index.html"
     _render(_TEMPLATE, out, dict(
         scan_date=scan_date, leaderboard_rows=lb_rows,
+        us_leaderboard_rows=[r for r in lb_rows if r["region"] == "US"],
+        eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
         rrg_data_json=_make_mock_plotly_json(), drilldown_data=_json.dumps({}),
         sector_keys=[], movers_json=_make_mock_plotly_json(),
         history_json=_make_mock_plotly_json(),
@@ -607,7 +611,7 @@ def test_scan_history_json_in_rendered_output(tmp_path):
                          "run_at_raw": "2026-07-12T06:00:00", "sector_count": 22,
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
-            leaderboard_rows=[],
+            leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             rrg_data_json=_make_mock_plotly_json(),
             drilldown_data=json.dumps({}),
             sector_keys=[],
@@ -654,7 +658,7 @@ def test_scan_digest_markup_in_rendered_output(tmp_path):
                          "run_at_raw": "2026-07-12T06:00:00", "sector_count": 22,
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
-            leaderboard_rows=[],
+            leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             rrg_data_json=_make_mock_plotly_json(),
             drilldown_data=json.dumps({}),
             sector_keys=[],

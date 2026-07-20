@@ -107,7 +107,12 @@
         </tr>
       </thead>
       <tbody>
-        {% for row in leaderboard_rows %}
+        {% for region_label, region_rows in [("US Sectors", us_leaderboard_rows), ("EU Sectors", eu_leaderboard_rows)] %}
+        {% if region_rows %}
+        <tr class="region-header-row">
+          <td colspan="10">{{ region_label }}</td>
+        </tr>
+        {% for row in region_rows %}
         <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" tabindex="0">
           <td class="rank-cell">
             <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
@@ -130,9 +135,12 @@
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
           <td colspan="10">{{ row.breakdown_html | safe }}</td>
         </tr>
-        {% else %}
-        <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endfor %}
+        {% endif %}
+        {% endfor %}
+        {% if not us_leaderboard_rows and not eu_leaderboard_rows %}
+        <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
+        {% endif %}
       </tbody>
     </table>
   </div>
@@ -453,14 +461,24 @@ function sortTable(col) {
     return aText.localeCompare(bText) * _sortDir;
   });
 
-  // Re-append each leaderboard row followed by its breakdown row
+  // Re-append region headers then sorted rows within each region
+  var regionHeaders = Array.from(tbody.querySelectorAll('tr.region-header-row'));
+  var groups = { US: [], EU: [] };
   rows.forEach(function(r) {
-    tbody.appendChild(r);
-    var sectorId = r.dataset.sectorId;
-    if (sectorId) {
-      var bd = document.getElementById('bd-' + sectorId);
-      if (bd) tbody.appendChild(bd);
-    }
+    var key = (r.dataset.sectorKey || '').split('|')[0];
+    if (groups[key]) { groups[key].push(r); }
+    else { groups.US.push(r); }
+  });
+  ['US', 'EU'].forEach(function(region, idx) {
+    if (regionHeaders[idx]) { tbody.appendChild(regionHeaders[idx]); }
+    groups[region].forEach(function(r) {
+      tbody.appendChild(r);
+      var sectorId = r.dataset.sectorId;
+      if (sectorId) {
+        var bd = document.getElementById('bd-' + sectorId);
+        if (bd) tbody.appendChild(bd);
+      }
+    });
   });
 
 }
@@ -550,16 +568,30 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   }
 
   function sortVisibleByRank(rows, scored, tbody) {
-    rows.sort(function (a, b) {
-      var ra = scored[a.getAttribute("data-sector-key")];
-      var rb = scored[b.getAttribute("data-sector-key")];
-      return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
-    });
+    var regionHeaders = Array.prototype.slice.call(
+      tbody.querySelectorAll('tr.region-header-row'));
+    var groups = { US: [], EU: [] };
     rows.forEach(function (tr) {
-      tbody.appendChild(tr);
-      var sid = tr.getAttribute("data-sector-id");
-      var bd = sid ? document.getElementById("bd-" + sid) : null;
-      if (bd) { tbody.appendChild(bd); }
+      var key = tr.getAttribute("data-sector-key") || "";
+      var region = key.split("|")[0];
+      if (groups[region]) { groups[region].push(tr); }
+      else { groups.US.push(tr); }
+    });
+    ["US", "EU"].forEach(function (region, idx) {
+      groups[region].sort(function (a, b) {
+        var ra = scored[a.getAttribute("data-sector-key")];
+        var rb = scored[b.getAttribute("data-sector-key")];
+        return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
+      });
+    });
+    ["US", "EU"].forEach(function (region, idx) {
+      if (regionHeaders[idx]) { tbody.appendChild(regionHeaders[idx]); }
+      groups[region].forEach(function (tr) {
+        tbody.appendChild(tr);
+        var sid = tr.getAttribute("data-sector-id");
+        var bd = sid ? document.getElementById("bd-" + sid) : null;
+        if (bd) { tbody.appendChild(bd); }
+      });
     });
   }
 

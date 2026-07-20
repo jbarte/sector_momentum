@@ -17,42 +17,37 @@ from src.sector_map import load_parent_map, parent_sector
 
 def build_ranked_table(scores_with_deltas: pd.DataFrame) -> str:
     """
-    Build a markdown table of all sectors ranked by composite score.
-
-    Input DataFrame columns (from scoring + compute_deltas):
-        region, gics_sector, composite, level_score, change_score,
-        data_score, rank, delta_composite, delta_rank, emerging_flag
-
-    Output: markdown table string with columns:
-        Rank | Sector | Region | Composite | Level | Change | ΔRank | ΔComposite | ⭐
-    Where ⭐ column shows "🌱" for emerging_flag=True, empty otherwise.
-    Rows sorted by rank (ascending).
-    Numeric values formatted to 2 decimal places.
-    ΔRank as integer (e.g. +2, -1, 0).
+    Build a markdown table of all sectors ranked by composite score,
+    split into US and EU sections with per-region ranks.
     """
-    df = scores_with_deltas.sort_values("rank", ascending=True).reset_index(drop=True)
+    header = "| Rank | Sector | Composite | Level | Change | ΔRank | ΔComposite | ⭐ |"
+    separator = "|------|--------|-----------|-------|--------|-------|------------|---|"
 
-    header = "| Rank | Sector | Region | Composite | Level | Change | ΔRank | ΔComposite | ⭐ |"
-    separator = "|------|--------|--------|-----------|-------|--------|-------|------------|---|"
+    sections = []
+    for region in ("US", "EU"):
+        region_df = scores_with_deltas[scores_with_deltas["region"] == region]
+        if region_df.empty:
+            continue
+        region_df = region_df.sort_values("rank", ascending=True).reset_index(drop=True)
 
-    rows = [header, separator]
-    for _, row in df.iterrows():
-        rank = int(row["rank"])
-        sector = row["gics_sector"]
-        region = row["region"]
-        composite = f"{row['composite']:.2f}"
-        level = f"{row['level_score']:.2f}"
-        change = f"{row['change_score']:.2f}"
-        delta_rank = int(row.get("delta_rank", 0))
-        delta_rank_str = f"{delta_rank:+d}"
-        delta_composite_val = row.get("delta_composite", 0.0)
-        delta_composite = f"{delta_composite_val:.2f}"
-        star = "🌱" if row.get("emerging_flag", False) else ""
-        rows.append(
-            f"| {rank} | {sector} | {region} | {composite} | {level} | {change} | {delta_rank_str} | {delta_composite} | {star} |"
-        )
+        rows = [f"## {region} Sectors", "", header, separator]
+        for _, row in region_df.iterrows():
+            rank = int(row["rank"])
+            sector = row["gics_sector"]
+            composite = f"{row['composite']:.2f}"
+            level = f"{row['level_score']:.2f}"
+            change = f"{row['change_score']:.2f}"
+            delta_rank = int(row.get("delta_rank", 0))
+            delta_rank_str = f"{delta_rank:+d}"
+            delta_composite_val = row.get("delta_composite", 0.0)
+            delta_composite = f"{delta_composite_val:.2f}"
+            star = "🌱" if row.get("emerging_flag", False) else ""
+            rows.append(
+                f"| {rank} | {sector} | {composite} | {level} | {change} | {delta_rank_str} | {delta_composite} | {star} |"
+            )
+        sections.append("\n".join(rows))
 
-    return "\n".join(rows)
+    return "\n\n".join(sections)
 
 
 def build_movers(scores_with_deltas: pd.DataFrame, top_n: int = 5) -> str:

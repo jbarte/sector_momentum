@@ -338,6 +338,9 @@ def main() -> None:
             key, score_row_dict, row_signals, _universe, _weights, _sector_etfs
         )
 
+    us_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "US"]
+    eu_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "EU"]
+
     # Compute auth context (fail-open: disabled if key not set or bundle fails)
     # before the docs asset copy below, so the supabase bundle is downloaded
     # in time to be copied into docs/assets/ on a fresh checkout.
@@ -386,6 +389,8 @@ def main() -> None:
         "scan_index": scan_index,
         "active_scan_id": active_scan_id,
         "leaderboard_rows": leaderboard_rows,
+        "us_leaderboard_rows": us_leaderboard_rows,
+        "eu_leaderboard_rows": eu_leaderboard_rows,
         "plotly_bundle": plotly_bundle_rel,
     }
     sectors_ctx.update(_figures_sectors_ctx(shared))
