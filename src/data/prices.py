@@ -2,18 +2,20 @@
 Price data loader.
 
 Fetches daily OHLCV price data for a list of tickers. Tries stooq first
-(via pandas_datareader), falls back to yfinance. Both are fragile free
+(direct CSV endpoint), falls back to yfinance. Both are fragile free
 sources — aggressive caching minimises live fetches.
 
 Cache location: data/cache/<ticker>_prices.parquet
 Cache validity: refreshed if the cached data doesn't extend to yesterday.
 """
 
+import io
 import logging
 import os
 from datetime import date, timedelta
 
 import pandas as pd
+import requests as _requests
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -81,11 +83,27 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[present].copy()
 
 
-def _fetch_stooq(ticker: str, start: str, end: str) -> pd.DataFrame:
-    import pandas_datareader as pdr  # type: ignore
+def _stooq_symbol(ticker: str) -> str:
+    """Convert a yfinance-style ticker to a stooq symbol."""
+    if "." in ticker:
+        return ticker.lower()
+    return f"{ticker.lower()}.us"
 
-    df = pdr.DataReader(ticker, "stooq", start, end)
-    # stooq returns newest-first — sort ascending
+
+def _fetch_stooq(ticker: str, start: str, end: str) -> pd.DataFrame:
+    symbol = _stooq_symbol(ticker)
+    d1 = pd.Timestamp(start).strftime("%Y%m%d")
+    d2 = pd.Timestamp(end).strftime("%Y%m%d")
+    resp = _requests.get(
+        "https://stooq.com/q/d/l/",
+        params={"s": symbol, "d1": d1, "d2": d2, "i": "d"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    lines = resp.text.strip().splitlines()
+    if len(lines) < 2:
+        raise ValueError(f"stooq returned no data for {symbol}")
+    df = pd.read_csv(io.StringIO(resp.text), parse_dates=["Date"], index_col="Date")
     df = df.sort_index(ascending=True)
     return df
 
@@ -109,8 +127,8 @@ def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
     return df
 
 
-def _fetch_single(ticker: str, start: str, end: str) -> pd.DataFrame | None:
-    """Try stooq then yfinance. Returns a normalised DataFrame or None."""
+def _fetch_single(ticker: str, start: str, end: str) -> tuple[str | None, pd.DataFrame | None]:
+    """Try stooq then yfinance. Returns (source_name, DataFrame) or (None, None)."""
     for source, fetch_fn in [("stooq", _fetch_stooq), ("yfinance", _fetch_yfinance)]:
         try:
             df = fetch_fn(ticker, start, end)
@@ -126,10 +144,10 @@ def _fetch_single(ticker: str, start: str, end: str) -> pd.DataFrame | None:
                 continue
             df.index = pd.to_datetime(df.index)
             df = df.sort_index(ascending=True)
-            return df
+            return source, df
         except Exception as exc:
             logger.warning("Failed to fetch %s via %s: %s", ticker, source, exc)
-    return None
+    return None, None
 
 
 def fetch_prices(
@@ -148,6 +166,8 @@ def fetch_prices(
     """
     os.makedirs(cache_dir, exist_ok=True)
     result: dict[str, pd.DataFrame] = {}
+    source_counts: dict[str, int] = {"cache": 0, "stooq": 0, "yfinance": 0}
+    live_attempted: dict[str, int] = {"stooq": 0, "yfinance": 0}
 
     for ticker in tickers:
         path = _cache_path(ticker, cache_dir)
@@ -157,15 +177,20 @@ def fetch_prices(
                 df = pd.read_parquet(path)
                 df.index = pd.to_datetime(df.index)
                 result[ticker] = df
+                source_counts["cache"] += 1
                 logger.debug("Loaded %s from cache (%s rows)", ticker, len(df))
                 continue
             except Exception as exc:
                 logger.warning("Cache read failed for %s: %s — re-fetching", ticker, exc)
 
-        df = _fetch_single(ticker, start, end)
+        for src in live_attempted:
+            live_attempted[src] += 1
+        source, df = _fetch_single(ticker, start, end)
         if df is None:
             logger.warning("Skipping %s — all fetch attempts failed", ticker)
             continue
+
+        source_counts[source] += 1
 
         try:
             tmp_path = path + ".tmp"
@@ -180,7 +205,19 @@ def fetch_prices(
             logger.warning("Could not write cache for %s: %s", ticker, exc)
 
         result[ticker] = df
-        logger.debug("Fetched %s (%s rows)", ticker, len(df))
+        logger.debug("Fetched %s via %s (%s rows)", ticker, source, len(df))
+
+    total = len(tickers)
+    logger.info(
+        "Price sources: stooq %d/%d, yfinance %d/%d, cache %d/%d",
+        source_counts["stooq"], total, source_counts["yfinance"], total,
+        source_counts["cache"], total,
+    )
+    for src in ("stooq", "yfinance"):
+        if live_attempted[src] > 0 and source_counts[src] == 0:
+            logger.warning(
+                "%s: 0/%d succeeded — source may be down", src, live_attempted[src],
+            )
 
     return result
 
