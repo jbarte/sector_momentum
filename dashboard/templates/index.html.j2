@@ -26,6 +26,7 @@
   <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers" data-i18n="tab_movers">Movers</button>
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history" data-i18n="tab_history">History</button>
   <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest" data-i18n="tab_backtest">Backtest</button>
+  <button class="tab-btn" onclick="switchTab('correlation', this)" role="tab" aria-selected="false" aria-controls="tab-correlation" data-i18n="tab_correlation">Correlation</button>
 </nav>
 
 <!-- ============================================================
@@ -332,6 +333,33 @@
   <p style="text-align:center;padding:24px;color:var(--fg4)">No backtest run yet. Run <code>python backtest.py</code>.</p>
   {% endif %}
 </section>
+
+<!-- ============================================================
+     Tab: Correlation
+     ============================================================ -->
+<section id="tab-correlation" class="tab-panel" role="tabpanel">
+  {% if correlation_fig_json %}
+  <p class="tab-note" data-i18n="note_correlation">60-trading-day rolling pairwise return correlations. Top-5 sectors per region in bold. Red = moving together; blue = moving independently.</p>
+  <div class="chart-container" id="correlation-chart" style="min-height:500px"></div>
+  {% else %}
+  <p class="leaderboard-empty" data-i18n="correlation_no_data">Not enough price history for a 60-day correlation matrix.</p>
+  {% endif %}
+  <details class="tab-guide">
+    <summary data-i18n="guide_summary">How to read this tab</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_correlation">
+      <p>The heatmap shows 60-trading-day rolling return correlations between all 25 sector ETFs. <span class="signal-lo">Red cells</span> indicate high positive correlation (sectors moving together); <span class="signal-hi">blue cells</span> indicate low or negative correlation (sectors moving independently).</p>
+      <h4>Diversification check</h4>
+      <p>When your top-ranked sectors cluster in a red block, the portfolio is less diversified than the ranking suggests. The three EU financial sub-sectors (Banks, Financial Services, Insurance) are a common example — they often move in lockstep.</p>
+      <h4>How to use it</h4>
+      <ul>
+        <li><strong>Bold labels</strong> mark the current top-5 per region. Focus on the intersections between bold rows and columns.</li>
+        <li>A dark red block among your top picks means you're doubling down on the same move. Consider whether you need all of them.</li>
+        <li>Blue or white cells between top picks indicate genuine diversification — different return drivers.</li>
+      </ul>
+      <p>The vertical and horizontal lines separate US sectors (top/left) from EU sectors (bottom/right).</p>
+    </div>
+  </details>
+</section>
 </div>
 
 <!-- ============================================================
@@ -349,6 +377,9 @@ var RESCORE_DATA = {{ rescore_data_json | js_json }};
 var SCAN_HISTORY = {{ scan_history_json | js_json }};
 var BACKTEST_DATA = {{ backtest_json | js_json }};
 var ROTATION_DATA = {{ rotation_json | js_json }};
+{% if correlation_fig_json %}
+var CORRELATION_DATA = {{ correlation_fig_json | js_json }};
+{% endif %}
 
 // ----- Render helpers -----
 var _rendered = {};
@@ -393,6 +424,14 @@ function renderBacktest() {
       rc.appendChild(d);
       Plotly.newPlot(d, r.fig.data, r.fig.layout, {responsive: true, displayModeBar: true});
     });
+  }
+}
+
+function renderCorrelation() {
+  if (_rendered.correlation) return;
+  _rendered.correlation = true;
+  if (typeof CORRELATION_DATA !== 'undefined') {
+    Plotly.newPlot('correlation-chart', CORRELATION_DATA.data, CORRELATION_DATA.layout, {responsive: true, displayModeBar: true});
   }
 }
 
