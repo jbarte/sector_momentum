@@ -165,7 +165,8 @@ def test_fetch_single_returns_stooq_on_success(mock_stooq, mock_yf):
     """When stooq succeeds, yfinance is never called."""
     df = _make_price_df(n=5)
     mock_stooq.return_value = df
-    result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    source, result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    assert source == "stooq"
     assert result is not None
     assert "Close" in result.columns
     assert len(result) == 5
@@ -178,7 +179,8 @@ def test_fetch_single_falls_back_to_yfinance_on_stooq_failure(mock_stooq, mock_y
     """When stooq raises, yfinance is tried next."""
     mock_stooq.side_effect = Exception("stooq down")
     mock_yf.return_value = _make_price_df(n=5)
-    result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    source, result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    assert source == "yfinance"
     assert result is not None
     assert "Close" in result.columns
     mock_stooq.assert_called_once()
@@ -191,7 +193,8 @@ def test_fetch_single_falls_back_on_empty_stooq(mock_stooq, mock_yf):
     """When stooq returns an empty DataFrame, yfinance is tried."""
     mock_stooq.return_value = pd.DataFrame()
     mock_yf.return_value = _make_price_df(n=5)
-    result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    source, result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    assert source == "yfinance"
     assert result is not None
     mock_yf.assert_called_once()
 
@@ -199,10 +202,11 @@ def test_fetch_single_falls_back_on_empty_stooq(mock_stooq, mock_yf):
 @patch("src.data.prices._fetch_yfinance")
 @patch("src.data.prices._fetch_stooq")
 def test_fetch_single_returns_none_when_both_fail(mock_stooq, mock_yf):
-    """When both sources fail, returns None (soft failure)."""
+    """When both sources fail, returns (None, None)."""
     mock_stooq.side_effect = Exception("stooq down")
     mock_yf.side_effect = Exception("yfinance down")
-    result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    source, result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    assert source is None
     assert result is None
 
 
@@ -218,7 +222,7 @@ def test_fetch_single_rejects_all_nan_close(mock_stooq, mock_yf):
     good_df = _make_price_df(n=5)
     mock_stooq.return_value = bad_df
     mock_yf.return_value = good_df
-    result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    source, result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
     assert result is not None
     assert not result["Close"].isna().all()
     mock_yf.assert_called_once()
@@ -229,7 +233,8 @@ def test_fetch_single_rejects_all_nan_close(mock_stooq, mock_yf):
 def test_fetch_single_returns_none_when_both_return_empty(mock_stooq, mock_yf):
     mock_stooq.return_value = pd.DataFrame()
     mock_yf.return_value = pd.DataFrame()
-    result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    source, result = _fetch_single("XLK", "2026-01-01", "2026-06-01")
+    assert source is None
     assert result is None
 
 
@@ -261,7 +266,7 @@ def test_fetch_prices_fetches_when_cache_stale(mock_fresh, mock_fetch, tmp_path)
     """When cache is stale, a live fetch is performed."""
     cache_dir = str(tmp_path / "cache")
     mock_fresh.return_value = False
-    mock_fetch.return_value = _make_price_df(n=5)
+    mock_fetch.return_value = ("stooq", _make_price_df(n=5))
 
     result = fetch_prices(["XLK"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
 
@@ -275,7 +280,7 @@ def test_fetch_prices_writes_cache_after_fetch(mock_fresh, mock_fetch, tmp_path)
     """After a successful fetch, the result is cached to disk."""
     cache_dir = str(tmp_path / "cache")
     mock_fresh.return_value = False
-    mock_fetch.return_value = _make_price_df(n=5)
+    mock_fetch.return_value = ("stooq", _make_price_df(n=5))
 
     fetch_prices(["XLK"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
 
@@ -291,7 +296,7 @@ def test_fetch_prices_omits_failed_tickers(mock_fresh, mock_fetch, tmp_path):
     """Tickers that fail both sources are silently omitted."""
     cache_dir = str(tmp_path / "cache")
     mock_fresh.return_value = False
-    mock_fetch.return_value = None
+    mock_fetch.return_value = (None, None)
 
     result = fetch_prices(["XLK", "BAD"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
 
@@ -314,7 +319,7 @@ def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tm
 
     mock_fresh.side_effect = fresh_side_effect
     fetched_df = _make_price_df(n=3)
-    mock_fetch.return_value = fetched_df
+    mock_fetch.return_value = ("yfinance", fetched_df)
 
     result = fetch_prices(["XLK", "XLF"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
 
@@ -344,3 +349,85 @@ def test_cache_is_fresh_true_when_start_covered(tmp_path):
     earliest = df.index.min().date()
     recent_start = str(earliest + timedelta(days=5))
     assert _cache_is_fresh(path, start=recent_start) is True
+
+
+# ---------------------------------------------------------------------------
+# _stooq_symbol mapping
+# ---------------------------------------------------------------------------
+
+from src.data.prices import _stooq_symbol
+
+
+def test_stooq_symbol_us_ticker():
+    assert _stooq_symbol("XLK") == "xlk.us"
+    assert _stooq_symbol("RSP") == "rsp.us"
+
+
+def test_stooq_symbol_eu_ticker():
+    assert _stooq_symbol("EXV3.DE") == "exv3.de"
+    assert _stooq_symbol("EXSA.DE") == "exsa.de"
+
+
+# ---------------------------------------------------------------------------
+# _fetch_stooq — CSV parsing
+# ---------------------------------------------------------------------------
+
+from src.data.prices import _fetch_stooq
+
+
+@patch("src.data.prices._requests.get")
+def test_fetch_stooq_parses_csv(mock_get):
+    csv_text = "Date,Open,High,Low,Close,Volume\n2026-06-01,100,105,99,103,1000\n2026-06-02,103,107,102,106,1200\n"
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = csv_text
+    mock_resp.raise_for_status = MagicMock()
+    mock_get.return_value = mock_resp
+
+    df = _fetch_stooq("XLK", "2026-06-01", "2026-06-02")
+    assert len(df) == 2
+    assert "Close" in df.columns
+    assert df["Close"].iloc[0] == 103
+
+
+@patch("src.data.prices._requests.get")
+def test_fetch_stooq_raises_on_bad_status(mock_get):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.side_effect = Exception("404 Not Found")
+    mock_get.return_value = mock_resp
+
+    with pytest.raises(Exception, match="404"):
+        _fetch_stooq("BAD", "2026-06-01", "2026-06-02")
+
+
+@patch("src.data.prices._requests.get")
+def test_fetch_stooq_raises_on_header_only(mock_get):
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = "Date,Open,High,Low,Close,Volume\n"
+    mock_resp.raise_for_status = MagicMock()
+    mock_get.return_value = mock_resp
+
+    with pytest.raises(ValueError, match="no data"):
+        _fetch_stooq("UNKNOWN", "2026-06-01", "2026-06-02")
+
+
+# ---------------------------------------------------------------------------
+# Source stats warning
+# ---------------------------------------------------------------------------
+
+import logging
+
+
+@patch("src.data.prices._fetch_single")
+@patch("src.data.prices._cache_is_fresh")
+def test_source_stats_warning_when_stooq_fails(mock_fresh, mock_fetch, tmp_path, caplog):
+    """When stooq goes 0-for-N, a warning is logged."""
+    cache_dir = str(tmp_path / "cache")
+    mock_fresh.return_value = False
+    mock_fetch.return_value = ("yfinance", _make_price_df(n=5))
+
+    with caplog.at_level(logging.WARNING, logger="src.data.prices"):
+        fetch_prices(["XLK", "XLF"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
+
+    assert any("stooq: 0/" in r.message for r in caplog.records)

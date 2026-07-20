@@ -32,15 +32,6 @@ tab, or both), and interaction with the existing ranking to be designed
 during brainstorming.
 
 
-## Restore stooq as a working price source
-
-`pandas-datareader`'s stooq driver fails with pandas 3.x
-("data_source='stooq' is not implemented"), so the "primary" source is
-silently dead and every scan rides on yfinance alone — the exact single
-point of failure that killed the Jul 18–19 scans. Stooq's raw CSV endpoint
-(`https://stooq.com/q/d/l/?s=xlk.us&i=d`) is fetchable with plain
-`requests`. Replace the pdr call in `src/data/prices.py:_fetch_stooq`, and
-log loudly when a source goes 0-for-N in a run. *(Deep review 2026-07-19.)*
 
 ## CI price cache (actions/cache for data/cache)
 
@@ -180,6 +171,11 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Restore stooq price source** — replaced broken `pandas-datareader` stooq
+  driver with direct CSV endpoint fetch (`requests.get`). Removed
+  `pandas-datareader` dependency. Added per-source success/failure stats
+  logging with WARNING when a source goes 0-for-N. *(2026-07-20)*
 
 - **Per-region cohort scoring** — live scan now scores US (11 sectors) and EU
   (14 sectors) as independent z-score cohorts, matching the backtest. Leaderboard
