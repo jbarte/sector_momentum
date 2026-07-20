@@ -33,16 +33,6 @@ during brainstorming.
 
 
 
-## FX awareness (SEK-based trader, USD/EUR-priced signals)
-
-EU ETFs are priced in EUR, US in USD, and positions are traded in SEK via
-Avanza. Momentum/returns are local-currency, so FX moves silently reshuffle
-the global ranking and "top sector" may underperform in SEK. Phase 1:
-surface EURSEK/USDSEK trend in the macro bar and SEK-adjusted returns in
-the Swedish overlay. Phase 2 (research): convert prices to a common
-currency before signal computation and backtest the difference.
-*(Deep review 2026-07-19.)*
-
 ## Risk-adjusted momentum + max-drawdown column
 
 Test risk-adjusted momentum (return/volatility) as a signal and a
