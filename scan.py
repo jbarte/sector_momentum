@@ -19,6 +19,7 @@ import math
 import os
 import subprocess
 import sys
+import time
 
 try:
     from dotenv import load_dotenv
@@ -201,6 +202,7 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
 
 def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
+    _t0 = time.time()
     from src.data.prices import fetch_prices, load_universe
     from src.scoring import score_all, zscore_cross_section
     from src.sector_map import load_parent_map
@@ -249,10 +251,12 @@ def run(args: argparse.Namespace) -> int:
             unique_tickers.append(t)
 
     logger.info("Fetching prices for %d tickers …", len(unique_tickers))
+    _price_stats: dict[str, int] = {}
     prices = fetch_prices(
         tickers=unique_tickers,
         start=str(start_date),
         end=str(end_date),
+        stats_out=_price_stats,
     )
     logger.info("Received price data for %d / %d tickers", len(prices), len(unique_tickers))
 
@@ -295,6 +299,9 @@ def run(args: argparse.Namespace) -> int:
     sentiment_signals_df = pd.DataFrame(
         columns=["region", "gics_sector", "signal_name", "value"]
     )
+    _health_finbert_scored: int | None = None
+    _health_finbert_total: int | None = None
+    _health_gdelt_articles: int | None = None
     # ------------------------------------------------------------------
     # Step 8d: FinBERT news sentiment (signed polarity from GDELT headlines)
     # ------------------------------------------------------------------
@@ -315,6 +322,10 @@ def run(args: argparse.Namespace) -> int:
 
             _live_finbert = sum(1 for v in _finbert_z.values() if not math.isnan(v))
             logger.info("FinBERT: %d/%d sectors scored", _live_finbert, len(_finbert_z))
+
+            _health_finbert_scored = _live_finbert
+            _health_finbert_total = len(_finbert_z)
+            _health_gdelt_articles = _total_articles
 
             if _live_finbert >= 2:
                 sentiment_score = apply_polarity_to_keys(
@@ -396,12 +407,26 @@ def run(args: argparse.Namespace) -> int:
         else:
             logger.info("Saving scan to DB …")
             run_at = datetime.now(timezone.utc)
+            _health = {
+                "duration_s": round(time.time() - _t0, 1),
+                "prices_total": len(unique_tickers),
+                "prices_cache": _price_stats.get("cache", 0),
+                "prices_stooq": _price_stats.get("stooq", 0),
+                "prices_yfinance": _price_stats.get("yfinance", 0),
+                "prices_failed": len(unique_tickers) - len(prices),
+                "sectors_expected": expected_sectors,
+                "sectors_produced": len(rows),
+                "finbert_scored": _health_finbert_scored,
+                "finbert_total": _health_finbert_total,
+                "gdelt_articles": _health_gdelt_articles,
+            }
             scan_id = save_scan(
                 conn=conn,
                 run_at=run_at,
                 region_sector_signals=long_signals_df,
                 scores_df=scored_with_deltas,
                 sentiment_signals_df=sentiment_signals_df,
+                health=_health,
             )
             logger.info("Saved scan_id=%d", scan_id)
 
