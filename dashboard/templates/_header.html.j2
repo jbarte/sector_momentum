@@ -26,7 +26,6 @@
           title="{{ macro.vix_band }}"
           data-i18n-title="macro_vix_{{ macro.vix_band|lower }}">VIX {{ "%.1f"|format(macro.vix_last) }}</span>
     {% endif %}
-    <span class="scan-meta">{% if active_scan_id %}#{{ active_scan_id }} · {% endif %}{{ scan_date }}</span>
     {% if auth %}
     <span class="auth-root" id="auth-root">
       <button id="auth-signin" class="lang-toggle" type="button" data-i18n="auth_sign_in">Sign in</button>
