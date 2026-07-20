@@ -1,3 +1,41 @@
+{% if health %}
+<details class="health-panel"{% if health_any_warn %} open{% endif %}>
+  <summary>
+    {% if health_any_warn %}<span class="health-warn-dot" title="Degraded data source">&#9888;</span> {% endif %}Data Health &mdash; Last scan: {{ health.run_at[:19] }} UTC{% if health.duration_s is not none %} ({{ health.duration_s | round(0) | int }}s){% endif %}
+  </summary>
+  <div class="health-grid">
+    <div class="health-row">
+      <span class="health-label">Prices</span>
+      <span class="health-values">
+        stooq {{ health.prices_stooq or 0 }}
+        &middot; yfinance {{ health.prices_yfinance or 0 }}
+        &middot; cache {{ health.prices_cache or 0 }}
+        &middot; failed <span class="badge-{{ health_badges.prices or 'green' }}">{{ health.prices_failed or 0 }}</span>
+      </span>
+    </div>
+    <div class="health-row">
+      <span class="health-label">Sectors</span>
+      <span class="health-values">
+        <span class="badge-{{ health_badges.coverage or 'green' }}">{{ health.sectors_produced or '?' }}/{{ health.sectors_expected or '?' }}</span> signals produced
+      </span>
+    </div>
+    <div class="health-row">
+      <span class="health-label">Sentiment</span>
+      <span class="health-values">
+        {% if health.finbert_scored is not none %}
+          FinBERT <span class="badge-{{ health_badges.finbert or 'green' }}">{{ health.finbert_scored }}/{{ health.finbert_total }}</span> scored
+          &middot; {{ health.gdelt_articles or 0 }} GDELT articles
+        {% else %}
+          <span class="health-muted">Skipped</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+</details>
+{% elif health is defined %}
+<div class="health-panel health-muted">No health data available for this scan.</div>
+{% endif %}
+
 <footer class="site-footer">
   <span data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
   <a href="feed.xml">RSS</a>

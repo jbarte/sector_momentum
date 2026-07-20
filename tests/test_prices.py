@@ -329,6 +329,45 @@ def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tm
     assert len(result["XLF"]) == 3   # freshly fetched
 
 
+@patch("src.data.prices._fetch_single")
+@patch("src.data.prices._cache_is_fresh")
+def test_fetch_prices_populates_stats_out(mock_fresh, mock_fetch, tmp_path):
+    """When stats_out dict is provided, it is populated with source counts."""
+    cache_dir = str(tmp_path / "cache")
+    os.makedirs(cache_dir)
+    cached_df = _make_price_df(n=5)
+    cached_df.to_parquet(os.path.join(cache_dir, "XLK_prices.parquet"))
+
+    def fresh_side_effect(path, start=None):
+        return "XLK" in path
+
+    mock_fresh.side_effect = fresh_side_effect
+    mock_fetch.return_value = ("stooq", _make_price_df(n=3))
+
+    stats: dict[str, int] = {}
+    result = fetch_prices(
+        ["XLK", "XLF"], "2026-01-01", "2026-06-01",
+        cache_dir=cache_dir, stats_out=stats,
+    )
+
+    assert "XLK" in result
+    assert "XLF" in result
+    assert stats == {"cache": 1, "stooq": 1, "yfinance": 0}
+
+
+@patch("src.data.prices._fetch_single")
+@patch("src.data.prices._cache_is_fresh")
+def test_fetch_prices_works_without_stats_out(mock_fresh, mock_fetch, tmp_path):
+    """Omitting stats_out does not break fetch_prices (backward compat)."""
+    cache_dir = str(tmp_path / "cache")
+    mock_fresh.return_value = False
+    mock_fetch.return_value = ("stooq", _make_price_df(n=5))
+
+    result = fetch_prices(["XLK"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
+
+    assert "XLK" in result
+
+
 def test_cache_is_fresh_false_when_start_not_covered(tmp_path):
     """Cache covers only the last 30 days; a 2-year lookback request is not covered."""
     df = _make_price_df(n=20, start_date=str(date.today() - timedelta(days=30)))

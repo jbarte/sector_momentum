@@ -63,14 +63,6 @@ and SQL-warning fix shipped 2026-07-20 with the failure notification):
 - `scan.py` cleanup: 710-line `run()` with drifting step numbers (8d exists,
   8b/8c gone) — extract steps into functions and renumber.
 
-## Data-health panel
-
-A small dashboard section (or page) showing per-source fetch success for
-the latest scan (prices per source, FinBERT sectors scored, GDELT 429
-count), coverage vs expected universe, and last-scan status/duration.
-Turns the silent-failure class visible on the page already being looked at.
-*(Deep review 2026-07-19.)*
-
 ## Regime-conditional weighting (research)
 
 The macro bar already computes SPY-vs-200DMA and VIX bands. Research
@@ -136,6 +128,10 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Data-health panel** — collapsible footer on the sectors page showing
+  per-source price fetch stats, sector coverage, FinBERT/GDELT stats, and
+  scan duration with green/amber/red badges. Health metadata persisted as
+  nullable columns on the `scans` table. *(2026-07-20.)*
 - **Public-repo privacy audit** — decided to keep `sector_momentum` public
   (required for free-tier GitHub Pages hosting; going private would take the
   live dashboard down) and instead split `design/specs/` and `design/plans/`

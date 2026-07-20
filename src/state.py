@@ -131,6 +131,22 @@ def init_db() -> psycopg2.extensions.connection:
                 "ALTER TABLE sentiment_signals "
                 "ADD COLUMN IF NOT EXISTS text_value TEXT"
             )
+            for col, col_type in [
+                ("duration_s", "REAL"),
+                ("prices_total", "INTEGER"),
+                ("prices_cache", "INTEGER"),
+                ("prices_stooq", "INTEGER"),
+                ("prices_yfinance", "INTEGER"),
+                ("prices_failed", "INTEGER"),
+                ("sectors_expected", "INTEGER"),
+                ("sectors_produced", "INTEGER"),
+                ("finbert_scored", "INTEGER"),
+                ("finbert_total", "INTEGER"),
+                ("gdelt_articles", "INTEGER"),
+            ]:
+                cur.execute(
+                    f"ALTER TABLE scans ADD COLUMN IF NOT EXISTS {col} {col_type}"
+                )
     logger.info("Database initialised (Supabase/Postgres)")
     return conn
 
@@ -151,6 +167,7 @@ def save_scan(
     scores_df: pd.DataFrame,
     weights_path: str = "config/weights.yaml",
     sentiment_signals_df: pd.DataFrame | None = None,
+    health: dict | None = None,
 ) -> int:
     """
     Insert a new scan row and all its signals/scores.
@@ -184,9 +201,27 @@ def save_scan(
                     dup_ids,
                 )
 
+            _health_cols = [
+                "duration_s", "prices_total", "prices_cache", "prices_stooq",
+                "prices_yfinance", "prices_failed", "sectors_expected",
+                "sectors_produced", "finbert_scored", "finbert_total",
+                "gdelt_articles",
+            ]
+            if health:
+                cols = "run_at, config_hash, " + ", ".join(_health_cols)
+                placeholders = ", ".join(["%s"] * (2 + len(_health_cols)))
+                vals = (
+                    run_at_str, config_hash,
+                    *(health.get(c) for c in _health_cols),
+                )
+            else:
+                cols = "run_at, config_hash"
+                placeholders = "%s, %s"
+                vals = (run_at_str, config_hash)
+
             cur.execute(
-                "INSERT INTO scans (run_at, config_hash) VALUES (%s, %s) RETURNING scan_id",
-                (run_at_str, config_hash),
+                f"INSERT INTO scans ({cols}) VALUES ({placeholders}) RETURNING scan_id",
+                vals,
             )
             scan_id = cur.fetchone()[0]
 
@@ -490,6 +525,30 @@ def get_scan_history(
         ORDER BY sc.run_at ASC, s.region, s.gics_sector
     """
     return _read_sql(conn, query, params)
+
+
+def get_latest_health(
+    conn: psycopg2.extensions.connection,
+) -> dict | None:
+    """Return health metadata for the most recent scan, or None if empty."""
+    _health_cols = [
+        "duration_s", "prices_total", "prices_cache", "prices_stooq",
+        "prices_yfinance", "prices_failed", "sectors_expected",
+        "sectors_produced", "finbert_scored", "finbert_total",
+        "gdelt_articles",
+    ]
+    col_list = "run_at, " + ", ".join(_health_cols)
+    df = _read_sql(
+        conn,
+        f"SELECT {col_list} FROM scans ORDER BY scan_id DESC LIMIT 1",
+    )
+    if df.empty:
+        return None
+    row = df.iloc[0].to_dict()
+    for col in _health_cols:
+        if col in row and pd.isna(row[col]):
+            row[col] = None
+    return row
 
 
 # ---------------------------------------------------------------------------

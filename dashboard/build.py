@@ -87,6 +87,9 @@ from dashboard.sentiment import (                    # noqa: E402, F401
     _build_sentiment_signal_rows,
     build_page_context as _sentiment_ctx,
 )
+from dashboard.health import (                         # noqa: E402, F401
+    build_health_context,
+)
 from dashboard.validation import (                    # noqa: E402, F401
     build_validation_context as _validation_ctx,
 )
@@ -244,6 +247,7 @@ def main() -> None:
         get_sentiment_signals_for_latest_scan,
         get_theme_signals_for_latest_scan, get_theme_scan_history,
         get_theme_rrg_history,
+        get_latest_health,
     )
 
     conn = init_db()
@@ -260,6 +264,8 @@ def main() -> None:
     scan_index = build_scan_index(all_scores_df)
     active_scan_id = scan_index[0]["scan_id"] if scan_index else None
     _generate_scan_reports(all_scores_df, out_dir / "reports")
+
+    health_row = get_latest_health(conn)
 
     conn.close()
 
@@ -398,6 +404,7 @@ def main() -> None:
     sectors_ctx.update(_validation_ctx(shared))
     sectors_ctx.update(macro_page_ctx)
     sectors_ctx.update(auth_ctx)
+    sectors_ctx.update(build_health_context(health_row))
 
     _render(
         template_path=template_dir / "index.html.j2",
