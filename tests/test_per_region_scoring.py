@@ -106,3 +106,30 @@ def test_per_region_z_df_concat():
     z_df = pd.concat(z_parts)
     assert len(z_df) == 25
     assert set(z_df.index) == set(wide_df.index)
+
+
+def test_recompute_scan_produces_per_region_ranks():
+    """Backfill recomputation should produce per-region ranks."""
+    from scripts.backfill_region_ranks import recompute_scan
+
+    rng = np.random.default_rng(99)
+    rows = []
+    for region, sectors in [("US", US_SECTORS), ("EU", EU_SECTORS)]:
+        for sector in sectors:
+            for signal in SIGNAL_COLUMNS:
+                rows.append({
+                    "region": region,
+                    "gics_sector": sector,
+                    "signal_name": signal,
+                    "raw_value": rng.standard_normal(),
+                })
+    signals_df = pd.DataFrame(rows)
+    scores_df, z_df = recompute_scan(signals_df)
+
+    us_scores = scores_df[scores_df.index.str.startswith("US|")]
+    eu_scores = scores_df[scores_df.index.str.startswith("EU|")]
+
+    assert us_scores["rank"].max() == 11.0
+    assert eu_scores["rank"].max() == 14.0
+    assert len(scores_df) == 25
+    assert len(z_df) == 25

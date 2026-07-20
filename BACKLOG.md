@@ -31,19 +31,6 @@ authentication** being shipped first.
 tab, or both), and interaction with the existing ranking to be designed
 during brainstorming.
 
-## Fix cohort mismatch: live scoring is global, backtest is per-region
-
-The live scan scores all 25 sectors (11 US + 14 EU) in **one** z-score
-cohort (single `score_all` over the combined `wide_df` in `scan.py`), but
-the backtest scores each region **separately** (`score_as_of(..., region)`
-in `src/backtest/engine.py`) — so the Backtest tab validates a different
-strategy than the leaderboard shows. Correctness issue in the core product.
-
-**Decision (Jonas, 2026-07-19): per-region cohorts.** The backtest is
-already correct; change the live scan to score US and EU in separate
-cohorts, give the leaderboard per-region ranks (display split TBD at
-brainstorming), and fix ARCHITECTURE.md to match reality.
-*(Deep review 2026-07-19.)*
 
 ## Restore stooq as a working price source
 
@@ -193,6 +180,12 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Per-region cohort scoring** — live scan now scores US (11 sectors) and EU
+  (14 sectors) as independent z-score cohorts, matching the backtest. Leaderboard
+  shows two region-grouped tables. Client-side rescore, scan-history, and
+  scan-digest are region-aware. Backfill script recomputes historical ranks.
+  *(2026-07-20)*
 
 - **Ops quick wins: failure alerting, job timeout, lock script, SQL warnings**
   — `scan.yml` now pings the existing ntfy topic (`if: failure()`, high
