@@ -29,7 +29,7 @@ from scipy.stats import rankdata
 logger = logging.getLogger(__name__)
 
 # Signals used for each sub-score (equal-weight within group)
-_LEVEL_SIGNALS = ["rs_ratio", "return_3m", "return_6m", "above_50dma", "above_200dma"]
+_LEVEL_SIGNALS = ["rs_ratio", "return_3m", "return_6m", "above_50dma"]
 _CHANGE_SIGNALS = ["rs_momentum", "acceleration", "ma50_slope", "obv_slope"]
 
 
