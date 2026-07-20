@@ -18,13 +18,22 @@ pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node not a
 def _py_reference(data, W):
     sectors = data["sectors"]
     n = len(data["scans"])
+    region_groups = {}
+    for k in sectors:
+        region = k.split("|")[0]
+        region_groups.setdefault(region, []).append(k)
     comp_by_scan, rank_by_scan = [], []
     for s in range(n):
-        vals = np.array([(1 - W) * data["data"][k][s] + W * data["sentiment"][k][s]
-                         for k in sectors])
-        ranks = rankdata(-vals, method="average")
-        comp_by_scan.append(dict(zip(sectors, vals)))
-        rank_by_scan.append(dict(zip(sectors, ranks)))
+        comp_map = {k: (1 - W) * data["data"][k][s] + W * data["sentiment"][k][s]
+                    for k in sectors}
+        rank_map = {}
+        for region, group in region_groups.items():
+            vals = np.array([comp_map[k] for k in group])
+            ranks = rankdata(-vals, method="average")
+            for k, r in zip(group, ranks):
+                rank_map[k] = r
+        comp_by_scan.append(comp_map)
+        rank_by_scan.append(rank_map)
     last = n - 1
     prev = last - 1 if n >= 2 else None
     out = {}

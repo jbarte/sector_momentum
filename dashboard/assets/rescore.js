@@ -65,18 +65,31 @@
       return out;
     }
 
+    // Split sectors by region for per-region ranking
+    var regionGroups = {};
+    sectors.forEach(function (key) {
+      var region = key.split("|")[0];
+      if (!regionGroups[region]) { regionGroups[region] = []; }
+      regionGroups[region].push(key);
+    });
+
     // composite[scanIdx] = {sector: value}; ranks[scanIdx] = {sector: rank}
     var compositeByScan = [];
     var rankByScan = [];
     for (var s = 0; s < nScans; s++) {
-      var vals = sectors.map(function (key) {
+      var cMap = {};
+      sectors.forEach(function (key) {
         var d = data.data[key][s];
         var sent = data.sentiment[key][s];
-        return (1 - W) * d + W * sent;
+        cMap[key] = (1 - W) * d + W * sent;
       });
-      var ranks = rankAverage(vals);
-      var cMap = {}, rMap = {};
-      sectors.forEach(function (key, i) { cMap[key] = vals[i]; rMap[key] = ranks[i]; });
+      var rMap = {};
+      Object.keys(regionGroups).forEach(function (region) {
+        var group = regionGroups[region];
+        var vals = group.map(function (key) { return cMap[key]; });
+        var ranks = rankAverage(vals);
+        group.forEach(function (key, i) { rMap[key] = ranks[i]; });
+      });
       compositeByScan.push(cMap);
       rankByScan.push(rMap);
     }
