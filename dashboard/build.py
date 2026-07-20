@@ -102,7 +102,7 @@ from dashboard.validation import (                    # noqa: E402, F401
 # Plotly bundle management
 # ---------------------------------------------------------------------------
 
-PLOTLY_CDN = "https://cdn.plot.ly/plotly-basic-2.27.0.min.js"
+PLOTLY_CDN = "https://cdn.plot.ly/plotly-cartesian-2.27.0.min.js"
 # Pinned supabase-js v2 UMD build, vendored like Plotly (downloaded once,
 # gitignored). Bump deliberately; the dashboard has no JS build toolchain.
 SUPABASE_JS_CDN = (

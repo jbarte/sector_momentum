@@ -91,7 +91,7 @@ def _build_heatmap_figure(
 ) -> str:
     """Build a Plotly heatmap figure and return its JSON string."""
     # Reorder correlation matrix to match labels/tickers order
-    z = corr.reindex(index=tickers, columns=tickers).values
+    z = corr.reindex(index=tickers, columns=tickers).values.tolist()
 
     fig = go.Figure(data=go.Heatmap(
         z=z,
