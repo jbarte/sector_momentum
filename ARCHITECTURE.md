@@ -202,8 +202,9 @@ their Pages deployments don't race.
 
 **Generated artifact policy:** `docs/` is gitignored, not committed. Each
 workflow rebuilds it from the database on every run and deploys it directly
-via `actions/upload-pages-artifact` + `actions/deploy-pages`. See
-`design/specs/2026-07-20-pages-artifact-deploy-design.md`.
+via `actions/upload-pages-artifact` + `actions/deploy-pages`. See the
+`pages-artifact-deploy` design doc in the private `sector_momentum-notes`
+companion repo (see `CLAUDE.md` → Design docs).
 
 ---
 

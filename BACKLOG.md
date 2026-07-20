@@ -31,6 +31,11 @@ authentication** being shipped first.
 tab, or both), and interaction with the existing ranking to be designed
 during brainstorming.
 
+**Hard constraint (from the 2026-07-20 privacy audit):** the repo is public
+(required for free-tier GitHub Pages), so user positions must live behind
+RLS in Supabase and be fetched client-side after auth — never baked into
+the static build.
+
 
 
 ## Risk-adjusted momentum + max-drawdown column
@@ -64,17 +69,6 @@ A small dashboard section (or page) showing per-source fetch success for
 the latest scan (prices per source, FinBERT sectors scored, GDELT 429
 count), coverage vs expected universe, and last-scan status/duration.
 Turns the silent-failure class visible on the page already being looked at.
-*(Deep review 2026-07-19.)*
-
-## Public-repo privacy audit
-
-The repo is **public**: `design/` specs/plans are world-readable (CLAUDE.md
-calls them private, which only holds relative to Pages), and the dashboard's
-invite-only sign-in gates nothing — the content is a static page in a public
-repo. Decide: make the repo private, or accept public data and treat auth as
-the foundation for genuinely-gated features only. Hard constraint for
-Position tracking: user positions must live behind RLS in Supabase and be
-fetched client-side after auth — never baked into the static build.
 *(Deep review 2026-07-19.)*
 
 ## Regime-conditional weighting (research)
@@ -141,6 +135,16 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Public-repo privacy audit** — decided to keep `sector_momentum` public
+  (required for free-tier GitHub Pages hosting; going private would take the
+  live dashboard down) and instead split `design/specs/` and `design/plans/`
+  (37 + 32 files) into a new private companion repo, `jbarte/sector_momentum-notes`.
+  `design/` is removed from this repo (git history still has it — no rewrite,
+  same trade-off as `docs/`). `CLAUDE.md` and `ARCHITECTURE.md` updated to point
+  future spec/plan output and existing doc references at the new repo. Added a
+  hard constraint to the Position tracking item: positions must live behind RLS,
+  fetched client-side, never in the static build. *(2026-07-20)*
 
 - **Deploy Pages via artifact** — `scan.yml` and `build-docs.yml` now deploy
   `docs/` directly via `actions/upload-pages-artifact` + `actions/deploy-pages`
