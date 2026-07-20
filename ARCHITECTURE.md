@@ -192,16 +192,18 @@ bundle). The site is self-contained and offline-capable.
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `scan.yml` | Daily cron (`0 6 * * *` UTC) + manual | Runs `pytest`, then `scan.py --no-dashboard`, then `dashboard/build.py`, commits `docs/` to `main` |
-| `build-docs.yml` | Push to `main` when `dashboard/`, `src/`, `config/`, `backtests/`, or `requirements.lock` change + manual | Rebuilds `docs/` and commits (with `[skip ci]` to prevent loops) |
+| `scan.yml` | Daily cron (`0 6 * * *` UTC) + manual | Runs `pytest`, then `scan.py --no-dashboard`, then `dashboard/build.py`, deploys `docs/` as a Pages artifact |
+| `build-docs.yml` | Push to `main` when `dashboard/`, `src/`, `config/`, `backtests/`, or `requirements.lock` change + manual | Rebuilds `docs/` and redeploys the Pages artifact |
 | `test.yml` | Push to `main`/`feature/**`/`fix/**`/`chore/**` + PRs to `main` | Runs `pytest` |
 | `code-review.yml` | PRs | Automated code review via Claude |
 
-`scan.yml` and `build-docs.yml` share a `commit-to-main` concurrency group and
-rebase before pushing to prevent lost-commit races.
+`scan.yml` and `build-docs.yml` share a `pages-deploy` concurrency group so
+their Pages deployments don't race.
 
-**Generated artifact policy:** `docs/` is owned by CI. Feature branches must
-not commit `docs/` (causes merge conflicts with the cron's daily rebuilds).
+**Generated artifact policy:** `docs/` is gitignored, not committed. Each
+workflow rebuilds it from the database on every run and deploys it directly
+via `actions/upload-pages-artifact` + `actions/deploy-pages`. See
+`design/specs/2026-07-20-pages-artifact-deploy-design.md`.
 
 ---
 
