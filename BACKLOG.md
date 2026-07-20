@@ -40,21 +40,6 @@ max-drawdown leaderboard column — both backtestable before adoption.
 Split from the correlation audit (shipped 2026-07-20). *(Deep review
 2026-07-19.)*
 
-## Deploy Pages via artifact — phase 2 (drop `docs/` from git)
-
-Phase 1 shipped 2026-07-20: both workflows now upload and deploy a Pages
-artifact. **Phase 2 runs only after the Pages source is flipped to
-`workflow` and a deploy is verified live.** Remaining work:
-
-- `git rm -r --cached docs/`, add `/docs/` to `.gitignore`
-- Delete the commit steps from `scan.yml` and `build-docs.yml`; drop
-  `contents: write` from both `permissions` blocks
-- Rename `concurrency.group` from `commit-to-main` to `pages-deploy`
-- Update `CLAUDE.md` (delete the docs/ generated-artifact rule),
-  `ARCHITECTURE.md` (workflow table + artifact policy), `README.md:48`
-
-Design: `design/specs/2026-07-20-pages-artifact-deploy-design.md`.
-
 ## Price-cache adjustment consistency
 
 `auto_adjust=True` re-adjusts all history after a dividend/split, but the
@@ -156,6 +141,15 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Deploy Pages via artifact** — `scan.yml` and `build-docs.yml` now deploy
+  `docs/` directly via `actions/upload-pages-artifact` + `actions/deploy-pages`
+  instead of committing it. `docs/` is gitignored; the Pages source was
+  flipped from `legacy` (branch `main:/docs`) to `workflow` and a live deploy
+  verified (leaderboard, themes, sentiment, a report, `feed.xml`, `.nojekyll`
+  all serving correctly). Eliminates the recurring `docs/` merge-conflict
+  class and the ~1&nbsp;MB/day git-history bloat. Existing `docs/` blobs
+  remain in history (untracking, not a rewrite). *(2026-07-20)*
 
 - **Signal correlation audit — drop `above_200dma`** — one-time correlation
   matrix confirmed `above_50dma`/`above_200dma` collinearity. Removed
