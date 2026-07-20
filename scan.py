@@ -176,15 +176,17 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
         print("  No sectors were scored.")
         return
 
-    sorted_df = scored_df_for_db.sort_values("rank", ascending=True)
-
-    print("\n  Top 5 by composite score:")
-    for _, row in sorted_df.head(5).iterrows():
-        rank = int(row["rank"])
-        sector = row["gics_sector"]
-        region = row["region"]
-        composite = row["composite"]
-        print(f"    #{rank:2d}  {sector:<28}  ({region})  composite={composite:.3f}")
+    for region in ("US", "EU"):
+        region_df = scored_df_for_db[scored_df_for_db["region"] == region]
+        if region_df.empty:
+            continue
+        region_sorted = region_df.sort_values("rank", ascending=True)
+        print(f"\n  Top 5 {region} by composite score:")
+        for _, row in region_sorted.head(5).iterrows():
+            rank = int(row["rank"])
+            sector = row["gics_sector"]
+            composite = row["composite"]
+            print(f"    #{rank:2d}  {sector:<28}  composite={composite:.3f}")
 
     emerging = scored_df_for_db[scored_df_for_db.get("emerging_flag", False) == True] if "emerging_flag" in scored_df_for_db.columns else pd.DataFrame()
     if not emerging.empty:
@@ -333,13 +335,22 @@ def run(args: argparse.Namespace) -> int:
         logger.info("FinBERT sentiment skipped (--no-finbert)")
 
     logger.info("Scoring sectors …")
-    # Canonical composite stays pure-data; sentiment is stored but not blended.
-    scored = score_all(
-        wide_df,
-        weights_path="config/weights.yaml",
-        sentiment_score=sentiment_score,
-        blend_sentiment=False,
-    )
+    # Per-region cohort scoring: US and EU each ranked within their own pool.
+    scored_parts = []
+    for region_prefix in ("US", "EU"):
+        mask = wide_df.index.str.startswith(f"{region_prefix}|")
+        region_df = wide_df[mask]
+        if region_df.empty:
+            continue
+        region_sentiment = sentiment_score[mask] if sentiment_score is not None else None
+        region_scored = score_all(
+            region_df,
+            weights_path="config/weights.yaml",
+            sentiment_score=region_sentiment,
+            blend_sentiment=False,
+        )
+        scored_parts.append(region_scored)
+    scored = pd.concat(scored_parts)
     logger.info("Scoring complete. %d sectors ranked.", len(scored))
 
     # ------------------------------------------------------------------
@@ -368,8 +379,13 @@ def run(args: argparse.Namespace) -> int:
         # Compute deltas (adds delta_composite, delta_rank, emerging_flag columns)
         scored_with_deltas = compute_deltas(scored_df_for_db, prior_scan)
 
-        # Build long-format signals for DB, with cross-sectional z-scores
-        z_df = zscore_cross_section(wide_df)
+        # Build long-format signals for DB, with per-region z-scores
+        z_parts = []
+        for region_prefix in ("US", "EU"):
+            mask = wide_df.index.str.startswith(f"{region_prefix}|")
+            if mask.any():
+                z_parts.append(zscore_cross_section(wide_df[mask]))
+        z_df = pd.concat(z_parts)
         long_signals_df = _build_long_signals_df(rows, z_wide_df=z_df)
 
         # ------------------------------------------------------------------
