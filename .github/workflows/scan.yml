@@ -14,7 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180      # worst-case GDELT backoff is ~80 min; default 6h is too generous
     permissions:
-      contents: write         # needed to commit back to repo
+      contents: write         # phase 1 still commits docs/ (rollback path)
+      pages: write            # deploy the Pages artifact
+      id-token: write         # OIDC token for deploy-pages
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +66,15 @@ jobs:
           git diff --staged --quiet || git commit -m "scan: $(date -u +%Y-%m-%d) automated run"
           git pull --rebase origin main
           git push
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Notify scan failure
         if: failure()

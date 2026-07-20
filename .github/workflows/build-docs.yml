@@ -24,7 +24,13 @@ jobs:
   build-docs:
     runs-on: ubuntu-latest
     permissions:
-      contents: write          # needed to commit the rebuilt docs/ back to main
+      contents: write          # phase 1 still commits docs/ (rollback path)
+      pages: write             # deploy the Pages artifact
+      id-token: write          # OIDC token for deploy-pages
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -53,3 +59,12 @@ jobs:
           git diff --staged --quiet || git commit -m "build: rebuild dashboard [skip ci]"
           git pull --rebase origin main
           git push
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
