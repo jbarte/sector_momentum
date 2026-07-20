@@ -33,14 +33,6 @@ during brainstorming.
 
 
 
-## CI price cache (actions/cache for data/cache)
-
-`data/cache/` is gitignored and CI runners are ephemeral, so every scan
-live-fetches everything — including ~500 S&P 500 constituents for the
-breadth signal, the biggest rate-limit magnet in the pipeline. Add an
-`actions/cache` step (keyed by ISO week) around `data/cache/` in
-`scan.yml`. Cuts both 429 risk and runtime. *(Deep review 2026-07-19.)*
-
 ## FX awareness (SEK-based trader, USD/EUR-priced signals)
 
 EU ETFs are priced in EUR, US in USD, and positions are traded in SEK via
@@ -171,6 +163,12 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **CI price cache** — added `actions/cache@v4` step to `scan.yml` persisting
+  `data/cache/` across runs. Uses `run_id` key with `restore-keys` fallback so
+  every run reuses the most recent cache; per-file freshness logic handles
+  staleness. Cuts ~545 live ticker fetches to near-zero on warm runs, reducing
+  429 risk and runtime. *(2026-07-20)*
 
 - **Restore stooq price source** — replaced broken `pandas-datareader` stooq
   driver with direct CSV endpoint fetch (`requests.get`). Removed
