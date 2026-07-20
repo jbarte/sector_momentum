@@ -54,33 +54,44 @@
     }
     entries.sort(function (a, b) { return a.scores.rank - b.scores.rank; });
 
-    var html = "";
+    var regionGroups = { US: [], EU: [] };
     for (var i = 0; i < entries.length; i++) {
-      var e = entries[i];
-      var sc = e.scores;
-      var parts = e.key.split("|");
-      var region = parts[0];
-      var sector = parts[1];
-      var rankClass = sc.rank <= 3 ? " top3" : "";
-      var arrow = "";
-      var arrowClass = "";
-      if (e.delta > 0) { arrow = "▲"; arrowClass = "up"; }
-      else if (e.delta < 0) { arrow = "▼"; arrowClass = "down"; }
-      var arrowHtml = arrow ? '<span class="arrow ' + arrowClass + '">' + arrow + "</span> " : "";
-
-      html += '<tr class="leaderboard-row">'
-        + '<td class="rank-cell"><span class="rank-badge' + rankClass + '">' + sc.rank + "</span></td>"
-        + "<td>" + sector + "</td>"
-        + '<td><span class="tag-region">' + region + "</span></td>"
-        + '<td class="composite-cell">' + fmtScore(sc.composite) + "</td>"
-        + "<td>" + fmtScore(sc.level) + "</td>"
-        + "<td>" + fmtScore(sc.change) + "</td>"
-        + "<td>" + fmtScore(sc.data) + "</td>"
-        + '<td class="sentiment-cell">' + fmtScore(sc.sentiment) + "</td>"
-        + '<td class="delta-cell">' + arrowHtml + fmtDelta(e.delta) + "</td>"
-        + "<td>—</td>"
-        + "</tr>";
+      var region = entries[i].key.split("|")[0];
+      if (regionGroups[region]) { regionGroups[region].push(entries[i]); }
+      else { regionGroups.US.push(entries[i]); }
     }
+
+    var html = "";
+    ["US", "EU"].forEach(function (region) {
+      var group = regionGroups[region];
+      if (!group.length) return;
+      group.sort(function (a, b) { return a.scores.rank - b.scores.rank; });
+      html += '<tr class="region-header-row"><td colspan="10">' + region + " Sectors</td></tr>";
+      for (var j = 0; j < group.length; j++) {
+        var e = group[j];
+        var sc = e.scores;
+        var sector = e.key.split("|")[1];
+        var rankClass = sc.rank <= 3 ? " top3" : "";
+        var arrow = "";
+        var arrowClass = "";
+        if (e.delta > 0) { arrow = "▲"; arrowClass = "up"; }
+        else if (e.delta < 0) { arrow = "▼"; arrowClass = "down"; }
+        var arrowHtml = arrow ? '<span class="arrow ' + arrowClass + '">' + arrow + "</span> " : "";
+
+        html += '<tr class="leaderboard-row">'
+          + '<td class="rank-cell"><span class="rank-badge' + rankClass + '">' + sc.rank + "</span></td>"
+          + "<td>" + sector + "</td>"
+          + '<td><span class="tag-region">' + region + "</span></td>"
+          + '<td class="composite-cell">' + fmtScore(sc.composite) + "</td>"
+          + "<td>" + fmtScore(sc.level) + "</td>"
+          + "<td>" + fmtScore(sc.change) + "</td>"
+          + "<td>" + fmtScore(sc.data) + "</td>"
+          + '<td class="sentiment-cell">' + fmtScore(sc.sentiment) + "</td>"
+          + '<td class="delta-cell">' + arrowHtml + fmtDelta(e.delta) + "</td>"
+          + "<td>—</td>"
+          + "</tr>";
+      }
+    });
     tbody.innerHTML = html;
   }
 
