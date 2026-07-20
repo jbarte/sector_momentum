@@ -17,7 +17,6 @@ level_signals:
   return_3m: 1.0
   return_6m: 1.0
   above_50dma: 1.0
-  above_200dma: 1.0
 
 change_signals:
   rs_momentum: 1.0

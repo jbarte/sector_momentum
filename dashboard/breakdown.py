@@ -14,7 +14,7 @@ _SIGNAL_META: dict[str, dict] = {
     "return_3m":           {"label": "3M Return",           "group": "level"},
     "return_6m":           {"label": "6M Return",           "group": "level"},
     "above_50dma":         {"label": "Dist. from 50-DMA",   "group": "level"},
-    "above_200dma":        {"label": "Dist. from 200-DMA",  "group": "level"},
+    "above_200dma":        {"label": "Dist. from 200-DMA",  "group": "info"},
     "rs_momentum":         {"label": "RS Momentum",         "group": "change"},
     "acceleration":        {"label": "Momentum Accel.",     "group": "change"},
     "ma50_slope":          {"label": "50-DMA Slope",        "group": "change"},
@@ -157,7 +157,7 @@ def _build_breakdown_html(
         f'<span class="st-label">Level</span>'
         f'<span class="st-wt">({level_weight*100:.0f}%)</span>'
         f'<span class="st-val">{level_score}</span>'
-        f'<span class="st-meta">5 signals</span>'
+        f'<span class="st-meta">4 signals</span>'
         f'</div>'
         f'<div class="st-row st-sub">'
         f'<span class="st-conn">│ └─</span>'
@@ -233,7 +233,7 @@ def _build_breakdown_html(
 
     # Info-only signals (not scored)
     info_parts = []
-    for n in ("return_1m", "breadth_above_50dma"):
+    for n in ("above_200dma", "return_1m", "breadth_above_50dma"):
         sig = sig_by_name.get(n, {})
         if sig.get("raw_value") is not None:
             lbl = _SIGNAL_META[n]["label"]

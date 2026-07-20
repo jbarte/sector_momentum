@@ -43,15 +43,12 @@ the Swedish overlay. Phase 2 (research): convert prices to a common
 currency before signal computation and backtest the difference.
 *(Deep review 2026-07-19.)*
 
-## Signal correlation audit + risk-adjusted momentum
+## Risk-adjusted momentum + max-drawdown column
 
-`rs_ratio`, `above_50dma`, `above_200dma`, and `ma50_slope` are heavily
-collinear — the level score largely counts one trend factor four ways. The
-EU split also added 3 correlated financial sub-sectors to the z-pool.
-One-off audit: correlation matrix of the signal panel, then decide on
-de-duplication or weighting. Same effort: test risk-adjusted momentum
-(return/volatility) and a max-drawdown leaderboard column — both
-backtestable before adoption. *(Deep review 2026-07-19.)*
+Test risk-adjusted momentum (return/volatility) as a signal and a
+max-drawdown leaderboard column — both backtestable before adoption.
+Split from the correlation audit (shipped 2026-07-20). *(Deep review
+2026-07-19.)*
 
 ## Deploy Pages via artifact instead of committing docs/
 
@@ -163,6 +160,12 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Signal correlation audit — drop `above_200dma`** — one-time correlation
+  matrix confirmed `above_50dma`/`above_200dma` collinearity. Removed
+  `above_200dma` from `_LEVEL_SIGNALS` (5→4 level signals). Demoted to
+  info-only in the dashboard breakdown panel. Risk-adjusted momentum remains
+  queued separately. *(2026-07-20)*
 
 - **CI price cache** — added `actions/cache@v4` step to `scan.yml` persisting
   `data/cache/` across runs. Uses `run_id` key with `restore-keys` fallback so
