@@ -155,6 +155,7 @@ def fetch_prices(
     start: str,
     end: str,
     cache_dir: str = "data/cache",
+    stats_out: dict[str, int] | None = None,
 ) -> dict[str, pd.DataFrame]:
     """
     Returns a dict mapping ticker -> DataFrame with columns:
@@ -218,6 +219,9 @@ def fetch_prices(
             logger.warning(
                 "%s: 0/%d succeeded — source may be down", src, live_attempted[src],
             )
+
+    if stats_out is not None:
+        stats_out.update(source_counts)
 
     return result
 
