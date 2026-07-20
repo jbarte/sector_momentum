@@ -55,9 +55,9 @@ output, not tracked in git** (gitignored). Build it locally to verify a change
 (`python3 dashboard/build.py`); it's fine to have a local `docs/` on any branch since
 it's never staged. CI rebuilds it fresh on every run and deploys it directly as a
 GitHub Pages artifact (`actions/upload-pages-artifact` + `actions/deploy-pages`) — see
-`design/specs/2026-07-20-pages-artifact-deploy-design.md`. There is no merge-conflict
-risk from `docs/` anymore; feature PRs should still be **source-only**
-(`dashboard/templates/`, `dashboard/build.py`, `src/`, `config/`, tests).
+the `pages-artifact-deploy` design doc in `sector_momentum-notes` (private repo, see
+below). There is no merge-conflict risk from `docs/` anymore; feature PRs should still
+be **source-only** (`dashboard/templates/`, `dashboard/build.py`, `src/`, `config/`, tests).
 
 `BACKLOG.md` uses a `merge=union` driver (`.gitattributes`) so concurrent Done-list
 additions auto-combine instead of conflicting. This only works cleanly for pure
@@ -67,13 +67,18 @@ versions verbatim instead of picking one — silently, with no conflict markers 
 it. Check the diff after any merge/rebase that touches `BACKLOG.md` alongside another
 branch's edits, and hand-dedupe if a paragraph got doubled.
 
-## Design docs (specs & plans) — `design/`, NOT `docs/`
+## Design docs (specs & plans) — private companion repo, NOT `docs/` or `design/`
 
-Brainstorming/writing-plans output lives in `design/specs/` and `design/plans/`
-(repo root) — **never** under `docs/`. `docs/` is the published Pages web root, so
-anything there is public; `design/` keeps internal specs/plans versioned but private.
-The brainstorming/writing-plans skills default to `docs/superpowers/` — override that
-default and write to `design/specs/` and `design/plans/` instead.
+`sector_momentum` is a **public** repo (required for free-tier GitHub Pages hosting).
+Brainstorming/writing-plans output does **not** live in this repo — it lives in the
+private companion repo **`jbarte/sector_momentum-notes`**, under `specs/` and `plans/`
+(no `design/` prefix there — the repo itself is the private container). Clone it
+locally if it isn't already present (`gh repo clone jbarte/sector_momentum-notes`,
+sibling directory to this repo), and write specs/plans there instead of the
+brainstorming/writing-plans skills' `docs/superpowers/` default. See
+`sector_momentum-notes/specs/2026-07-20-public-repo-privacy-audit-design.md` for why
+this split exists — in short, this repo used to have a `design/` folder that was
+public without anyone intending it to be; it moved out entirely on 2026-07-20.
 
 ## Backlog
 
