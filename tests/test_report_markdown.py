@@ -1,8 +1,10 @@
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.report import build_report_markdown, write_report
+from src.report import build_ranked_table, build_report_markdown, write_report
 
 
 def test_markdown_has_all_sections():
@@ -18,6 +20,33 @@ def test_markdown_has_all_sections():
 def test_write_report_uses_same_markdown(tmp_path):
     path = write_report("2026-06-25", "R", "M", "S", output_dir=str(tmp_path))
     assert Path(path).read_text() == build_report_markdown("2026-06-25", "R", "M", "S")
+
+
+def test_ranked_table_has_two_region_sections():
+    """build_ranked_table should produce US and EU sections."""
+    data = {
+        "region": ["US", "US", "EU", "EU", "EU"],
+        "gics_sector": ["Tech", "Energy", "Banks", "Insurance", "Chemicals"],
+        "composite": [1.0, 0.5, 0.8, 0.3, -0.1],
+        "level_score": [0.5, 0.3, 0.4, 0.2, 0.0],
+        "change_score": [0.5, 0.2, 0.4, 0.1, -0.1],
+        "data_score": [1.0, 0.5, 0.8, 0.3, -0.1],
+        "rank": [1.0, 2.0, 1.0, 2.0, 3.0],
+        "delta_composite": [0.1, -0.1, 0.2, 0.0, -0.05],
+        "delta_rank": [1.0, -1.0, 0.0, 1.0, -1.0],
+        "emerging_flag": [True, False, False, False, False],
+    }
+    df = pd.DataFrame(data)
+    result = build_ranked_table(df)
+
+    assert "## US Sectors" in result
+    assert "## EU Sectors" in result
+    us_section = result.split("## EU Sectors")[0]
+    eu_section = result.split("## EU Sectors")[1]
+    assert "Tech" in us_section
+    assert "Energy" in us_section
+    assert "Banks" in eu_section
+    assert "| 3 |" in eu_section
 
 
 def test_swedish_overlay_matches_subsector_via_parent(tmp_path):
