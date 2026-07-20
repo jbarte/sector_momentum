@@ -40,14 +40,20 @@ max-drawdown leaderboard column — both backtestable before adoption.
 Split from the correlation audit (shipped 2026-07-20). *(Deep review
 2026-07-19.)*
 
-## Deploy Pages via artifact instead of committing docs/
+## Deploy Pages via artifact — phase 2 (drop `docs/` from git)
 
-Committing `docs/` causes the recurring merge conflicts, ~1&nbsp;MB/day of
-git-history bloat, and the "never commit docs/ from a branch" rule. Switch
-`build-docs.yml`/`scan.yml` to `actions/upload-pages-artifact` +
-`actions/deploy-pages` and drop `docs/` from git entirely (keep
-`docs/reports` generation in the build). Eliminates the whole problem
-class. *(Deep review 2026-07-19.)*
+Phase 1 shipped 2026-07-20: both workflows now upload and deploy a Pages
+artifact. **Phase 2 runs only after the Pages source is flipped to
+`workflow` and a deploy is verified live.** Remaining work:
+
+- `git rm -r --cached docs/`, add `/docs/` to `.gitignore`
+- Delete the commit steps from `scan.yml` and `build-docs.yml`; drop
+  `contents: write` from both `permissions` blocks
+- Rename `concurrency.group` from `commit-to-main` to `pages-deploy`
+- Update `CLAUDE.md` (delete the docs/ generated-artifact rule),
+  `ARCHITECTURE.md` (workflow table + artifact policy), `README.md:48`
+
+Design: `design/specs/2026-07-20-pages-artifact-deploy-design.md`.
 
 ## Price-cache adjustment consistency
 
