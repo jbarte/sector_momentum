@@ -13,6 +13,7 @@ function switchTab(name, btn) {
   if (name === 'history')   renderHistory();
   if (name === 'drilldown') renderDrilldown();
   if (typeof renderBacktest === 'function' && name === 'backtest') renderBacktest();
+  if (typeof renderCorrelation === 'function' && name === 'correlation') renderCorrelation();
 }
 
 // Arrow-key navigation between tabs

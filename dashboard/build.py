@@ -90,6 +90,9 @@ from dashboard.sentiment import (                    # noqa: E402, F401
 from dashboard.health import (                         # noqa: E402, F401
     build_health_context,
 )
+from dashboard.correlation import (                    # noqa: E402, F401
+    build_correlation_context,
+)
 from dashboard.validation import (                    # noqa: E402, F401
     build_validation_context as _validation_ctx,
 )
@@ -405,6 +408,9 @@ def main() -> None:
     sectors_ctx.update(macro_page_ctx)
     sectors_ctx.update(auth_ctx)
     sectors_ctx.update(build_health_context(health_row))
+
+    logger.info("Building correlation heatmap …")
+    sectors_ctx.update(build_correlation_context(shared))
 
     _render(
         template_path=template_dir / "index.html.j2",

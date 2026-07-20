@@ -76,13 +76,6 @@ The 0.50/0.50 level/change split is assumed, not validated. Grid the split
 in the backtest with walk-forward evaluation to see whether the choice
 matters and which region prefers what. *(Deep review 2026-07-19.)*
 
-## Rolling correlation heatmap
-
-60-day rolling correlation matrix across the 25 sectors on the dashboard —
-shows when holding several top-5 sectors is fake diversification (e.g. the
-3 EU financial sub-sectors). Build-time computation from cached prices,
-info-only. *(Deep review 2026-07-19.)*
-
 ## FinBERT sentiment for themes
 
 Themes lost sentiment entirely in the Trends retirement (they were
@@ -128,6 +121,11 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Rolling correlation heatmap** — new Correlation tab on the sectors page
+  showing a 25×25 Plotly heatmap of 60-trading-day rolling return correlations
+  across all sector ETFs. Rows/columns ordered by region then rank, top-5 per
+  region in bold. Build-time computation from cached prices, info-only.
+  *(2026-07-20.)*
 - **Data-health panel** — collapsible footer on the sectors page showing
   per-source price fetch stats, sector coverage, FinBERT/GDELT stats, and
   scan duration with green/amber/red badges. Health metadata persisted as
