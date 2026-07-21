@@ -21,6 +21,24 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Harden content gating beyond the leaderboard
+
+Content gating (shipped 2026-07-21) lags **only the leaderboard table** for
+guests. The latest scan's ranks and composite scores are still reachable by an
+unauthenticated visitor through other baked surfaces: the **History tab**, the
+**scan-index dropdown** (defaults to newest), the **per-scan downloadable
+reports** (`docs/reports/`, keyed off `active_scan_id` = newest), and the
+**Atom feed** (`feed.xml`). So the ~7-day lag is currently a soft engagement
+nudge, not a hard gate.
+
+**If a hard gate is wanted:** lag/gate these surfaces for guests too — e.g.
+cap `active_scan_id`/`scan_index`/reports/feed at the same lagged scan the
+leaderboard uses (via `dashboard/gating.py`'s `apply_leaderboard_lag`), and
+have authed users fetch the newer scans client-side (same pattern as
+`v_latest_scores`). Decide per-surface whether History/feed are *meant* to show
+full history (they arguably are) before gating them. Flagged by the
+2026-07-21 whole-branch review of the content-gating branch.
+
 ## Position tracking
 
 Allow logged-in users to track their sector/theme positions (holdings,
