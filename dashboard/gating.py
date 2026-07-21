@@ -20,7 +20,7 @@ def _pick_lagged_scan(
     if history_df is None or history_df.empty:
         return None
     if now is None:
-        now = pd.Timestamp.utcnow()
+        now = pd.Timestamp.now("UTC")
 
     per_scan = (
         history_df[["scan_id", "run_at"]]
