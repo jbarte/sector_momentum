@@ -264,3 +264,98 @@ def build_news_signal_rows(
                  "signal_name": "news_negative_pct", "value": sc["negative_pct"]},
             ])
     return rows
+
+
+def _build_keyword_query(keywords: list[str]) -> str:
+    """Build a GDELT query from keyword phrases (quoted, OR-joined)."""
+    clause = " OR ".join(f'"{kw}"' for kw in keywords)
+    return f"({clause}) sourcelang:english"
+
+
+def fetch_theme_headlines(
+    themes_cfg: dict,
+    timespan: str = "24h",
+    sleep_s: float = 20.0,
+    max_retries: int = 4,
+) -> dict[str, list[str]]:
+    """Fetch recent English headlines per theme from GDELT using keyword queries.
+
+    Returns {theme_name: [headline, ...]}.  Skips themes without gdelt_keywords.
+    """
+    themes = themes_cfg.get("themes", {})
+    queryable = {
+        name: cfg["gdelt_keywords"]
+        for name, cfg in themes.items()
+        if isinstance(cfg, dict) and cfg.get("gdelt_keywords")
+    }
+
+    result: dict[str, list[str]] = {}
+    items = list(queryable.items())
+    for i, (name, keywords) in enumerate(items):
+        params = {
+            "query": _build_keyword_query(keywords),
+            "mode": "ArtList",
+            "maxrecords": 250,
+            "format": "json",
+            "timespan": timespan,
+            "sort": "datedesc",
+        }
+
+        titles: list[str] = []
+        for attempt in range(max_retries):
+            try:
+                resp = requests.get(GDELT_ENDPOINT, params=params, timeout=30)
+                if resp.status_code == 429:
+                    if attempt < max_retries - 1:
+                        wait = 60 * (2 ** attempt)
+                        logger.warning("GDELT 429 for theme %s — backing off %ds", name, wait)
+                        if sleep_s > 0:
+                            time.sleep(wait)
+                        continue
+                    logger.warning("GDELT 429 for theme %s after %d retries — skipping", name, max_retries)
+                    break
+                resp.raise_for_status()
+                articles = resp.json().get("articles", [])
+                seen: set[str] = set()
+                for art in articles:
+                    title = art.get("title", "").strip()
+                    if title and title not in seen:
+                        seen.add(title)
+                        titles.append(title)
+                break
+            except Exception as exc:
+                if attempt < max_retries - 1:
+                    wait = 60 * (2 ** attempt)
+                    logger.warning("GDELT theme fetch failed for %s (%s) — retry in %ds", name, exc, wait)
+                    if sleep_s > 0:
+                        time.sleep(wait)
+                else:
+                    logger.warning("GDELT theme fetch failed for %s after %d retries — skipping", name, max_retries)
+
+        result[name] = titles
+        if i < len(items) - 1 and sleep_s > 0:
+            time.sleep(sleep_s)
+
+    return result
+
+
+def build_theme_news_signal_rows(
+    finbert_scores: dict[str, dict],
+) -> list[dict]:
+    """Build theme_sentiment_signals rows from FinBERT scores.
+
+    Returns list of {theme, signal_name, value, text_value} dicts.
+    """
+    rows: list[dict] = []
+    for name, sc in finbert_scores.items():
+        rows.extend([
+            {"theme": name, "signal_name": "news_polarity",
+             "value": sc["mean_polarity"], "text_value": None},
+            {"theme": name, "signal_name": "news_count",
+             "value": float(sc["count"]), "text_value": None},
+            {"theme": name, "signal_name": "news_positive_pct",
+             "value": sc["positive_pct"], "text_value": None},
+            {"theme": name, "signal_name": "news_negative_pct",
+             "value": sc["negative_pct"], "text_value": None},
+        ])
+    return rows
