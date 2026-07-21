@@ -274,6 +274,7 @@ def main() -> None:
 
     if history_df.empty:
         print("No scans in database yet. Run scan.py first.")
+        conn.close()
         sys.exit(0)
 
     logger.info("Loaded %d rows from %d scans", len(history_df), history_df["scan_id"].nunique())

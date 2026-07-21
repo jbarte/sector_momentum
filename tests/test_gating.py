@@ -59,3 +59,16 @@ def test_apply_lag_empty_history():
     assert scan_id is None
     assert banner_date is None
     assert lag_df.empty
+
+
+def test_pick_handles_mixed_naive_and_aware_run_at():
+    # Real DBs mix naive (pre-migration) and tz-aware run_at strings; the
+    # ISO8601 parse must normalize both to UTC without raising.
+    hist = pd.DataFrame([
+        {"scan_id": 1, "run_at": "2026-07-01T00:00:00",        # naive -> UTC
+         "region": "US", "gics_sector": "Tech", "rank": 1.0, "composite": 0.5},
+        {"scan_id": 2, "run_at": "2026-07-14T00:00:00+00:00",  # tz-aware
+         "region": "US", "gics_sector": "Tech", "rank": 1.0, "composite": 0.5},
+    ])
+    # NOW = 2026-07-21T12:00Z; both scans >=7 days old, newest is scan 2.
+    assert _pick_lagged_scan(hist, lag_days=7, now=NOW) == 2
