@@ -6,7 +6,10 @@ Fetches daily OHLCV price data for a list of tickers. Tries stooq first
 sources — aggressive caching minimises live fetches.
 
 Cache location: data/cache/<ticker>_prices.parquet
-Cache validity: refreshed if the cached data doesn't extend to yesterday.
+Cache validity: served from cache while its last date is within a 4-day
+tolerance of today (covers weekends and single market holidays without a
+holiday calendar); refetched live only once the cache falls outside that
+window. See `_cache_is_fresh`.
 """
 
 import io
