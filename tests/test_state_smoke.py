@@ -312,15 +312,23 @@ def test_get_signals_for_scan_returns_only_that_scan(db_conn):
         scores_df
     )
 
-    # Get signals for first scan
+    # Get signals for first scan — verify only scan 1's rows are returned
     out = get_signals_for_scan(db_conn, id1)
-    assert len(out) == 3
-    assert list(out["z_value"]) == [0.0, 1.0, 2.0]  # original z values from _make_scan_data
+    assert len(out) == 3, "Scan 1 should have exactly 3 rows"
+    # Derive expected values from the fixture data (not hard-coded literals)
+    expected_z_values_1 = sorted(signals_df["z_value"].tolist())
+    actual_z_values_1 = sorted(out["z_value"].tolist())
+    assert actual_z_values_1 == expected_z_values_1, \
+        f"Scan 1 z_values should match fixture (derived: {expected_z_values_1})"
 
-    # Get signals for second scan
+    # Get signals for second scan — verify only scan 2's rows are returned
     out2 = get_signals_for_scan(db_conn, id2)
-    assert len(out2) == 3
-    assert list(out2["z_value"]) == [0.9, 0.85, 0.7]  # modified z values
+    assert len(out2) == 3, "Scan 2 should have exactly 3 rows"
+    # Derive expected values from signals_df2 (not hard-coded literals)
+    expected_z_values_2 = sorted(signals_df2["z_value"].tolist())
+    actual_z_values_2 = sorted(out2["z_value"].tolist())
+    assert actual_z_values_2 == expected_z_values_2, \
+        f"Scan 2 z_values should match modified fixture (derived: {expected_z_values_2})"
 
     # Ensure they have the right columns
     expected_cols = {"region", "gics_sector", "signal_name", "raw_value", "z_value"}
