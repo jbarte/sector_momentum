@@ -212,3 +212,34 @@
   text-decoration: none;
 }
 .site-footer a:hover { color: var(--brand-strong); }
+
+/* =========================================================
+   Content-gating: lag-notice banner
+   ========================================================= */
+.lag-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 16px;
+  margin: 0 0 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--fg2);
+}
+.lag-banner[hidden] { display: none; }
+.lag-banner-text strong { color: var(--fg1); }
+.lag-banner-btn {
+  border: 1px solid var(--brand-strong);
+  color: var(--brand-strong);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.lag-banner-btn:hover { background: var(--brand-strong); color: var(--surface); }

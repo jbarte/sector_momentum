@@ -58,6 +58,8 @@
     var signedIn = !!(session && session.user);
     signinBtn.hidden = signedIn;
     userBox.hidden = !signedIn;
+    var lagBanner = document.getElementById("lag-banner");
+    if (lagBanner) lagBanner.hidden = signedIn;
     emailLabel.textContent = signedIn ? (session.user.email || "") : "";
     if (signedIn) {
       form.hidden = true;

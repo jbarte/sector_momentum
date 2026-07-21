@@ -17,6 +17,16 @@
 {% set active_segment = "sectors" %}
 {% include '_header.html.j2' %}
 
+{% if auth and lag_banner_date %}
+<div class="lag-banner" id="lag-banner" role="status">
+  <span class="lag-banner-text">
+    <span data-i18n="gate_banner_prefix">You're viewing data from</span>
+    <strong>{{ lag_banner_date }}</strong><span data-i18n="gate_banner_suffix">. Sign in for the latest data and all features.</span>
+  </span>
+  <button type="button" class="lag-banner-btn" onclick="document.getElementById('auth-signin').click()" data-i18n="gate_banner_signin">Sign in</button>
+</div>
+{% endif %}
+
 <div class="card">
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
