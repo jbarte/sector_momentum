@@ -116,7 +116,8 @@ def _build_breakdown_html(
 
     # Ticker + benchmark from universe (or themes config for the THEME track)
     if region == "THEME":
-        ticker = (themes_cfg or {}).get("themes", {}).get(sector_name, "—")
+        _tcfg = (themes_cfg or {}).get("themes", {}).get(sector_name)
+        ticker = (_tcfg["ticker"] if isinstance(_tcfg, dict) else _tcfg) if _tcfg else "—"
         benchmark = (themes_cfg or {}).get("benchmark", "ACWI")
     elif region == "US":
         ticker = universe.get("us_sectors", {}).get(sector_name, "—")

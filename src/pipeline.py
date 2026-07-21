@@ -190,7 +190,8 @@ def build_theme_signals_rows(
     rs_fast = sp.get("rs_momentum_fast", 5)
 
     rows: list[dict] = []
-    for name, ticker in themes_cfg.get("themes", {}).items():
+    for name, cfg in themes_cfg.get("themes", {}).items():
+        ticker = cfg["ticker"] if isinstance(cfg, dict) else cfg
         if ticker not in prices:
             logger.warning("Theme %s: ETF %s has no price data — skipping", name, ticker)
             continue

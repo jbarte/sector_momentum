@@ -8,19 +8,45 @@
 #        partial = best available, meaningfully different exposure.
 benchmark: ACWI
 themes:
-  Artificial Intelligence & Robotics: BOTZ
-  Semiconductors: SOXX
-  Cybersecurity: CIBR
-  Clean Energy: ICLN
-  Defense: ITA
-  Blockchain & Crypto: BLOK
-  Uranium & Nuclear: URA
-  Space: UFO
-  Lithium & Battery: LIT
-  Biotech: XBI
-  Quantum Computing: QTUM
-  Data Centers & Digital Infra: DTCR
-  AgTech & Food Innovation: KROP
+  Artificial Intelligence & Robotics:
+    ticker: BOTZ
+    gdelt_keywords: ["artificial intelligence", "robotics", "machine learning", "AI chip"]
+  Semiconductors:
+    ticker: SOXX
+    gdelt_keywords: ["semiconductor", "chip maker", "chip shortage", "foundry"]
+  Cybersecurity:
+    ticker: CIBR
+    gdelt_keywords: ["cybersecurity", "cyber attack", "data breach", "ransomware"]
+  Clean Energy:
+    ticker: ICLN
+    gdelt_keywords: ["clean energy", "renewable energy", "solar power", "wind energy"]
+  Defense:
+    ticker: ITA
+    gdelt_keywords: ["defense spending", "military contract", "arms deal", "defense industry"]
+  Blockchain & Crypto:
+    ticker: BLOK
+    gdelt_keywords: ["blockchain", "cryptocurrency", "bitcoin", "crypto regulation"]
+  Uranium & Nuclear:
+    ticker: URA
+    gdelt_keywords: ["uranium", "nuclear energy", "nuclear power", "nuclear reactor"]
+  Space:
+    ticker: UFO
+    gdelt_keywords: ["space launch", "satellite", "space exploration", "spacecraft"]
+  Lithium & Battery:
+    ticker: LIT
+    gdelt_keywords: ["lithium", "battery technology", "electric vehicle battery", "lithium mining"]
+  Biotech:
+    ticker: XBI
+    gdelt_keywords: ["biotechnology", "biotech", "gene therapy", "drug approval"]
+  Quantum Computing:
+    ticker: QTUM
+    gdelt_keywords: ["quantum computing", "quantum chip", "quantum processor", "qubit"]
+  Data Centers & Digital Infra:
+    ticker: DTCR
+    gdelt_keywords: ["data center", "cloud infrastructure", "hyperscale", "server farm"]
+  AgTech & Food Innovation:
+    ticker: KROP
+    gdelt_keywords: ["agtech", "precision agriculture", "food technology", "vertical farming"]
 
 ucits:
   Artificial Intelligence & Robotics:

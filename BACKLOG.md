@@ -94,14 +94,6 @@ The 0.50/0.50 level/change split is assumed, not validated. Grid the split
 in the backtest with walk-forward evaluation to see whether the choice
 matters and which region prefers what. *(Deep review 2026-07-19.)*
 
-## FinBERT sentiment for themes
-
-Themes lost sentiment entirely in the Trends retirement (they were
-Trends-only). GDELT keyword queries per theme (uranium, defense stocks, …)
-scored with the existing FinBERT pipeline would restore a theme sentiment
-dimension. Watch the GDELT rate-limit budget — 13 extra queries per scan.
-*(Deep review 2026-07-19.)*
-
 ## docs/data.json export
 
 Emit a machine-readable `docs/data.json` (latest scan: scores, ranks,
@@ -139,6 +131,11 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **FinBERT sentiment for themes** — keyword-based GDELT queries per theme
+  scored with FinBERT, z-scored within theme cohort, stored in
+  `theme_sentiment_signals` + `theme_scores.sentiment_score`.
+  `themes.yaml` restructured to `{ticker, gdelt_keywords}` per theme.
+  Informational only (`blend_sentiment=False`). *(2026-07-22)*
 - **Content gating hardened beyond leaderboard** — all baked data (SCAN_HISTORY
   blob, scan index, scan reports, charts, RRG, feed) now capped at the lagged
   scan boundary when auth is configured. Previously only the leaderboard table

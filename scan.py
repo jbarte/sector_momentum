@@ -437,7 +437,8 @@ def run(args: argparse.Namespace) -> int:
                 with open("config/themes.yaml", "r") as _fh:
                     _themes_cfg = yaml.safe_load(_fh) or {}
                 _theme_tickers = sorted({
-                    *_themes_cfg.get("themes", {}).values(),
+                    *(cfg["ticker"] if isinstance(cfg, dict) else cfg
+                      for cfg in _themes_cfg.get("themes", {}).values()),
                     _themes_cfg.get("benchmark", "ACWI"), "SPY",
                 })
                 _theme_prices = fetch_prices(
@@ -447,16 +448,51 @@ def run(args: argparse.Namespace) -> int:
                 if _theme_rows:
                     _theme_wide = pd.DataFrame(_theme_rows).set_index("sector_key")[SIGNAL_COLUMNS]
 
-                    # Themes are price-pillars only (Google Trends retired
-                    # 2026-07-19; FinBERT covers sectors, not themes).
+                    _theme_sentiment = pd.Series(float("nan"), index=_theme_wide.index, dtype=float)
+                    _theme_sent_signals_df = None
+
+                    if not args.no_finbert:
+                        try:
+                            from src.data.news_sentiment import (
+                                fetch_theme_headlines, score_headlines,
+                                zscore_polarity as finbert_zscore,
+                                build_theme_news_signal_rows,
+                            )
+                            _th_headlines = fetch_theme_headlines(_themes_cfg)
+                            _th_total = sum(len(h) for h in _th_headlines.values())
+                            logger.info("GDELT themes: %d headlines across %d themes",
+                                        _th_total, len(_th_headlines))
+
+                            _th_fb_scores = score_headlines(_th_headlines)
+                            _th_fb_z = finbert_zscore(_th_fb_scores)
+
+                            _th_live = sum(1 for v in _th_fb_z.values() if not math.isnan(v))
+                            logger.info("FinBERT themes: %d/%d themes scored", _th_live, len(_th_fb_z))
+
+                            if _th_live >= 2:
+                                for key in _theme_wide.index:
+                                    theme_name = key.split("|", 1)[1]
+                                    z = _th_fb_z.get(theme_name)
+                                    if z is not None and not math.isnan(z):
+                                        _theme_sentiment[key] = z
+
+                            _theme_sent_signals_df = pd.DataFrame(
+                                build_theme_news_signal_rows(_th_fb_scores)
+                            )
+                        except Exception as exc:
+                            logger.warning("Theme FinBERT failed (%s) — theme sentiment stays NULL", exc)
+
                     _theme_scored = score_all(
-                        _theme_wide, sentiment_score=None, blend_sentiment=False,
+                        _theme_wide,
+                        sentiment_score=_theme_sentiment,
+                        blend_sentiment=False,
                     )
                     _theme_scores_df = _build_scored_df_for_db(_theme_scored)
                     _theme_z = zscore_cross_section(_theme_wide)
                     _theme_signals_df = _build_long_signals_df(_theme_rows, z_wide_df=_theme_z)
                     save_theme_scan(
                         conn, scan_id, _theme_scores_df, _theme_signals_df,
+                        sentiment_signals_df=_theme_sent_signals_df,
                     )
                     logger.info("Themes: scored and saved %d themes", len(_theme_rows))
                 else:
