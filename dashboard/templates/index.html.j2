@@ -27,6 +27,22 @@
 </div>
 {% endif %}
 
+{% if auth %}
+<div class="gate-modal-overlay" id="gate-modal" hidden>
+  <div class="gate-modal" role="dialog" aria-modal="true" aria-labelledby="gate-modal-title">
+    <h2 id="gate-modal-title" data-i18n="gate_modal_title">Sector Momentum</h2>
+    <p data-i18n="gate_modal_body">Sign in for the latest data, or continue browsing with data from last week.</p>
+    <form class="auth-form gate-modal-form">
+      <input type="email" class="auth-email" required autocomplete="email"
+             placeholder="you@example.com" aria-label="Email">
+      <button type="submit" class="lang-toggle auth-send" data-i18n="auth_send_link">Send link</button>
+      <span class="auth-status" aria-live="polite"></span>
+    </form>
+    <button type="button" class="gate-modal-continue" id="gate-continue" data-i18n="gate_modal_continue">Continue as guest</button>
+  </div>
+</div>
+{% endif %}
+
 <div class="card">
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">

@@ -12,13 +12,12 @@
   var sb = window.supabase.createClient(cfg.url, cfg.key);
 
   var signinBtn = document.getElementById("auth-signin");
-  var form = document.getElementById("auth-form");
-  var emailInput = document.getElementById("auth-email");
-  var sendBtn = document.getElementById("auth-send");
-  var status = document.getElementById("auth-status");
+  var headerForm = document.getElementById("auth-form");
   var userBox = document.getElementById("auth-user");
   var emailLabel = document.getElementById("auth-email-label");
   var signoutBtn = document.getElementById("auth-signout");
+  var modal = document.getElementById("gate-modal");
+  var continueBtn = document.getElementById("gate-continue");
 
   /* Dynamic strings can't use the data-i18n pass (it runs once per toggle
    * over static nodes), so they carry their own EN/SV pairs. */
@@ -50,48 +49,78 @@
     catch (e) { return "en"; }
   }
 
-  function setStatus(key) {
-    status.textContent = key ? MSG[key][lang()] : "";
+  function setStatus(statusEl, key) {
+    if (statusEl) statusEl.textContent = key ? MSG[key][lang()] : "";
+  }
+
+  function guestDismissed() {
+    try { return localStorage.getItem("guest_dismissed") === "1"; }
+    catch (e) { return false; }
+  }
+
+  function showModal(show) {
+    if (modal) modal.hidden = !show;
   }
 
   function render(session) {
     var signedIn = !!(session && session.user);
     signinBtn.hidden = signedIn;
     userBox.hidden = !signedIn;
+    emailLabel.textContent = signedIn ? (session.user.email || "") : "";
     var lagBanner = document.getElementById("lag-banner");
     if (lagBanner) lagBanner.hidden = signedIn;
-    emailLabel.textContent = signedIn ? (session.user.email || "") : "";
     if (signedIn) {
-      form.hidden = true;
-      setStatus(null);
+      headerForm.hidden = true;
+      showModal(false);
+    } else {
+      // First-visit landing modal (suppressed on return visits by the flag).
+      showModal(!guestDismissed());
     }
   }
 
   signinBtn.addEventListener("click", function () {
-    form.hidden = !form.hidden;
-    if (!form.hidden) emailInput.focus();
+    headerForm.hidden = !headerForm.hidden;
+    if (!headerForm.hidden) {
+      var inp = headerForm.querySelector(".auth-email");
+      if (inp) inp.focus();
+    }
   });
 
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    sendBtn.disabled = true;
-    setStatus(null);
-    sb.auth
-      .signInWithOtp({
-        email: emailInput.value.trim(),
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: window.location.origin + window.location.pathname,
-        },
-      })
-      .then(function (res) {
-        if (!res.error) { setStatus("sent"); return; }
-        if (res.error.status === 429) setStatus("rateLimited");
-        else if (/signup|not allowed|not found/i.test(res.error.message || "")) setStatus("notInvited");
-        else setStatus("error");
-      })
-      .catch(function () { setStatus("error"); })
-      .then(function () { sendBtn.disabled = false; });
+  if (continueBtn) {
+    continueBtn.addEventListener("click", function () {
+      try { localStorage.setItem("guest_dismissed", "1"); } catch (e) {}
+      showModal(false);
+    });
+  }
+
+  // Bind every magic-link form (header dropdown + landing modal) to the same
+  // signInWithOtp flow. Each form owns its own email input and status span.
+  var forms = Array.prototype.slice.call(document.querySelectorAll(".auth-form"));
+  forms.forEach(function (form) {
+    var emailInput = form.querySelector(".auth-email");
+    var sendBtn = form.querySelector(".auth-send");
+    var statusEl = form.querySelector(".auth-status");
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (sendBtn) sendBtn.disabled = true;
+      setStatus(statusEl, null);
+      sb.auth
+        .signInWithOtp({
+          email: emailInput.value.trim(),
+          options: {
+            shouldCreateUser: false,
+            emailRedirectTo: window.location.origin + window.location.pathname,
+          },
+        })
+        .then(function (res) {
+          if (!res.error) { setStatus(statusEl, "sent"); return; }
+          if (res.error.status === 429) setStatus(statusEl, "rateLimited");
+          else if (/signup|not allowed|not found/i.test(res.error.message || "")) setStatus(statusEl, "notInvited");
+          else setStatus(statusEl, "error");
+        })
+        .catch(function () { setStatus(statusEl, "error"); })
+        .then(function () { if (sendBtn) sendBtn.disabled = false; });
+    });
   });
 
   signoutBtn.addEventListener("click", function () {
@@ -109,7 +138,8 @@
    * #error=…&error_code=… in the URL instead of a session. */
   var hash = window.location.hash || "";
   if (hash.indexOf("error=") !== -1) {
-    form.hidden = false;
-    setStatus(hash.indexOf("otp_expired") !== -1 ? "expired" : "error");
+    if (headerForm) headerForm.hidden = false;
+    var hs = headerForm ? headerForm.querySelector(".auth-status") : null;
+    setStatus(hs, hash.indexOf("otp_expired") !== -1 ? "expired" : "error");
   }
 })();
