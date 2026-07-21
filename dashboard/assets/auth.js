@@ -98,7 +98,21 @@
         if (res.error || !res.data || !res.data.length) { _upgraded = false; return; }
         renderLatestRows(tbody, res.data);
         markLive();
+        makeLeaderboardReadOnly();
       });
+  }
+
+  function makeLeaderboardReadOnly() {
+    window._leaderboardUpgraded = true;
+    // Hide the sentiment/rank settings gear (its toggle can't work on upgraded rows).
+    var settings = document.querySelector("#tab-leaderboard .rank-settings");
+    if (settings) settings.style.display = "none";
+    // Neutralize the sortable column headers (sortTable() also guards on the flag).
+    var ths = document.querySelectorAll("#tab-leaderboard thead th[onclick]");
+    ths.forEach(function (th) {
+      th.style.cursor = "default";
+      th.removeAttribute("tabindex");
+    });
   }
 
   function renderLatestRows(tbody, rows) {

@@ -493,6 +493,7 @@ function toggleBreakdown(id) {
 var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
 
 function sortTable(col) {
+  if (window._leaderboardUpgraded) return;
   var table   = document.getElementById('leaderboard-table');
   var tbody   = table.querySelector('tbody');
   var headers = table.querySelectorAll('thead th');
@@ -661,6 +662,7 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   }
 
   function applyRanking() {
+    if (window._leaderboardUpgraded) return;
     var enabled = toggle.checked;
     var weight = Math.min(100, Math.max(0, parseInt(weightInput.value, 10) || 0));
     var W = enabled ? weight / 100 : 0;
