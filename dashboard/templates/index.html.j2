@@ -17,6 +17,32 @@
 {% set active_segment = "sectors" %}
 {% include '_header.html.j2' %}
 
+{% if auth and lag_banner_date %}
+<div class="lag-banner" id="lag-banner" role="status">
+  <span class="lag-banner-text">
+    <span data-i18n="gate_banner_prefix">You're viewing data from</span>
+    <strong>{{ lag_banner_date }}</strong><span data-i18n="gate_banner_suffix">. Sign in for the latest data and all features.</span>
+  </span>
+  <button type="button" class="lag-banner-btn" onclick="document.getElementById('auth-signin').click()" data-i18n="gate_banner_signin">Sign in</button>
+</div>
+{% endif %}
+
+{% if auth %}
+<div class="gate-modal-overlay" id="gate-modal" hidden>
+  <div class="gate-modal" role="dialog" aria-modal="true" aria-labelledby="gate-modal-title">
+    <h2 id="gate-modal-title" data-i18n="gate_modal_title">Sector Momentum</h2>
+    <p data-i18n="gate_modal_body">Sign in for the latest data, or continue browsing with data from last week.</p>
+    <form class="auth-form gate-modal-form">
+      <input type="email" class="auth-email" required autocomplete="email"
+             placeholder="you@example.com" aria-label="Email">
+      <button type="submit" class="lang-toggle auth-send" data-i18n="auth_send_link">Send link</button>
+      <span class="auth-status" aria-live="polite"></span>
+    </form>
+    <button type="button" class="gate-modal-continue" id="gate-continue" data-i18n="gate_modal_continue">Continue as guest</button>
+  </div>
+</div>
+{% endif %}
+
 <div class="card">
 <!-- Tab bar -->
 <nav class="tabs" role="tablist">
@@ -467,6 +493,7 @@ function toggleBreakdown(id) {
 var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
 
 function sortTable(col) {
+  if (window._leaderboardUpgraded) return;
   var table   = document.getElementById('leaderboard-table');
   var tbody   = table.querySelector('tbody');
   var headers = table.querySelectorAll('thead th');
@@ -635,6 +662,7 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   }
 
   function applyRanking() {
+    if (window._leaderboardUpgraded) return;
     var enabled = toggle.checked;
     var weight = Math.min(100, Math.max(0, parseInt(weightInput.value, 10) || 0));
     var W = enabled ? weight / 100 : 0;

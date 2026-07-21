@@ -212,3 +212,84 @@
   text-decoration: none;
 }
 .site-footer a:hover { color: var(--brand-strong); }
+
+/* =========================================================
+   Content-gating: lag-notice banner
+   ========================================================= */
+.lag-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 16px;
+  margin: 0 0 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--fg2);
+}
+.lag-banner[hidden] { display: none; }
+.lag-banner-text strong { color: var(--fg1); }
+.lag-banner-btn {
+  border: 1px solid var(--brand-strong);
+  color: var(--brand-strong);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.lag-banner-btn:hover { background: var(--brand-strong); color: var(--surface); }
+
+/* =========================================================
+   Content-gating: landing modal
+   ========================================================= */
+.gate-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+}
+.gate-modal-overlay[hidden] { display: none; }
+.gate-modal {
+  max-width: 420px;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 28px 26px;
+  text-align: center;
+}
+.gate-modal h2 { margin: 0 0 8px; font-size: 1.3rem; color: var(--fg1); }
+.gate-modal p { margin: 0 0 18px; color: var(--fg2); font-size: 0.9rem; }
+/* Inside the modal the form is static (not the header dropdown), so reset the
+   absolute positioning the .auth-form rule applies in the command bar. */
+.gate-modal-form {
+  position: static;
+  justify-content: center;
+  flex-wrap: wrap;
+  box-shadow: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  margin-bottom: 14px;
+}
+.gate-modal-continue {
+  border: none;
+  background: transparent;
+  color: var(--fg4);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.gate-modal-continue:hover { color: var(--fg2); }
