@@ -121,6 +121,14 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Content gating (lagged data for guests)** — landing modal (sign in / continue
+  as guest) + persistent lag-notice banner on the Sectors page. The baked
+  leaderboard now renders the newest scan ≥7 days old when auth is configured
+  (`dashboard/gating.py`, `apply_leaderboard_lag`); authed users upgrade the
+  leaderboard to the latest scan client-side via the RLS-protected
+  `v_latest_scores` view (`scripts/content_gating_migration.sql`, run post-merge).
+  Other tabs keep full history. Falls back to latest-everywhere when auth is
+  disabled. *(2026-07-21)*
 - **Rolling correlation heatmap** — new Correlation tab on the sectors page
   showing a 25×25 Plotly heatmap of 60-trading-day rolling return correlations
   across all sector ETFs. Rows/columns ordered by region then rank, top-5 per
