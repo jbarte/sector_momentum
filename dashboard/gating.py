@@ -66,5 +66,5 @@ def apply_leaderboard_lag(
 
     lag_df = history_df[history_df["scan_id"] <= lag_id].copy()
     run_at = lag_df[lag_df["scan_id"] == lag_id]["run_at"].iloc[0]
-    banner_date = pd.to_datetime(run_at, utc=True).strftime("%Y-%m-%d")
+    banner_date = pd.to_datetime(run_at, utc=True, format="ISO8601").strftime("%Y-%m-%d")
     return lag_df, lag_id, banner_date
