@@ -343,6 +343,22 @@ def get_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.Data
     )
 
 
+def get_signals_for_scan(
+    conn: psycopg2.extensions.connection, scan_id: int
+) -> pd.DataFrame:
+    """
+    Return all signal rows for a specific scan_id.
+    Columns: region, gics_sector, signal_name, raw_value, z_value
+    Returns empty DataFrame if the scan has no signals.
+    """
+    return _read_sql(
+        conn,
+        "SELECT region, gics_sector, signal_name, raw_value, z_value "
+        "FROM signals WHERE scan_id = %s",
+        (scan_id,),
+    )
+
+
 def get_sentiment_signals_for_latest_scan(
     conn: psycopg2.extensions.connection,
 ) -> pd.DataFrame:

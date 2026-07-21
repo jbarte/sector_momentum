@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import pytest
 
-from src.state import init_db, save_scan, load_last_scan, compute_deltas, get_scan_history
+from src.state import init_db, save_scan, load_last_scan, compute_deltas, get_scan_history, get_signals_for_scan
 
 
 # ---------------------------------------------------------------------------
@@ -285,3 +285,44 @@ def test_sentiment_signals_ddl_includes_text_value():
     from src.state import _DDL_STATEMENTS
     ddl = " ".join(_DDL_STATEMENTS)
     assert "text_value" in ddl
+
+
+@skipif_no_db
+def test_get_signals_for_scan_returns_only_that_scan(db_conn):
+    """get_signals_for_scan should return only signals for a specific scan_id."""
+    signals_df, scores_df = _make_scan_data()
+
+    # Save first scan on 2026-07-01
+    id1 = save_scan(
+        db_conn,
+        datetime.datetime(2026, 7, 1, tzinfo=datetime.timezone.utc),
+        signals_df,
+        scores_df
+    )
+
+    # Modify signals for second scan
+    signals_df2 = signals_df.copy()
+    signals_df2["z_value"] = [0.9, 0.85, 0.7]  # different z values
+
+    # Save second scan on 2026-07-08
+    id2 = save_scan(
+        db_conn,
+        datetime.datetime(2026, 7, 8, tzinfo=datetime.timezone.utc),
+        signals_df2,
+        scores_df
+    )
+
+    # Get signals for first scan
+    out = get_signals_for_scan(db_conn, id1)
+    assert len(out) == 3
+    assert list(out["z_value"]) == [0.0, 1.0, 2.0]  # original z values from _make_scan_data
+
+    # Get signals for second scan
+    out2 = get_signals_for_scan(db_conn, id2)
+    assert len(out2) == 3
+    assert list(out2["z_value"]) == [0.9, 0.85, 0.7]  # modified z values
+
+    # Ensure they have the right columns
+    expected_cols = {"region", "gics_sector", "signal_name", "raw_value", "z_value"}
+    assert set(out.columns) == expected_cols
+    assert set(out2.columns) == expected_cols
