@@ -27,7 +27,7 @@ def _pick_lagged_scan(
         .drop_duplicates(subset="scan_id")
         .copy()
     )
-    per_scan["ts"] = pd.to_datetime(per_scan["run_at"], utc=True)
+    per_scan["ts"] = pd.to_datetime(per_scan["run_at"], utc=True, format="ISO8601")
     cutoff = now - pd.Timedelta(days=lag_days)
 
     old_enough = per_scan[per_scan["ts"] <= cutoff]
