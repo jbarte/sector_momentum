@@ -93,6 +93,7 @@ from dashboard.health import (                         # noqa: E402, F401
 from dashboard.correlation import (                    # noqa: E402, F401
     build_correlation_context,
 )
+from dashboard.gating import apply_leaderboard_lag  # noqa: E402
 from dashboard.validation import (                    # noqa: E402, F401
     build_validation_context as _validation_ctx,
 )
@@ -251,6 +252,7 @@ def main() -> None:
         get_theme_signals_for_latest_scan, get_theme_scan_history,
         get_theme_rrg_history,
         get_latest_health,
+        get_signals_for_scan,
     )
 
     conn = init_db()
@@ -269,8 +271,6 @@ def main() -> None:
     _generate_scan_reports(all_scores_df, out_dir / "reports")
 
     health_row = get_latest_health(conn)
-
-    conn.close()
 
     if history_df.empty:
         print("No scans in database yet. Run scan.py first.")
@@ -314,13 +314,32 @@ def main() -> None:
         theme_history_df, theme_signals_df, _themes_cfg, _weights, theme_trajectories,
     )
 
-    # Leaderboard rows + enrichment
-    logger.info("Building leaderboard …")
-    leaderboard_rows, scan_date = _build_leaderboard_rows(history_df)
-    trajectories = _compute_rank_trajectories(history_df)
+    # Compute auth context (fail-open: disabled if key not set or bundle fails)
+    # before the docs asset copy below, so the supabase bundle is downloaded
+    # in time to be copied into docs/assets/ on a fresh checkout.
+    auth_ctx = _auth_ctx()
+    if auth_ctx["auth"] and _ensure_supabase_bundle() is None:
+        auth_ctx = {"auth": None, "auth_config_json": ""}
 
-    latest_scan_id = history_df["scan_id"].max()
-    latest_scores  = history_df[history_df["scan_id"] == latest_scan_id]
+    # Leaderboard rows + enrichment.
+    # When auth is configured, guests get a lagged leaderboard; authed users
+    # upgrade to the latest scan client-side (see auth.js). When auth is off,
+    # apply_leaderboard_lag returns the latest scan unchanged.
+    logger.info("Building leaderboard …")
+    lag_active = bool(auth_ctx["auth"])
+    lb_history_df, lb_scan_id, lag_banner_date = apply_leaderboard_lag(
+        history_df, lag_active=lag_active
+    )
+    if lag_active and lag_banner_date is not None:
+        logger.info("Leaderboard lagged to scan %s (%s)", lb_scan_id, lag_banner_date)
+        signals_df = get_signals_for_scan(conn, lb_scan_id)
+
+    leaderboard_rows, scan_date = _build_leaderboard_rows(lb_history_df)
+    trajectories = _compute_rank_trajectories(lb_history_df)
+
+    latest_scan_id = lb_scan_id
+    latest_scores  = lb_history_df[lb_history_df["scan_id"] == lb_scan_id]
+
     for row in leaderboard_rows:
         key = f"{row['region']}|{row['sector']}"
         row["key"]       = key
@@ -350,12 +369,7 @@ def main() -> None:
     us_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "US"]
     eu_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "EU"]
 
-    # Compute auth context (fail-open: disabled if key not set or bundle fails)
-    # before the docs asset copy below, so the supabase bundle is downloaded
-    # in time to be copied into docs/assets/ on a fresh checkout.
-    auth_ctx = _auth_ctx()
-    if auth_ctx["auth"] and _ensure_supabase_bundle() is None:
-        auth_ctx = {"auth": None, "auth_config_json": ""}
+    conn.close()
 
     # 4. Copy plotly.min.js into docs/assets/ so GitHub Pages can serve it
     import shutil
@@ -401,6 +415,7 @@ def main() -> None:
         "us_leaderboard_rows": us_leaderboard_rows,
         "eu_leaderboard_rows": eu_leaderboard_rows,
         "plotly_bundle": plotly_bundle_rel,
+        "lag_banner_date": lag_banner_date,
     }
     sectors_ctx.update(_figures_sectors_ctx(shared))
     sectors_ctx.update(_badges_ctx(shared))
