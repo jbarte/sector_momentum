@@ -61,7 +61,10 @@ def build_ticker_list(universe: dict) -> list[str]:
 
 
 def build_theme_ticker_list(themes_cfg: dict) -> list[str]:
-    tickers = list(themes_cfg.get("themes", {}).values())
+    tickers = [
+        (cfg["ticker"] if isinstance(cfg, dict) else cfg)
+        for cfg in themes_cfg.get("themes", {}).values()
+    ]
     bench = themes_cfg.get("benchmark") or "ACWI"
     if bench not in tickers:
         tickers.append(bench)

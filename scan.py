@@ -437,7 +437,8 @@ def run(args: argparse.Namespace) -> int:
                 with open("config/themes.yaml", "r") as _fh:
                     _themes_cfg = yaml.safe_load(_fh) or {}
                 _theme_tickers = sorted({
-                    *_themes_cfg.get("themes", {}).values(),
+                    *(cfg["ticker"] if isinstance(cfg, dict) else cfg
+                      for cfg in _themes_cfg.get("themes", {}).values()),
                     _themes_cfg.get("benchmark", "ACWI"), "SPY",
                 })
                 _theme_prices = fetch_prices(

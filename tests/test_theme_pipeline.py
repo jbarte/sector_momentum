@@ -10,7 +10,10 @@ def _ramp_prices(n=260, start=100.0, step=0.5):
 
 
 def test_build_theme_rows_shape_and_keys():
-    cfg = {"benchmark": "ACWI", "themes": {"Space": "UFO", "Semiconductors": "SOXX"}}
+    cfg = {"benchmark": "ACWI", "themes": {
+        "Space": {"ticker": "UFO", "gdelt_keywords": ["space launch", "satellite"]},
+        "Semiconductors": {"ticker": "SOXX", "gdelt_keywords": ["semiconductor", "chip maker"]},
+    }}
     prices = {"UFO": _ramp_prices(), "SOXX": _ramp_prices(step=0.7), "ACWI": _ramp_prices(step=0.2)}
     rows = build_theme_signals_rows(cfg, prices)
     assert len(rows) == 2
@@ -23,14 +26,19 @@ def test_build_theme_rows_shape_and_keys():
 
 
 def test_build_theme_rows_skips_missing_etf():
-    cfg = {"benchmark": "ACWI", "themes": {"Space": "UFO", "Ghost": "ZZZZ"}}
+    cfg = {"benchmark": "ACWI", "themes": {
+        "Space": {"ticker": "UFO", "gdelt_keywords": ["space launch"]},
+        "Ghost": {"ticker": "ZZZZ", "gdelt_keywords": ["ghost"]},
+    }}
     prices = {"UFO": _ramp_prices(), "ACWI": _ramp_prices(step=0.2)}
     rows = build_theme_signals_rows(cfg, prices)
     assert [r["gics_sector"] for r in rows] == ["Space"]   # ZZZZ (no data) skipped
 
 
 def test_build_theme_rows_benchmark_fallback_to_spy():
-    cfg = {"benchmark": "ACWI", "themes": {"Space": "UFO"}}
+    cfg = {"benchmark": "ACWI", "themes": {
+        "Space": {"ticker": "UFO", "gdelt_keywords": ["space launch"]},
+    }}
     prices = {"UFO": _ramp_prices(), "SPY": _ramp_prices(step=0.2)}   # no ACWI
     rows = build_theme_signals_rows(cfg, prices)
     assert len(rows) == 1

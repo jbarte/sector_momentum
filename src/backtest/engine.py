@@ -119,8 +119,8 @@ def run_all(universe: dict, prices: dict[str, pd.DataFrame], top_n: int = 5, cos
 
 
 def _theme_instruments(themes_cfg: dict) -> dict[str, str]:
-    return {f"THEME|{name}": ticker
-            for name, ticker in themes_cfg.get("themes", {}).items()}
+    return {f"THEME|{name}": (cfg["ticker"] if isinstance(cfg, dict) else cfg)
+            for name, cfg in themes_cfg.get("themes", {}).items()}
 
 
 def run_theme_track(

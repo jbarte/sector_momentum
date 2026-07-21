@@ -18,10 +18,10 @@ def _themes_cfg():
     return {
         "benchmark": "ACWI",
         "themes": {
-            "Alpha": "ALPH",
-            "Beta": "BETA",
-            "Gamma": "GAMM",
-            "Delta": "DELT",
+            "Alpha": {"ticker": "ALPH", "gdelt_keywords": ["alpha tech"]},
+            "Beta": {"ticker": "BETA", "gdelt_keywords": ["beta corp"]},
+            "Gamma": {"ticker": "GAMM", "gdelt_keywords": ["gamma energy"]},
+            "Delta": {"ticker": "DELT", "gdelt_keywords": ["delta bio"]},
         },
     }
 
