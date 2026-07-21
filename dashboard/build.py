@@ -264,12 +264,7 @@ def main() -> None:
     rrg_df = get_rrg_history(conn, n_scans=6)
     theme_rrg_df = get_theme_rrg_history(conn, n_scans=6)
 
-    logger.info("Building scan index + per-scan reports …")
     all_scores_df = get_scan_history(conn, n_scans=None)
-    scan_index = build_scan_index(all_scores_df)
-    active_scan_id = scan_index[0]["scan_id"] if scan_index else None
-    _generate_scan_reports(all_scores_df, out_dir / "reports")
-
     health_row = get_latest_health(conn)
 
     if history_df.empty:
@@ -278,6 +273,36 @@ def main() -> None:
         sys.exit(0)
 
     logger.info("Loaded %d rows from %d scans", len(history_df), history_df["scan_id"].nunique())
+
+    # ------------------------------------------------------------------
+    # Content gating: compute auth + lag early so EVERY downstream
+    # artefact (SCAN_HISTORY, charts, scan index, reports, theme rows)
+    # is capped at the lagged scan boundary for guests.
+    # ------------------------------------------------------------------
+    auth_ctx = _auth_ctx()
+    if auth_ctx["auth"] and _ensure_supabase_bundle() is None:
+        auth_ctx = {"auth": None, "auth_config_json": ""}
+
+    lag_active = bool(auth_ctx["auth"])
+    lb_history_df, lb_scan_id, lag_banner_date = apply_leaderboard_lag(
+        history_df, lag_active=lag_active
+    )
+    if lag_active and lb_scan_id is not None:
+        logger.info("Content gating active — baked data capped at scan %s (%s)",
+                     lb_scan_id, lag_banner_date)
+        all_scores_df = all_scores_df[all_scores_df["scan_id"] <= lb_scan_id].copy()
+        history_df = history_df[history_df["scan_id"] <= lb_scan_id].copy()
+        rrg_df = rrg_df[rrg_df["scan_id"] <= lb_scan_id].copy()
+        theme_history_df = theme_history_df[theme_history_df["scan_id"] <= lb_scan_id].copy()
+        theme_rrg_df = theme_rrg_df[theme_rrg_df["scan_id"] <= lb_scan_id].copy()
+        signals_df = get_signals_for_scan(conn, lb_scan_id)
+
+    logger.info("Building scan index + per-scan reports …")
+    scan_index = build_scan_index(all_scores_df)
+    active_scan_id = lb_scan_id if lb_scan_id is not None else (
+        scan_index[0]["scan_id"] if scan_index else None
+    )
+    _generate_scan_reports(all_scores_df, out_dir / "reports")
 
     # Load config for breakdown panel
     import yaml as _yaml
@@ -315,26 +340,8 @@ def main() -> None:
         theme_history_df, theme_signals_df, _themes_cfg, _weights, theme_trajectories,
     )
 
-    # Compute auth context (fail-open: disabled if key not set or bundle fails)
-    # before the docs asset copy below, so the supabase bundle is downloaded
-    # in time to be copied into docs/assets/ on a fresh checkout.
-    auth_ctx = _auth_ctx()
-    if auth_ctx["auth"] and _ensure_supabase_bundle() is None:
-        auth_ctx = {"auth": None, "auth_config_json": ""}
-
     # Leaderboard rows + enrichment.
-    # When auth is configured, guests get a lagged leaderboard; authed users
-    # upgrade to the latest scan client-side (see auth.js). When auth is off,
-    # apply_leaderboard_lag returns the latest scan unchanged.
     logger.info("Building leaderboard …")
-    lag_active = bool(auth_ctx["auth"])
-    lb_history_df, lb_scan_id, lag_banner_date = apply_leaderboard_lag(
-        history_df, lag_active=lag_active
-    )
-    if lag_active and lag_banner_date is not None:
-        logger.info("Leaderboard lagged to scan %s (%s)", lb_scan_id, lag_banner_date)
-        signals_df = get_signals_for_scan(conn, lb_scan_id)
-
     leaderboard_rows, scan_date = _build_leaderboard_rows(lb_history_df)
     trajectories = _compute_rank_trajectories(lb_history_df)
 

@@ -39,24 +39,6 @@ dependency), or a heuristic that walks back over Sat/Sun. Keep the fragile-sourc
 mitigation in mind — don't refetch when there is genuinely no newer close.
 Surfaced 2026-07-21 while reviewing the data-health panel (all-cache readings).
 
-## Harden content gating beyond the leaderboard
-
-Content gating (shipped 2026-07-21) lags **only the leaderboard table** for
-guests. The latest scan's ranks and composite scores are still reachable by an
-unauthenticated visitor through other baked surfaces: the **History tab**, the
-**scan-index dropdown** (defaults to newest), the **per-scan downloadable
-reports** (`docs/reports/`, keyed off `active_scan_id` = newest), and the
-**Atom feed** (`feed.xml`). So the ~7-day lag is currently a soft engagement
-nudge, not a hard gate.
-
-**If a hard gate is wanted:** lag/gate these surfaces for guests too — e.g.
-cap `active_scan_id`/`scan_index`/reports/feed at the same lagged scan the
-leaderboard uses (via `dashboard/gating.py`'s `apply_leaderboard_lag`), and
-have authed users fetch the newer scans client-side (same pattern as
-`v_latest_scores`). Decide per-surface whether History/feed are *meant* to show
-full history (they arguably are) before gating them. Flagged by the
-2026-07-21 whole-branch review of the content-gating branch.
-
 ## Position tracking
 
 Allow logged-in users to track their sector/theme positions (holdings,
@@ -157,6 +139,12 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Content gating hardened beyond leaderboard** — all baked data (SCAN_HISTORY
+  blob, scan index, scan reports, charts, RRG, feed) now capped at the lagged
+  scan boundary when auth is configured. Previously only the leaderboard table
+  was lagged; guests could reach latest scores via the History tab, figures, or
+  feed. Restructured `dashboard/build.py` to compute auth + lag before building
+  any downstream artefact. *(2026-07-21)*
 - **Content gating (lagged data for guests)** — landing modal (sign in / continue
   as guest) + persistent lag-notice banner on the Sectors page. The baked
   leaderboard now renders the newest scan ≥7 days old when auth is configured
