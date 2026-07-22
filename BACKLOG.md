@@ -111,6 +111,14 @@ dashboard's drill-down tab covers most of the need.
   function with drifting step numbers). Behavior-preserving — scan smoke,
   workflow, and health tests pass unchanged. Completes the ops hardening sweep
   (backup restore drill shipped the same day). *(2026-07-22)*
+- **Backup restore drill** — new gated integration test
+  (`tests/test_backup_drill.py`) round-trips a seeded fixture through
+  `dump_tables` → `write_backup` → zip → `read_backup` → `load_tables(force=True)`
+  → re-dump and asserts row-for-row equality across all seven tables. Exercises
+  the real-DB restore paths (FK-safe deletes, NULL handling, sequence reset)
+  that mocked unit tests never touched. Gated on `TEST_DATABASE_URL`; skips
+  safely without a disposable DB. Part of the ops hardening sweep (scan.py
+  cleanup shipped the same day). *(2026-07-22)*
 - **Price-cache adjustment consistency — retired (premise moot)** — the queued
   item assumed the parquet cache *appends* fresh rows onto old ones, letting
   auto_adjust re-adjustments accumulate inconsistently around distributions.
