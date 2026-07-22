@@ -45,13 +45,6 @@ max-drawdown leaderboard column — both backtestable before adoption.
 Split from the correlation audit (shipped 2026-07-20). *(Deep review
 2026-07-19.)*
 
-## Regime-conditional weighting (research)
-
-The macro bar already computes SPY-vs-200DMA and VIX bands. Research
-whether level/change weights or rotation top-N should shift by regime
-(e.g. favour `change` in risk-off transitions). Pure backtest work — no
-live change until it proves out. *(Deep review 2026-07-19.)*
-
 ## Walk-forward weight validation (research)
 
 The 0.50/0.50 level/change split is assumed, not validated. Grid the split
@@ -95,6 +88,17 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Regime-conditional weighting (research)** — added a backtest research harness
+  (`scripts/regime_research.py`) comparing the fixed 50/50 level/change split against
+  regime-conditional schemes (SPY vs 200-DMA), via additive weight overrides in
+  `score_all`/`score_as_of` and a `weights_fn` hook on `run_track` (live scan
+  unchanged, `config/weights.yaml` still 50/50). **Outcome: parked** — no scheme
+  meaningfully improved risk-adjusted return in both US and EU; the "favour change
+  in risk-off" hypothesis slightly hurt the US, and the only non-losing scheme (V3,
+  favour level in uptrends) was neutral in the US and within-noise better in the EU
+  on ~30 regime switches. Full findings in the notes repo
+  (`research/2026-07-22-regime-conditional-weighting.md`); a walk-forward retest of
+  V3 is the natural follow-up (separate queued item). *(2026-07-22)*
 - **Methodology documentation** — a footer "Methodology" link on every page opens
   an accessible modal (`_methodology.html.j2`) explaining the scanner end-to-end:
   universe, data sources, Level/Change signals, per-region z-scoring + 50/50

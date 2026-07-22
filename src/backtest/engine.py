@@ -23,6 +23,7 @@ def run_track(
     instrument_of: dict[str, str],
     top_n: int = 5,
     cost_bps: float = 0.0,
+    weights_fn=None,
 ) -> dict | None:
     if benchmark_ticker not in prices:
         logger.warning("Track %s skipped — benchmark %s missing", region, benchmark_ticker)
@@ -35,7 +36,12 @@ def run_track(
     # Score each month-end (region cohort only). Keep dates with >= top_n sectors.
     score_by_date: dict[pd.Timestamp, pd.DataFrame] = {}
     for d in calendar:
-        scored = replay.score_as_of(universe, prices, d, region)
+        if weights_fn is not None:
+            lw, cw = weights_fn(d)
+            scored = replay.score_as_of(universe, prices, d, region,
+                                        level_weight=lw, change_weight=cw)
+        else:
+            scored = replay.score_as_of(universe, prices, d, region)
         if scored is not None and len(scored) >= top_n:
             score_by_date[d] = scored
     if len(score_by_date) < 2:
