@@ -142,6 +142,8 @@ def score_all(
     weights_path: str = "config/weights.yaml",
     sentiment_score: pd.Series | None = None,
     blend_sentiment: bool = True,
+    level_weight: float | None = None,
+    change_weight: float | None = None,
 ) -> pd.DataFrame:
     """
     Full pipeline: z-score → level/change → data → composite → rank.
@@ -158,8 +160,10 @@ def score_all(
     with weights_file.open() as fh:
         cfg = yaml.safe_load(fh)
 
-    level_weight: float = float(cfg["data_pillar"]["level"])
-    change_weight: float = float(cfg["data_pillar"]["change"])
+    _cfg_level = float(cfg["data_pillar"]["level"])
+    _cfg_change = float(cfg["data_pillar"]["change"])
+    lw = _cfg_level if level_weight is None else float(level_weight)
+    cw = _cfg_change if change_weight is None else float(change_weight)
     _pillars = cfg.get("pillars", {})
     data_weight: float = float(_pillars.get("data", 1.0))
     sentiment_weight: float = float(_pillars.get("sentiment", 0.0))
@@ -167,7 +171,7 @@ def score_all(
     z_df = zscore_cross_section(signals_df)
     level = compute_level_score(z_df)
     change = compute_change_score(z_df)
-    data = compute_data_score(level, change, level_weight=level_weight, change_weight=change_weight)
+    data = compute_data_score(level, change, level_weight=lw, change_weight=cw)
 
     # Align sentiment_score index to signals_df; fill gaps with 0.0 (neutral)
     if sentiment_score is not None:
