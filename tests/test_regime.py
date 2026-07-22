@@ -20,12 +20,18 @@ def _wide(n=6):
     return pd.DataFrame(data, index=idx)
 
 
-def test_score_all_none_matches_config_default():
+def test_score_all_none_resolves_to_config_weights():
+    """None overrides must resolve to the config's level/change split, not just
+    equal another None call."""
+    import yaml
+    cfg = yaml.safe_load(Path("config/weights.yaml").read_text())
+    lw = float(cfg["data_pillar"]["level"])
+    cw = float(cfg["data_pillar"]["change"])
     wide = _wide()
-    a = score_all(wide, sentiment_score=None, blend_sentiment=False)
-    b = score_all(wide, sentiment_score=None, blend_sentiment=False,
-                  level_weight=None, change_weight=None)
-    pd.testing.assert_frame_equal(a, b)
+    default = score_all(wide, sentiment_score=None, blend_sentiment=False)
+    explicit = score_all(wide, sentiment_score=None, blend_sentiment=False,
+                         level_weight=lw, change_weight=cw)
+    pd.testing.assert_frame_equal(default, explicit)
 
 
 def test_score_all_weight_override_changes_data_score():
@@ -82,12 +88,17 @@ def test_is_risk_on_warmup_defaults_true():
 
 def test_is_risk_on_no_lookahead():
     from src.backtest.regime import is_risk_on
-    # Rising then a late spike; as-of an early date must ignore later data.
-    vals = list(range(1, 220))
+    # Rise to a peak (day 209), then a sustained decline back down. The
+    # point-in-time regime at the peak must be risk-on (price above its trailing
+    # SMA200), even though the *latest* regime is risk-off. If is_risk_on failed
+    # to truncate closes to <= as_of, it would use the whole series' tail and
+    # flip the peak-date answer to False — so this fixture actually exercises the
+    # no-look-ahead guarantee (a monotonic series would not).
+    vals = list(range(100, 310)) + list(range(309, 99, -1))  # 210 up, 210 down
     df = _spy(vals)
-    early = df.index[209]
-    # as-of early: 200-SMA of first 210 closes, last close 210 -> above -> True
-    assert is_risk_on(df, early) is True
+    peak = df.index[209]
+    assert is_risk_on(df, peak) is True          # point-in-time at the peak
+    assert is_risk_on(df, df.index[-1]) is False  # latest, after the decline
 
 
 def test_make_weights_fn_picks_regime():

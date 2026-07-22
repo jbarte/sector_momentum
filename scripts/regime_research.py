@@ -39,8 +39,6 @@ SCHEMES = [
     ("Contrarian on 30/70 off 70/30", (0.30, 0.70), (0.70, 0.30)),
 ]
 
-_METRIC_COLS = ["cagr", "sharpe", "max_drawdown", "hit_rate", "total_return", "avg_turnover"]
-
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Regime-conditional weighting research.")
