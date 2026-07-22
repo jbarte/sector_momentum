@@ -34,3 +34,28 @@ def test_score_all_weight_override_changes_data_score():
     chg_heavy = score_all(wide, blend_sentiment=False, level_weight=0.1, change_weight=0.9)
     # The composite (== data_score when sentiment off) must differ under different splits.
     assert not np.allclose(lvl_heavy["data_score"].values, chg_heavy["data_score"].values)
+
+
+def test_score_as_of_forwards_weights(monkeypatch):
+    import src.backtest.replay as replay
+
+    captured = {}
+
+    def fake_score_all(wide, weights_path="config/weights.yaml", sentiment_score=None,
+                       blend_sentiment=True, level_weight=None, change_weight=None):
+        captured["lw"] = level_weight
+        captured["cw"] = change_weight
+        return pd.DataFrame({"rank": range(len(wide))}, index=wide.index)
+
+    # One US sector row so build_signals_rows yields something; simplest: monkeypatch
+    # build_signals_rows to return a fixed row set.
+    def fake_rows(universe, prices):
+        return [{"sector_key": "US|Tech", "region": "US",
+                 **{c: 1.0 for c in replay.SIGNAL_COLUMNS}}]
+
+    monkeypatch.setattr(replay, "build_signals_rows", fake_rows)
+    monkeypatch.setattr(replay, "score_all", fake_score_all)
+
+    replay.score_as_of({}, {}, pd.Timestamp("2020-01-31"), "US",
+                       level_weight=0.7, change_weight=0.3)
+    assert captured == {"lw": 0.7, "cw": 0.3}
