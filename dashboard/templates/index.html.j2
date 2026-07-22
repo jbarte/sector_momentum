@@ -30,6 +30,7 @@
 {% if auth %}
 <div class="gate-modal-overlay" id="gate-modal" hidden>
   <div class="gate-modal" role="dialog" aria-modal="true" aria-labelledby="gate-modal-title">
+    {% include "_rotation_illo.html.j2" %}
     <h2 id="gate-modal-title" data-i18n="gate_modal_title">Sector Momentum</h2>
     <p data-i18n="gate_modal_body">Sign in for the latest data, or continue browsing with data from last week.</p>
     <form class="auth-form gate-modal-form">
