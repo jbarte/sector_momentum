@@ -6,10 +6,11 @@ Fetches daily OHLCV price data for a list of tickers. Tries stooq first
 sources — aggressive caching minimises live fetches.
 
 Cache location: data/cache/<ticker>_prices.parquet
-Cache validity: served from cache while its last date is within a 4-day
-tolerance of today (covers weekends and single market holidays without a
-holiday calendar); refetched live only once the cache falls outside that
-window. See `_cache_is_fresh`.
+Cache validity: the cache must reach the most recent expected trading day
+(the last weekday on or before today, with a 1-day grace for single market
+holidays). On a normal weekday this means yesterday's or today's close is
+required; over weekends, Friday's close bridges to Monday.
+See `_cache_is_fresh`.
 """
 
 import io
@@ -35,11 +36,21 @@ def _cache_path(ticker: str, cache_dir: str) -> str:
     return os.path.join(cache_dir, f"{_sanitize_ticker(ticker)}_prices.parquet")
 
 
+def _expected_latest_close(ref: date) -> date:
+    """Return the most recent weekday on or before *ref*."""
+    weekday = ref.weekday()  # Mon=0 … Sun=6
+    if weekday == 5:  # Saturday
+        return ref - timedelta(days=1)
+    if weekday == 6:  # Sunday
+        return ref - timedelta(days=2)
+    return ref
+
+
 def _cache_is_fresh(path: str, start: str | None = None) -> bool:
-    """Return True if the cache file exists, its last date is within a
-    4-day tolerance of today (covers weekends and the day after a single
-    market holiday without needing a holiday calendar), and — when `start`
-    is given — its earliest date covers the requested range."""
+    """Return True if the cache file exists, its last date reaches the most
+    recent expected trading day (weekday walk-back from today, with a 1-day
+    grace for single market holidays), and — when ``start`` is given — its
+    earliest date covers the requested range."""
     if not os.path.exists(path):
         return False
     try:
@@ -47,7 +58,12 @@ def _cache_is_fresh(path: str, start: str | None = None) -> bool:
         if df.empty:
             return False
         last_cached = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
-        if last_cached < date.today() - timedelta(days=4):
+        expected = _expected_latest_close(date.today())
+        # 1-day grace, walked back over weekends: the grace boundary is the
+        # prior *trading* day before `expected`, not merely a calendar day
+        # earlier (which would land on a weekend after a Monday `expected`).
+        grace_boundary = _expected_latest_close(expected - timedelta(days=1))
+        if last_cached < grace_boundary:
             return False
         if start is not None:
             cached_start = df.index.min().date() if hasattr(df.index.min(), "date") else df.index.min()
