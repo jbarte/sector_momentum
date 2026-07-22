@@ -1,0 +1,21 @@
+{# Shared rotation-arcs illustration banner for the gate + methodology modals.
+   Decorative (labelled for AT); animated via CSS in css/_chrome.css.j2. #}
+<div class="modal-illo-band">
+  <svg class="modal-illo" viewBox="0 0 640 128" preserveAspectRatio="xMidYMax slice"
+       role="img" aria-label="Sector rotation: laggards rotating toward the leader">
+    <g fill="none" stroke-linecap="round">
+      <path class="arc a1" d="M250 128 A70 70 0 0 1 390 128"  stroke="#DFD5BE" stroke-width="1.4"/>
+      <path class="arc a2" d="M200 128 A120 120 0 0 1 440 128" stroke="#C4B89A" stroke-width="1.4" opacity="0.85"/>
+      <path class="arc a3" d="M150 128 A170 170 0 0 1 490 128" stroke="#A9BF95" stroke-width="1.6" opacity="0.9"/>
+      <path class="arc a4" d="M100 128 A220 220 0 0 1 540 128" stroke="#8FA77A" stroke-width="1.6" opacity="0.75"/>
+    </g>
+    <path class="sweep" d="M168 104 Q300 40 470 44" fill="none" stroke="#5A6F49" stroke-width="1.2"
+          stroke-dasharray="2 6" stroke-linecap="round" opacity="0.5"/>
+    <circle class="dot d1" cx="168" cy="104" r="4.5" fill="#A55A3C" opacity="0.85"/>
+    <circle class="dot d2" cx="250" cy="80"  r="5.5" fill="#BF6F50" opacity="0.9"/>
+    <circle class="dot d3" cx="338" cy="60"  r="6.5" fill="#8FA77A"/>
+    <circle class="halo"   cx="470" cy="44"  r="15"  fill="none" stroke="#5A6F49" stroke-width="1.5" opacity="0.45"/>
+    <circle class="dot d4" cx="470" cy="44"  r="9"   fill="#5A6F49"/>
+    <circle class="dot d5" cx="545" cy="66"  r="5"   fill="#A9BF95"/>
+  </svg>
+</div>
