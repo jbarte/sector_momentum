@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.data.prices import (
     _cache_is_fresh,
     _cache_path,
+    _expected_latest_close,
     _fetch_single,
     _normalize_columns,
     _sanitize_ticker,
@@ -71,36 +72,74 @@ def test_cache_is_fresh_returns_false_for_missing_file():
     assert _cache_is_fresh("/nonexistent/path/foo.parquet") is False
 
 
-def test_cache_is_fresh_returns_true_for_current_data(tmp_path):
-    """A cache file whose last date is within the tolerance window is fresh."""
-    df = _make_price_df(n=10, start_date=str(date.today() - timedelta(days=14)))
-    path = str(tmp_path / "test.parquet")
+@patch("src.data.prices.date")
+def test_cache_fresh_with_todays_close(mock_date, tmp_path):
+    """Cache whose last date is today's expected close is fresh."""
+    mock_date.today.return_value = date(2026, 7, 22)  # Wednesday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-22")])
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "today.parquet")
     df.to_parquet(path)
     assert _cache_is_fresh(path) is True
 
 
-def test_cache_is_fresh_tolerates_gap_after_holiday(tmp_path):
-    """A cache 4 days old (e.g. the day after a single-day market holiday) is still fresh."""
-    idx = pd.DatetimeIndex([pd.Timestamp(date.today() - timedelta(days=4))])
+@patch("src.data.prices.date")
+def test_cache_fresh_with_yesterdays_close(mock_date, tmp_path):
+    """Cache from yesterday (weekday) is fresh — within 1-day grace."""
+    mock_date.today.return_value = date(2026, 7, 22)  # Wednesday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-21")])  # Tuesday
     df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
-    path = str(tmp_path / "gap.parquet")
+    path = str(tmp_path / "yesterday.parquet")
     df.to_parquet(path)
     assert _cache_is_fresh(path) is True
 
 
-def test_cache_is_fresh_false_beyond_tolerance(tmp_path):
-    """A cache 5 days old (past the tolerance window) is stale."""
-    idx = pd.DatetimeIndex([pd.Timestamp(date.today() - timedelta(days=5))])
+@patch("src.data.prices.date")
+def test_cache_fresh_friday_on_monday(mock_date, tmp_path):
+    """Friday's close is fresh on Monday — weekend bridge."""
+    mock_date.today.return_value = date(2026, 7, 20)  # Monday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-17")])  # Friday
     df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
-    path = str(tmp_path / "toostale.parquet")
+    path = str(tmp_path / "friday.parquet")
+    df.to_parquet(path)
+    assert _cache_is_fresh(path) is True
+
+
+@patch("src.data.prices.date")
+def test_cache_stale_thursday_on_monday(mock_date, tmp_path):
+    """Thursday's close is stale on Monday — too old even with weekend bridge."""
+    mock_date.today.return_value = date(2026, 7, 20)  # Monday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-16")])  # Thursday
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "thursday.parquet")
     df.to_parquet(path)
     assert _cache_is_fresh(path) is False
 
 
-def test_cache_is_fresh_returns_false_for_stale_data(tmp_path):
-    """A cache file whose last date is well before the last trading day is stale."""
-    df = _make_price_df(n=5, start_date="2020-01-02")
-    path = str(tmp_path / "stale.parquet")
+@patch("src.data.prices.date")
+def test_cache_stale_friday_on_tuesday_after_holiday(mock_date, tmp_path):
+    """Friday's close is stale on Tuesday (Monday was holiday) — harmless refetch."""
+    mock_date.today.return_value = date(2026, 7, 21)  # Tuesday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-17")])  # Friday
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "holiday.parquet")
+    df.to_parquet(path)
+    assert _cache_is_fresh(path) is False
+
+
+@patch("src.data.prices.date")
+def test_cache_stale_two_days_old_on_weekday(mock_date, tmp_path):
+    """A cache 2+ trading days old on a normal weekday is stale."""
+    mock_date.today.return_value = date(2026, 7, 23)  # Thursday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-21")])  # Tuesday
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "twodays.parquet")
     df.to_parquet(path)
     assert _cache_is_fresh(path) is False
 
@@ -117,6 +156,32 @@ def test_cache_is_fresh_handles_corrupted_file(tmp_path):
     path = str(tmp_path / "bad.parquet")
     Path(path).write_text("not a parquet file")
     assert _cache_is_fresh(path) is False
+
+
+# ---------------------------------------------------------------------------
+# _expected_latest_close
+# ---------------------------------------------------------------------------
+
+def test_expected_latest_close_monday():
+    assert _expected_latest_close(date(2026, 7, 20)) == date(2026, 7, 20)  # Monday
+
+def test_expected_latest_close_tuesday():
+    assert _expected_latest_close(date(2026, 7, 21)) == date(2026, 7, 21)  # Tuesday
+
+def test_expected_latest_close_wednesday():
+    assert _expected_latest_close(date(2026, 7, 22)) == date(2026, 7, 22)  # Wednesday
+
+def test_expected_latest_close_thursday():
+    assert _expected_latest_close(date(2026, 7, 23)) == date(2026, 7, 23)  # Thursday
+
+def test_expected_latest_close_friday():
+    assert _expected_latest_close(date(2026, 7, 24)) == date(2026, 7, 24)  # Friday
+
+def test_expected_latest_close_saturday():
+    assert _expected_latest_close(date(2026, 7, 25)) == date(2026, 7, 24)  # Saturday → Friday
+
+def test_expected_latest_close_sunday():
+    assert _expected_latest_close(date(2026, 7, 26)) == date(2026, 7, 24)  # Sunday → Friday
 
 
 # ---------------------------------------------------------------------------
