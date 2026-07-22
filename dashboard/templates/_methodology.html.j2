@@ -1,0 +1,124 @@
+{# Methodology reference modal — static English content, included on all pages.
+   Opened by the footer #methodology-link button, Esc/backdrop/close to dismiss.
+   Accessibility mirrors the gate-modal (role=dialog, aria-modal, focus trap). #}
+<div class="methodology-overlay" id="methodology-modal" hidden>
+  <div class="methodology-modal" role="dialog" aria-modal="true" aria-labelledby="methodology-title">
+    <button type="button" class="methodology-close" id="methodology-close" aria-label="Close">&times;</button>
+    <h2 id="methodology-title">How the scanner works</h2>
+    <div class="methodology-body">
+      <p>Sector Momentum ranks US and European stock-market sectors — and a set of
+         thematic ETFs — by price-momentum strength, refreshed daily. It is
+         analytical tooling, not investment advice.</p>
+
+      <h3>Universe</h3>
+      <p>The US cohort is the 11 SPDR Select Sector ETFs (GICS sectors). The European
+         cohort is 14 STOXX Europe 600 sector ETFs, including the standalone Banks,
+         Financial Services and Insurance funds and the Basic Resources and Chemicals
+         funds (split from their old GICS composites in July 2026). Benchmarks are RSP
+         (equal-weight S&amp;P 500) for the US and EXSA.DE (STOXX Europe 600) for Europe.
+         A separate thematic-ETF cohort is scored against ACWI.</p>
+
+      <h3>Data sources</h3>
+      <p>Daily OHLCV prices come from stooq, falling back to yfinance, cached locally
+         with weekend/holiday-aware freshness so the latest close is pulled each
+         trading day. News sentiment is computed from GDELT DOC 2.0 English headlines
+         scored with the ProsusAI/FinBERT model. Macro context shows SPY versus its
+         200-day moving average and the VIX volatility band.</p>
+
+      <h3>Signals</h3>
+      <p>Each sector is measured on two pillars:</p>
+      <ul>
+        <li><strong>Level</strong> — where the sector stands now: <code>rs_ratio</code>
+            (RRG relative strength vs the benchmark), 3-month return, 6-month return,
+            and whether price is above its 50-day moving average.</li>
+        <li><strong>Change</strong> — how that is evolving: <code>rs_momentum</code>
+            (RRG relative-strength momentum, 5-day lookback), acceleration, 50-DMA
+            slope, and on-balance-volume (OBV) slope.</li>
+      </ul>
+      <p>Constituent breadth — the share of a US sector's S&amp;P 500 members trading
+         above their own 50-DMA — is shown for context only (European sectors show
+         &ldquo;&mdash;&rdquo;). FinBERT news sentiment is shown per sector. The 200-day
+         moving-average level was dropped from scoring in July 2026 after a correlation
+         audit found it highly collinear with the 50-DMA; it remains visible for
+         reference.</p>
+
+      <h3>Scoring</h3>
+      <p>Every signal is standardized (z-scored) <em>across sectors within its own
+         region</em> — US sectors are ranked against US sectors, European against
+         European. The signals form two equal-weighted pillars, and the composite is
+         <strong>50% Level + 50% Change</strong>. Sectors are then ranked within each
+         region by composite. Sentiment is <strong>informational only</strong> and does
+         not move the ranking; the leaderboard offers an optional toggle to blend it in
+         client-side at a weight you choose, but the canonical ranking is pure price
+         data.</p>
+
+      <h3>Trajectory &amp; setup badges</h3>
+      <p>A sector's trajectory is the slope of its rank over the last five scans
+         (&uarr;&uarr; / &uarr; / &rarr; / &darr; / &darr;&darr;). An <strong>Entry</strong>
+         badge appears when a sector has a positive composite, a positive Change score,
+         and a rising trajectory; an <strong>Exit</strong> badge appears when it is
+         falling with a negative Change score.</p>
+
+      <h3>Backtest</h3>
+      <p>The Backtest tab replays a simple monthly rotation into the top-N sectors
+         versus the region benchmark, point-in-time (no look-ahead), using the price
+         pillars only, with optional transaction costs.</p>
+
+      <h3>Research basis</h3>
+      <p>Design changes are validated before adoption. The European composites were
+         split into their true STOXX sub-sectors after the blends were found to average
+         away real momentum differences; the 200-DMA signal was dropped after the
+         correlation audit; and FinBERT news polarity replaced Google Trends as the
+         sentiment source in July 2026.</p>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById("methodology-modal");
+  if (!modal || modal.dataset.bound) { return; }
+  modal.dataset.bound = "1";
+  var panel = modal.querySelector('[role="dialog"]');
+  var closeBtn = document.getElementById("methodology-close");
+  var lastFocus = null;
+
+  function focusables() {
+    return panel.querySelectorAll(
+      'button, a[href], input, [tabindex]:not([tabindex="-1"])');
+  }
+  function open() {
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    (closeBtn || panel).focus();
+    document.addEventListener("keydown", onKey);
+  }
+  function close() {
+    modal.hidden = true;
+    document.removeEventListener("keydown", onKey);
+    if (lastFocus && lastFocus.focus) { lastFocus.focus(); }
+  }
+  function onKey(e) {
+    if (e.key === "Escape") { close(); return; }
+    if (e.key === "Tab") {
+      var f = focusables();
+      if (!f.length) { return; }
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+  modal.addEventListener("click", function (e) { if (e.target === modal) { close(); } });
+  if (closeBtn) { closeBtn.addEventListener("click", close); }
+
+  function bindTrigger() {
+    var link = document.getElementById("methodology-link");
+    if (link) { link.addEventListener("click", function (e) { e.preventDefault(); open(); }); }
+    if (location.hash === "#methodology") { open(); }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindTrigger);
+  } else {
+    bindTrigger();
+  }
+})();
+</script>

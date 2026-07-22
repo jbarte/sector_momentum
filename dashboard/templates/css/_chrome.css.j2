@@ -293,3 +293,60 @@
   cursor: pointer;
 }
 .gate-modal-continue:hover { color: var(--fg2); }
+
+/* =========================================================
+   Methodology reference modal
+   ========================================================= */
+.methodology-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+}
+.methodology-overlay[hidden] { display: none; }
+.methodology-modal {
+  position: relative;
+  max-width: 640px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 28px 30px;
+  text-align: left;
+}
+.methodology-modal h2 { margin: 0 0 14px; font-size: 1.3rem; color: var(--fg1); }
+.methodology-modal h3 { margin: 20px 0 6px; font-size: 1rem; color: var(--fg1); }
+.methodology-body p,
+.methodology-body li { color: var(--fg2); font-size: 0.9rem; line-height: 1.55; }
+.methodology-body ul { margin: 6px 0; padding-left: 20px; }
+.methodology-body code { font-size: 0.85em; color: var(--fg1); }
+.methodology-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  border: none;
+  background: transparent;
+  color: var(--fg4);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.methodology-close:hover { color: var(--fg1); }
+/* Footer trigger styled as a link button */
+.footer-link {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
