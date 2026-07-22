@@ -64,16 +64,6 @@ Emit a machine-readable `docs/data.json` (latest scan: scores, ranks,
 deltas, badges) alongside the HTML build. Enables notebooks and any future
 integrations for free. *(Deep review 2026-07-19.)*
 
-## Methodology documentation
-
-A detailed reference page (or dashboard tab) explaining how the scanner
-works end-to-end: data sources (price providers, GDELT, FinBERT), signal
-construction (RRG rs_ratio/rs_momentum, breadth, level vs change signals),
-cross-sectional z-scoring, composite ranking, sentiment scoring, and the
-research basis the project was built on. Aimed at users who want to
-understand what the numbers mean and how they're produced — not just the
-Guide tab's overview, but the full methodology with formulas and rationale.
-
 ---
 
 # Parked
@@ -105,6 +95,11 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Methodology documentation** — a footer "Methodology" link on every page opens
+  an accessible modal (`_methodology.html.j2`) explaining the scanner end-to-end:
+  universe, data sources, Level/Change signals, per-region z-scoring + 50/50
+  composite, sentiment (info-only), trajectory/setup badges, backtest, and research
+  basis. English only, static, no new data/DB. *(2026-07-22)*
 - **scan.py run() refactor** — extracted FinBERT sentiment, persist, themes
   track, dashboard build, and alerts into module-level helpers; `run()` is now a
   readable orchestrator with a clean 1..17 step sequence (was a ~355-line
