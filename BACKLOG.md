@@ -45,16 +45,6 @@ max-drawdown leaderboard column — both backtestable before adoption.
 Split from the correlation audit (shipped 2026-07-20). *(Deep review
 2026-07-19.)*
 
-## Ops hardening sweep (remaining)
-
-Grouped small fixes from the 2026-07-19 deep review (timeout, lock script,
-and SQL-warning fix shipped 2026-07-20 with the failure notification):
-
-- Backup restore drill: a periodic job (or test) that round-trips a backup
-  zip — restores are currently never exercised.
-- `scan.py` cleanup: 710-line `run()` with drifting step numbers (8d exists,
-  8b/8c gone) — extract steps into functions and renumber.
-
 ## Regime-conditional weighting (research)
 
 The macro bar already computes SPY-vs-200DMA and VIX bands. Research
@@ -115,6 +105,12 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **scan.py run() refactor** — extracted FinBERT sentiment, persist, themes
+  track, dashboard build, and alerts into module-level helpers; `run()` is now a
+  readable orchestrator with a clean 1..17 step sequence (was a ~355-line
+  function with drifting step numbers). Behavior-preserving — scan smoke,
+  workflow, and health tests pass unchanged. Completes the ops hardening sweep
+  (backup restore drill shipped the same day). *(2026-07-22)*
 - **Price-cache adjustment consistency — retired (premise moot)** — the queued
   item assumed the parquet cache *appends* fresh rows onto old ones, letting
   auto_adjust re-adjustments accumulate inconsistently around distributions.
