@@ -21,24 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Weekend-aware price-cache freshness (daily, not 4-day)
-
-`_cache_is_fresh` (`src/data/prices.py`) serves a ticker from cache while its
-last date is within a **flat 4-day tolerance** of today. That tolerance exists
-to cover weekends and single market holidays without a holiday calendar, but it
-also means that on ordinary weekdays the scan reuses prices up to ~4 days old
-and only refetches once the cache rolls past the window — so the cache
-effectively refreshes every ~4–5 days, not daily, and the leaderboard can look
-static between refreshes even when markets moved.
-
-**Improvement:** replace the flat 4-day rule with a **"cache must extend to the
-most recent *trading* day"** check (weekend/holiday-aware) so the scan pulls the
-latest close every day while still tolerating non-trading days. Options: a
-lightweight trading-calendar (e.g. `pandas_market_calendars`, but weigh the
-dependency), or a heuristic that walks back over Sat/Sun. Keep the fragile-source
-mitigation in mind — don't refetch when there is genuinely no newer close.
-Surfaced 2026-07-21 while reviewing the data-health panel (all-cache readings).
-
 ## Position tracking
 
 Allow logged-in users to track their sector/theme positions (holdings,
@@ -131,6 +113,10 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Weekend-aware price-cache freshness** — replaced the flat 4-day tolerance
+  in `_cache_is_fresh` with a weekday walk-back heuristic (`_expected_latest_close`)
+  + 1-day grace. Prices now refresh daily on normal trading days; Friday's close
+  bridges to Monday. No new dependencies. *(2026-07-22)*
 - **FinBERT sentiment for themes** — keyword-based GDELT queries per theme
   scored with FinBERT, z-scored within theme cohort, stored in
   `theme_sentiment_signals` + `theme_scores.sentiment_score`.
