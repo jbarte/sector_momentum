@@ -148,9 +148,9 @@
         var m = meta[r.region + "|" + r.gics_sector] || {};
         var badge = "";
         if (m.setup === "entry") {
-          badge = ' <span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>';
+          badge = '<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>';
         } else if (m.setup === "exit") {
-          badge = ' <span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>';
+          badge = '<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>';
         }
         var deltaInner = m.arrow
           ? '<span class="arrow ' + m.arrow_class + '">' + m.arrow + "</span> " + (m.delta_rank || "—")
