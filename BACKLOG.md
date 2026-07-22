@@ -45,14 +45,6 @@ max-drawdown leaderboard column — both backtestable before adoption.
 Split from the correlation audit (shipped 2026-07-20). *(Deep review
 2026-07-19.)*
 
-## Price-cache adjustment consistency
-
-`auto_adjust=True` re-adjusts all history after a dividend/split, but the
-parquet cache appends fresh rows onto rows fetched weeks ago — the series
-can be internally inconsistent around distributions. Add a weekly full
-re-fetch (or an overlap-consistency check on append) in
-`src/data/prices.py`. *(Deep review 2026-07-19.)*
-
 ## Ops hardening sweep (remaining)
 
 Grouped small fixes from the 2026-07-19 deep review (timeout, lock script,
@@ -81,6 +73,16 @@ matters and which region prefers what. *(Deep review 2026-07-19.)*
 Emit a machine-readable `docs/data.json` (latest scan: scores, ranks,
 deltas, badges) alongside the HTML build. Enables notebooks and any future
 integrations for free. *(Deep review 2026-07-19.)*
+
+## Methodology documentation
+
+A detailed reference page (or dashboard tab) explaining how the scanner
+works end-to-end: data sources (price providers, GDELT, FinBERT), signal
+construction (RRG rs_ratio/rs_momentum, breadth, level vs change signals),
+cross-sectional z-scoring, composite ranking, sentiment scoring, and the
+research basis the project was built on. Aimed at users who want to
+understand what the numbers mean and how they're produced — not just the
+Guide tab's overview, but the full methodology with formulas and rationale.
 
 ---
 
@@ -113,6 +115,16 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Price-cache adjustment consistency — retired (premise moot)** — the queued
+  item assumed the parquet cache *appends* fresh rows onto old ones, letting
+  auto_adjust re-adjustments accumulate inconsistently around distributions.
+  Verified this is false: `fetch_prices` (`src/data/prices.py`) has no
+  append/concat path — a cache miss re-fetches the entire `start..end` window
+  and **overwrites** the whole parquet file, so every served series is a single
+  atomic, self-consistent auto_adjust snapshot. The weekend-aware freshness
+  change (2026-07-22) makes refetches ~daily, so a served snapshot's adjustment
+  epoch is at most ~1 trading day stale and self-heals on the next refetch. No
+  code change needed. *(2026-07-22)*
 - **Weekend-aware price-cache freshness** — replaced the flat 4-day tolerance
   in `_cache_is_fresh` with a weekday walk-back heuristic (`_expected_latest_close`)
   + 1-day grace. Prices now refresh daily on normal trading days; Friday's close
