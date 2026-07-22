@@ -29,3 +29,21 @@ grant select on public.v_latest_scores to authenticated;
 
 -- Verification: as anon -> 0 rows; as authenticated -> latest scan rows.
 -- select count(*) from public.v_latest_scores;
+
+-- Recent scans (last 6) for authenticated users, so the client can recompute
+-- rank-delta, trajectory, and entry/exit setup for the live leaderboard.
+create or replace view public.v_recent_scores
+  with (security_invoker = true) as
+select sc.scan_id, sc.run_at, s.region, s.gics_sector,
+       s.level_score, s.change_score, s.data_score,
+       s.sentiment_score, s.composite, s.rank
+from public.scores s
+join public.scans sc on sc.scan_id = s.scan_id
+where sc.scan_id in (
+    select scan_id from public.scans order by scan_id desc limit 6
+);
+
+grant select on public.v_recent_scores to authenticated;
+
+-- Verification: as anon -> 0 rows; as authenticated -> up to 6 scans of rows.
+-- select scan_id, count(*) from public.v_recent_scores group by scan_id order by scan_id;

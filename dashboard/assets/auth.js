@@ -89,16 +89,27 @@
     var tbody = document.querySelector("#tab-leaderboard tbody");
     if (!tbody) return;
     _upgraded = true;
-    sb.from("v_latest_scores")
-      .select("run_at, region, gics_sector, level_score, change_score, "
+    sb.from("v_recent_scores")
+      .select("scan_id, run_at, region, gics_sector, level_score, change_score, "
             + "data_score, sentiment_score, composite, rank")
+      .order("scan_id", { ascending: true })
       .order("region", { ascending: true })
       .order("rank", { ascending: true })
       .then(function (res) {
         if (res.error || !res.data || !res.data.length) { _upgraded = false; return; }
-        renderLatestRows(tbody, res.data);
+        var meta = (window.Rescore && window.Rescore.latestRowMeta)
+          ? window.Rescore.latestRowMeta(res.data) : {};
+        var maxScan = res.data.reduce(
+          function (m, r) { return r.scan_id > m ? r.scan_id : m; }, -Infinity);
+        var latest = res.data.filter(function (r) { return r.scan_id === maxScan; });
+        renderLatestRows(tbody, latest, meta);
         markLive();
         makeLeaderboardReadOnly();
+        if (window.applyLang) {
+          var lang = "en";
+          try { lang = localStorage.getItem("lang") || "en"; } catch (e) {}
+          window.applyLang(lang);
+        }
       });
   }
 
@@ -115,7 +126,8 @@
     });
   }
 
-  function renderLatestRows(tbody, rows) {
+  function renderLatestRows(tbody, rows, meta) {
+    meta = meta || {};
     var byRegion = {};
     rows.forEach(function (r) { (byRegion[r.region] || (byRegion[r.region] = [])).push(r); });
     tbody.innerHTML = "";
@@ -123,6 +135,7 @@
       var region = pair[0], label = pair[1];
       var list = byRegion[region] || [];
       if (!list.length) return;
+      list.sort(function (a, b) { return a.rank - b.rank; });
       var hdr = document.createElement("tr");
       hdr.className = "region-header-row";
       hdr.innerHTML = '<td colspan="10">' + label + "</td>";
@@ -132,17 +145,30 @@
         tr.className = "leaderboard-row";
         var rank = (r.rank === null || isNaN(r.rank)) ? "—" : Math.round(r.rank);
         var top3 = (typeof rank === "number" && rank <= 3) ? " top3" : "";
+        var m = meta[r.region + "|" + r.gics_sector] || {};
+        var badge = "";
+        if (m.setup === "entry") {
+          badge = ' <span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>';
+        } else if (m.setup === "exit") {
+          badge = ' <span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>';
+        }
+        var deltaInner = m.arrow
+          ? '<span class="arrow ' + m.arrow_class + '">' + m.arrow + "</span> " + (m.delta_rank || "—")
+          : (m.delta_rank || "—");
+        var trendInner = m.trajectory_state
+          ? '<span class="traj-badge traj-' + m.trajectory_state + '">' + m.trajectory_label + "</span>"
+          : "—";
         tr.innerHTML =
           '<td class="rank-cell"><span class="rank-badge' + top3 + '">' + rank + "</span></td>" +
-          "<td>" + r.gics_sector + "</td>" +
+          "<td>" + r.gics_sector + badge + "</td>" +
           '<td><span class="tag-region">' + r.region + "</span></td>" +
           '<td class="composite-cell">' + fmtScore(r.composite) + "</td>" +
           "<td>" + fmtScore(r.level_score) + "</td>" +
           "<td>" + fmtScore(r.change_score) + "</td>" +
           "<td>" + fmtScore(r.data_score) + "</td>" +
           '<td class="sentiment-cell">' + fmtScore(r.sentiment_score) + "</td>" +
-          '<td class="delta-cell">—</td>' +
-          "<td>—</td>";
+          '<td class="delta-cell">' + deltaInner + "</td>" +
+          "<td>" + trendInner + "</td>";
         tbody.appendChild(tr);
       });
     });
