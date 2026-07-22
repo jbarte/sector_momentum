@@ -365,38 +365,40 @@
 /* keep the methodology close button above the band */
 .methodology-close { z-index: 1; }
 
-/* Reveal — auto-fires when the modal's display flips from none to shown. */
+/* Reveal — auto-fires when the modal's display flips from none to shown.
+   Arcs are normalized to pathLength="1" so all four draw at a uniform rate and
+   settle together; a soft ease + overlapping delays make it read as one gesture. */
 .modal-illo .arc {
-  stroke-dasharray: 900; stroke-dashoffset: 900;
-  animation: illo-draw 1s var(--ease-standard) forwards;
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: illo-draw 1.5s var(--illo-soft) forwards;
 }
 .modal-illo .a1 { animation-delay: .05s; }
-.modal-illo .a2 { animation-delay: .18s; }
-.modal-illo .a3 { animation-delay: .31s; }
-.modal-illo .a4 { animation-delay: .44s; }
+.modal-illo .a2 { animation-delay: .17s; }
+.modal-illo .a3 { animation-delay: .29s; }
+.modal-illo .a4 { animation-delay: .40s; }
 .modal-illo .sweep {
   opacity: 0;
-  animation: illo-fade .7s ease .55s forwards, illo-flow 3s linear 1.4s infinite;
+  animation: illo-fade 1.15s ease-out .65s forwards, illo-flow 3s linear 1.7s infinite;
 }
 .modal-illo .dot, .modal-illo .halo {
-  opacity: 0; transform: scale(.4); transform-origin: center; transform-box: fill-box;
-  animation: illo-pop .5s var(--ease-standard) forwards;
+  opacity: 0; transform: scale(.62); transform-origin: center; transform-box: fill-box;
+  animation: illo-pop .8s var(--illo-soft) forwards;
 }
-.modal-illo .d1 { animation-delay: .60s; }
-.modal-illo .d2 { animation-delay: .72s; }
-.modal-illo .d3 { animation-delay: .84s; }
-.modal-illo .d4 { animation-delay: .98s; }
-.modal-illo .d5 { animation-delay: 1.10s; }
+.modal-illo .d1 { animation-delay: .68s; }
+.modal-illo .d2 { animation-delay: .82s; }
+.modal-illo .d3 { animation-delay: .96s; }
+.modal-illo .d4 { animation-delay: 1.12s; }
+.modal-illo .d5 { animation-delay: 1.26s; }
 /* leader halo: reveal, then slow ambient breathe */
 .modal-illo .halo {
-  animation: illo-pop .5s var(--ease-standard) .96s forwards,
-             illo-breathe 3.8s ease-in-out 1.8s infinite;
+  animation: illo-pop .8s var(--illo-soft) 1.1s forwards,
+             illo-breathe 4.6s ease-in-out 2.6s infinite;
 }
 
 @keyframes illo-draw    { to { stroke-dashoffset: 0; } }
 @keyframes illo-fade    { to { opacity: .5; } }
 @keyframes illo-pop     { to { opacity: 1; transform: scale(1); } }
-@keyframes illo-breathe { 0%, 100% { transform: scale(1); opacity: .45; } 50% { transform: scale(1.14); opacity: .18; } }
+@keyframes illo-breathe { 0%, 100% { transform: scale(1); opacity: .42; } 50% { transform: scale(1.1); opacity: .2; } }
 @keyframes illo-flow    { to { stroke-dashoffset: -16; } }
 
 @media (prefers-reduced-motion: reduce) {
