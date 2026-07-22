@@ -15,7 +15,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from datetime import date
+from pathlib import Path
+
+# Run from anywhere: put the repo root on sys.path so `src` / `backtest` import.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 try:
     from dotenv import load_dotenv
