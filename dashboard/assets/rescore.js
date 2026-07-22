@@ -124,8 +124,47 @@
     return out;
   }
 
+  // recentRows: array of {scan_id, region, gics_sector, change_score, composite, rank}.
+  // Returns per-"REGION|Sector" meta for the LATEST scan: formatted delta, arrow,
+  // trajectory, and entry/exit setup — mirroring dashboard/rows.py.
+  function latestRowMeta(recentRows) {
+    var groups = {};
+    recentRows.forEach(function (r) {
+      var key = r.region + "|" + r.gics_sector;
+      (groups[key] || (groups[key] = [])).push(r);
+    });
+    var out = {};
+    Object.keys(groups).forEach(function (key) {
+      var rows = groups[key].slice().sort(function (a, b) { return a.scan_id - b.scan_id; });
+      var n = rows.length;
+      var latest = rows[n - 1];
+      var dRank = (n >= 2) ? (rows[n - 2].rank - latest.rank) : 0;
+      var deltaStr = (dRank !== 0) ? ((dRank > 0 ? "+" : "") + dRank.toFixed(1)) : "—";
+      var arrow = dRank > 0 ? "▲" : (dRank < 0 ? "▼" : "");
+      var arrowClass = dRank > 0 ? "up" : (dRank < 0 ? "down" : "");
+      var series = [];
+      for (var i = Math.max(0, n - 5); i < n; i++) { series.push(rows[i].rank); }
+      var traj = trajectoryLabel(olsSlope(series));
+      var comp = latest.composite, change = latest.change_score;
+      var setup = null;
+      if (comp != null && comp > 0 && (traj.state === "up" || traj.state === "strong_up")
+          && change != null && change > 0) {
+        setup = "entry";
+      } else if ((traj.state === "down" || traj.state === "strong_down")
+                 && change != null && change < 0) {
+        setup = "exit";
+      }
+      out[key] = {
+        delta_rank: deltaStr, arrow: arrow, arrow_class: arrowClass,
+        trajectory_label: traj.label, trajectory_state: traj.state, setup: setup
+      };
+    });
+    return out;
+  }
+
   var api = { rankAverage: rankAverage, olsSlope: olsSlope,
-              trajectoryLabel: trajectoryLabel, rescore: rescore };
+              trajectoryLabel: trajectoryLabel, rescore: rescore,
+              latestRowMeta: latestRowMeta };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
   root.Rescore = api;
 })(typeof window !== "undefined" ? window : this);

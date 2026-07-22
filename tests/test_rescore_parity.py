@@ -144,3 +144,95 @@ def test_rescore_w0_equals_data_only_order():
     assert js["US|B"]["rank"] == 3.0
 
 
+def _run_js_meta(recent_rows):
+    script = f"""
+        const R = require({json.dumps(str(_RESCORE_JS))});
+        const rows = {json.dumps(recent_rows)};
+        process.stdout.write(JSON.stringify(R.latestRowMeta(rows)));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout)
+
+
+def _py_latest_meta(recent_rows):
+    """Mirror dashboard/rows.py: delta format, trajectory, _compute_setup."""
+    groups = {}
+    for r in recent_rows:
+        key = f"{r['region']}|{r['gics_sector']}"
+        groups.setdefault(key, []).append(r)
+    out = {}
+    for key, rows in groups.items():
+        rows = sorted(rows, key=lambda x: x["scan_id"])
+        n = len(rows)
+        latest = rows[-1]
+        delta = (rows[-2]["rank"] - latest["rank"]) if n >= 2 else 0.0
+        delta_str = f"{delta:+.1f}" if delta != 0 else "—"
+        arrow = "▲" if delta > 0 else ("▼" if delta < 0 else "")
+        arrow_class = "up" if delta > 0 else ("down" if delta < 0 else "")
+        series = [x["rank"] for x in rows[max(0, n - 5):]]
+        label, state = _traj(_ols(series))
+        comp, change = latest["composite"], latest["change_score"]
+        if comp is not None and comp > 0 and state in ("up", "strong_up") and change is not None and change > 0:
+            setup = "entry"
+        elif state in ("down", "strong_down") and change is not None and change < 0:
+            setup = "exit"
+        else:
+            setup = None
+        out[key] = {
+            "delta_rank": delta_str, "arrow": arrow, "arrow_class": arrow_class,
+            "trajectory_label": label, "trajectory_state": state, "setup": setup,
+        }
+    return out
+
+
+def _make_recent_rows(n_scans, sectors, seed):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_scans):
+        for k in sectors:
+            region, gics = k.split("|", 1)
+            rows.append({
+                "scan_id": i + 1,
+                "region": region, "gics_sector": gics,
+                "rank": float(rng.integers(1, len(sectors) + 1)),
+                "composite": round(float(rng.normal()), 4),
+                "change_score": round(float(rng.normal()), 4),
+            })
+    return rows
+
+
+@pytest.mark.parametrize("seed", [1, 7, 42])
+def test_latest_row_meta_parity_random(seed):
+    sectors = [f"US|S{i}" for i in range(6)] + [f"EU|S{i}" for i in range(6)]
+    rows = _make_recent_rows(6, sectors, seed)
+    js = _run_js_meta(rows)
+    py = _py_latest_meta(rows)
+    assert set(js.keys()) == set(py.keys())
+    for k in py:
+        assert js[k] == py[k], k
+
+
+def test_latest_row_meta_single_scan():
+    rows = [{"scan_id": 5, "region": "US", "gics_sector": "Energy",
+             "rank": 1.0, "composite": 0.9, "change_score": 0.5}]
+    js = _run_js_meta(rows)
+    assert js["US|Energy"] == {
+        "delta_rank": "—", "arrow": "", "arrow_class": "",
+        "trajectory_label": "→", "trajectory_state": "flat", "setup": None,
+    }
+
+
+def test_latest_row_meta_entry_and_exit():
+    # Climbing sector (ranks 5->1 over scans) with positive comp/change -> entry.
+    climb = [{"scan_id": i + 1, "region": "US", "gics_sector": "Up",
+              "rank": float(5 - i), "composite": 0.8, "change_score": 0.6} for i in range(5)]
+    # Falling sector (ranks 1->5) with negative change -> exit.
+    fall = [{"scan_id": i + 1, "region": "US", "gics_sector": "Down",
+             "rank": float(1 + i), "composite": -0.2, "change_score": -0.4} for i in range(5)]
+    js = _run_js_meta(climb + fall)
+    assert js["US|Up"]["setup"] == "entry"
+    assert js["US|Up"]["trajectory_state"] in ("up", "strong_up")
+    assert js["US|Down"]["setup"] == "exit"
+    assert js["US|Down"]["trajectory_state"] in ("down", "strong_down")
+
+
