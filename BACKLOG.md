@@ -52,12 +52,6 @@ The 0.50/0.50 level/change split is assumed, not validated. Grid the split
 in the backtest with walk-forward evaluation to see whether the choice
 matters and which region prefers what. *(Deep review 2026-07-19.)*
 
-## docs/data.json export
-
-Emit a machine-readable `docs/data.json` (latest scan: scores, ranks,
-deltas, badges) alongside the HTML build. Enables notebooks and any future
-integrations for free. *(Deep review 2026-07-19.)*
-
 ---
 
 # Parked
@@ -89,6 +83,12 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **docs/data.json export** — the build now emits `docs/data.json` alongside the
+  HTML: latest public scan with per-sector and per-theme raw scores, rank,
+  rank-delta, trajectory, and setup badge, plus `schema_version`/`generated_at`/
+  `scan_id`/`scan_date`/`lagged` metadata. Mirrors the baked (lagged-for-guests)
+  view; fail-open so a JSON error never breaks the build. `dashboard/data_export.py`
+  builds the payload; no scan/DDL/template changes. *(2026-07-23)*
 - **Max-drawdown (1y) display** — trailing 1-year max drawdown added as an
   info-only signal (`max_dd_1y`, `compute_max_drawdown`), computed for every
   sector and theme in the pipeline and shown on the breakdown panel's "Not scored"
