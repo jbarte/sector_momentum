@@ -232,3 +232,26 @@ def test_multiple_us_sectors():
     assert len(rows) == 2
     sectors = {r["gics_sector"] for r in rows}
     assert sectors == {"Technology", "Energy"}
+
+
+def test_signals_include_max_dd_1y():
+    import numpy as np
+    import pandas as pd
+    from src.pipeline import compute_signals_for_sector, SIGNAL_COLUMNS
+
+    assert "max_dd_1y" in SIGNAL_COLUMNS
+
+    idx = pd.bdate_range("2022-01-01", periods=300)
+    sec = pd.Series(np.concatenate([np.linspace(100, 160, 200),
+                                    np.linspace(160, 130, 100)]), index=idx)
+    bench = pd.Series(np.linspace(100, 110, 300), index=idx)
+    prices = {
+        "XLK": pd.DataFrame({"Close": sec, "Volume": 1_000_000}),
+        "RSP": pd.DataFrame({"Close": bench, "Volume": 1_000_000}),
+    }
+    sig = compute_signals_for_sector(
+        "US|Technology", "US", "Technology", "XLK", "RSP", prices,
+    )
+    assert sig is not None
+    assert "max_dd_1y" in sig
+    assert sig["max_dd_1y"] < 0
