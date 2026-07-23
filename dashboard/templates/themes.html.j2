@@ -46,7 +46,7 @@
       </thead>
       <tbody>
         {% for row in theme_rows %}
-        <tr class="leaderboard-row" data-sector-id="{{ row.sector_id }}" tabindex="0">
+        <tr class="leaderboard-row" data-sector-id="{{ row.sector_id }}" data-theme="{{ row.theme }}" tabindex="0">
           <td class="rank-cell">
             <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
