@@ -38,12 +38,13 @@ the static build.
 
 
 
-## Risk-adjusted momentum + max-drawdown column
+## Risk-adjusted momentum (signal research)
 
-Test risk-adjusted momentum (return/volatility) as a signal and a
-max-drawdown leaderboard column — both backtestable before adoption.
-Split from the correlation audit (shipped 2026-07-20). *(Deep review
-2026-07-19.)*
+Test risk-adjusted momentum (return / volatility) as a scoring signal — a
+validate-in-the-backtest-before-adoption spike (like the regime-weighting one):
+add the signal, compare baseline vs variants that use it, adopt into live scoring
+only if it clearly beats baseline in both regions. The max-drawdown display shipped
+2026-07-23 (info-only, breakdown panel). *(Deep review 2026-07-19.)*
 
 ## Walk-forward weight validation (research)
 
@@ -88,6 +89,11 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Max-drawdown (1y) display** — trailing 1-year max drawdown added as an
+  info-only signal (`max_dd_1y`, `compute_max_drawdown`), computed for every
+  sector and theme in the pipeline and shown on the breakdown panel's "Not scored"
+  line. Not part of scoring; no DDL or client-render changes. (Risk-adjusted
+  momentum remains queued as a separate research spike.) *(2026-07-23)*
 - **Regime-conditional weighting (research)** — added a backtest research harness
   (`scripts/regime_research.py`) comparing the fixed 50/50 level/change split against
   regime-conditional schemes (SPY vs 200-DMA), via additive weight overrides in
