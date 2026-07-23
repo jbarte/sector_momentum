@@ -62,7 +62,9 @@
     if (btn) {
       btn.textContent = isHeld ? "★" : "☆";   // ★ / ☆
       btn.setAttribute("aria-pressed", isHeld ? "true" : "false");
-      btn.title = isHeld ? "Held — click to remove" : "Mark as held";
+      var label = isHeld ? "Held — click to remove" : "Mark as held";
+      btn.title = label;
+      btn.setAttribute("aria-label", label);   // glyph alone isn't a usable SR name
     }
   }
 
