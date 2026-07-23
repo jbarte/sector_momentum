@@ -10,6 +10,7 @@
   var sb = window.supabase.createClient(cfg.url, cfg.key);
   var held = null;       // Set of rowKey() strings once loaded, else null
   var signedIn = false;
+  var loadPromise = null; // in-flight guard: concurrent callers await one request
 
   function rowKey(itemType, region, name) {
     return itemType + "|" + region + "|" + name;
@@ -29,14 +30,18 @@
   }
 
   function loadHoldings() {
-    return sb.from("positions").select("item_type, region, name").then(function (res) {
-      held = new Set();
-      if (res.error || !res.data) return held;   // fail-open -> empty set
-      res.data.forEach(function (r) {
-        held.add(rowKey(r.item_type, r.region, r.name));
-      });
-      return held;
-    });
+    if (loadPromise) return loadPromise;         // coalesce concurrent callers
+    loadPromise = sb.from("positions").select("item_type, region, name")
+      .then(function (res) {
+        held = new Set();
+        if (res.error || !res.data) return held;  // fail-open -> empty set
+        res.data.forEach(function (r) {
+          held.add(rowKey(r.item_type, r.region, r.name));
+        });
+        return held;
+      })
+      .catch(function () { held = new Set(); return held; });  // fail-open on hard reject
+    return loadPromise;
   }
 
   function persist(add, item) {
@@ -105,6 +110,7 @@
       tr.classList.remove("position-held", "position-warn");
     });
     held = null;
+    loadPromise = null;
   }
 
   sb.auth.onAuthStateChange(function (_event, session) {
