@@ -72,6 +72,14 @@ dashboard's drill-down tab covers most of the need.
   under RLS (`positions_owner`), fail-open. New `scripts/positions_migration.sql`
   (manual post-merge run). Also scoped `auth.js`'s live upgrade to
   `#leaderboard-table` (was clobbering the themes table on the themes page).
+- **Signed-in row expansion fix** — the client-side live leaderboard upgrade
+  (`auth.js` `renderLatestRows`) wiped the tbody, which discarded the static
+  drill-down panels and rebuilt rows without `data-sector-id`, so signed-in
+  users could no longer expand rows. Now the rebuild snapshots the
+  `.breakdown-row` panels, sets `data-sector-id` on each rebuilt row
+  (`region-gics` with spaces → underscores), and re-appends each panel under its
+  row. Drill-down content still reflects the build's scan (a minor known
+  staleness vs the live composite).
 - **docs/data.json export** — the build now emits `docs/data.json` alongside the
   HTML: latest public scan with per-sector and per-theme raw scores, rank,
   rank-delta, trajectory, and setup badge, plus `schema_version`/`generated_at`/
