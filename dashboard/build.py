@@ -499,6 +499,36 @@ def main() -> None:
     feed_path.write_text(feed_xml, encoding="utf-8")
     logger.info("Feed written to %s (%d entries)", feed_path, len(feed_entries))
 
+    # 6b. Machine-readable data export (fail-open — never breaks the HTML build)
+    try:
+        import json
+        from datetime import datetime, timezone
+        from dashboard.data_export import build_data_export
+
+        if (theme_history_df is not None and not theme_history_df.empty
+                and active_scan_id is not None):
+            theme_latest_df = theme_history_df[theme_history_df["scan_id"] == active_scan_id]
+        else:
+            theme_latest_df = theme_history_df
+
+        data_payload = build_data_export(
+            sector_rows=leaderboard_rows,
+            theme_rows=theme_rows,
+            latest_scores_df=latest_scores,
+            theme_latest_df=theme_latest_df,
+            scan_id=active_scan_id,
+            scan_date=scan_date,
+            lagged=bool(auth_ctx["auth"]) and lb_scan_id is not None,
+            generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        (out_dir / "data.json").write_text(
+            json.dumps(data_payload, indent=2), encoding="utf-8")
+        logger.info("Data export written to %s (%d sectors, %d themes)",
+                    out_dir / "data.json",
+                    len(data_payload["sectors"]), len(data_payload["themes"]))
+    except Exception as exc:  # fail-open
+        logger.warning("data.json export failed (%s) — continuing", exc)
+
     # 7. Disable Jekyll on GitHub Pages (the published artifact is static).
     _disable_jekyll(out_dir)
 
