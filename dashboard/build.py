@@ -399,6 +399,9 @@ def main() -> None:
         auth_src = _ASSETS_DIR / "auth.js"
         if auth_src.exists():
             shutil.copy2(auth_src, docs_assets / "auth.js")
+        positions_src = _ASSETS_DIR / "positions.js"
+        if positions_src.exists():
+            shutil.copy2(positions_src, docs_assets / "positions.js")
         supabase_src = _ASSETS_DIR / "supabase.min.js"
         if supabase_src.exists():
             shutil.copy2(supabase_src, docs_assets / "supabase.min.js")

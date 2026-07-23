@@ -21,23 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Position tracking
-
-Allow logged-in users to track their sector/theme positions (holdings,
-entry dates, size) against the scanner's signals. Depends on **User
-authentication** being shipped first.
-
-**Scope TBD** — data model, UI surface (overlay on leaderboard, dedicated
-tab, or both), and interaction with the existing ranking to be designed
-during brainstorming.
-
-**Hard constraint (from the 2026-07-20 privacy audit):** the repo is public
-(required for free-tier GitHub Pages), so user positions must live behind
-RLS in Supabase and be fetched client-side after auth — never baked into
-the static build.
-
-
-
 ## Risk-adjusted momentum (signal research)
 
 Test risk-adjusted momentum (return / volatility) as a scoring signal — a
@@ -83,6 +66,12 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Position tracking (phase 1)** — signed-in users toggle a per-row star to
+  flag sectors/themes they hold (boolean; presence of a `public.positions` row).
+  Held rows highlighted; held + Exit-flagged rows get a ⚠ warn cue. Browser-side
+  under RLS (`positions_owner`), fail-open. New `scripts/positions_migration.sql`
+  (manual post-merge run). Also scoped `auth.js`'s live upgrade to
+  `#leaderboard-table` (was clobbering the themes table on the themes page).
 - **docs/data.json export** — the build now emits `docs/data.json` alongside the
   HTML: latest public scan with per-sector and per-theme raw scores, rank,
   rank-delta, trajectory, and setup badge, plus `schema_version`/`generated_at`/

@@ -86,7 +86,7 @@
 
   function upgradeLeaderboard() {
     if (_upgraded) return;
-    var tbody = document.querySelector("#tab-leaderboard tbody");
+    var tbody = document.querySelector("#leaderboard-table tbody");
     if (!tbody) return;
     _upgraded = true;
     sb.from("v_recent_scores")
@@ -110,6 +110,7 @@
           try { lang = localStorage.getItem("lang") || "en"; } catch (e) {}
           window.applyLang(lang);
         }
+        document.dispatchEvent(new CustomEvent("sm:leaderboard-upgraded"));
       });
   }
 
@@ -143,6 +144,8 @@
       list.forEach(function (r) {
         var tr = document.createElement("tr");
         tr.className = "leaderboard-row";
+        tr.dataset.region = r.region;
+        tr.dataset.sector = r.gics_sector;
         var rank = (r.rank === null || isNaN(r.rank)) ? "—" : Math.round(r.rank);
         var top3 = (typeof rank === "number" && rank <= 3) ? " top3" : "";
         var m = meta[r.region + "|" + r.gics_sector] || {};
