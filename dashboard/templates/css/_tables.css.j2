@@ -283,6 +283,33 @@ tbody td:nth-child(n+4) {
   background: color-mix(in srgb, var(--down) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--down) 30%, transparent);
 }
+/* Position tracking (phase 1) */
+.position-toggle {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0 6px 0 0;
+  color: var(--fg4);
+  vertical-align: baseline;
+}
+.position-toggle[aria-pressed="true"] { color: var(--brand-strong); }
+.position-toggle:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.leaderboard-row.position-held {
+  background: color-mix(in srgb, var(--brand-strong) 7%, transparent);
+}
+.leaderboard-row.position-warn {
+  box-shadow: inset 3px 0 0 0 var(--down);
+}
+.leaderboard-row.position-warn td:nth-child(2)::before {
+  content: "\26A0 ";   /* ⚠ */
+  color: var(--down);
+}
 .sig-info {
   font-size: 11px;
   color: var(--fg4);
