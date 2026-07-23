@@ -131,6 +131,11 @@
     meta = meta || {};
     var byRegion = {};
     rows.forEach(function (r) { (byRegion[r.region] || (byRegion[r.region] = [])).push(r); });
+    // Preserve the static drill-down panels (keyed by sector_id) so signed-in
+    // rows stay expandable; re-appended under each rebuilt row below.
+    var bdRows = {};
+    Array.prototype.forEach.call(tbody.querySelectorAll(".breakdown-row"),
+      function (r) { bdRows[r.id] = r; });
     tbody.innerHTML = "";
     [["US", "US Sectors"], ["EU", "EU Sectors"]].forEach(function (pair) {
       var region = pair[0], label = pair[1];
@@ -146,6 +151,7 @@
         tr.className = "leaderboard-row";
         tr.dataset.region = r.region;
         tr.dataset.sector = r.gics_sector;
+        tr.dataset.sectorId = region + "-" + r.gics_sector.replace(/ /g, "_");
         var rank = (r.rank === null || isNaN(r.rank)) ? "—" : Math.round(r.rank);
         var top3 = (typeof rank === "number" && rank <= 3) ? " top3" : "";
         var m = meta[r.region + "|" + r.gics_sector] || {};
@@ -173,6 +179,8 @@
           '<td class="delta-cell">' + deltaInner + "</td>" +
           "<td>" + trendInner + "</td>";
         tbody.appendChild(tr);
+        var bd = bdRows["bd-" + tr.dataset.sectorId];
+        if (bd) tbody.appendChild(bd);
       });
     });
   }
