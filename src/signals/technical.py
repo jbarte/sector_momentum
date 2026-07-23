@@ -97,3 +97,19 @@ def compute_obv(close: pd.Series, volume: pd.Series) -> dict[str, float]:
     result["obv_slope"] = float(slope / mean_abs_obv)
 
     return result
+
+
+def compute_max_drawdown(close: pd.Series, window: int = 252) -> float:
+    """Trailing max drawdown over the last ``window`` closes.
+
+    Returns the most negative peak-to-trough decline as a fraction
+    (e.g. -0.32 for a 32% drawdown), 0.0 if the window only rose, or NaN
+    when there are fewer than 2 usable closes.
+    """
+    clean = close.dropna()
+    if len(clean) < 2:
+        return float("nan")
+    recent = clean.iloc[-window:]
+    running_max = recent.cummax()
+    drawdown = recent / running_max - 1.0
+    return float(drawdown.min())
