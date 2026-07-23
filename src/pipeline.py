@@ -25,6 +25,7 @@ SIGNAL_COLUMNS = [
     "ma50_slope",
     "obv_slope",
     "breadth_above_50dma",
+    "max_dd_1y",
 ]
 
 
@@ -45,7 +46,7 @@ def compute_signals_for_sector(
     """
     from src.signals.relative_strength import latest_rrg
     from src.signals.momentum import compute_returns, compute_acceleration
-    from src.signals.technical import compute_ma_structure, compute_obv
+    from src.signals.technical import compute_ma_structure, compute_obv, compute_max_drawdown
 
     if sector_ticker not in prices:
         logger.warning("Skipping %s (%s) — ticker %s not in price data", gics_sector, region, sector_ticker)
@@ -107,6 +108,12 @@ def compute_signals_for_sector(
             logger.warning("No Volume column for %s (%s) — obv_slope set to NaN", gics_sector, region)
     except Exception as exc:
         logger.warning("compute_obv failed for %s (%s): %s", gics_sector, region, exc)
+
+    # --- Max drawdown (trailing 1y, info-only) ---
+    try:
+        signals["max_dd_1y"] = compute_max_drawdown(sector_close)
+    except Exception as exc:
+        logger.warning("compute_max_drawdown failed for %s (%s): %s", gics_sector, region, exc)
 
     return signals
 

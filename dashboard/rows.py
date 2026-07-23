@@ -29,6 +29,8 @@ def _format_raw_value(name: str, value) -> str:
         return f"{v * 100:.0f}%"
     if name in ("ma50_slope", "obv_slope"):
         return f"{v:+.3f}"
+    if name == "max_dd_1y":
+        return f"{v * 100:.1f}%"
     # return_*, above_*dma, acceleration — stored as decimal fraction
     return f"{v * 100:+.1f}%"
 

@@ -194,3 +194,30 @@ def test_compute_obv_nan_for_flat_prices():
     assert np.isnan(result["obv_slope"]), (
         "Expected NaN obv_slope for flat (constant) prices"
     )
+
+
+def test_compute_max_drawdown_rise_then_fall():
+    from src.signals.technical import compute_max_drawdown
+    # Rise 100->120 then fall to 90: peak 120, trough 90 -> -25%.
+    close = pd.Series([100, 110, 120, 105, 90], dtype=float)
+    assert compute_max_drawdown(close) == pytest.approx(-0.25, abs=1e-9)
+
+
+def test_compute_max_drawdown_monotonic_rise_is_zero():
+    from src.signals.technical import compute_max_drawdown
+    close = pd.Series([100, 101, 102, 103], dtype=float)
+    assert compute_max_drawdown(close) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_compute_max_drawdown_window_limits_lookback():
+    from src.signals.technical import compute_max_drawdown
+    # A big early crash then a clean recent rise; a short window ignores the crash.
+    close = pd.Series([100, 10, 100, 101, 102, 103], dtype=float)
+    assert compute_max_drawdown(close, window=3) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_compute_max_drawdown_insufficient_data_is_nan():
+    import math
+    from src.signals.technical import compute_max_drawdown
+    assert math.isnan(compute_max_drawdown(pd.Series([100.0])))
+    assert math.isnan(compute_max_drawdown(pd.Series([], dtype=float)))
