@@ -21,6 +21,7 @@ _SIGNAL_META: dict[str, dict] = {
     "obv_slope":           {"label": "OBV Trend",           "group": "change"},
     "return_1m":           {"label": "1M Return",           "group": "info"},
     "breadth_above_50dma": {"label": "Breadth >50-DMA",     "group": "info"},
+    "max_dd_1y":           {"label": "Max Drawdown (1y)",   "group": "info"},
 }
 
 _SIGNAL_DESCRIPTIONS: dict[str, str] = {
@@ -35,6 +36,7 @@ _SIGNAL_DESCRIPTIONS: dict[str, str] = {
     "obv_slope":           "Slope of On-Balance Volume. Rising OBV means volume is flowing into the sector, confirming price strength with buying pressure.",
     "return_1m":           "1-month price return. Short-term reference; stored but not included in scoring.",
     "breadth_above_50dma": "Percentage of stocks in the sector trading above their own 50-DMA. High breadth = broad-based rally, not just a few large caps.",
+    "max_dd_1y":           "Largest peak-to-trough decline of the sector ETF over the last year. Closer to 0% = a shallower worst-case loss (steadier); more negative = a deeper historical drawdown. Info-only — not part of the score.",
 }
 
 
@@ -234,7 +236,7 @@ def _build_breakdown_html(
 
     # Info-only signals (not scored)
     info_parts = []
-    for n in ("above_200dma", "return_1m", "breadth_above_50dma"):
+    for n in ("above_200dma", "return_1m", "breadth_above_50dma", "max_dd_1y"):
         sig = sig_by_name.get(n, {})
         if sig.get("raw_value") is not None:
             lbl = _SIGNAL_META[n]["label"]
