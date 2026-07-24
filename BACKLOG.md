@@ -66,6 +66,14 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Sentiment chart empty-state** — when the rendered scan has no news
+  sentiment for any sector (e.g. a lagged scan predating the FinBERT pivot, or
+  a GDELT outage), the Data ⇄ Sentiment scatter used to render as a confusing
+  flat line of hollow points at 0. It now shows an explicit "No news sentiment
+  for this snapshot" panel (EN/SV) instead. New `sentiment_available` flag on
+  the sentiment page context (`dashboard/sentiment.py`, true when the latest
+  scan has ≥1 real sentiment value); template branches on it. No pipeline
+  change — sentiment itself works; this is display-only.
 - **Position tracking (phase 1)** — signed-in users toggle a per-row star to
   flag sectors/themes they hold (boolean; presence of a `public.positions` row).
   Held rows highlighted; held + Exit-flagged rows get a ⚠ warn cue. Browser-side

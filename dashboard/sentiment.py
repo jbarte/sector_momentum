@@ -38,6 +38,17 @@ def _build_sentiment_signal_rows(sent_df) -> list[dict]:
     return rows
 
 
+def _latest_has_sentiment(history_df) -> bool:
+    """True iff the latest scan has at least one real (non-null, non-zero)
+    sentiment_score. Mirrors the scatter's own solid/faded split so the page
+    only hides the chart when it would be an all-hollow flat line."""
+    if history_df is None or history_df.empty or "sentiment_score" not in history_df:
+        return False
+    latest_id = history_df["scan_id"].max()
+    s = history_df[history_df["scan_id"] == latest_id]["sentiment_score"]
+    return bool((s.notna() & (s != 0.0)).any())
+
+
 def build_page_context(shared: dict) -> dict:
     """Assemble sentiment page context (sectors only; FinBERT)."""
     from dashboard.figures import _build_sentiment_scatter_figure
@@ -45,4 +56,5 @@ def build_page_context(shared: dict) -> dict:
     return {
         "sentiment_scatter_json": _build_sentiment_scatter_figure(shared["history_df"]),
         "sentiment_signal_rows": _build_sentiment_signal_rows(shared["sentiment_signals_df"]),
+        "sentiment_available": _latest_has_sentiment(shared["history_df"]),
     }
