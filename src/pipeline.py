@@ -8,6 +8,7 @@ given, so these can be driven as-of any historical date by truncating prices.
 from __future__ import annotations
 
 import logging
+import math
 
 import pandas as pd
 
@@ -26,6 +27,9 @@ SIGNAL_COLUMNS = [
     "obv_slope",
     "breadth_above_50dma",
     "max_dd_1y",
+    "rar_3m",
+    "rar_6m",
+    "calmar_6m",
 ]
 
 
@@ -46,7 +50,9 @@ def compute_signals_for_sector(
     """
     from src.signals.relative_strength import latest_rrg
     from src.signals.momentum import compute_returns, compute_acceleration
-    from src.signals.technical import compute_ma_structure, compute_obv, compute_max_drawdown
+    from src.signals.technical import (
+        compute_ma_structure, compute_obv, compute_max_drawdown, compute_realized_vol,
+    )
 
     if sector_ticker not in prices:
         logger.warning("Skipping %s (%s) — ticker %s not in price data", gics_sector, region, sector_ticker)
@@ -114,6 +120,29 @@ def compute_signals_for_sector(
         signals["max_dd_1y"] = compute_max_drawdown(sector_close)
     except Exception as exc:
         logger.warning("compute_max_drawdown failed for %s (%s): %s", gics_sector, region, exc)
+
+    # --- Risk-adjusted momentum (info-only; not part of scoring) ---
+    # Divides each return by the risk taken to earn it. Volatility windows match
+    # compute_returns' horizons (3m=63d, 6m=126d) so numerator and denominator
+    # cover the same period. Guarded so a zero/NaN denominator yields NaN, never inf.
+    try:
+        def _ratio(numer: float, denom: float) -> float:
+            if numer is None or denom is None:
+                return float("nan")
+            n, d = float(numer), float(denom)
+            if not math.isfinite(n) or not math.isfinite(d) or d == 0.0:
+                return float("nan")
+            return n / d
+
+        vol_3m = compute_realized_vol(sector_close, window=63)
+        vol_6m = compute_realized_vol(sector_close, window=126)
+        signals["rar_3m"] = _ratio(signals["return_3m"], vol_3m)
+        signals["rar_6m"] = _ratio(signals["return_6m"], vol_6m)
+        # Drawdown is negative; its magnitude is the risk taken. abs(NaN) is NaN,
+        # and _ratio rejects a non-finite or zero denominator, so no extra guard.
+        signals["calmar_6m"] = _ratio(signals["return_6m"], abs(float(signals["max_dd_1y"])))
+    except Exception as exc:
+        logger.warning("risk-adjusted signals failed for %s (%s): %s", gics_sector, region, exc)
 
     return signals
 

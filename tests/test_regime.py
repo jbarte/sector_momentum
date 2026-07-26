@@ -48,9 +48,12 @@ def test_score_as_of_forwards_weights(monkeypatch):
     captured = {}
 
     def fake_score_all(wide, weights_path="config/weights.yaml", sentiment_score=None,
-                       blend_sentiment=True, level_weight=None, change_weight=None):
+                       blend_sentiment=True, level_weight=None, change_weight=None,
+                       level_signals=None, change_signals=None):
         captured["lw"] = level_weight
         captured["cw"] = change_weight
+        captured["ls"] = level_signals
+        captured["cs"] = change_signals
         return pd.DataFrame({"rank": range(len(wide))}, index=wide.index)
 
     # One US sector row so build_signals_rows yields something; simplest: monkeypatch
@@ -64,7 +67,13 @@ def test_score_as_of_forwards_weights(monkeypatch):
 
     replay.score_as_of({}, {}, pd.Timestamp("2020-01-31"), "US",
                        level_weight=0.7, change_weight=0.3)
-    assert captured == {"lw": 0.7, "cw": 0.3}
+    assert captured == {"lw": 0.7, "cw": 0.3, "ls": None, "cs": None}
+
+    # Signal-set overrides are forwarded the same way (default stays None).
+    replay.score_as_of({}, {}, pd.Timestamp("2020-01-31"), "US",
+                       level_signals=["rs_ratio"], change_signals=["obv_slope"])
+    assert captured["ls"] == ["rs_ratio"]
+    assert captured["cs"] == ["obv_slope"]
 
 
 def _spy(values, start="2019-01-01"):
@@ -127,7 +136,8 @@ def test_run_track_passes_weights_fn(monkeypatch):
 
     seen_weights = []
 
-    def fake_score_as_of(universe, prices, d, region, level_weight=None, change_weight=None):
+    def fake_score_as_of(universe, prices, d, region, level_weight=None, change_weight=None,
+                         level_signals=None, change_signals=None):
         seen_weights.append((level_weight, change_weight))
         # Return a minimal valid scored frame with >= top_n rows.
         idx = [f"US|S{i}" for i in range(5)]

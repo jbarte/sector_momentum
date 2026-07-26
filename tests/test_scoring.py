@@ -220,3 +220,74 @@ def test_score_all_without_pillars_block(tmp_path):
     result = score_all(signals, weights_path=str(weights_file), blend_sentiment=False)
     assert "composite" in result.columns
     assert len(result) == 3
+
+
+# ---------------------------------------------------------------------------
+# Signal-set overrides (research harness support)
+# ---------------------------------------------------------------------------
+
+def _signal_frame():
+    """Two sectors with deliberately opposed level signals."""
+    return pd.DataFrame(
+        {
+            "rs_ratio":   [1.0, -1.0],
+            "return_3m":  [1.0, -1.0],
+            "return_6m":  [1.0, -1.0],
+            "above_50dma": [1.0, -1.0],
+            "rs_momentum": [0.0, 0.0],
+            "acceleration": [0.0, 0.0],
+            "ma50_slope": [0.0, 0.0],
+            "obv_slope": [0.0, 0.0],
+            # An inverted risk-adjusted signal: opposite sign to the raw returns.
+            "rar_6m":     [-1.0, 1.0],
+        },
+        index=["US|A", "US|B"],
+    )
+
+
+def test_score_all_default_path_is_unchanged_by_new_params():
+    """The most important guard: omitting the new args must reproduce the
+    current behaviour exactly, so live scoring is untouched."""
+    from src.scoring import score_all
+    df = _signal_frame()
+    baseline = score_all(df, blend_sentiment=False)
+    explicit_none = score_all(df, blend_sentiment=False,
+                              level_signals=None, change_signals=None)
+    pd.testing.assert_frame_equal(baseline, explicit_none)
+
+
+def test_custom_level_signals_changes_the_level_score():
+    """Swapping return_6m for an inverted rar_6m must shrink A's lead."""
+    from src.scoring import score_all
+    df = _signal_frame()
+    base = score_all(df, blend_sentiment=False)
+    swapped = score_all(
+        df, blend_sentiment=False,
+        level_signals=["rs_ratio", "return_3m", "rar_6m", "above_50dma"],
+    )
+    assert base.loc["US|A", "level_score"] > base.loc["US|B", "level_score"]
+    assert (swapped.loc["US|A", "level_score"] - swapped.loc["US|B", "level_score"]) < \
+           (base.loc["US|A", "level_score"] - base.loc["US|B", "level_score"])
+
+
+def test_compute_level_score_ignores_unknown_names():
+    from src.scoring import compute_level_score, zscore_cross_section
+    z = zscore_cross_section(_signal_frame())
+    got = compute_level_score(z, signals=["rs_ratio", "does_not_exist"])
+    expected = z[["rs_ratio"]].mean(axis=1)
+    pd.testing.assert_series_equal(got, expected)
+
+
+def test_compute_level_score_all_unknown_is_neutral_zero():
+    from src.scoring import compute_level_score, zscore_cross_section
+    z = zscore_cross_section(_signal_frame())
+    got = compute_level_score(z, signals=["nope", "also_nope"])
+    assert (got == 0.0).all()
+
+
+def test_compute_change_score_accepts_custom_signals():
+    from src.scoring import compute_change_score, zscore_cross_section
+    z = zscore_cross_section(_signal_frame())
+    got = compute_change_score(z, signals=["rs_momentum"])
+    expected = z[["rs_momentum"]].mean(axis=1)
+    pd.testing.assert_series_equal(got, expected)
