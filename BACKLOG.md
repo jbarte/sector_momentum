@@ -29,12 +29,6 @@ add the signal, compare baseline vs variants that use it, adopt into live scorin
 only if it clearly beats baseline in both regions. The max-drawdown display shipped
 2026-07-23 (info-only, breakdown panel). *(Deep review 2026-07-19.)*
 
-## Walk-forward weight validation (research)
-
-The 0.50/0.50 level/change split is assumed, not validated. Grid the split
-in the backtest with walk-forward evaluation to see whether the choice
-matters and which region prefers what. *(Deep review 2026-07-19.)*
-
 ---
 
 # Parked
@@ -65,6 +59,19 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Walk-forward weight validation (research)** — validated the assumed 0.50/0.50
+  level/change split. New pure `src/backtest/walkforward.py` (trailing-window scheme
+  selection + stitching, with an effectiveness-verified no-look-ahead test) and
+  `scripts/walkforward_weights.py`, which grades 11 fixed splits plus the regime
+  spike's V3 per region, then builds an out-of-sample walk-forward track by
+  re-selecting on trailing Sharpe (36/60/120-month windows, 12-month cadence).
+  **Outcome: PARK — walk-forward selection never beats fixed 0.50/0.50 in both
+  regions (US Sharpe 0.82 incumbent vs 0.71/0.80/0.83 at 36/60/120m; EU 0.62
+  incumbent vs 0.57/0.54/0.61, worse at every window), and the grid is a broad
+  plateau once level weight ≥~0.3-0.4 with 50/50 already inside it.** Live
+  scoring untouched (`config/weights.yaml` still 50/50). Full findings in the notes
+  repo (`research/2026-07-23-walk-forward-weight-validation.md`). *(2026-07-23)*
 
 - **Sentiment chart empty-state** — when the rendered scan has no news
   sentiment for any sector (e.g. a lagged scan predating the FinBERT pivot, or
