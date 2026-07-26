@@ -21,9 +21,53 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Deferred UI/code polish (small, grouped sweep)
+
+Minor findings deliberately deferred during code review — none affect
+correctness, all are small. Recorded so they aren't rediscovered from scratch.
+
+- **Position-star tooltips are English-only.** `dashboard/assets/positions.js`
+  sets `title`/`aria-label` on the ★/☆ toggle as literal English strings; the
+  rest of the UI carries EN/SV pairs. Add SV strings (the glyph itself is
+  language-neutral, so this is polish, not a blocker).
+- **`GoTrueClient` multiple-instance console warning.** `auth.js` and
+  `positions.js` each call `createClient`, so Supabase logs a "multiple
+  GoTrueClient instances" warning. Harmless (both share the same persisted
+  session via localStorage) but noisy in the console; could be resolved by
+  exposing one shared client.
+- **Themes-page setup badges are lagged for signed-in users.** The client-side
+  live upgrade only rebuilds the sector table (`#leaderboard-table`), so on the
+  themes page the Exit/Entry badges — and therefore the held+Exit ⚠ cue — reflect
+  the baked (lagged) scan rather than the live one.
+- **Dead guard branches in `scripts/walkforward_weights.py`.** The
+  `bench_returns`/`base_bench` `None`-checks are unreachable, since Phase B is
+  gated on the baseline scheme having succeeded. Reviewed and accepted as
+  harmless; remove if that file is touched again.
+
 ---
 
 # Parked
+
+## Signed-in drill-down gap after a universe change
+
+**Accepted 2026-07-26 — self-healing, no code change.** For roughly `LAG_DAYS`
+(7) after any universe change, a signed-in user can see leaderboard rows that
+cannot expand.
+
+Why: the baked dashboard renders the newest scan at least 7 days old
+(`dashboard/gating.py`, `LAG_DAYS = 7`), while signed-in users are upgraded
+client-side to the *latest* scan. A sector that exists only in the latest scan
+therefore has no baked `.breakdown-row` panel to attach to, so clicking it does
+nothing (it degrades quietly — no error).
+
+Observed after the 2026-07-18 EU sub-sector split (Banks / Financial Services /
+Insurance / Basic Resources / Chemicals), which the then-current lagged scan
+(132, pre-split) knew nothing about. It resolves on its own once the lagged
+window crosses the change.
+
+Not worth fixing by baking the latest panels — that would leak gated data into
+the public HTML and defeat content gating. The real fix, if it ever becomes
+annoying, is a gated client-side breakdown fetch (its own spec/plan).
 
 ## Symbol-based Trends sentiment — Phase 2 (US constituents)
 
