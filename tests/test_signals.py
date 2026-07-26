@@ -221,3 +221,96 @@ def test_compute_max_drawdown_insufficient_data_is_nan():
     from src.signals.technical import compute_max_drawdown
     assert math.isnan(compute_max_drawdown(pd.Series([100.0])))
     assert math.isnan(compute_max_drawdown(pd.Series([], dtype=float)))
+
+
+# ---------------------------------------------------------------------------
+# Risk-adjusted momentum (info-only signals)
+# ---------------------------------------------------------------------------
+
+def test_compute_realized_vol_known_series():
+    import math
+    from src.signals.technical import compute_realized_vol
+    # Daily returns alternate roughly +10% / -10%.
+    close = pd.Series([100, 110, 99, 108.9, 98.01], dtype=float)
+    rets = close.pct_change().dropna()
+    expected = float(rets.std(ddof=1)) * math.sqrt(252)
+    assert compute_realized_vol(close, window=10) == pytest.approx(expected, rel=1e-9)
+
+
+def test_compute_realized_vol_window_limits_lookback():
+    from src.signals.technical import compute_realized_vol
+    # A violent early move then a calm recent stretch: a short window is calmer.
+    close = pd.Series([100, 200, 100, 101, 101.5, 102, 102.5], dtype=float)
+    short = compute_realized_vol(close, window=3)
+    long = compute_realized_vol(close, window=10)
+    assert short < long
+
+
+def test_compute_realized_vol_insufficient_data_is_nan():
+    import math
+    from src.signals.technical import compute_realized_vol
+    assert math.isnan(compute_realized_vol(pd.Series([], dtype=float), window=10))
+    assert math.isnan(compute_realized_vol(pd.Series([100.0]), window=10))
+    # One return only -> std(ddof=1) undefined -> NaN.
+    assert math.isnan(compute_realized_vol(pd.Series([100.0, 101.0]), window=10))
+
+
+def test_compute_realized_vol_flat_series_is_zero():
+    from src.signals.technical import compute_realized_vol
+    # A perfectly flat series has zero variance. Returning 0.0 (not NaN) is
+    # correct here; the ratio signals are responsible for not dividing by it.
+    close = pd.Series([100.0] * 10)
+    assert compute_realized_vol(close, window=5) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_risk_adjusted_signals_present_but_not_scored():
+    """The three new signals must be computed AND stay out of the scored lists."""
+    from src.pipeline import SIGNAL_COLUMNS
+    from src.scoring import _LEVEL_SIGNALS, _CHANGE_SIGNALS
+    for name in ("rar_3m", "rar_6m", "calmar_6m"):
+        assert name in SIGNAL_COLUMNS
+        assert name not in _LEVEL_SIGNALS
+        assert name not in _CHANGE_SIGNALS
+
+
+def _flat_price_frame(n=200, price=100.0):
+    idx = pd.date_range("2020-01-01", periods=n, freq="B")
+    return pd.DataFrame({"Close": [price] * n, "Volume": [1_000] * n}, index=idx)
+
+
+def test_ratio_signals_are_nan_not_inf_on_flat_prices():
+    """A flat series gives zero vol and zero drawdown -> ratios must be NaN."""
+    import math
+    from src.pipeline import compute_signals_for_sector
+    frame = _flat_price_frame()
+    bench = _flat_price_frame(price=50.0)
+    # Signature (verified): (sector_key, region, gics_sector, sector_ticker,
+    #                        benchmark_ticker, prices, rs_momentum_fast=5)
+    got = compute_signals_for_sector(
+        "US|Test", "US", "Test", "TST", "BENCH", {"TST": frame, "BENCH": bench},
+    )
+    assert got is not None
+    for name in ("rar_3m", "rar_6m", "calmar_6m"):
+        assert not math.isinf(got[name]), f"{name} must never be +/-inf"
+        assert math.isnan(got[name]), f"{name} should be NaN on a flat series"
+
+
+def test_ratio_signals_are_finite_on_realistic_prices():
+    """Guard against the ratio block silently failing (e.g. a NameError being
+    swallowed by its try/except, which would leave every ratio NaN)."""
+    import math
+    import numpy as _np
+    from src.pipeline import compute_signals_for_sector
+    rng = _np.random.default_rng(0)
+    n = 300
+    idx = pd.date_range("2020-01-01", periods=n, freq="B")
+    px = 100 * _np.cumprod(1 + rng.normal(0.0005, 0.01, n))
+    bench_px = 100 * _np.cumprod(1 + rng.normal(0.0003, 0.008, n))
+    frame = pd.DataFrame({"Close": px, "Volume": [1_000] * n}, index=idx)
+    bench = pd.DataFrame({"Close": bench_px, "Volume": [1_000] * n}, index=idx)
+    got = compute_signals_for_sector(
+        "US|Test", "US", "Test", "TST", "BENCH", {"TST": frame, "BENCH": bench},
+    )
+    assert got is not None
+    for name in ("rar_3m", "rar_6m", "calmar_6m"):
+        assert math.isfinite(got[name]), f"{name} should be a finite number here"

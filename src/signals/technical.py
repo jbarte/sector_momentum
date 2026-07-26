@@ -113,3 +113,23 @@ def compute_max_drawdown(close: pd.Series, window: int = 252) -> float:
     running_max = recent.cummax()
     drawdown = recent / running_max - 1.0
     return float(drawdown.min())
+
+
+def compute_realized_vol(close: pd.Series, window: int) -> float:
+    """Annualized realized volatility of daily returns over the last ``window`` days.
+
+    Uses the trailing ``window`` daily returns and annualizes with sqrt(252),
+    matching src/backtest/metrics.annualized_vol. Returns 0.0 for a perfectly
+    flat series, or NaN when fewer than 2 returns are available.
+    """
+    clean = close.dropna()
+    if len(clean) < 3:
+        return float("nan")
+    rets = clean.pct_change().dropna()
+    recent = rets.iloc[-window:]
+    if len(recent) < 2:
+        return float("nan")
+    sd = float(recent.std(ddof=1))
+    if not np.isfinite(sd):
+        return float("nan")
+    return sd * float(np.sqrt(252))
