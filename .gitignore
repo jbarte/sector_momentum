@@ -41,3 +41,8 @@ dashboard/assets/supabase.min.js
 # DB backups now live in Supabase Storage, not git.
 backups/
 .superpowers/
+
+# Research harness output (scripts/walkforward_weights.py, scripts/regime_research.py)
+# -- this is a public repo; research findings live in the private notes repo instead.
+/walkforward_weights.md
+/regime_research.md
