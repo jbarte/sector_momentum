@@ -97,8 +97,15 @@
   </details>
   </div>
 
+  {% if sentiment_available %}
   <div class="chart-container" id="sentiment-scatter" style="height:560px"></div>
   {{ scatter_footnote() }}
+  {% else %}
+  <div class="chart-container" style="padding:48px 32px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
+    <p style="font-weight:600;color:var(--fg2);margin:0 0 8px" data-i18n="sentiment_empty_title">No news sentiment for this snapshot</p>
+    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto" data-i18n="sentiment_empty_body">The news source (GDELT / FinBERT) recorded no sentiment for any sector in this scan — usually a temporary source outage or rate limit. Sentiment returns automatically once the source is reachable again; the leaderboard and other tabs are unaffected.</p>
+  </div>
+  {% endif %}
   {% if sentiment_signal_rows %}
   <h3 style="margin:24px 0 8px 4px" data-i18n="sent_news_heading">News sentiment</h3>
   {{ sentiment_table(sentiment_signal_rows) }}
