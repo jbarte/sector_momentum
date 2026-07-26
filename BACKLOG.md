@@ -21,14 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Risk-adjusted momentum (signal research)
-
-Test risk-adjusted momentum (return / volatility) as a scoring signal — a
-validate-in-the-backtest-before-adoption spike (like the regime-weighting one):
-add the signal, compare baseline vs variants that use it, adopt into live scoring
-only if it clearly beats baseline in both regions. The max-drawdown display shipped
-2026-07-23 (info-only, breakdown panel). *(Deep review 2026-07-19.)*
-
 ---
 
 # Parked
@@ -59,6 +51,24 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Risk-adjusted momentum (signal research)** — added three info-only signals
+  (`rar_3m`, `rar_6m` = return / annualized realized vol over the matching window;
+  `calmar_6m` = return_6m / |max_dd_1y|) plus `compute_realized_vol`, and optional
+  `level_signals`/`change_signals` overrides threaded through
+  `score_all`/`score_as_of`/`run_track` so signal sets can be A/B'd in the backtest
+  without touching globals. New `scripts/riskadj_research.py` compares baseline
+  against additive and substitutive variants per region, with per-era consistency
+  and a correlation redundancy check.
+  **Outcome: PARK** — no variant beat baseline in either region (US 10.94% CAGR /
+  0.82 Sharpe vs best variant 10.88 / 0.82 with a deeper drawdown; EU 8.51 / 0.62
+  vs best variant 8.43 / 0.61), and the scattered wins were confined to a single
+  era. Mechanism is clear: each risk-adjusted signal is ~0.96 correlated with the
+  raw return it is built from, so cross-sectionally it barely reorders sectors —
+  which is also why the *additive* variant was the worst in both regions. Live
+  scoring and ranking unchanged (new signals are not in `_LEVEL_SIGNALS`/
+  `_CHANGE_SIGNALS`; `config/weights.yaml` untouched). Full findings in the notes
+  repo (`research/2026-07-26-risk-adjusted-momentum.md`). *(2026-07-26)*
 
 - **Walk-forward weight validation (research)** — validated the assumed 0.50/0.50
   level/change split. New pure `src/backtest/walkforward.py` (trailing-window scheme
