@@ -61,29 +61,32 @@ def zscore_cross_section(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def compute_level_score(z_df: pd.DataFrame) -> pd.Series:
+def compute_level_score(z_df: pd.DataFrame, signals: list[str] | None = None) -> pd.Series:
     """
-    Equal-weighted average of level signals (z-scored):
-      rs_ratio, return_3m, return_6m, above_50dma, above_200dma
+    Equal-weighted average of level signals (z-scored).
 
+    Defaults to _LEVEL_SIGNALS; pass `signals` to score an alternative set
+    (used by research harnesses to A/B signal sets without mutating globals).
     Only averages over signals that are present (handles missing columns gracefully).
     Returns a Series indexed like z_df.
     """
-    present = [c for c in _LEVEL_SIGNALS if c in z_df.columns]
+    names = _LEVEL_SIGNALS if signals is None else signals
+    present = [c for c in names if c in z_df.columns]
     if not present:
         return pd.Series(0.0, index=z_df.index)
     return z_df[present].mean(axis=1)
 
 
-def compute_change_score(z_df: pd.DataFrame) -> pd.Series:
+def compute_change_score(z_df: pd.DataFrame, signals: list[str] | None = None) -> pd.Series:
     """
-    Equal-weighted average of change signals (z-scored):
-      rs_momentum, acceleration, ma50_slope, obv_slope
+    Equal-weighted average of change signals (z-scored).
 
+    Defaults to _CHANGE_SIGNALS; pass `signals` to score an alternative set.
     Only averages over signals that are present.
     Returns a Series indexed like z_df.
     """
-    present = [c for c in _CHANGE_SIGNALS if c in z_df.columns]
+    names = _CHANGE_SIGNALS if signals is None else signals
+    present = [c for c in names if c in z_df.columns]
     if not present:
         return pd.Series(0.0, index=z_df.index)
     return z_df[present].mean(axis=1)
@@ -144,6 +147,8 @@ def score_all(
     blend_sentiment: bool = True,
     level_weight: float | None = None,
     change_weight: float | None = None,
+    level_signals: list[str] | None = None,
+    change_signals: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Full pipeline: z-score → level/change → data → composite → rank.
@@ -155,6 +160,10 @@ def score_all(
     sentiment_score: optional Series indexed like signals_df. If provided,
       it is reindexed to match signals_df (missing keys → 0.0) and passed
       to compute_composite with the configured sentiment weight.
+
+    level_signals / change_signals: optional signal-name lists overriding
+      _LEVEL_SIGNALS / _CHANGE_SIGNALS. Used by research harnesses to compare
+      alternative signal sets; None (the default) preserves live behaviour.
     """
     weights_file = Path(weights_path)
     with weights_file.open() as fh:
@@ -169,8 +178,8 @@ def score_all(
     sentiment_weight: float = float(_pillars.get("sentiment", 0.0))
 
     z_df = zscore_cross_section(signals_df)
-    level = compute_level_score(z_df)
-    change = compute_change_score(z_df)
+    level = compute_level_score(z_df, signals=level_signals)
+    change = compute_change_score(z_df, signals=change_signals)
     data = compute_data_score(level, change, level_weight=lw, change_weight=cw)
 
     # Align sentiment_score index to signals_df; fill gaps with 0.0 (neutral)

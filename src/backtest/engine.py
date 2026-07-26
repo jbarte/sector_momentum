@@ -24,6 +24,8 @@ def run_track(
     top_n: int = 5,
     cost_bps: float = 0.0,
     weights_fn=None,
+    level_signals: list[str] | None = None,
+    change_signals: list[str] | None = None,
 ) -> dict | None:
     if benchmark_ticker not in prices:
         logger.warning("Track %s skipped — benchmark %s missing", region, benchmark_ticker)
@@ -39,9 +41,13 @@ def run_track(
         if weights_fn is not None:
             lw, cw = weights_fn(d)
             scored = replay.score_as_of(universe, prices, d, region,
-                                        level_weight=lw, change_weight=cw)
+                                        level_weight=lw, change_weight=cw,
+                                        level_signals=level_signals,
+                                        change_signals=change_signals)
         else:
-            scored = replay.score_as_of(universe, prices, d, region)
+            scored = replay.score_as_of(universe, prices, d, region,
+                                        level_signals=level_signals,
+                                        change_signals=change_signals)
         if scored is not None and len(scored) >= top_n:
             score_by_date[d] = scored
     if len(score_by_date) < 2:

@@ -32,6 +32,8 @@ def score_as_of(
     region: str,
     level_weight: float | None = None,
     change_weight: float | None = None,
+    level_signals: list[str] | None = None,
+    change_signals: list[str] | None = None,
 ) -> pd.DataFrame | None:
     truncated = truncate_prices(prices, as_of)
     rows = build_signals_rows(universe, truncated)
@@ -41,7 +43,8 @@ def score_as_of(
     wide = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
     scored = score_all(wide, weights_path="config/weights.yaml",
                        sentiment_score=None, blend_sentiment=False,
-                       level_weight=level_weight, change_weight=change_weight)
+                       level_weight=level_weight, change_weight=change_weight,
+                       level_signals=level_signals, change_signals=change_signals)
     return scored
 
 
