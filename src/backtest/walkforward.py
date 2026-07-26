@@ -59,8 +59,9 @@ def align_scheme_returns(returns_by_scheme: dict[str, pd.Series]) -> pd.DataFram
 def select_scheme(returns: pd.DataFrame, pos: int, window: int) -> str | None:
     """Best scheme by Sharpe over `returns.iloc[pos-window:pos]`.
 
-    The window ends at `pos` exclusive, so selection never sees the period it is
-    about to be applied to. Returns None when history is too short.
+    The window ends at `pos` exclusive, so selection never sees `returns.iloc[pos]`
+    itself -- the month the pick is about to be applied to (see `stitch_walk_forward`'s
+    `effective_from`). Returns None when history is too short.
 
     `metrics.sharpe` always returns a float (it guards len<2 and sd==0, both
     yielding 0.0) and never raises, so no per-scheme metric guard is needed: a
@@ -95,7 +96,12 @@ def stitch_walk_forward(
     forward.
 
     Returns (stitched monthly returns indexed like `returns`,
-    [(selection_date, scheme_name), ...]).
+    [(effective_from, scheme_name), ...]). `effective_from` is the first month
+    the pick is *applied to* (`returns.index[pos]`), not the date the decision
+    was made -- the decision itself uses only data strictly before that month
+    (`returns.iloc[pos-window:pos]`, via `select_scheme`). Reading it as a
+    "selection date" invites exactly the look-ahead misreading this stitching
+    is designed to avoid.
     """
     if returns.empty:
         return pd.Series(dtype=float), []
@@ -115,7 +121,8 @@ def stitch_walk_forward(
     pos = window
     while pos < n:
         pick = select_scheme(returns, pos, window) or baseline
-        history.append((returns.index[pos], pick))
+        effective_from = returns.index[pos]
+        history.append((effective_from, pick))
         end = min(pos + cadence, n)
         out.extend(returns[pick].iloc[pos:end].tolist())
         pos = end

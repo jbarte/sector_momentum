@@ -86,6 +86,34 @@ def test_select_scheme_uses_only_trailing_window_not_the_future():
     assert metrics.sharpe(fwd["future"]) > metrics.sharpe(fwd["past"])
 
 
+def test_select_scheme_excludes_the_month_about_to_be_applied():
+    """One-month boundary guard.
+
+    Rules out `returns.iloc[pos-window+1:pos+1]` -- a shift that still looks
+    "trailing" but includes `index[pos]`, the return realized in the very
+    month the pick is about to be applied to. That's a one-month look-ahead,
+    and it's the boundary a future refactor (e.g. an off-by-one in the slice)
+    is likeliest to reintroduce; the existing wholly-forward test does not
+    catch it.
+
+    "trail_winner" clearly wins over the correct trailing window
+    `iloc[pos-window:pos]` (indices 0-5); "shift_winner" only overtakes it once
+    index 6 (== index[pos]) is folded in, because index 6 alone flips the sign
+    of each scheme's mean return. Selecting at pos=6 must pick "trail_winner".
+    """
+    trail_winner = [0.02, 0.01, 0.02, 0.01, 0.02, 0.01, -0.20]
+    shift_winner = [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.20]
+    df = align_scheme_returns({"trail_winner": _series(trail_winner),
+                               "shift_winner": _series(shift_winner)})
+
+    assert select_scheme(df, pos=6, window=6) == "trail_winner"
+
+    # Prove the fixture is discriminating: the one-month-shifted window flips it.
+    shifted = df.iloc[1:7]
+    assert (metrics.sharpe(shifted["shift_winner"]) >
+            metrics.sharpe(shifted["trail_winner"]))
+
+
 def test_select_scheme_ranks_a_zero_variance_scheme_at_zero_sharpe():
     """`metrics.sharpe` returns 0.0 for a flat series (verified: it guards
     len<2 and sd==0), so a flat scheme is eligible but loses to any
@@ -128,6 +156,38 @@ def test_stitch_uses_baseline_during_warmup_then_selected_scheme():
     # After warm-up the better scheme is selected.
     np.testing.assert_allclose(wf.iloc[4:].values, [0.10, 0.08] * 4, atol=1e-12)
     assert [name for _, name in history] == ["hi", "hi"]
+    assert [d for d, _ in history] == [df.index[4], df.index[8]]
+
+
+def test_stitch_splices_a_different_winner_at_each_cadence_period():
+    """The winning scheme changes between cadence periods.
+
+    12 months, window=4, cadence=4, baseline="a". "a" wins the first
+    re-selection (over months 0-3: high mean, low spread vs "b"'s ~zero
+    mean), but "b" wins the second (over months 4-7: "a" turns negative
+    there while "b" turns strongly positive). This exercises the
+    splice-at-boundary-with-a-different-scheme path, which the other stitch
+    tests (single winner throughout) never touch.
+    """
+    a = _series([0.10, 0.08, 0.10, 0.08, -0.01, -0.02, -0.01, -0.02,
+                0.03, 0.03, 0.03, 0.03])
+    b = _series([0.01, -0.01, 0.01, -0.01, 0.10, 0.08, 0.10, 0.08,
+                0.05, 0.05, 0.05, 0.05])
+    df = align_scheme_returns({"a": a, "b": b})
+
+    wf, history = stitch_walk_forward(df, window=4, cadence=4, baseline="a")
+
+    assert len(wf) == 12
+    # Warm-up (months 0-3) from the baseline "a".
+    np.testing.assert_allclose(wf.iloc[:4].values, [0.10, 0.08, 0.10, 0.08],
+                               atol=1e-12)
+    # First re-selection picks "a" and applies its months 4-7.
+    np.testing.assert_allclose(wf.iloc[4:8].values,
+                               [-0.01, -0.02, -0.01, -0.02], atol=1e-12)
+    # Second re-selection flips to "b" and applies its months 8-11.
+    np.testing.assert_allclose(wf.iloc[8:12].values, [0.05, 0.05, 0.05, 0.05],
+                               atol=1e-12)
+    assert [name for _, name in history] == ["a", "b"]
     assert [d for d, _ in history] == [df.index[4], df.index[8]]
 
 

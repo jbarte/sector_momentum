@@ -40,6 +40,19 @@ BASELINE = "0.5/0.5"
 WINDOW_VARIANTS = (36, 60, 120)
 
 
+def _fixed_weights_fn(lw: float, cw: float):
+    """A `weights_fn(date) -> (level_weight, change_weight)` fixed at (lw, cw).
+
+    A plain closure over the loop variables in `_grid_schemes` would late-bind
+    -- every scheme would end up capturing whatever `lw`/`cw` held after the
+    loop finished, silently collapsing all 11 schemes onto the same weights
+    and invalidating the whole grid. Factoring the closure out to a named
+    helper called once per scheme (each call gets its own `lw`/`cw` arguments)
+    avoids that.
+    """
+    return lambda _d: (lw, cw)
+
+
 def _grid_schemes():
     """[(name, weights_fn_or_None)] for level_weight 0.0..1.0 in 0.1 steps.
 
@@ -54,7 +67,7 @@ def _grid_schemes():
         if name == BASELINE:
             out.append((name, None))
         else:
-            out.append((name, (lambda l, c: (lambda _d: (l, c)))(lw, cw)))
+            out.append((name, _fixed_weights_fn(lw, cw)))
     return out
 
 
@@ -66,6 +79,10 @@ def _parse_args() -> argparse.Namespace:
                    help="Trailing selection window in months (default 60).")
     p.add_argument("--cadence", type=int, default=12,
                    help="Months between re-selections (default 12).")
+    p.add_argument("--cost-bps", type=float, default=0.0,
+                   help="Per-rotation cost in bps, passed to every run_track call "
+                        "(default 0.0, matching backtest.py's default -- nothing "
+                        "is costed unless this is set).")
     p.add_argument("--out", default="walkforward_weights.md", help="Markdown output path.")
     return p.parse_args()
 
@@ -125,7 +142,7 @@ def run(args: argparse.Namespace) -> int:
                   "|---|---|---|---|---|---|"]
         for name, wfn in schemes:
             res = run_track(universe, prices, region, bench, instruments,
-                            top_n=args.top_n, weights_fn=wfn)
+                            top_n=args.top_n, cost_bps=args.cost_bps, weights_fn=wfn)
             if not res:
                 lines.append(f"| {name} | — | — | — | — | — |")
                 logger.warning("%s / %s — run_track returned no result", region, name)
@@ -147,7 +164,7 @@ def run(args: argparse.Namespace) -> int:
         R = align_scheme_returns(returns_by_scheme)
         lines += ["### Phase B — walk-forward (out-of-sample)", "",
                   f"{len(R)} shared months across {len(R.columns)} schemes.", "",
-                  "| Track | CAGR% | Sharpe | MaxDD% | Hit% | Switches |",
+                  "| Track | CAGR% | Sharpe | MaxDD% | Hit% | Re-sel. switches |",
                   "|---|---|---|---|---|---|"]
 
         base_rets = R[BASELINE]
@@ -183,17 +200,23 @@ def run(args: argparse.Namespace) -> int:
             selection_notes.append(f"- **window {w}m:** {picks or '(no selections)'}")
 
         lines += ["", "**Selected scheme over time** (instability here means the "
-                  "in-sample optimum is noise):", ""]
+                  "in-sample optimum is noise; `Re-sel. switches` above counts changes "
+                  "between re-selections only and excludes the initial move off the "
+                  "warm-up baseline, so it understates total changes in the applied "
+                  "scheme by one):", ""]
         lines += selection_notes
         lines.append("")
 
     lines += ["---", "",
-              "**Limitation:** the walk-forward track is stitched from fixed-scheme "
-              "return series, so the extra turnover incurred when the selected scheme "
-              "changes at a re-selection date is not charged (each track charges "
-              "cost_bps on its own internal rotations only). This mildly *flatters* "
-              "the adaptive track — so if it still fails to beat the fixed incumbent, "
-              "that conclusion is strengthened.", ""]
+              "**Limitation:** trading costs are not modelled here — `cost_bps` "
+              "defaults to 0.0 (matching the shipped `backtest.py` default) unless "
+              "`--cost-bps` is passed. Turnover is reported (the `Turn%` column above) "
+              "but never charged, for either the fixed schemes' own monthly rotations "
+              "or the walk-forward track's re-selection switches — the extra turnover "
+              "incurred when the selected scheme changes at a re-selection date is "
+              "likewise uncharged. This *flatters* the adaptive track — so its failure "
+              "to beat the fixed incumbent **strengthens** the PARK verdict, rather "
+              "than weakening it.", ""]
 
     md = "\n".join(lines)
     with open(args.out, "w") as fh:

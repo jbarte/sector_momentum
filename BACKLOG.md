@@ -62,7 +62,9 @@ dashboard's drill-down tab covers most of the need.
 
 - **Walk-forward weight validation (research)** — validated the assumed 0.50/0.50
   level/change split. New pure `src/backtest/walkforward.py` (trailing-window scheme
-  selection + stitching, with an effectiveness-verified no-look-ahead test) and
+  selection + stitching, with no-look-ahead guard tests confirmed to fail against
+  both a wholly-forward window and a one-month boundary shift before being
+  confirmed against the correct trailing-window slice) and
   `scripts/walkforward_weights.py`, which grades 11 fixed splits plus the regime
   spike's V3 per region, then builds an out-of-sample walk-forward track by
   re-selecting on trailing Sharpe (36/60/120-month windows, 12-month cadence).
@@ -71,7 +73,7 @@ dashboard's drill-down tab covers most of the need.
   incumbent vs 0.57/0.54/0.61, worse at every window), and the grid is a broad
   plateau once level weight ≥~0.3-0.4 with 50/50 already inside it.** Live
   scoring untouched (`config/weights.yaml` still 50/50). Full findings in the notes
-  repo (`research/2026-07-23-walk-forward-weight-validation.md`). *(2026-07-23)*
+  repo (`research/2026-07-23-walk-forward-weight-validation.md`). *(2026-07-26)*
 
 - **Sentiment chart empty-state** — when the rendered scan has no news
   sentiment for any sector (e.g. a lagged scan predating the FinBERT pivot, or
