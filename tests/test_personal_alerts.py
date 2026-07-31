@@ -148,7 +148,9 @@ class TestFormatting:
         energy = [l for l in body.splitlines() if "Energy" in l][0]
         ai = [l for l in body.splitlines() if "AI" in l][0]
         assert "(US)" in energy
-        assert "(" not in ai.split("AI")[1] or "rank" in ai  # no region parens for themes
+        # Strip the rank parenthetical, then assert no region parenthetical remains.
+        ai_no_rank = ai.replace("(rank 3)", "").strip()
+        assert "(" not in ai_no_rank
 
     def test_rank_omitted_when_none(self):
         body = format_personal_body([], [{"cohort": "US", "sector": "Energy",
