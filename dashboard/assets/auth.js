@@ -125,11 +125,11 @@
       th.style.cursor = "default";
       th.removeAttribute("tabindex");
     });
-    // The upgraded rows carry no setup/trend attributes, so filtering can't
-    // apply — clear any active filters and hide the bar (same treatment as the
-    // sort headers and the settings gear).
-    if (typeof window.clearFilters === "function") window.clearFilters();
-    if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(false);
+    // Filtering stays available: renderLatestRows emits the same filter data
+    // attributes as the static build. Re-apply any active filters to the
+    // freshly rebuilt rows. (Sorting stays disabled above — sortTable groups by
+    // data-sector-key, which these rows don't carry.)
+    if (typeof window.applyFilters === "function") window.applyFilters();
   }
 
   function renderLatestRows(tbody, rows, meta) {
@@ -160,6 +160,14 @@
         var rank = (r.rank === null || isNaN(r.rank)) ? "—" : Math.round(r.rank);
         var top3 = (typeof rank === "number" && rank <= 3) ? " top3" : "";
         var m = meta[r.region + "|" + r.gics_sector] || {};
+        // Same filter attributes the static build emits, so the leaderboard
+        // filter bar works on signed-in rows too (setup/trend come from the
+        // client-side meta computed in rescore.js).
+        tr.dataset.setup = m.setup || "";
+        tr.dataset.trend = m.trajectory_state || "";
+        tr.dataset.composite = (r.composite === null || r.composite === undefined) ? "" : r.composite;
+        tr.dataset.change = (r.change_score === null || r.change_score === undefined) ? "" : r.change_score;
+        tr.dataset.rank = (r.rank === null || isNaN(r.rank)) ? "" : Math.round(r.rank);
         var badge = "";
         if (m.setup === "entry") {
           badge = '<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>';
