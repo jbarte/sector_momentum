@@ -567,6 +567,34 @@ def get_latest_health(
     return row
 
 
+def get_all_positions(conn: psycopg2.extensions.connection) -> list[dict]:
+    """Return every position row across all users.
+
+    The scan connects as the postgres role, which bypasses RLS — so this sees
+    all users' holdings. Used by the personal-alert fan-out to decide which
+    Exit events matter to whom.
+    Columns: user_id (text), item_type, region, name.
+    """
+    df = _read_sql(
+        conn,
+        "SELECT user_id::text AS user_id, item_type, region, name FROM positions",
+    )
+    return df.to_dict("records") if not df.empty else []
+
+
+def get_alert_prefs(conn: psycopg2.extensions.connection) -> list[dict]:
+    """Return alert preferences for users who have alerts enabled.
+
+    Columns: user_id (text), ntfy_topic, enabled. Empty list if none.
+    """
+    df = _read_sql(
+        conn,
+        "SELECT user_id::text AS user_id, ntfy_topic, enabled "
+        "FROM alert_prefs WHERE enabled = true",
+    )
+    return df.to_dict("records") if not df.empty else []
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

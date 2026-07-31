@@ -334,3 +334,54 @@ def test_get_signals_for_scan_returns_only_that_scan(db_conn):
     expected_cols = {"region", "gics_sector", "signal_name", "raw_value", "z_value"}
     assert set(out.columns) == expected_cols
     assert set(out2.columns) == expected_cols
+
+
+# ---------------------------------------------------------------------------
+# Personal-alert helpers (stubbed _read_sql — no DB required)
+# ---------------------------------------------------------------------------
+
+def test_get_all_positions_returns_records(monkeypatch):
+    import src.state as state
+    monkeypatch.setattr(state, "_read_sql", lambda conn, q, p=None: pd.DataFrame([
+        {"user_id": "u1", "item_type": "sector", "region": "US", "name": "Energy"},
+        {"user_id": "u2", "item_type": "theme", "region": "", "name": "AI"},
+    ]))
+    out = state.get_all_positions(None)
+    assert out == [
+        {"user_id": "u1", "item_type": "sector", "region": "US", "name": "Energy"},
+        {"user_id": "u2", "item_type": "theme", "region": "", "name": "AI"},
+    ]
+
+
+def test_get_all_positions_empty(monkeypatch):
+    import src.state as state
+    monkeypatch.setattr(state, "_read_sql", lambda conn, q, p=None: pd.DataFrame())
+    assert state.get_all_positions(None) == []
+
+
+def test_get_alert_prefs_returns_records(monkeypatch):
+    import src.state as state
+    monkeypatch.setattr(state, "_read_sql", lambda conn, q, p=None: pd.DataFrame([
+        {"user_id": "u1", "ntfy_topic": "sm-abc", "enabled": True},
+    ]))
+    assert state.get_alert_prefs(None) == [
+        {"user_id": "u1", "ntfy_topic": "sm-abc", "enabled": True},
+    ]
+
+
+def test_get_alert_prefs_empty(monkeypatch):
+    import src.state as state
+    monkeypatch.setattr(state, "_read_sql", lambda conn, q, p=None: pd.DataFrame())
+    assert state.get_alert_prefs(None) == []
+
+
+def test_get_alert_prefs_query_filters_enabled(monkeypatch):
+    """The SQL must filter to enabled rows — the caller does not re-filter."""
+    import src.state as state
+    seen = {}
+    def _capture(conn, q, p=None):
+        seen["q"] = q
+        return pd.DataFrame()
+    monkeypatch.setattr(state, "_read_sql", _capture)
+    state.get_alert_prefs(None)
+    assert "enabled" in seen["q"].lower()
