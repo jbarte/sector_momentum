@@ -125,6 +125,11 @@
       th.style.cursor = "default";
       th.removeAttribute("tabindex");
     });
+    // The upgraded rows carry no setup/trend attributes, so filtering can't
+    // apply — clear any active filters and hide the bar (same treatment as the
+    // sort headers and the settings gear).
+    if (typeof window.clearFilters === "function") window.clearFilters();
+    if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(false);
   }
 
   function renderLatestRows(tbody, rows, meta) {

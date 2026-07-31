@@ -132,6 +132,8 @@
     }
     if (sentimentToggle) sentimentToggle.disabled = true;
     if (sentimentControl) sentimentControl.style.opacity = "0.4";
+    // Past-scan rows are rebuilt without filter data attributes.
+    if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(false);
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
     if (typeof window.renderScanDigest === "function") window.renderScanDigest(scanId);
   };
@@ -150,6 +152,10 @@
     if (sentimentControl) sentimentControl.style.opacity = "";
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
     if (typeof window.renderScanDigest === "function") window.renderScanDigest(latestScanId);
+    // The original tbody (with filter data attributes) is back, so show the bar
+    // and re-apply whatever filter state was active before.
+    if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(true);
+    if (typeof window.applyFilters === "function") window.applyFilters();
   };
 
   // Delegated click + keyboard on scan-index table

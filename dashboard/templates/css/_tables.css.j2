@@ -347,3 +347,42 @@ tbody td:nth-child(n+4) {
 .etf-match-partial { color: var(--fg4); font-style: italic; }
 .etf-link a { color: var(--brand-strong); text-decoration: none; }
 .etf-link a:hover { color: var(--brand-strong); }
+
+/* =========================================================
+   Leaderboard filter chips
+   ========================================================= */
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.filter-group { display: flex; flex-wrap: wrap; gap: 4px; }
+.filter-chip {
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--fg2);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+.filter-chip:hover { border-color: var(--brand-strong); color: var(--brand-strong); }
+.filter-chip.active {
+  background: var(--brand-strong);
+  border-color: var(--brand-strong);
+  color: var(--surface);
+}
+.filter-clear {
+  border: none;
+  background: transparent;
+  color: var(--fg4);
+  font: inherit;
+  font-size: 0.75rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.filter-clear:hover { color: var(--fg2); }
+.filter-clear[hidden] { display: none; }
+.filter-count { color: var(--fg4); font-size: 0.75rem; }

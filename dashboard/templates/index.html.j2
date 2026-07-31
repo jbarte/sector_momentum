@@ -61,6 +61,24 @@
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <div class="utility-row">
+    <div class="filter-bar" id="leaderboard-filter-bar">
+      <div class="filter-group" role="group" aria-label="Setup">
+        <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Entry</button>
+        <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false" data-i18n="filter_exit">▼ Exit</button>
+      </div>
+      <div class="filter-group" role="group" aria-label="Trend">
+        <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false" data-i18n="filter_rising">↑ Rising</button>
+        <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="flat" aria-pressed="false" data-i18n="filter_flat">→ Flat</button>
+        <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="falling" aria-pressed="false" data-i18n="filter_falling">↓ Falling</button>
+      </div>
+      <div class="filter-group" role="group" aria-label="Threshold">
+        <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false" data-i18n="filter_composite_pos">Composite &gt; 0</button>
+        <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false" data-i18n="filter_top5">Top 5</button>
+        <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="change_pos" aria-pressed="false" data-i18n="filter_change_pos">Positive change</button>
+      </div>
+      <button type="button" class="filter-clear" id="filter-clear" hidden data-i18n="filter_clear">Clear</button>
+      <span class="filter-count" id="filter-count"></span>
+    </div>
     <details class="rank-settings">
       <summary aria-label="Rank settings">⚙</summary>
       <div id="sentiment-control" class="sentiment-control">
@@ -141,7 +159,13 @@
           <td colspan="10">{{ region_label }}</td>
         </tr>
         {% for row in region_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" tabindex="0">
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}"
+            data-setup="{{ row.setup or '' }}"
+            data-trend="{{ row.trajectory_state }}"
+            data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
+            data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
+            data-rank="{{ row.rank }}"
+            tabindex="0">
           <td class="rank-cell">
             <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
@@ -169,6 +193,9 @@
         {% if not us_leaderboard_rows and not eu_leaderboard_rows %}
         <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
+        <tr id="filter-no-match" style="display:none">
+          <td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No sectors match the filters.</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -493,6 +520,155 @@ function toggleBreakdown(id) {
 // ----- Sortable table -----
 var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
 
+// ----- Leaderboard filtering -----
+// Visibility-only: filters decide which rows show, sortTable decides order.
+var _filterState = { setup: [], trend: [], thresholds: [] };
+
+var _TREND_GROUPS = {
+  rising:  ['up', 'strong_up'],
+  flat:    ['flat'],
+  falling: ['down', 'strong_down']
+};
+
+// Dynamic string (count), so it carries its own EN/SV pair rather than
+// going through the static data-i18n pass.
+var _FILTER_MSG = { showing: { en: 'Showing %X of %N', sv: 'Visar %X av %N' } };
+
+function _filterLang() {
+  try { return localStorage.getItem('lang') === 'sv' ? 'sv' : 'en'; }
+  catch (e) { return 'en'; }
+}
+
+function _filterAnyActive() {
+  return !!(_filterState.setup.length || _filterState.trend.length
+            || _filterState.thresholds.length);
+}
+
+function _matchesSetup(r) {
+  if (!_filterState.setup.length) return true;
+  return _filterState.setup.indexOf(r.dataset.setup || '') !== -1;
+}
+
+function _matchesTrend(r) {
+  if (!_filterState.trend.length) return true;
+  var state = r.dataset.trend || '';
+  for (var i = 0; i < _filterState.trend.length; i++) {
+    var grp = _TREND_GROUPS[_filterState.trend[i]] || [];
+    if (grp.indexOf(state) !== -1) return true;
+  }
+  return false;
+}
+
+function _matchesThresholds(r) {
+  // Each active threshold is an independent AND predicate. A missing attribute
+  // parses to NaN, and every comparison with NaN is false — so it fails, which
+  // is what we want (an unscored/unranked row is not "> 0" or "top 5").
+  var t = _filterState.thresholds;
+  for (var i = 0; i < t.length; i++) {
+    if (t[i] === 'composite_pos' && !(parseFloat(r.dataset.composite) > 0)) return false;
+    if (t[i] === 'change_pos'    && !(parseFloat(r.dataset.change) > 0))    return false;
+    if (t[i] === 'top5'          && !(parseInt(r.dataset.rank, 10) <= 5))   return false;
+  }
+  return true;
+}
+
+function _collapseBreakdown(sectorId) {
+  // Breakdown rows show via the `open` class, so remove the class instead of
+  // setting an inline display (an inline style would override `.open` and keep
+  // the row collapsed even after the filter is cleared).
+  if (!sectorId) return;
+  var bd = document.getElementById('bd-' + sectorId);
+  if (bd) bd.classList.remove('open');
+  var chev = document.getElementById('chev-' + sectorId);
+  if (chev) chev.textContent = '▶';
+}
+
+function _updateRegionHeaders() {
+  var tbody = document.querySelector('#leaderboard-table tbody');
+  if (!tbody) return;
+  var header = null, visible = 0;
+  Array.prototype.forEach.call(tbody.children, function (el) {
+    if (el.classList.contains('region-header-row')) {
+      if (header) header.style.display = visible ? '' : 'none';
+      header = el;
+      visible = 0;
+    } else if (el.classList.contains('leaderboard-row')) {
+      if (el.style.display !== 'none') visible++;
+    }
+  });
+  if (header) header.style.display = visible ? '' : 'none';
+}
+
+function _updateFilterCount(shown, total) {
+  var el = document.getElementById('filter-count');
+  if (!el) return;
+  el.textContent = _filterAnyActive()
+    ? _FILTER_MSG.showing[_filterLang()]
+        .replace('%X', shown).replace('%N', total)
+    : '';
+}
+
+function applyFilters() {
+  var tbody = document.querySelector('#leaderboard-table tbody');
+  if (!tbody) return;
+  var rows = tbody.querySelectorAll('tr.leaderboard-row');
+  var shown = 0;
+  Array.prototype.forEach.call(rows, function (r) {
+    var ok = _matchesSetup(r) && _matchesTrend(r) && _matchesThresholds(r);
+    r.style.display = ok ? '' : 'none';
+    if (ok) { shown++; } else { _collapseBreakdown(r.dataset.sectorId); }
+  });
+  _updateRegionHeaders();
+  _updateFilterCount(shown, rows.length);
+  var nm = document.getElementById('filter-no-match');
+  if (nm) nm.style.display = (shown === 0 && rows.length > 0) ? '' : 'none';
+  var clear = document.getElementById('filter-clear');
+  if (clear) clear.hidden = !_filterAnyActive();
+}
+
+function clearFilters() {
+  _filterState = { setup: [], trend: [], thresholds: [] };
+  var chips = document.querySelectorAll('#leaderboard-filter-bar .filter-chip');
+  Array.prototype.forEach.call(chips, function (c) {
+    c.classList.remove('active');
+    c.setAttribute('aria-pressed', 'false');
+  });
+  applyFilters();
+}
+
+function setFilterBarVisible(visible) {
+  var bar = document.getElementById('leaderboard-filter-bar');
+  if (bar) bar.style.display = visible ? '' : 'none';
+}
+
+(function _wireFilterChips() {
+  var chips = document.querySelectorAll('#leaderboard-filter-bar .filter-chip');
+  Array.prototype.forEach.call(chips, function (chip) {
+    chip.addEventListener('click', function () {
+      var arr = _filterState[chip.dataset.filterGroup];
+      if (!arr) return;
+      var val = chip.dataset.filterValue;
+      var i = arr.indexOf(val);
+      if (i === -1) {
+        arr.push(val);
+        chip.classList.add('active');
+        chip.setAttribute('aria-pressed', 'true');
+      } else {
+        arr.splice(i, 1);
+        chip.classList.remove('active');
+        chip.setAttribute('aria-pressed', 'false');
+      }
+      applyFilters();
+    });
+  });
+  var clearBtn = document.getElementById('filter-clear');
+  if (clearBtn) clearBtn.addEventListener('click', clearFilters);
+})();
+
+window.applyFilters = applyFilters;
+window.clearFilters = clearFilters;
+window.setFilterBarVisible = setFilterBarVisible;
+
 function sortTable(col) {
   if (window._leaderboardUpgraded) return;
   var table   = document.getElementById('leaderboard-table');
@@ -548,6 +724,8 @@ function sortTable(col) {
     });
   });
 
+  // Re-appending can leave a region header above zero visible rows.
+  if (typeof _updateRegionHeaders === 'function') _updateRegionHeaders();
 }
 
 // Keyboard support for interactive table elements

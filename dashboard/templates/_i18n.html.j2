@@ -37,6 +37,9 @@
     var btn = document.getElementById("lang-toggle");
     if (btn) btn.textContent = (lang === "sv") ? "EN" : "SV";
     try { localStorage.setItem("lang", lang); } catch (e) {}
+    // The leaderboard filter count is built in JS, so it misses the static
+    // data-i18n pass above — re-render it in the new language.
+    if (typeof window.applyFilters === "function") window.applyFilters();
   }
 
   window.applyLang = apply;
