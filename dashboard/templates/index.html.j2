@@ -141,7 +141,13 @@
           <td colspan="10">{{ region_label }}</td>
         </tr>
         {% for row in region_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" tabindex="0">
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}"
+            data-setup="{{ row.setup or '' }}"
+            data-trend="{{ row.trajectory_state }}"
+            data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
+            data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
+            data-rank="{{ row.rank }}"
+            tabindex="0">
           <td class="rank-cell">
             <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
