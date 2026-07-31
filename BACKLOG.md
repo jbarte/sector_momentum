@@ -102,8 +102,12 @@ dashboard's drill-down tab covers most of the need.
   for the thresholds, AND across groups. Pure client-side visibility toggling over
   five new row `data-*` attributes; composes with the existing column sort, hides
   empty region headers, collapses filtered-out breakdown rows, and shows a
-  "Showing X of N" count. Hidden in the authed-live and past-scan views, whose
-  rebuilt rows lack the attributes. No persistence (resets on reload). *(2026-07-31)*
+  "Showing X of N" count. Works signed in too — `renderLatestRows` emits the same
+  attributes, with setup/trend taken from the client-side meta `rescore.js`
+  already computes; filters are re-applied after the live upgrade. Hidden only in
+  the past-scan view, whose rebuilt rows lack the attributes (restored, with
+  prior filter state re-applied, on "Back to latest"). No persistence (resets on
+  reload). *(2026-07-31)*
 
 - **Risk-adjusted momentum (signal research)** — added three info-only signals
   (`rar_3m`, `rar_6m` = return / annualized realized vol over the matching window;
