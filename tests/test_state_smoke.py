@@ -386,3 +386,35 @@ def test_get_alert_prefs_query_filters_enabled(monkeypatch):
     state.get_alert_prefs(None)
     normalized = " ".join(seen["q"].lower().split())
     assert "where enabled = true" in normalized
+
+
+@skipif_no_db
+def test_sector_readers_exclude_theme_rows(db_conn):
+    """A THEME row in the shared tables must not reach sector readers."""
+    from src.state import THEME_REGION
+
+    with db_conn:
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO scans (run_at, config_hash) VALUES (%s, %s) RETURNING scan_id",
+                ("2026-08-01T00:00:00", "test"),
+            )
+            scan_id = cur.fetchone()[0]
+            cur.executemany(
+                "INSERT INTO scores (scan_id, region, gics_sector, level_score, "
+                "change_score, data_score, sentiment_score, composite, rank) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                [
+                    (scan_id, "US", "Technology", 1.0, 0.5, 0.8, None, 0.9, 1.0),
+                    (scan_id, THEME_REGION, "Space", 1.0, 0.5, 0.8, None, 0.9, 1.0),
+                ],
+            )
+
+    default = get_scan_history(db_conn, n_scans=None)
+    assert set(default["region"]) == {"US"}
+
+    every = get_scan_history(db_conn, n_scans=None, regions=None)
+    assert set(every["region"]) == {"US", THEME_REGION}
+
+    themes_only = get_scan_history(db_conn, n_scans=None, regions=(THEME_REGION,))
+    assert set(themes_only["region"]) == {THEME_REGION}
