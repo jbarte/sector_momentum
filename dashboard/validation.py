@@ -236,6 +236,7 @@ def build_validation_context(shared: dict) -> dict:
 
     span_days = (max(scan_dates.values()) - min(scan_dates.values())).days
     conclusive = span_days >= CONCLUSIVE_SPAN_DAYS
+    first_scan = min(scan_dates.values()).strftime("%Y-%m-%d")
 
     earliest = min(scan_dates.values()) - timedelta(days=10)
     latest = max(scan_dates.values()) + timedelta(days=30)
@@ -277,4 +278,5 @@ def build_validation_context(shared: dict) -> dict:
         "validation_min_scans_met": True,
         "validation_span_days": span_days,
         "validation_conclusive": conclusive,
+        "validation_first_scan": first_scan,
     }

@@ -2,6 +2,15 @@
 {% if validation_min_scans_met %}
 <h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)" data-i18n="val_fwd_title">Do the rankings predict returns?</h3>
 <p class="tab-note" data-i18n="val_fwd_desc">Excess return of top-5 sectors vs region benchmark.</p>
+{% if not validation_conclusive %}
+<p class="tab-note val-provisional">
+  <strong data-i18n="val_provisional_head">Provisional — not yet conclusive.</strong>
+  <span data-i18n="val_provisional_pre">Based on</span>
+  <strong>{{ "%.1f"|format(validation_span_days / 30.4) }}</strong>
+  <span data-i18n="val_provisional_mid">months of scans (since</span>
+  <strong>{{ validation_first_scan }}</strong><span data-i18n="val_provisional_post">). Forward-return windows overlap heavily, so these observations are not independent and the sample cannot support a conclusion. The equity curves above cover multiple years; this panel reflects only live scans since tracking began. Colour-coding returns after ~12 months of history.</span>
+</p>
+{% endif %}
 <div class="table-wrap">
   <table>
     <thead>
@@ -21,9 +30,9 @@
         <td>{{ row.horizon }}</td>
         <td>{{ row.obs }}</td>
         {% if row.hit_rate is not none %}
-        <td class="{% if row.hit_rate > 0.5 %}signal-hi{% elif row.hit_rate < 0.5 %}signal-lo{% endif %}">{{ "%.0f%%"|format(row.hit_rate * 100) }}</td>
-        <td class="{% if row.mean_excess > 0 %}signal-hi{% elif row.mean_excess < 0 %}signal-lo{% endif %}">{{ "%+.2f%%"|format(row.mean_excess * 100) }}</td>
-        <td class="{% if row.median_excess > 0 %}signal-hi{% elif row.median_excess < 0 %}signal-lo{% endif %}">{{ "%+.2f%%"|format(row.median_excess * 100) }}</td>
+        <td class="{% if validation_conclusive %}{% if row.hit_rate > 0.5 %}signal-hi{% elif row.hit_rate < 0.5 %}signal-lo{% endif %}{% endif %}">{{ "%.0f%%"|format(row.hit_rate * 100) }}</td>
+        <td class="{% if validation_conclusive %}{% if row.mean_excess > 0 %}signal-hi{% elif row.mean_excess < 0 %}signal-lo{% endif %}{% endif %}">{{ "%+.2f%%"|format(row.mean_excess * 100) }}</td>
+        <td class="{% if validation_conclusive %}{% if row.median_excess > 0 %}signal-hi{% elif row.median_excess < 0 %}signal-lo{% endif %}{% endif %}">{{ "%+.2f%%"|format(row.median_excess * 100) }}</td>
         {% else %}
         <td>—</td><td>—</td><td>—</td>
         {% endif %}

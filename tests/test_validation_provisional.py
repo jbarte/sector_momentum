@@ -121,3 +121,55 @@ class TestSpanAndConclusive:
         ctx = build_validation_context(shared)
         assert ctx["validation_min_scans_met"] is False
         assert ctx["validation_conclusive"] is False
+
+
+def _jinja_env():
+    from jinja2 import Environment, FileSystemLoader
+    env = Environment(loader=FileSystemLoader(str(_TPL_DIR)), keep_trailing_newline=True)
+    env.filters["js_json"] = (
+        lambda v: v.replace("</", r"<\/") if isinstance(v, str) else v
+    )
+    return env
+
+
+def _render_partial(name: str, **ctx) -> str:
+    return _jinja_env().get_template(name).render(**ctx)
+
+
+_NEGATIVE_ROW = {
+    "region": "US", "horizon": "1m", "obs": 24,
+    "hit_rate": 0.25, "mean_excess": -0.03, "median_excess": -0.02,
+}
+_HOLDING_ROW = {
+    "region": "US", "runs": 3, "ongoing": 0,
+    "median": 5, "mean": 5.3, "min": 2, "max": 9,
+}
+
+
+class TestValidationPartialRendering:
+    def test_coloring_suppressed_when_provisional(self):
+        html = _render_partial(
+            "_validation.html.j2",
+            validation_min_scans_met=True,
+            validation_conclusive=False,
+            validation_span_days=37,
+            validation_first_scan="2026-06-25",
+            validation_fwd_returns=[_NEGATIVE_ROW],
+            validation_holding=[_HOLDING_ROW],
+        )
+        assert "signal-lo" not in html
+        assert "signal-hi" not in html
+        assert "val-provisional" in html
+
+    def test_coloring_present_when_conclusive(self):
+        html = _render_partial(
+            "_validation.html.j2",
+            validation_min_scans_met=True,
+            validation_conclusive=True,
+            validation_span_days=400,
+            validation_first_scan="2025-06-01",
+            validation_fwd_returns=[_NEGATIVE_ROW],
+            validation_holding=[_HOLDING_ROW],
+        )
+        assert "signal-lo" in html
+        assert "val-provisional" not in html
