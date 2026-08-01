@@ -96,6 +96,21 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Personalized alerts (position tracking phase 2)** — each signed-in user gets
+  their own ntfy topic (`public.alert_prefs`, RLS owner-scoped, unique topic) and
+  receives Exit signals only for sectors/themes they hold, plus Entry signals
+  across the whole universe. New pure `src/personal_alerts.py` composes per-user
+  payloads (region and item_type discriminate, so a US holding never matches the
+  same-named EU sector); `src/alerts.py` fans them out with the existing
+  `post_ntfy` — fail-open and isolated per user, so one bad topic can't block the
+  rest, and topics are never logged. The shared `NTFY_TOPIC` broadcast is
+  unchanged and still carries CI failure alerts; personal alerts fire even when it
+  is unset. Topic is generated client-side (`crypto.getRandomValues`) and managed
+  from an Alerts panel in the footer (enable, copy, pause, regenerate) with an
+  explicit "anyone with this topic can read your alerts" warning. New
+  `scripts/alert_prefs_migration.sql` (manual post-merge run; the scan degrades to
+  broadcast-only until it is applied). *(2026-07-31)*
+
 - **Leaderboard filtering** — chip bar above the Sectors leaderboard filtering by
   setup (Entry/Exit), trend (Rising/Flat/Falling), and thresholds (Composite > 0,
   Top 5, Positive change). OR within the setup and trend facets, independent ANDs

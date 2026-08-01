@@ -10,7 +10,10 @@ import urllib.error
 import pandas as pd
 
 from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_float
-from src.state import get_scan_history, get_theme_scan_history
+from src.state import (
+    get_scan_history, get_theme_scan_history, get_all_positions, get_alert_prefs,
+)
+from src.personal_alerts import build_personal_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +110,60 @@ def post_ntfy(topic: str, title: str, body: str) -> None:
         resp.read()
 
 
+def send_personal_alerts(conn, scan_date: str, events: list[dict], prefs: list[dict]) -> None:
+    """Fan out per-user alerts. Non-fatal, and isolated per user.
+
+    `prefs` is fetched once by the caller (send_alerts) and passed in here —
+    do not re-fetch it. Never logs a topic — it is the user's secret;
+    failures are logged by user id.
+    """
+    if not prefs:
+        return
+    try:
+        positions = get_all_positions(conn)
+        payloads = build_personal_alerts(events, positions, prefs, scan_date)
+    except Exception as exc:
+        logger.warning("Personal alerts skipped: %s", exc)
+        # A failed query aborts the transaction; roll back so the
+        # connection stays usable for any later caller.
+        try:
+            conn.rollback()
+        except Exception:
+            logger.debug("Rollback after alert-prefs failure also failed", exc_info=True)
+        return
+
+    sent = 0
+    for payload in payloads:
+        try:
+            post_ntfy(payload["topic"], payload["title"], payload["body"])
+            sent += 1
+        except Exception as exc:
+            logger.warning(
+                "Personal alert failed for user %s: %s", payload["user_id"], exc
+            )
+    if payloads:
+        logger.info("Personal alerts sent: %d/%d.", sent, len(payloads))
+
+
 def send_alerts(conn, scan_date: str) -> None:
-    """Detect Entry/Exit badge events and send a ntfy notification if any."""
+    """Send the ops broadcast and per-user personalized alerts."""
     topic = os.environ.get("NTFY_TOPIC")
-    if not topic:
+
+    # Personal alerts are independent of the broadcast topic, so the early
+    # return only applies when there is nothing to deliver either way.
+    try:
+        prefs = get_alert_prefs(conn)
+    except Exception as exc:
+        # A failed SELECT aborts the transaction; roll back or every later
+        # query on this connection fails too and would take the broadcast down.
+        logger.warning("Alert prefs unavailable: %s", exc)
+        try:
+            conn.rollback()
+        except Exception:
+            logger.debug("Rollback after alert-prefs failure also failed", exc_info=True)
+        prefs = []
+
+    if not topic and not prefs:
         return
 
     sector_history = get_scan_history(conn, n_scans=TRAJECTORY_WINDOW)
@@ -119,11 +172,15 @@ def send_alerts(conn, scan_date: str) -> None:
     events = detect_badge_events(sector_history)
     events.extend(detect_badge_events(theme_history))
 
-    if not events:
-        logger.info("No Entry/Exit badges — skipping alert.")
-        return
+    if topic:
+        if events:
+            title = f"Sector Momentum — {scan_date}"
+            body = format_alert_body(events)
+            post_ntfy(topic, title, body)
+            logger.info(
+                "Alert sent: %d event(s) to ntfy topic '%s'.", len(events), topic
+            )
+        else:
+            logger.info("No Entry/Exit badges — skipping alert.")
 
-    title = f"Sector Momentum — {scan_date}"
-    body = format_alert_body(events)
-    post_ntfy(topic, title, body)
-    logger.info("Alert sent: %d event(s) to ntfy topic '%s'.", len(events), topic)
+    send_personal_alerts(conn, scan_date, events, prefs)

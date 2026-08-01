@@ -42,8 +42,32 @@
   <a href="feed.xml">RSS</a>
 </footer>
 {% if auth %}
+<section id="alert-prefs" class="alert-prefs" hidden>
+  <h3 data-i18n="alerts_title">Alerts</h3>
+  <p class="alert-prefs-intro" data-i18n="alerts_intro">Get a push notification after each scan: Exit signals for sectors you hold, plus new Entry signals.</p>
+  <div id="alert-prefs-off" hidden>
+    <button type="button" id="alert-prefs-enable" class="lang-toggle" data-i18n="alerts_enable">Enable alerts</button>
+  </div>
+  <div id="alert-prefs-on" hidden>
+    <div class="alert-prefs-topic">
+      <code id="alert-prefs-topic"></code>
+      <button type="button" id="alert-prefs-copy" class="lang-toggle" data-i18n="alerts_copy">Copy</button>
+    </div>
+    <p class="alert-prefs-help">
+      <span data-i18n="alerts_help">Install the ntfy app and subscribe to this topic.</span>
+      <a id="alert-prefs-link" href="#" target="_blank" rel="noopener noreferrer">ntfy.sh</a>
+    </p>
+    <p class="alert-prefs-warn" data-i18n="alerts_warn">Anyone who knows this topic name can read these notifications. Don't share it — regenerate if it leaks.</p>
+    <label class="alert-prefs-toggle">
+      <input type="checkbox" id="alert-prefs-enabled"> <span data-i18n="alerts_enabled_label">Alerts enabled</span>
+    </label>
+    <button type="button" id="alert-prefs-regen" class="lang-toggle" data-i18n="alerts_regen">Regenerate</button>
+  </div>
+  <p id="alert-prefs-status" class="alert-prefs-status" aria-live="polite"></p>
+</section>
 <script>window.SUPABASE_CONFIG = {{ auth_config_json | js_json }};</script>
 <script src="assets/supabase.min.js"></script>
 <script src="assets/auth.js"></script>
 <script src="assets/positions.js"></script>
+<script src="assets/alert-prefs.js"></script>
 {% endif %}

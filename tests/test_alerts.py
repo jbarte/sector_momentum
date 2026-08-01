@@ -163,9 +163,102 @@ class TestSendAlerts:
             send_alerts(conn, "2026-07-17")
         mock_post.assert_not_called()
 
+    @patch("src.alerts.get_alert_prefs")
     @patch("src.alerts.get_scan_history")
-    def test_skips_without_topic(self, mock_sector):
-        conn = MagicMock()
+    def test_skips_without_topic_or_prefs(self, mock_sector, mock_prefs):
+        """No broadcast topic AND no enabled prefs -> no work at all."""
+        mock_prefs.return_value = []
         with patch.dict("os.environ", {}, clear=True):
-            send_alerts(conn, "2026-07-17")
+            send_alerts(MagicMock(), "2026-07-17")
         mock_sector.assert_not_called()
+
+    @patch("src.alerts.post_ntfy")
+    @patch("src.alerts.get_alert_prefs")
+    @patch("src.alerts.get_all_positions")
+    @patch("src.alerts.get_theme_scan_history")
+    @patch("src.alerts.get_scan_history")
+    def test_personal_alerts_run_without_broadcast_topic(
+        self, mock_sector, mock_theme, mock_positions, mock_prefs, mock_post
+    ):
+        """A user with prefs still gets alerted when NTFY_TOPIC is unset."""
+        mock_sector.return_value = _history([
+            (1, "US", "Energy", 0.5, 0.3, 5),
+            (2, "US", "Energy", 0.6, 0.4, 4),
+            (3, "US", "Energy", 0.7, 0.5, 3),
+            (4, "US", "Energy", 0.8, 0.6, 2),
+            (5, "US", "Energy", 0.9, 0.7, 1),
+        ])
+        mock_theme.return_value = pd.DataFrame()
+        mock_positions.return_value = []
+        mock_prefs.return_value = [
+            {"user_id": "u1", "ntfy_topic": "sm-abc", "enabled": True}
+        ]
+        with patch.dict("os.environ", {}, clear=True):
+            send_alerts(MagicMock(), "2026-07-17")
+        mock_post.assert_called_once()
+        assert mock_post.call_args[0][0] == "sm-abc"
+
+    @patch("src.alerts.post_ntfy")
+    @patch("src.alerts.get_alert_prefs")
+    @patch("src.alerts.get_all_positions")
+    @patch("src.alerts.get_theme_scan_history")
+    @patch("src.alerts.get_scan_history")
+    def test_one_failing_user_does_not_block_others(
+        self, mock_sector, mock_theme, mock_positions, mock_prefs, mock_post
+    ):
+        """Per-user isolation: a bad topic must not stop the remaining users."""
+        mock_sector.return_value = _history([
+            (1, "US", "Energy", 0.5, 0.3, 5),
+            (2, "US", "Energy", 0.6, 0.4, 4),
+            (3, "US", "Energy", 0.7, 0.5, 3),
+            (4, "US", "Energy", 0.8, 0.6, 2),
+            (5, "US", "Energy", 0.9, 0.7, 1),
+        ])
+        mock_theme.return_value = pd.DataFrame()
+        mock_positions.return_value = []
+        mock_prefs.return_value = [
+            {"user_id": "u1", "ntfy_topic": "sm-bad", "enabled": True},
+            {"user_id": "u2", "ntfy_topic": "sm-good", "enabled": True},
+        ]
+
+        def _post(topic, title, body):
+            if topic == "sm-bad":
+                raise RuntimeError("ntfy 500")
+
+        mock_post.side_effect = _post
+        with patch.dict("os.environ", {}, clear=True):
+            send_alerts(MagicMock(), "2026-07-17")   # must not raise
+        topics = [c[0][0] for c in mock_post.call_args_list]
+        assert "sm-bad" in topics and "sm-good" in topics
+
+    @patch("src.alerts.get_alert_prefs")
+    @patch("src.alerts.get_theme_scan_history")
+    @patch("src.alerts.get_scan_history")
+    def test_missing_alert_prefs_table_is_non_fatal(
+        self, mock_sector, mock_theme, mock_prefs
+    ):
+        """Merging before the migration runs must not break the scan."""
+        mock_prefs.side_effect = RuntimeError('relation "alert_prefs" does not exist')
+        mock_sector.return_value = pd.DataFrame()
+        mock_theme.return_value = pd.DataFrame()
+        conn = MagicMock()
+        # A mocked conn has no real transaction state, so a mock connection
+        # would happily "succeed" even if the code left a real Postgres
+        # connection poisoned (aborted transaction) after the failed SELECT.
+        # Asserting rollback was called is the only thing standing in for
+        # that real-transaction check. get_alert_prefs is now fetched exactly
+        # once (in send_alerts's own guard), so there is only one rollback
+        # path left to exercise — but a bare "called somewhere" check still
+        # wouldn't prove it happens at the right time. What actually matters
+        # is that the rollback happens *before* get_scan_history runs, since
+        # that's the query that would fail next on a still-poisoned
+        # transaction. A manager mock lets us assert call order across the
+        # two separately-patched mocks.
+        manager = MagicMock()
+        manager.attach_mock(conn.rollback, "rollback")
+        manager.attach_mock(mock_sector, "get_scan_history")
+        with patch.dict("os.environ", {"NTFY_TOPIC": "ops"}, clear=True):
+            send_alerts(conn, "2026-07-17")   # must not raise
+        call_names = [c[0] for c in manager.mock_calls]
+        assert "rollback" in call_names
+        assert call_names.index("rollback") < call_names.index("get_scan_history")

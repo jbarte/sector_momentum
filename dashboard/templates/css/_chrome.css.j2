@@ -409,3 +409,32 @@
   .modal-illo .sweep { opacity: .5; }
   .modal-illo .halo  { opacity: .45; }
 }
+
+/* =========================================================
+   Personalized alerts panel
+   ========================================================= */
+.alert-prefs {
+  max-width: 640px;
+  margin: 24px auto 0;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+.alert-prefs[hidden] { display: none; }
+.alert-prefs h3 { margin: 0 0 6px; font-size: 0.95rem; color: var(--fg1); }
+.alert-prefs-intro { margin: 0 0 12px; color: var(--fg2); }
+.alert-prefs-topic { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.alert-prefs-topic code {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 0.8rem;
+}
+.alert-prefs-help { margin: 10px 0 0; color: var(--fg2); }
+.alert-prefs-warn { margin: 8px 0 0; color: var(--fg4); font-size: 0.78rem; }
+.alert-prefs-toggle { display: block; margin: 12px 0 8px; color: var(--fg2); }
+.alert-prefs-status { margin: 8px 0 0; color: var(--fg4); font-size: 0.78rem; }
+.alert-prefs-status:empty { display: none; }

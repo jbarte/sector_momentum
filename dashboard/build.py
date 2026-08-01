@@ -402,6 +402,9 @@ def main() -> None:
         positions_src = _ASSETS_DIR / "positions.js"
         if positions_src.exists():
             shutil.copy2(positions_src, docs_assets / "positions.js")
+        alert_prefs_src = _ASSETS_DIR / "alert-prefs.js"
+        if alert_prefs_src.exists():
+            shutil.copy2(alert_prefs_src, docs_assets / "alert-prefs.js")
         supabase_src = _ASSETS_DIR / "supabase.min.js"
         if supabase_src.exists():
             shutil.copy2(supabase_src, docs_assets / "supabase.min.js")
