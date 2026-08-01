@@ -9,6 +9,7 @@
   if (!cfg || !cfg.url || !cfg.key || !root || !window.supabase) return;
 
   var sb = window.supabase.createClient(cfg.url, cfg.key);
+  var userId = null;
 
   var offBox = document.getElementById("alert-prefs-off");
   var onBox = document.getElementById("alert-prefs-on");
@@ -88,7 +89,7 @@
     regenBtn.disabled = true;
     setStatus(null);
     /* UPDATE, not delete+insert: enabled and created_at must survive. */
-    sb.from("alert_prefs").update({ ntfy_topic: newTopic() }).neq("ntfy_topic", "")
+    sb.from("alert_prefs").update({ ntfy_topic: newTopic() }).eq("user_id", userId)
       .then(function (res) {
         if (res.error) { setStatus("error"); return; }
         return load().then(function () { setStatus("saved"); });
@@ -99,12 +100,14 @@
 
   enabledBox.addEventListener("change", function () {
     var next = enabledBox.checked;
-    sb.from("alert_prefs").update({ enabled: next }).neq("ntfy_topic", "")
+    enabledBox.disabled = true;
+    sb.from("alert_prefs").update({ enabled: next }).eq("user_id", userId)
       .then(function (res) {
         if (res.error) { enabledBox.checked = !next; setStatus("error"); return; }
         setStatus("saved");
       })
-      .catch(function () { enabledBox.checked = !next; setStatus("error"); });
+      .catch(function () { enabledBox.checked = !next; setStatus("error"); })
+      .then(function () { enabledBox.disabled = false; });
   });
 
   copyBtn.addEventListener("click", function () {
@@ -115,10 +118,10 @@
       .catch(function () { setStatus("error"); });
   });
 
-  /* RLS scopes every statement to the current user, so the update filters above
-     only need to be non-empty predicates. */
+  /* RLS scopes every statement to the current user; the .eq("user_id", ...)
+     filters above are defense in depth in case that policy is ever dropped. */
   sb.auth.onAuthStateChange(function (_event, session) {
-    if (session && session.user) { load(); }
-    else { root.hidden = true; }
+    if (session && session.user) { userId = session.user.id; load(); }
+    else { userId = null; root.hidden = true; }
   });
 })();

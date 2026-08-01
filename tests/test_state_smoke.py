@@ -384,4 +384,5 @@ def test_get_alert_prefs_query_filters_enabled(monkeypatch):
         return pd.DataFrame()
     monkeypatch.setattr(state, "_read_sql", _capture)
     state.get_alert_prefs(None)
-    assert "enabled" in seen["q"].lower()
+    normalized = " ".join(seen["q"].lower().split())
+    assert "where enabled = true" in normalized

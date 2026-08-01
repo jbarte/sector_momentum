@@ -110,15 +110,16 @@ def post_ntfy(topic: str, title: str, body: str) -> None:
         resp.read()
 
 
-def send_personal_alerts(conn, scan_date: str, events: list[dict]) -> None:
+def send_personal_alerts(conn, scan_date: str, events: list[dict], prefs: list[dict]) -> None:
     """Fan out per-user alerts. Non-fatal, and isolated per user.
 
-    Never logs a topic — it is the user's secret; failures are logged by user id.
+    `prefs` is fetched once by the caller (send_alerts) and passed in here —
+    do not re-fetch it. Never logs a topic — it is the user's secret;
+    failures are logged by user id.
     """
+    if not prefs:
+        return
     try:
-        prefs = get_alert_prefs(conn)
-        if not prefs:
-            return
         positions = get_all_positions(conn)
         payloads = build_personal_alerts(events, positions, prefs, scan_date)
     except Exception as exc:
@@ -128,7 +129,7 @@ def send_personal_alerts(conn, scan_date: str, events: list[dict]) -> None:
         try:
             conn.rollback()
         except Exception:
-            pass
+            logger.debug("Rollback after alert-prefs failure also failed", exc_info=True)
         return
 
     sent = 0
@@ -159,7 +160,7 @@ def send_alerts(conn, scan_date: str) -> None:
         try:
             conn.rollback()
         except Exception:
-            pass
+            logger.debug("Rollback after alert-prefs failure also failed", exc_info=True)
         prefs = []
 
     if not topic and not prefs:
@@ -182,4 +183,4 @@ def send_alerts(conn, scan_date: str) -> None:
         else:
             logger.info("No Entry/Exit badges — skipping alert.")
 
-    send_personal_alerts(conn, scan_date, events)
+    send_personal_alerts(conn, scan_date, events, prefs)

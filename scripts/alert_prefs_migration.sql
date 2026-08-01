@@ -3,9 +3,14 @@
 -- (same operating model as positions_migration.sql).
 -- Prereq: auth enabled; RLS already in use (scripts/enable_rls.sql, 2026-07-18).
 
+-- The CHECK below enforces the client-side entropy convention (newTopic() in
+-- alert-prefs.js: "sm-" + 32 lowercase hex chars, i.e. 128 bits from the
+-- CSPRNG) at the DB level, so a short or arbitrary topic can't be inserted by
+-- any authenticated client — the topic is the only thing protecting a user's
+-- alert feed.
 create table if not exists public.alert_prefs (
   user_id    uuid primary key default auth.uid() references auth.users(id) on delete cascade,
-  ntfy_topic text not null unique,
+  ntfy_topic text not null unique check (ntfy_topic ~ '^sm-[0-9a-f]{32}$'),
   enabled    boolean not null default true,
   created_at timestamptz not null default now()
 );

@@ -246,14 +246,14 @@ class TestSendAlerts:
         # would happily "succeed" even if the code left a real Postgres
         # connection poisoned (aborted transaction) after the failed SELECT.
         # Asserting rollback was called is the only thing standing in for
-        # that real-transaction check — but a bare "called somewhere" check
-        # isn't enough: send_personal_alerts independently re-fetches prefs
-        # and rolls back on its own failure too, which would satisfy a plain
-        # `.called` assertion even if send_alerts's own guard block never
-        # rolled back. What actually matters is that the rollback happens
-        # *before* get_scan_history runs, since that's the query that would
-        # fail next on a still-poisoned transaction. A manager mock lets us
-        # assert call order across the two separately-patched mocks.
+        # that real-transaction check. get_alert_prefs is now fetched exactly
+        # once (in send_alerts's own guard), so there is only one rollback
+        # path left to exercise — but a bare "called somewhere" check still
+        # wouldn't prove it happens at the right time. What actually matters
+        # is that the rollback happens *before* get_scan_history runs, since
+        # that's the query that would fail next on a still-poisoned
+        # transaction. A manager mock lets us assert call order across the
+        # two separately-patched mocks.
         manager = MagicMock()
         manager.attach_mock(conn.rollback, "rollback")
         manager.attach_mock(mock_sector, "get_scan_history")
