@@ -66,6 +66,22 @@ _SECTOR_READERS = [
     ("load_last_scan", {}),
 ]
 
+# (reader name, extra kwargs, expected exact params tuple) for the same
+# readers. Pins each reader's params POSITIONALLY, not just by membership —
+# `_FakeCursor.fetchone`/`fetchall` always report scan_id=1, so the two
+# scan-id readers (get_signals_for_scan's explicit scan_id and
+# load_last_scan's looked-up MAX(scan_id)) both expect a leading 1. The two
+# "latest scan" readers route through `_latest_scan_query`, which has no
+# leading scan-id/n_scans param — the region list is the only param.
+_SECTOR_READERS_PARAMS = [
+    ("get_scan_history", {}, (10, list(state.SECTOR_REGIONS))),
+    ("get_rrg_history", {}, (6, list(state.SECTOR_REGIONS))),
+    ("get_signals_for_latest_scan", {}, (list(state.SECTOR_REGIONS),)),
+    ("get_signals_for_scan", {"scan_id": 1}, (1, list(state.SECTOR_REGIONS))),
+    ("get_sentiment_signals_for_latest_scan", {}, (list(state.SECTOR_REGIONS),)),
+    ("load_last_scan", {}, (1, list(state.SECTOR_REGIONS))),
+]
+
 
 @pytest.mark.parametrize("name,kwargs", _SECTOR_READERS)
 def test_reader_defaults_to_sector_regions(name, kwargs, monkeypatch):
@@ -73,6 +89,18 @@ def test_reader_defaults_to_sector_regions(name, kwargs, monkeypatch):
     getattr(state, name)(_FakeConn(), **kwargs)
     assert "region = any" in seen["q"], f"{name} is not region-scoped"
     assert list(state.SECTOR_REGIONS) in list(seen["p"]), f"{name} lost its region params"
+
+
+@pytest.mark.parametrize("name,kwargs,expected_params", _SECTOR_READERS_PARAMS)
+def test_reader_params_are_positionally_correct(name, kwargs, expected_params, monkeypatch):
+    """Membership alone (`region_list in params`) can't catch a positional
+    swap — e.g. `params + rparams` becoming `rparams + params` in
+    get_scan_history/get_rrg_history would misalign the SQL placeholders
+    while still leaving the region list present *somewhere* in params. Pin
+    the exact tuple, in order, per reader."""
+    seen = _capture(monkeypatch)
+    getattr(state, name)(_FakeConn(), **kwargs)
+    assert tuple(seen["p"]) == expected_params, f"{name} params: {seen['p']!r} != {expected_params!r}"
 
 
 @pytest.mark.parametrize("name,kwargs", _SECTOR_READERS)

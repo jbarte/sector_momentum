@@ -1,8 +1,10 @@
 """Pytest tests for the state / Postgres persistence module.
 
-DANGER: the db_conn fixture's teardown runs `DELETE FROM signals/scores/scans`
-with no WHERE clause — it wipes EVERY row. It must therefore only ever connect
-to a throwaway test database, never production.
+DANGER: the db_conn fixture's teardown runs `DELETE FROM` with no WHERE clause
+against all seven scan-scoped tables — theme_sentiment_signals, theme_signals,
+theme_scores, sentiment_signals, signals, scores, scans — it wipes EVERY row.
+It must therefore only ever connect to a throwaway test database, never
+production.
 
 These tests are gated on a dedicated TEST_DATABASE_URL env var (NOT the
 production DATABASE_URL). If TEST_DATABASE_URL is unset they skip, so a normal

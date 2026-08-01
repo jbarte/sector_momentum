@@ -442,7 +442,7 @@ def save_theme_scan(
                     "data_score, sentiment_score, composite, rank) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     _rows_from_df(
-                        scores_df, scan_id,
+                        scores_df.assign(region=THEME_REGION), scan_id,
                         key_cols=["region", "gics_sector"],
                         float_cols=score_cols,
                     ),
@@ -464,7 +464,7 @@ def save_theme_scan(
                     "(scan_id, region, gics_sector, signal_name, raw_value, z_value) "
                     "VALUES (%s, %s, %s, %s, %s, %s)",
                     _rows_from_df(
-                        signals_df, scan_id,
+                        signals_df.assign(region=THEME_REGION), scan_id,
                         key_cols=["region", "gics_sector", "signal_name"],
                         float_cols=["raw_value", "z_value"],
                     ),

@@ -1,8 +1,11 @@
 -- Cohort unification — backfill historical theme rows into the shared tables.
 --
--- Idempotent: the NOT EXISTS guards mean re-running is a no-op. Safe to apply
--- before or after the dual-write code ships; rows written by both paths are
--- deduplicated by the same guard.
+-- Idempotent: the NOT EXISTS guards mean re-running is a no-op.
+--
+-- PRECONDITION: run only after PR 1 is merged to `main` and deployed. The
+-- regions=SECTOR_REGIONS scoping in `src/state.py` must be live first —
+-- without it these rows leak into every sector reader and double every theme
+-- alert.
 --
 -- Verify with the queries at the bottom. An empty result from each means pass.
 --
@@ -54,25 +57,36 @@ COMMIT;
 -- Verification. Each query must return ZERO rows.
 -- ---------------------------------------------------------------------------
 
--- 1. Per-scan score parity between legacy and shared tables.
-SELECT s.scan_id, count(*) AS unified, ts.n AS legacy
-FROM scores s
-JOIN (SELECT scan_id, count(*) n FROM theme_scores GROUP BY scan_id) ts
-  ON ts.scan_id = s.scan_id
-WHERE s.region = 'THEME'
-GROUP BY s.scan_id, ts.n
-HAVING count(*) <> ts.n;
+-- 1. Per-scan score parity between legacy and shared tables. Legacy is the
+--    LEFT side so a scan whose theme rows were missed entirely by the
+--    unified copy still surfaces (COALESCE turns the missing right-side
+--    count into 0 instead of dropping the row via an inner join).
+SELECT ts.scan_id, COALESCE(s.n, 0) AS unified, ts.n AS legacy
+FROM (SELECT scan_id, count(*) n FROM theme_scores GROUP BY scan_id) ts
+LEFT JOIN (
+    SELECT scan_id, count(*) n FROM scores WHERE region = 'THEME' GROUP BY scan_id
+) s ON s.scan_id = ts.scan_id
+WHERE COALESCE(s.n, 0) <> ts.n;
 
--- 2. Per-scan signal parity.
-SELECT s.scan_id, count(*) AS unified, tg.n AS legacy
-FROM signals s
-JOIN (SELECT scan_id, count(*) n FROM theme_signals GROUP BY scan_id) tg
-  ON tg.scan_id = s.scan_id
-WHERE s.region = 'THEME'
-GROUP BY s.scan_id, tg.n
-HAVING count(*) <> tg.n;
+-- 2. Per-scan signal parity. Same left-join shape as (1).
+SELECT tg.scan_id, COALESCE(s.n, 0) AS unified, tg.n AS legacy
+FROM (SELECT scan_id, count(*) n FROM theme_signals GROUP BY scan_id) tg
+LEFT JOIN (
+    SELECT scan_id, count(*) n FROM signals WHERE region = 'THEME' GROUP BY scan_id
+) s ON s.scan_id = tg.scan_id
+WHERE COALESCE(s.n, 0) <> tg.n;
 
--- 3. Value fidelity — no composite drifted during the copy.
+-- 3. Per-scan sentiment-signal parity. Same left-join shape as (1)/(2);
+--    sentiment_signals is dual-written and backfilled but was previously
+--    never verified.
+SELECT tss.scan_id, COALESCE(s.n, 0) AS unified, tss.n AS legacy
+FROM (SELECT scan_id, count(*) n FROM theme_sentiment_signals GROUP BY scan_id) tss
+LEFT JOIN (
+    SELECT scan_id, count(*) n FROM sentiment_signals WHERE region = 'THEME' GROUP BY scan_id
+) s ON s.scan_id = tss.scan_id
+WHERE COALESCE(s.n, 0) <> tss.n;
+
+-- 4. Value fidelity — no composite drifted during the copy.
 SELECT s.scan_id, s.gics_sector, s.composite, ts.composite
 FROM scores s
 JOIN theme_scores ts
@@ -80,7 +94,9 @@ JOIN theme_scores ts
 WHERE s.region = 'THEME'
   AND s.composite IS DISTINCT FROM ts.composite;
 
--- 4. No sector row was touched.
+-- 5. No unexpected cohort discriminator appeared. This only enumerates
+--    region values outside the known set — it does not (and cannot, via
+--    this query) detect a US/EU row that was updated or deleted.
 SELECT region, count(*) FROM scores
 WHERE region NOT IN ('US', 'EU', 'THEME')
 GROUP BY region;

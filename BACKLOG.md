@@ -156,7 +156,7 @@ dashboard's drill-down tab covers most of the need.
   the 22 historical theme scans. No user-visible change; readers still use
   `theme_*` until PR 2. Groundwork for retiring the redundant theme schema and
   giving themes the twelve sector-only dashboard features. Spec:
-  `sector_momentum-notes/specs/2026-08-01-cohort-unification-design.md`.
+  `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-01-cohort-unification-design.md`.
   *(2026-08-01)*
 
 - **Validation panel provisional mode** — the "Do the rankings predict returns?"
