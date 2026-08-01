@@ -433,6 +433,20 @@ def save_theme_scan(
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                     rows,
                 )
+                # Dual-write into the shared cohort table. Temporary scaffolding
+                # for the cohort unification; the theme_scores insert above is
+                # removed in PR 3 once readers have switched over.
+                cur.executemany(
+                    "INSERT INTO scores "
+                    "(scan_id, region, gics_sector, level_score, change_score, "
+                    "data_score, sentiment_score, composite, rank) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    _rows_from_df(
+                        scores_df, scan_id,
+                        key_cols=["region", "gics_sector"],
+                        float_cols=score_cols,
+                    ),
+                )
             if not signals_df.empty:
                 srows = _rows_from_df(
                     signals_df, scan_id,
@@ -444,6 +458,16 @@ def save_theme_scan(
                     "(scan_id, theme, signal_name, raw_value, z_value) "
                     "VALUES (%s, %s, %s, %s, %s)",
                     srows,
+                )
+                cur.executemany(
+                    "INSERT INTO signals "
+                    "(scan_id, region, gics_sector, signal_name, raw_value, z_value) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    _rows_from_df(
+                        signals_df, scan_id,
+                        key_cols=["region", "gics_sector", "signal_name"],
+                        float_cols=["raw_value", "z_value"],
+                    ),
                 )
             if sentiment_signals_df is not None and not sentiment_signals_df.empty:
                 sent_rows = _rows_from_df(
@@ -457,6 +481,21 @@ def save_theme_scan(
                     "(scan_id, theme, signal_name, value, text_value) "
                     "VALUES (%s, %s, %s, %s, %s)",
                     sent_rows,
+                )
+                # sentiment_signals_df is keyed by `theme`, not region/gics_sector.
+                shared_sent = sentiment_signals_df.assign(
+                    region=THEME_REGION
+                ).rename(columns={"theme": "gics_sector"})
+                cur.executemany(
+                    "INSERT INTO sentiment_signals "
+                    "(scan_id, region, gics_sector, signal_name, value, text_value) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    _rows_from_df(
+                        shared_sent, scan_id,
+                        key_cols=["region", "gics_sector", "signal_name"],
+                        float_cols=["value"],
+                        raw_cols=["text_value"],
+                    ),
                 )
     logger.info("Saved %d theme scores for scan_id=%d", len(scores_df), scan_id)
 
