@@ -96,6 +96,16 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Validation panel provisional mode** — the "Do the rankings predict returns?"
+  panel no longer colours hit-rate/mean/median cells green or red when the scan
+  history is too short to support a conclusion. Gated on calendar span (not scan
+  count) via a new `CONCLUSIVE_SPAN_DAYS = 365` threshold in
+  `dashboard/validation.py`; below it, coloring is suppressed and a caveat states
+  the actual span, the first-scan date, and that forward-return windows overlap
+  too heavily to be independent (observed 2026-08-01: 38 scans spanning only 37
+  days, yielding t-statistics that looked significant but weren't). The sibling
+  holding-period panel is unaffected. *(2026-08-01)*
+
 - **Personalized alerts (position tracking phase 2)** — each signed-in user gets
   their own ntfy topic (`public.alert_prefs`, RLS owner-scoped, unique topic) and
   receives Exit signals only for sectors/themes they hold, plus Entry signals

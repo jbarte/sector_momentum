@@ -14,6 +14,7 @@ RANK_THRESHOLD = 5
 MIN_SCANS = 10
 HORIZONS = [5, 21]
 HORIZON_LABELS = {5: "5d", 21: "1m"}
+CONCLUSIVE_SPAN_DAYS = 365
 
 
 def _top5_runs(history_df: pd.DataFrame, region: str) -> list[dict]:
@@ -212,11 +213,11 @@ def build_validation_context(shared: dict) -> dict:
     project_root = shared["project_root"]
 
     if all_scores_df.empty:
-        return {"validation_min_scans_met": False}
+        return {"validation_min_scans_met": False, "validation_conclusive": False}
 
     scan_ids = sorted(all_scores_df["scan_id"].unique())
     if len(scan_ids) < MIN_SCANS:
-        return {"validation_min_scans_met": False}
+        return {"validation_min_scans_met": False, "validation_conclusive": False}
 
     ticker_map = _sector_ticker_map(universe)
     us_benchmark = universe.get("us_benchmark", "RSP")
@@ -232,6 +233,10 @@ def build_validation_context(shared: dict) -> dict:
             all_scores_df.loc[mask, "run_at"].iloc[0], utc=True
         )
         scan_dates[sid] = run_at.tz_localize(None).normalize()
+
+    span_days = (max(scan_dates.values()) - min(scan_dates.values())).days
+    conclusive = span_days >= CONCLUSIVE_SPAN_DAYS
+    first_scan = min(scan_dates.values()).strftime("%Y-%m-%d")
 
     earliest = min(scan_dates.values()) - timedelta(days=10)
     latest = max(scan_dates.values()) + timedelta(days=30)
@@ -271,4 +276,7 @@ def build_validation_context(shared: dict) -> dict:
         "validation_fwd_returns": all_fwd,
         "validation_holding": all_holding,
         "validation_min_scans_met": True,
+        "validation_span_days": span_days,
+        "validation_conclusive": conclusive,
+        "validation_first_scan": first_scan,
     }
