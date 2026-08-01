@@ -36,14 +36,17 @@
     statusEl.textContent = key ? MSG[key][lang()] : "";
   }
 
-  /* ~114 bits from the CSPRNG — the topic is the only thing protecting the
+  /* 128 bits from the CSPRNG, hex-encoded at fixed width (2 chars per byte, so
+     nothing is silently truncated). The topic is the only thing protecting the
      feed, so it must not be guessable. */
   function newTopic() {
     var buf = new Uint8Array(16);
     window.crypto.getRandomValues(buf);
     var s = "";
-    for (var i = 0; i < buf.length; i++) { s += buf[i].toString(36); }
-    return "sm-" + s.slice(0, 22);
+    for (var i = 0; i < buf.length; i++) {
+      s += buf[i].toString(16).padStart(2, "0");
+    }
+    return "sm-" + s;
   }
 
   function renderPref(pref) {
