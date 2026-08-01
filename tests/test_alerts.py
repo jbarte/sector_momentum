@@ -241,5 +241,24 @@ class TestSendAlerts:
         mock_prefs.side_effect = RuntimeError('relation "alert_prefs" does not exist')
         mock_sector.return_value = pd.DataFrame()
         mock_theme.return_value = pd.DataFrame()
+        conn = MagicMock()
+        # A mocked conn has no real transaction state, so a mock connection
+        # would happily "succeed" even if the code left a real Postgres
+        # connection poisoned (aborted transaction) after the failed SELECT.
+        # Asserting rollback was called is the only thing standing in for
+        # that real-transaction check — but a bare "called somewhere" check
+        # isn't enough: send_personal_alerts independently re-fetches prefs
+        # and rolls back on its own failure too, which would satisfy a plain
+        # `.called` assertion even if send_alerts's own guard block never
+        # rolled back. What actually matters is that the rollback happens
+        # *before* get_scan_history runs, since that's the query that would
+        # fail next on a still-poisoned transaction. A manager mock lets us
+        # assert call order across the two separately-patched mocks.
+        manager = MagicMock()
+        manager.attach_mock(conn.rollback, "rollback")
+        manager.attach_mock(mock_sector, "get_scan_history")
         with patch.dict("os.environ", {"NTFY_TOPIC": "ops"}, clear=True):
-            send_alerts(MagicMock(), "2026-07-17")   # must not raise
+            send_alerts(conn, "2026-07-17")   # must not raise
+        call_names = [c[0] for c in manager.mock_calls]
+        assert "rollback" in call_names
+        assert call_names.index("rollback") < call_names.index("get_scan_history")

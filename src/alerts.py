@@ -123,6 +123,12 @@ def send_personal_alerts(conn, scan_date: str, events: list[dict]) -> None:
         payloads = build_personal_alerts(events, positions, prefs, scan_date)
     except Exception as exc:
         logger.warning("Personal alerts skipped: %s", exc)
+        # A failed query aborts the transaction; roll back so the
+        # connection stays usable for any later caller.
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         return
 
     sent = 0
@@ -147,7 +153,13 @@ def send_alerts(conn, scan_date: str) -> None:
     try:
         prefs = get_alert_prefs(conn)
     except Exception as exc:
+        # A failed SELECT aborts the transaction; roll back or every later
+        # query on this connection fails too and would take the broadcast down.
         logger.warning("Alert prefs unavailable: %s", exc)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         prefs = []
 
     if not topic and not prefs:
