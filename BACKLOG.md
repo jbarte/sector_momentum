@@ -21,6 +21,58 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Rebalance-horizon sweep — find the return / churn sweet spot
+
+Find the holding horizon that keeps most of the backtested return while cutting
+how often the dashboard tells Jonas to trade. Today the two are mismatched:
+
+- **The backtest is hardcoded to monthly.** `replay.month_end_dates()` is the
+  only calendar the engine knows (`src/backtest/engine.py:34` and `:153`).
+  There is no rebalance-frequency argument anywhere — not in `simulate()`,
+  not on the `backtest.py` CLI.
+- **The live signals fire daily.** Entry/Exit badges, the ops broadcast, and
+  personalized alerts all recompute on every scan, so a strategy validated at
+  monthly cadence emits buy/sell prompts every day. This mismatch — not the
+  strategy itself — is what makes the dashboard feel like it demands constant
+  action.
+- **There is no hysteresis.** `simulate()` takes a hard `ranked.index[:top_n]`
+  slice (`src/backtest/strategy.py:59`), so a holding that slips from rank 5 to
+  rank 6 is sold and replaced in full. A buffer band (enter at rank ≤ N, only
+  exit once rank > N + buffer) is the standard fix and is likely the single
+  biggest turnover reduction available.
+
+**What to build:** a sweep over the parameter grid — rebalance cadence
+(weekly / biweekly / monthly / quarterly) × `top_n` × buffer band × minimum
+holding period — reporting CAGR, Sharpe, max drawdown *and* churn side by side,
+so the trade-off is visible rather than assumed. Churn should be expressed in
+terms Jonas actually feels: **trades per year** and **median holding duration in
+days**, not just the existing `avg_turnover` fraction.
+
+Then pick the operating point and make the live dashboard honour it, so badges
+and alerts reflect the chosen horizon instead of firing daily.
+
+**Existing material to build on, not rebuild:**
+
+- Turnover is already computed per rebalance and surfaced as `avg_turnover` in
+  the backtest table (`src/backtest/strategy.py:74`).
+- `--top-n`, `--theme-top-n` and `--cost-bps` already exist on `backtest.py`;
+  cadence and buffer are the missing knobs.
+- `src/backtest/walkforward.py` already has `count_switches()` and a
+  scheme-selection harness — precedent for grid-sweeping and counting churn.
+- The validation panel's conclusiveness caveat applies here too: with scan
+  history starting 2026-06-25, any *live-scan* comparison is far too short. This
+  sweep must run on the **price-replay backtest** (multi-year), not on stored
+  scan history.
+
+**Caveat to carry into the design:** the grid is small and the sample is one
+market history, so the best cell will overstate its own edge. Prefer a broad
+plateau of good-and-similar cells over the single best point, and sanity-check
+the winner on a held-out period before adopting it.
+
+Depends on nothing, but should be sequenced *after* any sectors→themes universe
+decision — the sweet spot for a 13-theme universe need not match an
+11+14-sector one.
+
 ## Deferred UI/code polish (small, grouped sweep)
 
 Minor findings deliberately deferred during code review — none affect
