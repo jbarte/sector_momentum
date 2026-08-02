@@ -1,5 +1,6 @@
 import pandas as pd
 from src.state import save_theme_scan
+from src import state
 
 
 class _FakeCursor:
@@ -119,3 +120,45 @@ def test_save_theme_scan_empty_frames_write_nothing_anywhere():
     conn = _FakeConn()
     save_theme_scan(conn, 7, pd.DataFrame(), pd.DataFrame())
     assert conn._cur.executemany_calls == []
+
+
+def _capture(monkeypatch) -> dict:
+    """Stub _read_sql and record the SQL + params it was handed."""
+    seen: dict = {}
+
+    def _fake(conn, q, p=None):
+        seen["q"] = " ".join(q.lower().split())
+        seen["p"] = p
+        return pd.DataFrame()
+
+    monkeypatch.setattr(state, "_read_sql", _fake)
+    return seen
+
+
+def test_theme_scan_history_reads_shared_table(monkeypatch):
+    seen = _capture(monkeypatch)
+    state.get_theme_scan_history(_FakeConn())
+    assert "from theme_scores" not in seen["q"], "still reading the legacy table"
+    assert "from scores" in seen["q"]
+    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
+
+
+def test_theme_rrg_history_reads_shared_table(monkeypatch):
+    seen = _capture(monkeypatch)
+    state.get_theme_rrg_history(_FakeConn(), n_scans=6)
+    assert "from theme_signals" not in seen["q"], "still reading the legacy table"
+    assert "from signals" in seen["q"]
+    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
+
+
+def test_theme_history_selects_the_contracted_columns(monkeypatch):
+    """The dashboard indexes this frame by name, so the SELECT list is the API.
+
+    Asserted against the SQL, not against a stubbed frame: a stub that returns
+    the expected columns would pass no matter what the query selected.
+    """
+    seen = _capture(monkeypatch)
+    state.get_theme_scan_history(_FakeConn())
+    for col in ("scan_id", "run_at", "region", "gics_sector", "level_score",
+                "change_score", "data_score", "sentiment_score", "composite", "rank"):
+        assert col in seen["q"], f"{col} missing from the theme history SELECT"

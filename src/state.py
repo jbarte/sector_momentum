@@ -521,45 +521,26 @@ def get_theme_rrg_history(
 ) -> pd.DataFrame:
     """rs_ratio and rs_momentum for themes over the last n_scans, for RRG tail traces.
 
-    Columns: scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum
-    (aliased to match get_rrg_history output so _build_rrg_figure works as-is).
+    Reads the shared `signals` table filtered to the THEME cohort. Columns:
+    scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum — identical to
+    get_rrg_history, which is what _build_rrg_figure expects.
     """
-    condition, params = _recent_scan_filter(n_scans)
-    query = f"""
-        SELECT sc.scan_id, sc.run_at, 'THEME' AS region, tsg.theme AS gics_sector,
-               MAX(CASE WHEN tsg.signal_name = 'rs_ratio'    THEN tsg.raw_value END) AS rs_ratio,
-               MAX(CASE WHEN tsg.signal_name = 'rs_momentum' THEN tsg.raw_value END) AS rs_momentum
-        FROM theme_signals tsg
-        JOIN scans sc ON sc.scan_id = tsg.scan_id
-        WHERE {condition}
-        AND tsg.signal_name IN ('rs_ratio', 'rs_momentum')
-        GROUP BY sc.scan_id, sc.run_at, tsg.theme
-        ORDER BY sc.scan_id ASC, tsg.theme
-    """
-    return _read_sql(conn, query, params)
+    return get_rrg_history(conn, n_scans=n_scans, regions=(THEME_REGION,))
 
 
 def get_theme_scan_history(
     conn: psycopg2.extensions.connection,
     n_scans: int | None = None,
 ) -> pd.DataFrame:
-    """Theme scores across scans, aliased region="THEME"/gics_sector=theme for reuse.
+    """Theme scores across scans, from the shared `scores` table.
 
     Columns: scan_id, run_at, region, gics_sector, level_score, change_score,
-    data_score, sentiment_score, composite, rank. Ordered by run_at ASC, theme.
+    data_score, sentiment_score, composite, rank. Ordered by run_at ASC then
+    gics_sector — get_scan_history orders by (run_at, region, gics_sector) and
+    region is constant within this cohort, so the ordering is unchanged.
     n_scans=None returns all scans. Empty DataFrame if no theme rows exist.
     """
-    condition, params = _recent_scan_filter(n_scans)
-    query = f"""
-        SELECT sc.scan_id, sc.run_at, 'THEME' AS region, ts.theme AS gics_sector,
-               ts.level_score, ts.change_score, ts.data_score, ts.sentiment_score,
-               ts.composite, ts.rank
-        FROM theme_scores ts
-        JOIN scans sc ON sc.scan_id = ts.scan_id
-        WHERE {condition}
-        ORDER BY sc.run_at ASC, ts.theme
-    """
-    return _read_sql(conn, query, params)
+    return get_scan_history(conn, n_scans=n_scans, regions=(THEME_REGION,))
 
 
 def get_rrg_history(
