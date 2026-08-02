@@ -116,8 +116,14 @@ def test_reader_accepts_explicit_theme_region(monkeypatch):
     assert ["THEME"] in list(seen["p"])
 
 
-def test_theme_readers_are_not_region_filtered(monkeypatch):
-    """theme_* tables have no region column — filtering them would be a SQL error."""
+def test_theme_readers_are_region_filtered_to_theme(monkeypatch):
+    """As of the shared-table switch, theme readers delegate to get_scan_history/
+    get_rrg_history with regions=(THEME_REGION,) — they now filter on the shared
+    `scores`/`signals` tables' region column, same as the sector readers above.
+    (Superseded the earlier "theme_* tables have no region column" assumption
+    from when these readers still queried the legacy theme_* tables directly.)
+    """
     seen = _capture(monkeypatch)
     state.get_theme_scan_history(_FakeConn())
-    assert "region = any" not in seen["q"]
+    assert "region = any" in seen["q"]
+    assert ["THEME"] in list(seen["p"])

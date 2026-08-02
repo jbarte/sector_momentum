@@ -1,5 +1,6 @@
 import pandas as pd
 from src.state import save_theme_scan
+from src import state
 
 
 class _FakeCursor:
@@ -119,3 +120,75 @@ def test_save_theme_scan_empty_frames_write_nothing_anywhere():
     conn = _FakeConn()
     save_theme_scan(conn, 7, pd.DataFrame(), pd.DataFrame())
     assert conn._cur.executemany_calls == []
+
+
+def _capture(monkeypatch) -> dict:
+    """Stub _read_sql and record the SQL + params it was handed."""
+    seen: dict = {}
+
+    def _fake(conn, q, p=None):
+        seen["q"] = " ".join(q.lower().split())
+        seen["p"] = p
+        return pd.DataFrame()
+
+    monkeypatch.setattr(state, "_read_sql", _fake)
+    return seen
+
+
+def test_theme_scan_history_reads_shared_table(monkeypatch):
+    seen = _capture(monkeypatch)
+    state.get_theme_scan_history(_FakeConn())
+    assert "from theme_scores" not in seen["q"], "still reading the legacy table"
+    assert "from scores" in seen["q"]
+    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
+
+
+def test_theme_rrg_history_reads_shared_table(monkeypatch):
+    seen = _capture(monkeypatch)
+    state.get_theme_rrg_history(_FakeConn(), n_scans=6)
+    assert "from theme_signals" not in seen["q"], "still reading the legacy table"
+    assert "from signals" in seen["q"]
+    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
+
+
+def test_theme_history_selects_the_contracted_columns(monkeypatch):
+    """The dashboard indexes this frame by name, so the SELECT list is the API.
+
+    Asserted against the SQL, not against a stubbed frame: a stub that returns
+    the expected columns would pass no matter what the query selected.
+    """
+    seen = _capture(monkeypatch)
+    state.get_theme_scan_history(_FakeConn())
+    for col in ("scan_id", "run_at", "region", "gics_sector", "level_score",
+                "change_score", "data_score", "sentiment_score", "composite", "rank"):
+        assert col in seen["q"], f"{col} missing from the theme history SELECT"
+
+
+def test_theme_signals_reads_shared_table_and_keeps_theme_column(monkeypatch):
+    """dashboard/rows.py filters this frame with signals_df["theme"] — the
+    column name is a contract, and the shared table calls it gics_sector."""
+    seen = _capture(monkeypatch)
+    state.get_theme_signals_for_latest_scan(_FakeConn())
+    assert "from theme_signals" not in seen["q"], "still reading the legacy table"
+    assert "from signals" in seen["q"]
+    assert "as theme" in seen["q"], "gics_sector must be aliased back to theme"
+    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
+
+
+def test_dead_theme_scores_reader_is_gone():
+    """get_theme_scores_for_latest_scan had zero callers; it was removed rather
+    than ported to a table that PR 3 retires."""
+    assert not hasattr(state, "get_theme_scores_for_latest_scan")
+
+
+def test_theme_signals_query_is_deterministically_ordered(monkeypatch):
+    """_latest_scan_query had no ORDER BY. That was invisible while it only
+    ever read the small, theme-only theme_signals table in isolation — but
+    this reader now shares the much larger `signals` table with 25 sectors,
+    where an unordered query genuinely returned rows in a different order than
+    a production baseline captured before this PR (caught 2026-08-02 by a
+    byte-for-byte equivalence check against that baseline). The fix belongs in
+    the shared helper, not a per-reader special case."""
+    seen = _capture(monkeypatch)
+    state.get_theme_signals_for_latest_scan(_FakeConn())
+    assert "order by t.region, t.gics_sector, t.signal_name" in seen["q"]

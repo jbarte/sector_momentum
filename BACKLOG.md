@@ -148,6 +148,18 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Cohort unification PR 2 — readers switched to the shared tables** — the
+  theme readers in `src/state.py` now read `scores`/`signals` filtered to
+  `region='THEME'` instead of the legacy `theme_*` tables, with output shape
+  unchanged (`get_theme_signals_for_latest_scan` aliases `gics_sector AS theme`,
+  which `dashboard/rows.py` filters on). Verified by diffing each reader's
+  output against a pre-change production baseline and by a byte-identical
+  dashboard build. Also deleted `get_theme_scores_for_latest_scan`, which had
+  zero callers. The `theme_*` tables are still written — the dual-write and the
+  tables themselves go in PR 3. Spec:
+  `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-01-cohort-unification-design.md`.
+  *(2026-08-02)*
+
 - **CI Postgres test database** — `.github/workflows/test.yml` now runs a
   `postgres:17` service container (matching production's 17.6), so the 14
   DB-backed tests gated on `TEST_DATABASE_URL` actually execute instead of
