@@ -80,10 +80,12 @@ def test_load_force_deletes_children_before_scans():
 
 def test_dump_tables_queries_all_tables(monkeypatch):
     seen = []
-    def fake_read_sql(sql, conn):
-        seen.append(sql)
+    # dump_tables uses state._read_sql(conn, query) — not pd.read_sql_query,
+    # which warns on raw psycopg2 connections. Note the argument order.
+    def fake_read_sql(conn, query, params=None):
+        seen.append(query)
         return pd.DataFrame()
-    monkeypatch.setattr("src.backup.pd.read_sql_query", fake_read_sql)
+    monkeypatch.setattr("src.backup._read_sql", fake_read_sql)
     dump_tables(object())
     from src.backup import _COLUMNS
     for table in _COLUMNS:
