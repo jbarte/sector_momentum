@@ -226,11 +226,14 @@ def test_compute_deltas_columns(db_conn):
 def test_get_scan_history_row_count(db_conn):
     """get_scan_history returns n_sectors * n_scans rows."""
     signals_df, scores_df = _make_scan_data()
-    save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df)
+    # Distinct days: save_scan replaces same-day scans (see
+    # test_save_scan_idempotent_same_day), so two now() saves would collapse
+    # into one scan and this would count 3 rows instead of 6.
+    save_scan(db_conn, datetime.datetime(2099, 3, 1, 10, 0, 0), signals_df, scores_df)
 
     scores_df2 = scores_df.copy()
     scores_df2["composite"] = [0.5, 0.1, -0.1]
-    save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df2)
+    save_scan(db_conn, datetime.datetime(2099, 3, 2, 10, 0, 0), signals_df, scores_df2)
 
     history = get_scan_history(db_conn, n_scans=5)
     assert len(history) == 6
@@ -240,8 +243,9 @@ def test_get_scan_history_row_count(db_conn):
 def test_get_scan_history_none_returns_all_scans(db_conn):
     """n_scans=None returns every scan, not just a window."""
     signals_df, scores_df = _make_scan_data()
-    for _ in range(3):
-        save_scan(db_conn, datetime.datetime.now(datetime.timezone.utc), signals_df, scores_df)
+    # Distinct days — three now() saves would be replaced down to one scan.
+    for day in (1, 2, 3):
+        save_scan(db_conn, datetime.datetime(2099, 4, day, 10, 0, 0), signals_df, scores_df)
     all_rows = get_scan_history(db_conn, n_scans=None)
     assert all_rows["scan_id"].nunique() == 3
 
