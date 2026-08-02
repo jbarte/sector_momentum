@@ -23,7 +23,7 @@ except ImportError:
     pass
 
 sys.path.insert(0, str(Path(__file__).parent))
-from src.state import init_db
+from src.state import init_db, SECTOR_REGIONS
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +103,9 @@ def _cadence_stats(conn) -> None:
 
 
 def _per_region_stats(conn) -> None:
+    # Intentionally unscoped: this already groups by region, so a THEME row
+    # (from the cohort-unification dual-write) shows up as its own labeled
+    # block rather than corrupting a sector's numbers — informative, not a bug.
     _section("Coverage — per region")
     with conn.cursor() as cur:
         cur.execute("""
@@ -126,14 +129,18 @@ def _per_region_stats(conn) -> None:
 def _per_sector_stats(conn) -> None:
     _section("Coverage — per sector (scans present in)")
     with conn.cursor() as cur:
+        # Sector-scoped: exclude the THEME cohort (dual-written into this same
+        # table from the cohort-unification migration on) so themes don't show
+        # up as a spurious [THEME] "sector" block.
         cur.execute("""
             SELECT region,
                    gics_sector,
                    COUNT(DISTINCT scan_id) AS n_scans
             FROM scores
+            WHERE region = ANY(%s)
             GROUP BY region, gics_sector
             ORDER BY region, n_scans DESC, gics_sector
-        """)
+        """, (list(SECTOR_REGIONS),))
         rows = cur.fetchall()
     if not rows:
         print("  No data.")
@@ -149,15 +156,18 @@ def _per_sector_stats(conn) -> None:
 def _signal_completeness(conn) -> None:
     _section("Signal completeness — NULL rates per signal")
     with conn.cursor() as cur:
+        # Sector-scoped: exclude THEME rows so theme NULL rates don't fold
+        # into the per-signal NULL-rate flag (>20% ⚠) computed for sectors.
         cur.execute("""
             SELECT signal_name,
                    COUNT(*)                                            AS total,
                    SUM(CASE WHEN raw_value IS NULL THEN 1 ELSE 0 END) AS null_raw,
                    SUM(CASE WHEN z_value   IS NULL THEN 1 ELSE 0 END) AS null_z
             FROM signals
+            WHERE region = ANY(%s)
             GROUP BY signal_name
             ORDER BY signal_name
-        """)
+        """, (list(SECTOR_REGIONS),))
         rows = cur.fetchall()
     if not rows:
         print("  No data.")
@@ -177,8 +187,15 @@ def _signal_completeness(conn) -> None:
 def _table_row_counts(conn) -> None:
     _section("Table row counts")
     with conn.cursor() as cur:
+        # scans has no region column (it's per-scan, not per-cohort), so it's
+        # unaffected by the dual-write. signals/scores are sector-scoped here
+        # so the THEME rows dual-written into them don't inflate these counts.
         for tbl in ("scans", "signals", "scores"):
-            cur.execute(f"SELECT COUNT(*) FROM {tbl}")
+            if tbl == "scans":
+                cur.execute(f"SELECT COUNT(*) FROM {tbl}")
+            else:
+                cur.execute(f"SELECT COUNT(*) FROM {tbl} WHERE region = ANY(%s)",
+                            (list(SECTOR_REGIONS),))
             n = cur.fetchone()[0]
             print(f"  {tbl:<10s}  {n:>8,d} rows")
 

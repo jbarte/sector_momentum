@@ -109,6 +109,23 @@ _SCAN_CHILD_TABLES = (
     "signals",
 )
 
+# Cohort discriminators on the shared scores/signals/sentiment_signals tables.
+# Sector cohorts and themes share these tables from the cohort-unification
+# migration on; `region` is the discriminator.
+SECTOR_REGIONS = ("US", "EU")
+THEME_REGION = "THEME"
+
+
+def _region_filter(regions, alias: str) -> tuple[str, tuple]:
+    """Returns (SQL boolean condition, params) restricting <alias>.region.
+
+    `regions=None` means "every cohort" and yields a condition that is always
+    true, so callers can interpolate it unconditionally.
+    """
+    if regions is None:
+        return "TRUE", ()
+    return f"{alias}.region = ANY(%s)", (list(regions),)
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -273,9 +290,11 @@ def save_scan(
 
 def load_last_scan(
     conn: psycopg2.extensions.connection,
+    regions=SECTOR_REGIONS,
 ) -> pd.DataFrame | None:
     """
     Load the scores for the most recent scan.
+    `regions` restricts the cohort; None selects every cohort.
     Returns a DataFrame with columns:
         region, gics_sector, composite, rank, scan_id
     Returns None if no prior scan exists.
@@ -287,11 +306,12 @@ def load_last_scan(
         return None
 
     scan_id = row[0]
+    rcond, rparams = _region_filter(regions, "s")
     df = _read_sql(
         conn,
-        "SELECT region, gics_sector, composite, rank, scan_id "
-        "FROM scores WHERE scan_id = %s",
-        (scan_id,),
+        "SELECT s.region, s.gics_sector, s.composite, s.rank, s.scan_id "
+        f"FROM scores s WHERE s.scan_id = %s AND {rcond}",
+        (scan_id,) + rparams,
     )
     return df if not df.empty else None
 
@@ -332,44 +352,52 @@ def compute_deltas(
     return result
 
 
-def get_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
+def get_signals_for_latest_scan(
+    conn: psycopg2.extensions.connection, regions=SECTOR_REGIONS
+) -> pd.DataFrame:
     """
     Return all signal rows for the most recent scan.
+    `regions` restricts the cohort; None selects every cohort.
     Columns: region, gics_sector, signal_name, raw_value, z_value
     Returns empty DataFrame if no scans exist.
     """
     return _latest_scan_query(
-        conn, "signals", "t.region, t.gics_sector, t.signal_name, t.raw_value, t.z_value"
+        conn, "signals", "t.region, t.gics_sector, t.signal_name, t.raw_value, t.z_value",
+        regions=regions,
     )
 
 
 def get_signals_for_scan(
-    conn: psycopg2.extensions.connection, scan_id: int
+    conn: psycopg2.extensions.connection, scan_id: int, regions=SECTOR_REGIONS
 ) -> pd.DataFrame:
     """
     Return all signal rows for a specific scan_id.
+    `regions` restricts the cohort; None selects every cohort.
     Columns: region, gics_sector, signal_name, raw_value, z_value
     Returns empty DataFrame if the scan has no signals.
     """
+    rcond, rparams = _region_filter(regions, "s")
     return _read_sql(
         conn,
-        "SELECT region, gics_sector, signal_name, raw_value, z_value "
-        "FROM signals WHERE scan_id = %s",
-        (scan_id,),
+        "SELECT s.region, s.gics_sector, s.signal_name, s.raw_value, s.z_value "
+        f"FROM signals s WHERE s.scan_id = %s AND {rcond}",
+        (scan_id,) + rparams,
     )
 
 
 def get_sentiment_signals_for_latest_scan(
-    conn: psycopg2.extensions.connection,
+    conn: psycopg2.extensions.connection, regions=SECTOR_REGIONS
 ) -> pd.DataFrame:
     """
     Return all derived sentiment-signal rows for the most recent scan.
+    `regions` restricts the cohort; None selects every cohort.
     Columns: region, gics_sector, signal_name, value
     Returns empty DataFrame if no scans (or no sentiment rows) exist.
     """
     return _latest_scan_query(
         conn, "sentiment_signals",
         "t.region, t.gics_sector, t.signal_name, t.value, t.text_value",
+        regions=regions,
     )
 
 
@@ -405,6 +433,20 @@ def save_theme_scan(
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                     rows,
                 )
+                # Dual-write into the shared cohort table. Temporary scaffolding
+                # for the cohort unification; the theme_scores insert above is
+                # removed in PR 3 once readers have switched over.
+                cur.executemany(
+                    "INSERT INTO scores "
+                    "(scan_id, region, gics_sector, level_score, change_score, "
+                    "data_score, sentiment_score, composite, rank) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    _rows_from_df(
+                        scores_df.assign(region=THEME_REGION), scan_id,
+                        key_cols=["region", "gics_sector"],
+                        float_cols=score_cols,
+                    ),
+                )
             if not signals_df.empty:
                 srows = _rows_from_df(
                     signals_df, scan_id,
@@ -416,6 +458,16 @@ def save_theme_scan(
                     "(scan_id, theme, signal_name, raw_value, z_value) "
                     "VALUES (%s, %s, %s, %s, %s)",
                     srows,
+                )
+                cur.executemany(
+                    "INSERT INTO signals "
+                    "(scan_id, region, gics_sector, signal_name, raw_value, z_value) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    _rows_from_df(
+                        signals_df.assign(region=THEME_REGION), scan_id,
+                        key_cols=["region", "gics_sector", "signal_name"],
+                        float_cols=["raw_value", "z_value"],
+                    ),
                 )
             if sentiment_signals_df is not None and not sentiment_signals_df.empty:
                 sent_rows = _rows_from_df(
@@ -429,6 +481,21 @@ def save_theme_scan(
                     "(scan_id, theme, signal_name, value, text_value) "
                     "VALUES (%s, %s, %s, %s, %s)",
                     sent_rows,
+                )
+                # sentiment_signals_df is keyed by `theme`, not region/gics_sector.
+                shared_sent = sentiment_signals_df.assign(
+                    region=THEME_REGION
+                ).rename(columns={"theme": "gics_sector"})
+                cur.executemany(
+                    "INSERT INTO sentiment_signals "
+                    "(scan_id, region, gics_sector, signal_name, value, text_value) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    _rows_from_df(
+                        shared_sent, scan_id,
+                        key_cols=["region", "gics_sector", "signal_name"],
+                        float_cols=["value"],
+                        raw_cols=["text_value"],
+                    ),
                 )
     logger.info("Saved %d theme scores for scan_id=%d", len(scores_df), scan_id)
 
@@ -498,49 +565,55 @@ def get_theme_scan_history(
 def get_rrg_history(
     conn: psycopg2.extensions.connection,
     n_scans: int = 6,
+    regions=SECTOR_REGIONS,
 ) -> pd.DataFrame:
     """
     Return rs_ratio and rs_momentum for the last n_scans scans, for RRG tail traces.
+    `regions` restricts the cohort; None selects every cohort.
     Columns: scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum
     """
     condition, params = _recent_scan_filter(n_scans)
+    rcond, rparams = _region_filter(regions, "sig")
     query = f"""
         SELECT sc.scan_id, sc.run_at, sig.region, sig.gics_sector,
                MAX(CASE WHEN sig.signal_name = 'rs_ratio'    THEN sig.raw_value END) AS rs_ratio,
                MAX(CASE WHEN sig.signal_name = 'rs_momentum' THEN sig.raw_value END) AS rs_momentum
         FROM signals sig
         JOIN scans sc ON sc.scan_id = sig.scan_id
-        WHERE {condition}
+        WHERE {condition} AND {rcond}
         AND sig.signal_name IN ('rs_ratio', 'rs_momentum')
         GROUP BY sc.scan_id, sc.run_at, sig.region, sig.gics_sector
         ORDER BY sc.scan_id ASC, sig.region, sig.gics_sector
     """
-    return _read_sql(conn, query, params)
+    return _read_sql(conn, query, params + rparams)
 
 
 def get_scan_history(
     conn: psycopg2.extensions.connection,
     n_scans: int | None = 10,
+    regions=SECTOR_REGIONS,
 ) -> pd.DataFrame:
     """
     Return scores for the last n_scans scans joined with scan metadata.
     When n_scans is None, returns ALL scans.
+    `regions` restricts the cohort; None selects every cohort.
     Columns: scan_id, run_at, region, gics_sector,
              level_score, change_score, data_score, sentiment_score, composite, rank
     Ordered by (run_at ASC, region, gics_sector).
     Returns empty DataFrame if no scans exist.
     """
     condition, params = _recent_scan_filter(n_scans)
+    rcond, rparams = _region_filter(regions, "s")
     query = f"""
         SELECT sc.scan_id, sc.run_at, s.region, s.gics_sector,
                s.level_score, s.change_score, s.data_score, s.sentiment_score,
                s.composite, s.rank
         FROM scores s
         JOIN scans sc ON sc.scan_id = s.scan_id
-        WHERE {condition}
+        WHERE {condition} AND {rcond}
         ORDER BY sc.run_at ASC, s.region, s.gics_sector
     """
-    return _read_sql(conn, query, params)
+    return _read_sql(conn, query, params + rparams)
 
 
 def get_latest_health(
@@ -625,14 +698,21 @@ def _to_float_or_none(value) -> float | None:
         return None
 
 
-def _latest_scan_query(conn, table: str, columns: str) -> pd.DataFrame:
+def _latest_scan_query(conn, table: str, columns: str, regions=None) -> pd.DataFrame:
     """Shared shape for 'all rows from <table> belonging to the most recent
     scan'. `columns` must reference the table via alias 't'
-    (e.g. 't.region, t.gics_sector')."""
+    (e.g. 't.region, t.gics_sector').
+
+    `regions` restricts t.region; None (the default) applies no filter, which
+    is required for the theme_* tables — they have no region column.
+    """
+    rcond, rparams = _region_filter(regions, "t")
     return _read_sql(
         conn,
         f"SELECT {columns} FROM {table} t "
-        f"JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON t.scan_id = m.max_id",
+        f"JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON t.scan_id = m.max_id "
+        f"WHERE {rcond}",
+        rparams,
     )
 
 

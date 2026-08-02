@@ -148,6 +148,17 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Cohort unification PR 1 — shared-table groundwork** — sector readers are now
+  region-scoped (`SECTOR_REGIONS`, `regions=` parameter on six readers in
+  `src/state.py`), and `save_theme_scan` dual-writes theme rows into
+  `scores`/`signals`/`sentiment_signals` with `region='THEME'` alongside the
+  legacy `theme_*` tables. Adds `scripts/theme_cohort_migration.sql` to backfill
+  the 22 historical theme scans. No user-visible change; readers still use
+  `theme_*` until PR 2. Groundwork for retiring the redundant theme schema and
+  giving themes the twelve sector-only dashboard features. Spec:
+  `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-01-cohort-unification-design.md`.
+  *(2026-08-01)*
+
 - **Validation panel provisional mode** — the "Do the rankings predict returns?"
   panel no longer colours hit-rate/mean/median cells green or red when the scan
   history is too short to support a conclusion. Gated on calendar span (not scan

@@ -67,3 +67,55 @@ def test_save_theme_scan_empty_frames_no_insert():
     conn = _FakeConn()
     save_theme_scan(conn, 7, pd.DataFrame(), pd.DataFrame())
     assert conn._cur.executemany_calls == []              # nothing inserted
+
+
+def _sentiment_df():
+    return pd.DataFrame([
+        {"theme": "Space", "signal_name": "news_polarity",
+         "value": 0.42, "text_value": None},
+    ])
+
+
+def test_save_theme_scan_dual_writes_scores_to_shared_table():
+    conn = _FakeConn()
+    save_theme_scan(conn, 7, _scores_df(), _signals_df())
+    calls = conn._cur.executemany_calls
+    shared = next(c for c in calls if "into scores" in c[0].lower())
+    # (scan_id, region, gics_sector, level, change, data, sentiment, composite, rank)
+    assert shared[1][0][0] == 7
+    assert shared[1][0][1] == "THEME"
+    assert shared[1][0][2] == "Space"
+    assert shared[1][0][7] == 0.8            # composite
+
+
+def test_save_theme_scan_dual_writes_signals_to_shared_table():
+    conn = _FakeConn()
+    save_theme_scan(conn, 7, _scores_df(), _signals_df())
+    shared = next(c for c in conn._cur.executemany_calls
+                  if "into signals" in c[0].lower())
+    assert shared[1][0] == (7, "THEME", "Space", "rs_ratio", 101.2, 1.3)
+
+
+def test_save_theme_scan_dual_writes_sentiment_mapping_theme_to_gics_sector():
+    conn = _FakeConn()
+    save_theme_scan(conn, 7, _scores_df(), _signals_df(),
+                    sentiment_signals_df=_sentiment_df())
+    shared = next(c for c in conn._cur.executemany_calls
+                  if "into sentiment_signals" in c[0].lower())
+    # (scan_id, region, gics_sector, signal_name, value, text_value)
+    assert shared[1][0] == (7, "THEME", "Space", "news_polarity", 0.42, None)
+
+
+def test_save_theme_scan_still_writes_legacy_theme_tables():
+    """Dual-write, not migration: the theme_* inserts must remain until PR 3."""
+    conn = _FakeConn()
+    save_theme_scan(conn, 7, _scores_df(), _signals_df())
+    sql = [c[0].lower() for c in conn._cur.executemany_calls]
+    assert any("into theme_scores" in s for s in sql)
+    assert any("into theme_signals" in s for s in sql)
+
+
+def test_save_theme_scan_empty_frames_write_nothing_anywhere():
+    conn = _FakeConn()
+    save_theme_scan(conn, 7, pd.DataFrame(), pd.DataFrame())
+    assert conn._cur.executemany_calls == []

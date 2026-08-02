@@ -1,8 +1,10 @@
 """Pytest tests for the state / Postgres persistence module.
 
-DANGER: the db_conn fixture's teardown runs `DELETE FROM signals/scores/scans`
-with no WHERE clause — it wipes EVERY row. It must therefore only ever connect
-to a throwaway test database, never production.
+DANGER: the db_conn fixture's teardown runs `DELETE FROM` with no WHERE clause
+against all seven scan-scoped tables — theme_sentiment_signals, theme_signals,
+theme_scores, sentiment_signals, signals, scores, scans — it wipes EVERY row.
+It must therefore only ever connect to a throwaway test database, never
+production.
 
 These tests are gated on a dedicated TEST_DATABASE_URL env var (NOT the
 production DATABASE_URL). If TEST_DATABASE_URL is unset they skip, so a normal
@@ -119,9 +121,11 @@ def db_conn(monkeypatch):
             _assert_disposable(conn, prod_url)
             with conn:
                 with conn.cursor() as cur:
-                    cur.execute("DELETE FROM signals")
-                    cur.execute("DELETE FROM scores")
-                    cur.execute("DELETE FROM scans")
+                    for table in (
+                        "theme_sentiment_signals", "theme_signals", "theme_scores",
+                        "sentiment_signals", "signals", "scores", "scans",
+                    ):
+                        cur.execute(f"DELETE FROM {table}")
         finally:
             conn.close()
 
@@ -386,3 +390,100 @@ def test_get_alert_prefs_query_filters_enabled(monkeypatch):
     state.get_alert_prefs(None)
     normalized = " ".join(seen["q"].lower().split())
     assert "where enabled = true" in normalized
+
+
+@skipif_no_db
+def test_same_day_rerun_leaves_one_set_of_theme_rows(db_conn):
+    """Re-scanning the same date must replace, not duplicate, dual-written themes."""
+    from datetime import datetime
+    from src.state import save_scan, save_theme_scan, THEME_REGION
+
+    signals_df, scores_df = _make_scan_data()
+    theme_scores = pd.DataFrame([
+        {"region": THEME_REGION, "gics_sector": "Space", "level_score": 1.0,
+         "change_score": 0.5, "data_score": 0.8, "sentiment_score": None,
+         "composite": 0.8, "rank": 1.0},
+    ])
+    theme_signals = pd.DataFrame([
+        {"region": THEME_REGION, "gics_sector": "Space", "signal_name": "rs_ratio",
+         "raw_value": 101.2, "z_value": 1.3},
+    ])
+
+    run_at = datetime(2026, 8, 1, 9, 0, 0)
+    for _ in range(2):
+        scan_id = save_scan(db_conn, run_at, signals_df, scores_df)
+        save_theme_scan(db_conn, scan_id, theme_scores, theme_signals)
+
+    rows = get_scan_history(db_conn, n_scans=None, regions=(THEME_REGION,))
+    assert len(rows) == 1, f"expected 1 theme row after re-run, got {len(rows)}"
+
+
+@skipif_no_db
+def test_sector_readers_exclude_theme_rows(db_conn):
+    """A THEME row in the shared tables must not reach sector readers."""
+    from src.state import THEME_REGION
+
+    with db_conn:
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO scans (run_at, config_hash) VALUES (%s, %s) RETURNING scan_id",
+                ("2026-08-01T00:00:00", "test"),
+            )
+            scan_id = cur.fetchone()[0]
+            cur.executemany(
+                "INSERT INTO scores (scan_id, region, gics_sector, level_score, "
+                "change_score, data_score, sentiment_score, composite, rank) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                [
+                    (scan_id, "US", "Technology", 1.0, 0.5, 0.8, None, 0.9, 1.0),
+                    (scan_id, THEME_REGION, "Space", 1.0, 0.5, 0.8, None, 0.9, 1.0),
+                ],
+            )
+
+    default = get_scan_history(db_conn, n_scans=None)
+    assert set(default["region"]) == {"US"}
+
+    every = get_scan_history(db_conn, n_scans=None, regions=None)
+    assert set(every["region"]) == {"US", THEME_REGION}
+
+    themes_only = get_scan_history(db_conn, n_scans=None, regions=(THEME_REGION,))
+    assert set(themes_only["region"]) == {THEME_REGION}
+
+
+@skipif_no_db
+def test_theme_cohort_migration_is_idempotent(db_conn):
+    """Running the backfill twice must not duplicate rows."""
+    from pathlib import Path
+    from src.state import THEME_REGION
+
+    sql = (Path(__file__).parent.parent
+           / "scripts" / "theme_cohort_migration.sql").read_text()
+    # Take only the DML, and strip the psql-level transaction control: psycopg2
+    # already opens a transaction for `with conn:`, so a nested BEGIN/COMMIT
+    # inside it would end that transaction early.
+    dml = sql.split("-- Verification")[0]
+    dml = dml.replace("BEGIN;", "").replace("COMMIT;", "")
+
+    with db_conn:
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO scans (run_at, config_hash) VALUES (%s, %s) RETURNING scan_id",
+                ("2026-08-01T00:00:00", "test"),
+            )
+            scan_id = cur.fetchone()[0]
+            cur.execute(
+                "INSERT INTO theme_scores (scan_id, theme, level_score, change_score, "
+                "data_score, sentiment_score, composite, rank) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (scan_id, "Space", 1.0, 0.5, 0.8, None, 0.8, 1.0),
+            )
+
+    for _ in range(2):
+        with db_conn:
+            with db_conn.cursor() as cur:
+                cur.execute(dml)
+
+    rows = get_scan_history(db_conn, n_scans=None, regions=(THEME_REGION,))
+    assert len(rows) == 1, f"backfill is not idempotent — {len(rows)} rows"
+    assert rows.iloc[0]["gics_sector"] == "Space"
+    assert float(rows.iloc[0]["composite"]) == 0.8
