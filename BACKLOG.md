@@ -148,6 +148,18 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **CI Postgres test database** — `.github/workflows/test.yml` now runs a
+  `postgres:17` service container (matching production's 17.6), so the 14
+  DB-backed tests gated on `TEST_DATABASE_URL` actually execute instead of
+  skipping. They had **never run anywhere** — not locally, not in CI — which
+  left the migration-idempotency, same-day-replacement and region-scoping
+  guards decorative. Non-obvious detail, documented in the workflow: the safety
+  guard (`_same_database`) fails safe on an *empty* `DATABASE_URL`, so setting
+  only `TEST_DATABASE_URL` silently skips everything; both vars point at the
+  throwaway container at different database names. Running them immediately
+  found two stale tests that saved several scans with `datetime.now()` and were
+  silently collapsed into one by same-day replacement. *(2026-08-02)*
+
 - **Cohort unification PR 1 — shared-table groundwork** — sector readers are now
   region-scoped (`SECTOR_REGIONS`, `regions=` parameter on six readers in
   `src/state.py`), and `save_theme_scan` dual-writes theme rows into
