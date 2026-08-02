@@ -60,6 +60,29 @@ def test_empty_or_unparseable_treated_as_same_for_safety():
     assert _same_database(POOLER, "") is True
 
 
+# --- CI arrangement -------------------------------------------------------
+# .github/workflows/test.yml points BOTH TEST_DATABASE_URL and DATABASE_URL at
+# the throwaway Postgres service container, at two different database names.
+# These pin that arrangement: if the guard ever stops distinguishing them, the
+# DB-backed tests go back to skipping in CI — silently, which is exactly how
+# they came to be decorative in the first place.
+
+CI_TEST = "postgresql://postgres:postgres@localhost:5432/sector_momentum_test"
+CI_PROD = "postgresql://postgres:postgres@localhost:5432/postgres"
+
+
+def test_ci_service_container_urls_are_distinct():
+    # Same local host, different dbname → distinct → the DB tests actually run.
+    assert _same_database(CI_TEST, CI_PROD) is False
+
+
+def test_ci_arrangement_needs_both_env_vars():
+    # Setting only TEST_DATABASE_URL (the obvious-looking fix) leaves prod
+    # unidentifiable, which fails safe to "same database" and skips everything.
+    # This is why the workflow sets DATABASE_URL too.
+    assert _same_database(CI_TEST, "") is True
+
+
 class _FakeConn:
     def __init__(self, params):
         self._p = params
