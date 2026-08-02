@@ -10,6 +10,24 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # Throwaway Postgres so the DB-backed tests actually execute instead of
+    # skipping. Version matches production (Supabase, 17.x). The container dies
+    # with the runner, so the wipe-happy fixtures are harmless here.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sector_momentum_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,4 +41,21 @@ jobs:
         run: pip install -r requirements-dev.lock --extra-index-url https://download.pytorch.org/whl/cpu
 
       - name: Run tests
+        env:
+          # The DB-backed tests wipe every row, so they are gated on an identity
+          # check (tests/test_state_smoke.py::_same_database) that refuses to run
+          # when TEST_DATABASE_URL resolves to the same database as DATABASE_URL.
+          #
+          # That check FAILS SAFE: an empty or unparseable DATABASE_URL counts as
+          # "same database" and the tests skip — pinned by
+          # tests/test_state_wipe_guard.py::test_empty_or_unparseable_treated_as_same_for_safety
+          # after production was wiped on 2026-06-25. So setting only
+          # TEST_DATABASE_URL here would silently skip everything it is meant to run.
+          #
+          # Both vars therefore point at the throwaway service container, at two
+          # DIFFERENT databases: the guard compares (host, dbname), sees they
+          # differ, and lets the tests through. Neither URL can reach production —
+          # a Supabase host is never localhost.
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sector_momentum_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
         run: pytest tests/ -v --tb=short
