@@ -162,3 +162,20 @@ def test_theme_history_selects_the_contracted_columns(monkeypatch):
     for col in ("scan_id", "run_at", "region", "gics_sector", "level_score",
                 "change_score", "data_score", "sentiment_score", "composite", "rank"):
         assert col in seen["q"], f"{col} missing from the theme history SELECT"
+
+
+def test_theme_signals_reads_shared_table_and_keeps_theme_column(monkeypatch):
+    """dashboard/rows.py filters this frame with signals_df["theme"] — the
+    column name is a contract, and the shared table calls it gics_sector."""
+    seen = _capture(monkeypatch)
+    state.get_theme_signals_for_latest_scan(_FakeConn())
+    assert "from theme_signals" not in seen["q"], "still reading the legacy table"
+    assert "from signals" in seen["q"]
+    assert "as theme" in seen["q"], "gics_sector must be aliased back to theme"
+    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
+
+
+def test_dead_theme_scores_reader_is_gone():
+    """get_theme_scores_for_latest_scan had zero callers; it was removed rather
+    than ported to a table that PR 3 retires."""
+    assert not hasattr(state, "get_theme_scores_for_latest_scan")

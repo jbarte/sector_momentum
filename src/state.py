@@ -500,18 +500,17 @@ def save_theme_scan(
     logger.info("Saved %d theme scores for scan_id=%d", len(scores_df), scan_id)
 
 
-def get_theme_scores_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
-    """Theme score rows for the most recent scan. Empty DataFrame if none."""
-    return _latest_scan_query(
-        conn, "theme_scores",
-        "t.theme, t.level_score, t.change_score, t.data_score, t.sentiment_score, t.composite, t.rank",
-    )
-
-
 def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
-    """Theme signal rows for the most recent scan. Empty DataFrame if none."""
+    """Theme signal rows for the most recent scan. Empty DataFrame if none.
+
+    Reads the shared `signals` table filtered to the THEME cohort. The
+    gics_sector column is aliased back to `theme` because dashboard/rows.py
+    filters this frame with signals_df["theme"].
+    """
     return _latest_scan_query(
-        conn, "theme_signals", "t.theme, t.signal_name, t.raw_value, t.z_value"
+        conn, "signals",
+        "t.gics_sector AS theme, t.signal_name, t.raw_value, t.z_value",
+        regions=(THEME_REGION,),
     )
 
 
