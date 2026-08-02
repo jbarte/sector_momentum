@@ -17,6 +17,7 @@ from pathlib import Path
 import pandas as pd
 
 from src import storage_backup
+from src.state import _read_sql
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,9 @@ def dump_tables(conn) -> dict[str, pd.DataFrame]:
     out = {}
     for name, cols in _COLUMNS.items():
         sql = f"SELECT {', '.join(cols)} FROM {name} {order[name]}"
-        out[name] = pd.read_sql_query(sql, conn)
+        # _read_sql, not pd.read_sql_query: pandas warns on every call that raw
+        # DBAPI2 connections are untested, and we pass psycopg2 connections.
+        out[name] = _read_sql(conn, sql)
     return out
 
 
