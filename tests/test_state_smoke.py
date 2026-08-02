@@ -491,3 +491,44 @@ def test_theme_cohort_migration_is_idempotent(db_conn):
     assert len(rows) == 1, f"backfill is not idempotent — {len(rows)} rows"
     assert rows.iloc[0]["gics_sector"] == "Space"
     assert float(rows.iloc[0]["composite"]) == 0.8
+
+
+@skipif_no_db
+def test_theme_readers_exclude_sector_rows(db_conn):
+    """Theme readers now read tables holding sector rows — a missing region
+    filter would put sectors on the themes page."""
+    from src.state import (get_theme_scan_history, get_theme_signals_for_latest_scan,
+                           THEME_REGION)
+
+    with db_conn:
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO scans (run_at, config_hash) VALUES (%s, %s) RETURNING scan_id",
+                ("2099-05-01T00:00:00", "test"),
+            )
+            scan_id = cur.fetchone()[0]
+            cur.executemany(
+                "INSERT INTO scores (scan_id, region, gics_sector, level_score, "
+                "change_score, data_score, sentiment_score, composite, rank) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                [
+                    (scan_id, "US", "Technology", 1.0, 0.5, 0.8, None, 0.9, 1.0),
+                    (scan_id, THEME_REGION, "Space", 1.0, 0.5, 0.8, None, 0.9, 1.0),
+                ],
+            )
+            cur.executemany(
+                "INSERT INTO signals (scan_id, region, gics_sector, signal_name, "
+                "raw_value, z_value) VALUES (%s, %s, %s, %s, %s, %s)",
+                [
+                    (scan_id, "US", "Technology", "rs_ratio", 101.0, 1.0),
+                    (scan_id, THEME_REGION, "Space", "rs_ratio", 102.0, 1.5),
+                ],
+            )
+
+    hist = get_theme_scan_history(db_conn, n_scans=None)
+    assert set(hist["region"]) == {THEME_REGION}
+    assert set(hist["gics_sector"]) == {"Space"}
+
+    sigs = get_theme_signals_for_latest_scan(db_conn)
+    assert "theme" in sigs.columns, "the theme column contract was broken"
+    assert set(sigs["theme"]) == {"Space"}
