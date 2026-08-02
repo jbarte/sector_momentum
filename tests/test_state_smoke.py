@@ -532,3 +532,32 @@ def test_theme_readers_exclude_sector_rows(db_conn):
     sigs = get_theme_signals_for_latest_scan(db_conn)
     assert "theme" in sigs.columns, "the theme column contract was broken"
     assert set(sigs["theme"]) == {"Space"}
+
+
+@skipif_no_db
+def test_sentiment_signals_reader_excludes_theme_rows(db_conn):
+    """get_sentiment_signals_for_latest_scan defaults to SECTOR_REGIONS — a
+    missing region filter would put theme rows on the sector pages, and this
+    also exercises the shared _latest_scan_query ORDER BY against
+    sentiment_signals for real."""
+    from src.state import get_sentiment_signals_for_latest_scan, THEME_REGION
+
+    with db_conn:
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO scans (run_at, config_hash) VALUES (%s, %s) RETURNING scan_id",
+                ("2099-05-01T00:00:00", "test"),
+            )
+            scan_id = cur.fetchone()[0]
+            cur.executemany(
+                "INSERT INTO sentiment_signals (scan_id, region, gics_sector, "
+                "signal_name, value, text_value) VALUES (%s, %s, %s, %s, %s, %s)",
+                [
+                    (scan_id, "US", "Technology", "news_sentiment", 0.5, "positive"),
+                    (scan_id, THEME_REGION, "Space", "news_sentiment", 0.7, "positive"),
+                ],
+            )
+
+    sigs = get_sentiment_signals_for_latest_scan(db_conn)
+    assert set(sigs["region"]) == {"US"}
+    assert set(sigs["gics_sector"]) == {"Technology"}

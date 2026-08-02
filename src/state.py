@@ -691,6 +691,10 @@ def _latest_scan_query(conn, table: str, columns: str, regions=None) -> pd.DataF
     every caller read a small table in isolation, but it surfaced as a real
     discrepancy once theme rows started sharing the much larger `signals` table
     with sectors (cohort-unification PR 2, 2026-08-02).
+
+    Because of that ORDER BY, `table` must expose `region`, `gics_sector`, and
+    `signal_name` columns. `scores` does NOT qualify — it has `region` and
+    `gics_sector` but no `signal_name`.
     """
     rcond, rparams = _region_filter(regions, "t")
     return _read_sql(

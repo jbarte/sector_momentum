@@ -59,8 +59,9 @@ def test_theme_rows_empty_history():
 
 def test_compute_rank_trajectories_produces_theme_prefixed_keys():
     # Locks the integration contract: _compute_rank_trajectories keys its output
-    # "region|gics_sector", and get_theme_scan_history aliases region="THEME", so
-    # the row-builder's lookup key f"THEME|{theme}" must match what this produces.
+    # "region|gics_sector", and get_theme_scan_history reads rows whose region
+    # column holds "THEME", so the row-builder's lookup key f"THEME|{theme}"
+    # must match what this produces.
     traj = _compute_rank_trajectories(_history_two_scans())
     assert "THEME|Semiconductors" in traj
     assert "THEME|Space" in traj
