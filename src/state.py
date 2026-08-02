@@ -683,15 +683,22 @@ def _latest_scan_query(conn, table: str, columns: str, regions=None) -> pd.DataF
     scan'. `columns` must reference the table via alias 't'
     (e.g. 't.region, t.gics_sector').
 
-    `regions` restricts t.region; None (the default) applies no filter, which
-    is required for the theme_* tables — they have no region column.
+    `regions` restricts t.region; None (the default) applies no filter.
+
+    Orders by (region, gics_sector, signal_name) so row order is deterministic
+    regardless of the table's physical layout or scan plan. Without this, a
+    query with no ORDER BY has undefined row order in Postgres — harmless while
+    every caller read a small table in isolation, but it surfaced as a real
+    discrepancy once theme rows started sharing the much larger `signals` table
+    with sectors (cohort-unification PR 2, 2026-08-02).
     """
     rcond, rparams = _region_filter(regions, "t")
     return _read_sql(
         conn,
         f"SELECT {columns} FROM {table} t "
         f"JOIN (SELECT MAX(scan_id) AS max_id FROM scans) m ON t.scan_id = m.max_id "
-        f"WHERE {rcond}",
+        f"WHERE {rcond} "
+        f"ORDER BY t.region, t.gics_sector, t.signal_name",
         rparams,
     )
 

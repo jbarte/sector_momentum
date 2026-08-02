@@ -179,3 +179,16 @@ def test_dead_theme_scores_reader_is_gone():
     """get_theme_scores_for_latest_scan had zero callers; it was removed rather
     than ported to a table that PR 3 retires."""
     assert not hasattr(state, "get_theme_scores_for_latest_scan")
+
+
+def test_theme_signals_query_is_deterministically_ordered(monkeypatch):
+    """_latest_scan_query had no ORDER BY. That was invisible while it only
+    ever read the small, theme-only theme_signals table in isolation — but
+    this reader now shares the much larger `signals` table with 25 sectors,
+    where an unordered query genuinely returned rows in a different order than
+    a production baseline captured before this PR (caught 2026-08-02 by a
+    byte-for-byte equivalence check against that baseline). The fix belongs in
+    the shared helper, not a per-reader special case."""
+    seen = _capture(monkeypatch)
+    state.get_theme_signals_for_latest_scan(_FakeConn())
+    assert "order by t.region, t.gics_sector, t.signal_name" in seen["q"]
