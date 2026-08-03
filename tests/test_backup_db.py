@@ -78,6 +78,13 @@ def test_load_force_deletes_children_before_scans():
     )
 
 
+def test_backup_no_longer_dumps_legacy_theme_tables():
+    from src.backup import _COLUMNS, _INSERT_ORDER
+    for table in ("theme_scores", "theme_signals", "theme_sentiment_signals"):
+        assert table not in _COLUMNS
+        assert table not in _INSERT_ORDER
+
+
 def test_dump_tables_queries_all_tables(monkeypatch):
     seen = []
     # dump_tables uses state._read_sql(conn, query) — not pd.read_sql_query,

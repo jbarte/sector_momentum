@@ -45,7 +45,7 @@ skipif_no_db = pytest.mark.skipif(
 
 @pytest.fixture
 def db_conn(monkeypatch):
-    """Connection to the disposable TEST database; wipes all seven tables on
+    """Connection to the disposable TEST database; wipes all four tables on
     teardown (FK-safe order). Never touches production (see test_state_smoke)."""
     prod_url = os.environ.get("DATABASE_URL", "")
     test_url = os.environ["TEST_DATABASE_URL"]
@@ -67,9 +67,8 @@ def db_conn(monkeypatch):
 
 
 def _seed_tables():
-    """A small known fixture covering all seven tables, including a NaN
-    (→ SQL NULL) in scores.sentiment_score and a text_value in a theme
-    sentiment row."""
+    """A small known fixture covering all four tables, including a NaN
+    (→ SQL NULL) in scores.sentiment_score."""
     return {
         "scans": pd.DataFrame({
             "scan_id": [1],
@@ -102,30 +101,6 @@ def _seed_tables():
             "signal_name": ["news_polarity"],
             "value": [0.3],
             "text_value": [None],
-        }),
-        "theme_scores": pd.DataFrame({
-            "scan_id": [1],
-            "theme": ["Semiconductors"],
-            "level_score": [0.6],
-            "change_score": [0.5],
-            "data_score": [0.55],
-            "sentiment_score": [np.nan],
-            "composite": [0.55],
-            "rank": [1.0],
-        }),
-        "theme_signals": pd.DataFrame({
-            "scan_id": [1],
-            "theme": ["Semiconductors"],
-            "signal_name": ["rs_ratio"],
-            "raw_value": [101.2],
-            "z_value": [0.4],
-        }),
-        "theme_sentiment_signals": pd.DataFrame({
-            "scan_id": [1],
-            "theme": ["Semiconductors"],
-            "signal_name": ["news_polarity"],
-            "value": [0.2],
-            "text_value": ["ai chip demand"],  # non-null text_value round-trip
         }),
     }
 
@@ -190,3 +165,45 @@ def test_restore_resets_scan_id_sequence(db_conn):
         scores_df=scores_df,
     )
     assert new_id > 1, "sequence should advance past the restored max scan_id"
+
+
+@skipif_no_db
+def test_restore_tolerates_archive_with_legacy_theme_scores_csv(db_conn, tmp_path):
+    """Backups already sitting in the db-backups bucket were dumped by pre-PR3
+    code and still carry theme_scores.csv (and friends) — cohort unification
+    PR 3 retired the theme_* tables from the DDL, so the disposable test DB
+    this fixture provisions (via init_db(), which runs the current DDL) has no
+    such table. Restoring one of those archives must not raise UndefinedTable,
+    and the surviving required tables must still land.
+    """
+    backup_dir = tmp_path / "old_backup"
+    write_backup(_seed_tables(), backup_dir)
+
+    # Simulate a pre-PR3 archive: an extra legacy CSV the current code no
+    # longer knows about (not in _COLUMNS), matching what's already in the
+    # bucket from before this table was retired.
+    pd.DataFrame({
+        "scan_id": [1],
+        "theme": ["Semiconductors"],
+        "level_score": [0.6],
+        "change_score": [0.5],
+        "data_score": [0.55],
+        "sentiment_score": [np.nan],
+        "composite": [0.55],
+        "rank": [1.0],
+    }).to_csv(backup_dir / "theme_scores.csv", index=False)
+
+    # Confirm the target DB genuinely lacks the table (i.e. this test would
+    # actually catch a regression, not just pass trivially).
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT to_regclass('public.theme_scores')")
+        assert cur.fetchone()[0] is None, "test DB unexpectedly has theme_scores"
+
+    restored = read_backup(backup_dir)
+    counts = load_tables(db_conn, restored, force=True)
+
+    seed = _seed_tables()
+    assert counts["scans"] == len(seed["scans"])
+    assert counts["scores"] == len(seed["scores"])
+    assert counts["signals"] == len(seed["signals"])
+    assert counts["sentiment_signals"] == len(seed["sentiment_signals"])

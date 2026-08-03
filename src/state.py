@@ -65,45 +65,12 @@ _DDL_STATEMENTS = [
         text_value  TEXT
     )
     """,
-    """
-    CREATE TABLE IF NOT EXISTS theme_scores (
-        scan_id      INTEGER NOT NULL REFERENCES scans(scan_id),
-        theme        TEXT NOT NULL,
-        level_score  REAL,
-        change_score REAL,
-        data_score   REAL,
-        sentiment_score REAL,
-        composite    REAL,
-        rank         REAL
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS theme_signals (
-        scan_id     INTEGER NOT NULL REFERENCES scans(scan_id),
-        theme       TEXT NOT NULL,
-        signal_name TEXT NOT NULL,
-        raw_value   REAL,
-        z_value     REAL
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS theme_sentiment_signals (
-        scan_id     INTEGER NOT NULL REFERENCES scans(scan_id),
-        theme       TEXT NOT NULL,
-        signal_name TEXT NOT NULL,
-        value       REAL,
-        text_value  TEXT
-    )
-    """,
 ]
 
 # Every table with a scan_id FK on scans, deleted before a same-day scan is
 # replaced. Must stay in sync with the DDL above (tests/test_state_schema.py
 # asserts coverage).
 _SCAN_CHILD_TABLES = (
-    "theme_sentiment_signals",
-    "theme_signals",
-    "theme_scores",
     "sentiment_signals",
     "scores",
     "signals",

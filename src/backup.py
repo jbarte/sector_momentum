@@ -28,15 +28,10 @@ _COLUMNS = {
                "data_score", "sentiment_score", "composite", "rank"),
     "signals": ("scan_id", "region", "gics_sector", "signal_name", "raw_value", "z_value"),
     "sentiment_signals": ("scan_id", "region", "gics_sector", "signal_name", "value", "text_value"),
-    "theme_scores": ("scan_id", "theme", "level_score", "change_score", "data_score",
-                     "sentiment_score", "composite", "rank"),
-    "theme_signals": ("scan_id", "theme", "signal_name", "raw_value", "z_value"),
-    "theme_sentiment_signals": ("scan_id", "theme", "signal_name", "value", "text_value"),
 }
 
 # FK-safe orderings: parents before children (insert), children before parents (delete).
-_INSERT_ORDER = ("scans", "signals", "scores", "sentiment_signals", "theme_scores",
-                 "theme_signals", "theme_sentiment_signals")
+_INSERT_ORDER = ("scans", "signals", "scores", "sentiment_signals")
 _DELETE_ORDER = tuple(reversed(_INSERT_ORDER))
 
 
@@ -61,7 +56,8 @@ _REQUIRED_TABLES = {"scans", "scores", "signals"}
 
 
 def read_backup(backup_dir: str | Path = "backups") -> dict[str, pd.DataFrame]:
-    """Read CSVs back. Missing optional tables (pre-theme backups) get empty DFs."""
+    """Read CSVs back. Missing optional tables (e.g. an archive predating a
+    later-added table like sentiment_signals) get empty DFs."""
     d = Path(backup_dir)
     tables: dict[str, pd.DataFrame] = {}
     for name, cols in _COLUMNS.items():
@@ -86,9 +82,6 @@ def dump_tables(conn) -> dict[str, pd.DataFrame]:
         "scores": "ORDER BY scan_id, region, gics_sector",
         "signals": "ORDER BY scan_id, region, gics_sector, signal_name",
         "sentiment_signals": "ORDER BY scan_id, region, gics_sector, signal_name",
-        "theme_scores": "ORDER BY scan_id, theme",
-        "theme_signals": "ORDER BY scan_id, theme, signal_name",
-        "theme_sentiment_signals": "ORDER BY scan_id, theme, signal_name",
     }
     out = {}
     for name, cols in _COLUMNS.items():
@@ -106,13 +99,43 @@ def _rows_with_nulls(df: pd.DataFrame, cols: tuple[str, ...]) -> list[tuple]:
             for rec in ordered.itertuples(index=False, name=None)]
 
 
+def _table_exists(cur, name: str) -> bool:
+    """True if a table named `name` exists in the target database's public schema."""
+    cur.execute("SELECT to_regclass(%s)", (f"public.{name}",))
+    return cur.fetchone()[0] is not None
+
+
 def load_tables(conn, tables: dict[str, pd.DataFrame], *, force: bool = False) -> dict[str, int]:
-    """Insert backup rows into the DB. Refuses a non-empty DB unless force=True."""
+    """Insert backup rows into the DB. Refuses a non-empty DB unless force=True.
+
+    A table in _COLUMNS that is missing from the target database is skipped
+    (logged, not raised) unless it's one of _REQUIRED_TABLES — this lets an
+    older backup archive still carrying a since-retired table (e.g. the
+    legacy theme_* schema) restore cleanly against a database that no longer
+    has it, instead of failing with UndefinedTable.
+    """
     counts: dict[str, int] = {}
     with conn:
         with conn.cursor() as cur:
+            present: dict[str, bool] = {}
+            for name in _COLUMNS:
+                exists = _table_exists(cur, name)
+                if not exists and name in _REQUIRED_TABLES:
+                    raise RuntimeError(
+                        f"required table '{name}' does not exist in the target database"
+                    )
+                present[name] = exists
+                if not exists:
+                    logger.info(
+                        "Skipping %s — table not present in target database "
+                        "(retired schema)",
+                        name,
+                    )
+
             non_empty = False
             for name in _COLUMNS:
+                if not present[name]:
+                    continue
                 cur.execute(f"SELECT COUNT(*) FROM {name}")
                 if cur.fetchone()[0]:
                     non_empty = True
@@ -123,8 +146,11 @@ def load_tables(conn, tables: dict[str, pd.DataFrame], *, force: bool = False) -
                 )
             if force:
                 for name in _DELETE_ORDER:
-                    cur.execute(f"DELETE FROM {name}")
+                    if present[name]:
+                        cur.execute(f"DELETE FROM {name}")
             for name in _INSERT_ORDER:
+                if not present[name]:
+                    continue
                 cols = _COLUMNS[name]
                 df = tables.get(name, pd.DataFrame(columns=list(cols)))
                 rows = _rows_with_nulls(df, cols)
