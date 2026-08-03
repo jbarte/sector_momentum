@@ -148,6 +148,17 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Cohort unification PR 3 — legacy theme schema retired** — `save_theme_scan`
+  no longer dual-writes; the `theme_scores`/`theme_signals`/
+  `theme_sentiment_signals` tables are gone from `_DDL_STATEMENTS`,
+  `_SCAN_CHILD_TABLES` and `src/backup.py`, and `scripts/theme_tables_drop.sql`
+  removes them from the database (post-merge step). The shared
+  `scores`/`signals`/`sentiment_signals` tables are now the single source of
+  truth for both cohorts. `restore_backup` skips non-required tables absent from
+  the target database, so backups predating the drop stay restorable. Spec:
+  `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-01-cohort-unification-design.md`.
+  *(2026-08-03)*
+
 - **Cohort unification PR 4 — cohort-generic seams** — added `src/cohorts.py`,
   turning `config/universe.yaml` (and optionally `config/themes.yaml`) into a
   list of `Cohort` records (region, label, benchmark, instrument map). The
