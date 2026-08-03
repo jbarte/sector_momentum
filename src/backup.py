@@ -59,6 +59,14 @@ def read_backup(backup_dir: str | Path = "backups") -> dict[str, pd.DataFrame]:
     """Read CSVs back. Missing optional tables (e.g. an archive predating a
     later-added table like sentiment_signals) get empty DFs."""
     d = Path(backup_dir)
+    ignored = sorted(
+        f.name for f in d.glob("*.csv") if f.stem not in _COLUMNS
+    )
+    if ignored:
+        logger.warning(
+            "Ignoring CSV(s) not in the current schema (archive predates a "
+            "later change?): %s", ignored,
+        )
     tables: dict[str, pd.DataFrame] = {}
     for name, cols in _COLUMNS.items():
         f = d / f"{name}.csv"

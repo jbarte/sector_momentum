@@ -154,8 +154,11 @@ dashboard's drill-down tab covers most of the need.
   `_SCAN_CHILD_TABLES` and `src/backup.py`, and `scripts/theme_tables_drop.sql`
   removes them from the database (post-merge step). The shared
   `scores`/`signals`/`sentiment_signals` tables are now the single source of
-  truth for both cohorts. `restore_backup` skips non-required tables absent from
-  the target database, so backups predating the drop stay restorable. Spec:
+  truth for both cohorts. Backups predating the drop stay restorable because
+  `read_backup` only iterates the (now four-table) `_COLUMNS` map, so legacy
+  theme_*.csv members in an old archive are ignored before `load_tables` ever
+  sees them; `load_tables`'s `_table_exists` skip is defence-in-depth, not the
+  mechanism doing the work. Spec:
   `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-01-cohort-unification-design.md`.
   *(2026-08-03)*
 

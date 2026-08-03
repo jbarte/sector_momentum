@@ -70,7 +70,7 @@ def test_load_force_deletes_children_before_scans():
     deletes = [sql for sql, _ in conn._cur.executed if sql.strip().startswith("DELETE")]
     table_order = []
     for d in deletes:
-        for t in ("scans", "signals", "scores", "sentiment_signals", "theme_scores", "theme_signals"):
+        for t in ("scans", "signals", "scores", "sentiment_signals"):
             if t in d and t not in table_order:
                 table_order.append(t)
     assert table_order.index("scans") == len(table_order) - 1, (
