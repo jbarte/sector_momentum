@@ -87,13 +87,14 @@ class TestComputeCorrelationMatrix:
 class TestOrderLabels:
     def test_us_before_eu(self):
         from dashboard.correlation import _order_labels
+        from src.cohorts import cohorts
 
         universe = _make_universe(3, 2)
         ranks = {
             "US|Sector0": 2, "US|Sector1": 1, "US|Sector2": 3,
             "EU|EUSector0": 1, "EU|EUSector1": 2,
         }
-        labels, tickers = _order_labels(universe, ranks)
+        labels, tickers, _ = _order_labels(cohorts(universe), ranks)
         # US should come first, ordered by rank
         assert labels[0] == "Sector1 (US)"   # rank 1
         assert labels[1] == "Sector0 (US)"   # rank 2
@@ -103,6 +104,7 @@ class TestOrderLabels:
 
     def test_top5_bold(self):
         from dashboard.correlation import _order_labels
+        from src.cohorts import cohorts
 
         universe = _make_universe(11, 14)
         ranks = {}
@@ -110,7 +112,7 @@ class TestOrderLabels:
             ranks[f"US|{name}"] = i + 1
         for i, name in enumerate(universe["eu_sectors"]):
             ranks[f"EU|{name}"] = i + 1
-        labels, _ = _order_labels(universe, ranks)
+        labels, _, _ = _order_labels(cohorts(universe), ranks)
         bold_count = sum(1 for l in labels if l.startswith("<b>"))
         assert bold_count == 10  # top 5 US + top 5 EU
 
@@ -164,6 +166,32 @@ class TestBuildCorrelationContext:
         }
         ctx = correlation.build_correlation_context(shared)
         assert ctx["correlation_fig_json"] is None
+
+
+def test_order_labels_follows_cohorts_and_reports_block_sizes():
+    from dashboard.correlation import _order_labels
+    from src.cohorts import cohorts
+
+    universe = {
+        "us_sectors": {"Technology": "XLK", "Energy": "XLE"},
+        "eu_sectors": {"Banks": "EXV1.DE"},
+    }
+    ranks = {"US|Technology": 1, "US|Energy": 2, "EU|Banks": 1}
+    labels, tickers, block_sizes = _order_labels(cohorts(universe), ranks)
+
+    assert tickers == ["XLK", "XLE", "EXV1.DE"], "US must precede EU, ranked within cohort"
+    assert block_sizes == [2, 1]
+    assert labels[0].endswith("(US)")
+    assert labels[-1].endswith("(EU)")
+
+
+def test_block_boundaries_match_the_previous_single_divider():
+    """With two cohorts the generalized boundary must land exactly where the
+    old `n_us - 0.5` divider did, or the heatmap shifts."""
+    from dashboard.correlation import _block_boundaries
+    assert _block_boundaries([11, 14]) == [10.5]
+    assert _block_boundaries([2, 3, 4]) == [1.5, 4.5]
+    assert _block_boundaries([5]) == []
 
 
 def _history_df_with_ranks(ranks: dict) -> pd.DataFrame:
