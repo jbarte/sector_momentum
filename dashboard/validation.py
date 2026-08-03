@@ -6,8 +6,9 @@ from datetime import timedelta
 
 import pandas as pd
 
-from dashboard.badges import _forward_date, _sector_ticker_map
+from dashboard.badges import _forward_date
 from src.backtest.strategy import close_at
+from src.cohorts import cohorts, instrument_map
 from src.data.prices import fetch_prices
 
 RANK_THRESHOLD = 5
@@ -219,12 +220,10 @@ def build_validation_context(shared: dict) -> dict:
     if len(scan_ids) < MIN_SCANS:
         return {"validation_min_scans_met": False, "validation_conclusive": False}
 
-    ticker_map = _sector_ticker_map(universe)
-    us_benchmark = universe.get("us_benchmark", "RSP")
-    eu_benchmark = universe.get("eu_benchmark", "EXSA.DE")
-    all_tickers = sorted(
-        set(ticker_map.values()) | {us_benchmark, eu_benchmark}
-    )
+    cohort_list = cohorts(universe)
+    ticker_map = instrument_map(cohort_list)
+    benchmarks = [c.benchmark for c in cohort_list]
+    all_tickers = sorted(set(ticker_map.values()) | set(benchmarks))
 
     scan_dates: dict[int, pd.Timestamp] = {}
     for sid in scan_ids:
@@ -247,29 +246,27 @@ def build_validation_context(shared: dict) -> dict:
         cache_dir=str(project_root / "data/cache"),
     )
 
-    benchmark_prices = {
-        t: prices[t] for t in [us_benchmark, eu_benchmark] if t in prices
-    }
+    benchmark_prices = {t: prices[t] for t in benchmarks if t in prices}
 
     all_fwd: list[dict] = []
     all_holding: list[dict] = []
     all_obs_combined: list[dict] = []
 
-    for region, benchmark in [("US", us_benchmark), ("EU", eu_benchmark)]:
+    for cohort in cohort_list:
         obs = _compute_forward_returns(
             all_scores_df, prices, benchmark_prices,
-            region, benchmark, ticker_map, HORIZONS,
+            cohort.region, cohort.benchmark, ticker_map, HORIZONS,
         )
-        all_fwd.extend(_aggregate_fwd_returns(obs, region))
+        all_fwd.extend(_aggregate_fwd_returns(obs, cohort.region))
         all_obs_combined.extend(obs)
 
-        runs = _top5_runs(all_scores_df, region)
-        all_holding.append(_holding_stats(runs, region))
+        runs = _top5_runs(all_scores_df, cohort.region)
+        all_holding.append(_holding_stats(runs, cohort.region))
 
     # "All" aggregates
     all_fwd.extend(_aggregate_fwd_returns(all_obs_combined, "All"))
 
-    all_runs = _top5_runs(all_scores_df, "US") + _top5_runs(all_scores_df, "EU")
+    all_runs = [r for c in cohort_list for r in _top5_runs(all_scores_df, c.region)]
     all_holding.append(_holding_stats(all_runs, "All"))
 
     return {

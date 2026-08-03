@@ -36,13 +36,10 @@ _TRAJ_STATE_TO_KEY = {
 
 
 def _sector_ticker_map(universe: dict) -> dict[str, str]:
-    """Build {region|sector: ticker} from universe config."""
-    result: dict[str, str] = {}
-    for sector, ticker in universe.get("us_sectors", {}).items():
-        result[f"US|{sector}"] = ticker
-    for sector, ticker in universe.get("eu_sectors", {}).items():
-        result[f"EU|{sector}"] = ticker
-    return result
+    """Build {region|sector: ticker} for every configured sector cohort."""
+    from src.cohorts import cohorts, instrument_map
+
+    return instrument_map(cohorts(universe))
 
 
 def _forward_date(
