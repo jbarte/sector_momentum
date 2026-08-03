@@ -403,6 +403,7 @@ def run(args: argparse.Namespace) -> int:
     from src.sector_map import load_parent_map
     from src.state import init_db, load_last_scan, compute_deltas
     from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
+    from src.cohorts import cohorts
 
     # 1. Load config
     logger.info("Loading universe config …")
@@ -541,7 +542,7 @@ def run(args: argparse.Namespace) -> int:
             # 14. Write report (non-fatal)
             try:
                 logger.info("Writing report …")
-                ranked_table = build_ranked_table(scored_with_deltas)
+                ranked_table = build_ranked_table(scored_with_deltas, cohorts(universe))
                 movers = build_movers(scored_with_deltas)
                 swedish = build_swedish_overlay(scored_with_deltas)
                 report_path = write_report(

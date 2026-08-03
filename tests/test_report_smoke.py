@@ -6,11 +6,21 @@ import pandas as pd
 import pytest
 
 from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
+from src.cohorts import cohorts
 
 
 # ---------------------------------------------------------------------------
 # Fixture
 # ---------------------------------------------------------------------------
+
+@pytest.fixture
+def sample_cohorts():
+    universe = {
+        "us_sectors": {"Technology": "XLK", "Energy": "XLE"},
+        "eu_sectors": {"Financials": "EXV1.DE", "Industrials": "EXH1.DE"},
+    }
+    return cohorts(universe)
+
 
 @pytest.fixture
 def sample_scores():
@@ -34,21 +44,21 @@ def sample_scores():
 # Tests
 # ---------------------------------------------------------------------------
 
-def test_build_ranked_table_has_header(sample_scores):
+def test_build_ranked_table_has_header(sample_scores, sample_cohorts):
     """build_ranked_table should produce a markdown table with a Rank header."""
-    table = build_ranked_table(sample_scores)
+    table = build_ranked_table(sample_scores, sample_cohorts)
     assert "| Rank |" in table
 
 
-def test_build_ranked_table_contains_sector(sample_scores):
+def test_build_ranked_table_contains_sector(sample_scores, sample_cohorts):
     """build_ranked_table should contain the top sector name."""
-    table = build_ranked_table(sample_scores)
+    table = build_ranked_table(sample_scores, sample_cohorts)
     assert "Technology" in table
 
 
-def test_build_ranked_table_emerging_flag(sample_scores):
+def test_build_ranked_table_emerging_flag(sample_scores, sample_cohorts):
     """An emerging sector should show the seedling emoji in the table."""
-    table = build_ranked_table(sample_scores)
+    table = build_ranked_table(sample_scores, sample_cohorts)
     assert "\U0001f331" in table  # 🌱
 
 
@@ -65,9 +75,9 @@ def test_build_swedish_overlay_returns_string(sample_scores):
     assert len(result) > 0
 
 
-def test_write_report_creates_file(sample_scores):
+def test_write_report_creates_file(sample_scores, sample_cohorts):
     """write_report should create a file that contains required content."""
-    table = build_ranked_table(sample_scores)
+    table = build_ranked_table(sample_scores, sample_cohorts)
     movers_str = build_movers(sample_scores)
     swedish_str = build_swedish_overlay(sample_scores, top_n=3)
 

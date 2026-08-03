@@ -15,22 +15,22 @@ import pandas as pd
 from src.sector_map import load_parent_map, parent_sector
 
 
-def build_ranked_table(scores_with_deltas: pd.DataFrame) -> str:
+def build_ranked_table(scores_with_deltas: pd.DataFrame, cohort_list: list) -> str:
     """
     Build a markdown table of all sectors ranked by composite score,
-    split into US and EU sections with per-region ranks.
+    split into per-cohort sections (in `cohort_list` order) with per-cohort ranks.
     """
     header = "| Rank | Sector | Composite | Level | Change | ΔRank | ΔComposite | ⭐ |"
     separator = "|------|--------|-----------|-------|--------|-------|------------|---|"
 
     sections = []
-    for region in ("US", "EU"):
-        region_df = scores_with_deltas[scores_with_deltas["region"] == region]
+    for cohort in cohort_list:
+        region_df = scores_with_deltas[scores_with_deltas["region"] == cohort.region]
         if region_df.empty:
             continue
         region_df = region_df.sort_values("rank", ascending=True).reset_index(drop=True)
 
-        rows = [f"## {region} Sectors", "", header, separator]
+        rows = [f"## {cohort.label}", "", header, separator]
         for _, row in region_df.iterrows():
             rank = int(row["rank"])
             sector = row["gics_sector"]

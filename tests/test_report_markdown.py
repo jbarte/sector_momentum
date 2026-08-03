@@ -5,6 +5,12 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.report import build_ranked_table, build_report_markdown, write_report
+from src.cohorts import cohorts
+
+_TEST_UNIVERSE = {
+    "us_sectors": {"Tech": "XLK", "Energy": "XLE"},
+    "eu_sectors": {"Banks": "EXV1.DE", "Insurance": "EXH5.DE", "Chemicals": "EXV3.DE"},
+}
 
 
 def test_markdown_has_all_sections():
@@ -37,7 +43,7 @@ def test_ranked_table_has_two_region_sections():
         "emerging_flag": [True, False, False, False, False],
     }
     df = pd.DataFrame(data)
-    result = build_ranked_table(df)
+    result = build_ranked_table(df, cohorts(_TEST_UNIVERSE))
 
     assert "## US Sectors" in result
     assert "## EU Sectors" in result
@@ -47,6 +53,25 @@ def test_ranked_table_has_two_region_sections():
     assert "Energy" in us_section
     assert "Banks" in eu_section
     assert "| 3 |" in eu_section
+
+
+def test_ranked_table_sections_follow_cohorts():
+    """Section headers and their order come from the cohort list, not from a
+    hardcoded ("US", "EU") pair."""
+    import pandas as pd
+    from src.report import build_ranked_table
+    from src.cohorts import cohorts
+
+    df = pd.DataFrame([
+        {"region": "US", "gics_sector": "Energy", "composite": 0.9,
+         "level_score": 0.5, "change_score": 0.4, "rank": 1,
+         "delta_rank": 0, "delta_composite": 0.0, "emerging_flag": False},
+    ])
+    universe = {"us_sectors": {"Energy": "XLE"}}
+    md = build_ranked_table(df, cohorts(universe))
+
+    assert "## US Sectors" in md
+    assert "## EU Sectors" not in md, "EU section emitted with no eu_sectors configured"
 
 
 def test_swedish_overlay_matches_subsector_via_parent(tmp_path):

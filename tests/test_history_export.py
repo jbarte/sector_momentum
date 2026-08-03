@@ -6,6 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from dashboard.build import build_scan_index, _generate_scan_reports
+from src.cohorts import cohorts
 
 
 def _two_scans():
@@ -34,7 +35,9 @@ def test_scan_index_empty():
 
 
 def test_generate_reports_one_file_per_scan(tmp_path):
-    written = _generate_scan_reports(_two_scans(), tmp_path, swedish_tickers_path="config/swedish_tickers.csv")
+    universe = {"us_sectors": {"Technology": "XLK", "Energy": "XLE"}}
+    written = _generate_scan_reports(_two_scans(), tmp_path, cohorts(universe),
+                                     swedish_tickers_path="config/swedish_tickers.csv")
     assert sorted(written) == [1, 2]
     assert (tmp_path / "report_1.md").exists()
     assert (tmp_path / "report_2.md").exists()

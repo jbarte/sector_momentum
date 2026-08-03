@@ -297,17 +297,20 @@ def main() -> None:
         theme_rrg_df = theme_rrg_df[theme_rrg_df["scan_id"] <= lb_scan_id].copy()
         signals_df = get_signals_for_scan(conn, lb_scan_id)
 
+    # Load config for breakdown panel (universe needed early — the per-scan
+    # reports below are generated per-cohort).
+    import yaml as _yaml
+    from src.cohorts import cohorts
+    with open(project_root / "config/universe.yaml") as _fh:
+        _universe = _yaml.safe_load(_fh)
+
     logger.info("Building scan index + per-scan reports …")
     scan_index = build_scan_index(all_scores_df)
     active_scan_id = lb_scan_id if lb_scan_id is not None else (
         scan_index[0]["scan_id"] if scan_index else None
     )
-    _generate_scan_reports(all_scores_df, out_dir / "reports")
+    _generate_scan_reports(all_scores_df, out_dir / "reports", cohorts(_universe))
 
-    # Load config for breakdown panel
-    import yaml as _yaml
-    with open(project_root / "config/universe.yaml") as _fh:
-        _universe = _yaml.safe_load(_fh)
     with open(project_root / "config/weights.yaml") as _fh:
         _weights = _yaml.safe_load(_fh)
     _etfs_path = project_root / "config/sector_etfs.yaml"
