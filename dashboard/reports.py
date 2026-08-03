@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.cohorts import Cohort
+
 logger = logging.getLogger("dashboard.build")
 
 
@@ -35,7 +37,7 @@ def build_scan_index(all_scores_df) -> list[dict]:
     return out
 
 
-def _generate_scan_reports(all_scores_df, out_dir, cohort_list,
+def _generate_scan_reports(all_scores_df, out_dir, cohort_list: list[Cohort],
                            swedish_tickers_path="config/swedish_tickers.csv") -> list[int]:
     """Write report_<scan_id>.md for every scan; returns scan_ids written. Non-fatal per scan."""
     sys.path.insert(0, str(Path(__file__).parent.parent))

@@ -6,6 +6,8 @@ absent unless explicitly asked for.
 """
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from src import state
@@ -28,8 +30,10 @@ _THEMES = {
 
 
 def test_sector_cohorts_only_by_default():
+    """No themes_cfg means no THEME_REGION cohort, not just US-then-EU
+    ordering (that's pinned separately by test_us_precedes_eu)."""
     result = cohorts(_UNIVERSE)
-    assert [c.region for c in result] == ["US", "EU"]
+    assert THEME_REGION not in [c.region for c in result]
 
 
 def test_us_precedes_eu():
@@ -98,5 +102,8 @@ def test_theme_region_matches_state():
 
 def test_cohort_is_immutable():
     c = cohorts(_UNIVERSE)[0]
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         c.region = "XX"
+    # Immutability is shallow: `frozen=True` blocks reassigning the
+    # `instruments` field itself, but the dict it points to is still a
+    # regular mutable dict (c.instruments["X"] = "Y" would succeed).

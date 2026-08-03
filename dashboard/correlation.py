@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 from dashboard.figures import _base_layout
-from src.cohorts import cohorts
+from src.cohorts import Cohort, cohorts
 from src.data.prices import fetch_prices
 
 logger = logging.getLogger("dashboard.build")
@@ -65,7 +65,7 @@ def _block_boundaries(block_sizes: list[int]) -> list[float]:
 
 
 def _order_labels(
-    cohort_list: list,
+    cohort_list: list[Cohort],
     ranks: dict[str, int],
 ) -> tuple[list[str], list[str], list[int]]:
     """Return (labels, tickers, block_sizes) ordered by cohort, then by rank.

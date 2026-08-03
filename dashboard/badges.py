@@ -8,6 +8,7 @@ import pandas as pd
 
 from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_float
 from src.backtest.strategy import close_at
+from src.cohorts import cohorts, instrument_map
 from src.data.prices import fetch_prices
 
 FORWARD_DAYS = 5
@@ -37,8 +38,6 @@ _TRAJ_STATE_TO_KEY = {
 
 def _sector_ticker_map(universe: dict) -> dict[str, str]:
     """Build {region|sector: ticker} for every configured sector cohort."""
-    from src.cohorts import cohorts, instrument_map
-
     return instrument_map(cohorts(universe))
 
 

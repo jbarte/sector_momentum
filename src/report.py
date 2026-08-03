@@ -12,10 +12,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.cohorts import Cohort
 from src.sector_map import load_parent_map, parent_sector
 
 
-def build_ranked_table(scores_with_deltas: pd.DataFrame, cohort_list: list) -> str:
+def build_ranked_table(scores_with_deltas: pd.DataFrame, cohort_list: list[Cohort]) -> str:
     """
     Build a markdown table of all sectors ranked by composite score,
     split into per-cohort sections (in `cohort_list` order) with per-cohort ranks.

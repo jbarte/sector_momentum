@@ -7,13 +7,21 @@ iterating.
 
 This module exists so those loops stop hardcoding ("US", "EU"). When the sector
 cohorts are eventually retired they disappear from config, and every consumer
-follows with no code change.
+follows with no code change — on the config side. That guarantee does NOT
+extend to the data side: every current consumer still sources its dataframe
+from `get_scan_history` (src/state.py), whose default `regions` argument is
+`SECTOR_REGIONS` — i.e. `("US", "EU")` only. Passing a themes cohort into
+`cohorts()` without also widening the caller's `get_scan_history(regions=...)`
+past `SECTOR_REGIONS` produces an empty dataframe for that cohort, which reads
+as a silent half-state (empty section, unsorted block, "0 obs" row) rather
+than an error. See the `cohorts()` docstring below for the same point made at
+the call site.
 
 Pure config -> data. No I/O, no database, no network.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 # Must equal src.state.THEME_REGION, which is the value actually written to
 # scores.region / signals.region. Duplicated rather than imported to keep this
@@ -28,7 +36,11 @@ class Cohort:
     region: str                  # matches scores.region / signals.region
     label: str                   # human-readable, e.g. "US Sectors"
     benchmark: str               # ticker the cohort's relative strength is measured against
-    instruments: dict[str, str]  # {"US|Technology": "XLK", ...}
+    # {"US|Technology": "XLK", ...}. Excluded from the generated __hash__ (a
+    # dict field on a frozen dataclass is otherwise unhashable at call time);
+    # this restores hash((region, label, benchmark)) while equality still
+    # compares all four fields.
+    instruments: dict[str, str] = field(hash=False)
 
 
 # (config key, region, label, benchmark key, benchmark default)
@@ -50,6 +62,17 @@ def cohorts(universe: dict, themes_cfg: dict | None = None) -> list[Cohort]:
     Themes are included ONLY when `themes_cfg` is supplied. Consumers that
     render sector-only surfaces pass nothing, which preserves today's
     behaviour; the unified page (cohort-unification PR 5) passes the config.
+    Passing `themes_cfg` here is only half the wiring PR 5 needs: the caller's
+    dataframe also has to come from a `get_scan_history(...)` call whose
+    `regions` argument has been widened past the `SECTOR_REGIONS` default
+    (src/state.py) to include `THEME_REGION` — otherwise the theme cohort
+    returned here has no matching rows and the consumer degrades silently
+    (empty section, unsorted heatmap block, zero-observation row) instead of
+    raising.
+
+    Each cohort's `instruments` dict is keyed exactly `"{region}|{name}"` —
+    consumers may split on the first "|" to recover `name`, as
+    `dashboard/correlation.py` does.
 
     A cohort with no configured members is omitted entirely.
     """
