@@ -248,6 +248,11 @@ def build_news_signal_rows(
     Sub-sectors inherit their GICS parent's numbers; sectors whose parent has
     no headline scores emit nothing."""
     rows: list[dict] = []
+    # Sector cohorts only, deliberately. Themes have their own GDELT/FinBERT
+    # path (fetch_theme_headlines + build_theme_news_signal_rows, wired at
+    # scan.py:320) — routing them through here too would write two sets of
+    # theme sentiment rows per scan. When the sector cohorts are retired this
+    # function has no callers left and should be deleted outright.
     for region, cfg_key in (("US", "us_sectors"), ("EU", "eu_sectors")):
         for name in universe.get(cfg_key, {}):
             sc = finbert_scores.get(parent_sector(name, parent_map))

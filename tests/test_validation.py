@@ -264,3 +264,30 @@ class TestBuildValidationContext:
         assert "validation_holding" in ctx
         assert len(ctx["validation_fwd_returns"]) == 6
         assert len(ctx["validation_holding"]) == 3
+
+
+def test_validation_iterates_configured_cohorts_not_hardcoded_regions():
+    """A universe with only US sectors must yield only US rows — proving the
+    region loop is config-driven, not a literal ("US", "EU") pair."""
+    from dashboard.validation import build_validation_context
+    from unittest.mock import patch
+    import pandas as pd
+
+    rows = [(i, f"2026-0{1 + i // 28}-{(i % 28) + 1:02d}", "US", "Energy", 0.9, 0.1, 2)
+            for i in range(1, 15)]
+    df = pd.DataFrame(rows, columns=["scan_id", "run_at", "region", "gics_sector",
+                                     "composite", "change_score", "rank"])
+    shared = {
+        "all_scores_df": df,
+        "universe": {"us_sectors": {"Energy": "XLE"}, "us_benchmark": "RSP"},
+        "project_root": __import__("pathlib").Path("/tmp"),
+    }
+    trading_days = pd.bdate_range("2025-12-01", periods=400)
+    flat = pd.DataFrame({"Close": [100.0] * len(trading_days)}, index=trading_days)
+    with patch("dashboard.validation.fetch_prices",
+               return_value={t: flat for t in ("XLE", "RSP")}):
+        ctx = build_validation_context(shared)
+
+    regions = {r["region"] for r in ctx["validation_fwd_returns"]}
+    assert "EU" not in regions, "EU appeared with no eu_sectors configured"
+    assert "US" in regions

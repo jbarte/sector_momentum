@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 from dashboard.figures import _base_layout
+from src.cohorts import Cohort, cohorts
 from src.data.prices import fetch_prices
 
 logger = logging.getLogger("dashboard.build")
@@ -49,45 +50,62 @@ def _compute_correlation_matrix(
     return corr
 
 
-def _order_labels(
-    universe: dict,
-    ranks: dict[str, int],
-) -> tuple[list[str], list[str]]:
-    """Return (labels, tickers) ordered US-first, then EU, by rank within region.
+def _block_boundaries(block_sizes: list[int]) -> list[float]:
+    """Plotly axis coordinates for the lines separating cohort blocks.
 
-    Top-5 per region get <b>bold</b> labels for Plotly axis rendering.
+    Two cohorts of 11 and 14 give [10.5] — exactly the `n_us - 0.5` the single
+    hardcoded US/EU divider used before cohorts became configurable.
     """
-    ordered: list[tuple[str, str]] = []  # (label, ticker)
+    boundaries: list[float] = []
+    running = 0
+    for size in block_sizes[:-1]:
+        running += size
+        boundaries.append(running - 0.5)
+    return boundaries
 
-    for region_key, region_tag in [("us_sectors", "US"), ("eu_sectors", "EU")]:
-        sectors = universe.get(region_key, {})
+
+def _order_labels(
+    cohort_list: list[Cohort],
+    ranks: dict[str, int],
+) -> tuple[list[str], list[str], list[int]]:
+    """Return (labels, tickers, block_sizes) ordered by cohort, then by rank.
+
+    Top-5 within a cohort get <b>bold</b> labels for Plotly axis rendering.
+    block_sizes gives each cohort's member count, for the separator lines.
+    """
+    ordered: list[tuple[str, str]] = []
+    block_sizes: list[int] = []
+
+    for cohort in cohort_list:
         items = []
-        for name, ticker in sectors.items():
-            rank = ranks.get(f"{region_tag}|{name}", 999)
-            items.append((rank, name, ticker))
+        for key, ticker in cohort.instruments.items():
+            name = key.split("|", 1)[1]
+            items.append((ranks.get(key, 999), name, ticker))
         items.sort(key=lambda x: x[0])
 
-        # Bolding "top 5" only conveys information when the region actually
-        # has more than 5 members — with 5 or fewer, every sector would be
+        # Bolding "top 5" only conveys information when the cohort actually
+        # has more than 5 members — with 5 or fewer, every one would be
         # bolded, which is meaningless emphasis.
         highlight = len(items) > 5
 
         for rank, name, ticker in items:
-            label = f"{name} ({region_tag})"
+            label = f"{name} ({cohort.region})"
             if highlight and rank <= 5:
                 label = f"<b>{label}</b>"
             ordered.append((label, ticker))
 
+        block_sizes.append(len(items))
+
     labels = [o[0] for o in ordered]
     tickers = [o[1] for o in ordered]
-    return labels, tickers
+    return labels, tickers, block_sizes
 
 
 def _build_heatmap_figure(
     corr: pd.DataFrame,
     labels: list[str],
     tickers: list[str],
-    n_us: int,
+    block_sizes: list[int],
 ) -> str:
     """Build a Plotly heatmap figure and return its JSON string."""
     # Reorder correlation matrix to match labels/tickers order
@@ -108,14 +126,15 @@ def _build_heatmap_figure(
         ),
     ))
 
-    # Region separator lines
-    sep = n_us - 0.5
-    shapes = [
-        dict(type="line", x0=sep, x1=sep, y0=-0.5, y1=len(labels) - 0.5,
-             line=dict(color="#3E392B", width=1.5)),
-        dict(type="line", x0=-0.5, x1=len(labels) - 0.5, y0=sep, y1=sep,
-             line=dict(color="#3E392B", width=1.5)),
-    ]
+    # Cohort separator lines — one pair per boundary between blocks.
+    shapes = []
+    for sep in _block_boundaries(block_sizes):
+        shapes.append(dict(type="line", x0=sep, x1=sep, y0=-0.5,
+                           y1=len(labels) - 0.5,
+                           line=dict(color="#3E392B", width=1.5)))
+        shapes.append(dict(type="line", x0=-0.5, x1=len(labels) - 0.5,
+                           y0=sep, y1=sep,
+                           line=dict(color="#3E392B", width=1.5)))
 
     layout = _base_layout(
         title=dict(text="60-day return correlation", font=dict(size=13)),
@@ -158,8 +177,7 @@ def build_correlation_context(shared: dict) -> dict:
                 key = f"{row['region']}|{row['gics_sector']}"
                 ranks[key] = int(row["rank"])
 
-        labels, tickers = _order_labels(universe, ranks)
-        n_us = len(universe.get("us_sectors", {}))
+        labels, tickers, block_sizes = _order_labels(cohorts(universe), ranks)
 
         # Fetch prices
         start = (date.today() - timedelta(days=_CALENDAR_BUFFER)).isoformat()
@@ -180,7 +198,7 @@ def build_correlation_context(shared: dict) -> dict:
                 all_dates.update(df.index)
         corr_date = max(all_dates).strftime("%Y-%m-%d") if all_dates else None
 
-        fig_json = _build_heatmap_figure(corr, labels, tickers, n_us)
+        fig_json = _build_heatmap_figure(corr, labels, tickers, block_sizes)
         logger.info("Correlation heatmap built: %d×%d, window=%d", len(tickers), len(tickers), _CORR_WINDOW)
 
         return {

@@ -8,6 +8,7 @@ import pandas as pd
 
 from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_float
 from src.backtest.strategy import close_at
+from src.cohorts import cohorts, instrument_map
 from src.data.prices import fetch_prices
 
 FORWARD_DAYS = 5
@@ -36,13 +37,8 @@ _TRAJ_STATE_TO_KEY = {
 
 
 def _sector_ticker_map(universe: dict) -> dict[str, str]:
-    """Build {region|sector: ticker} from universe config."""
-    result: dict[str, str] = {}
-    for sector, ticker in universe.get("us_sectors", {}).items():
-        result[f"US|{sector}"] = ticker
-    for sector, ticker in universe.get("eu_sectors", {}).items():
-        result[f"EU|{sector}"] = ticker
-    return result
+    """Build {region|sector: ticker} for every configured sector cohort."""
+    return instrument_map(cohorts(universe))
 
 
 def _forward_date(

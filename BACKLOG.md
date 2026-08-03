@@ -148,6 +148,20 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Cohort unification PR 4 — cohort-generic seams** — added `src/cohorts.py`,
+  turning `config/universe.yaml` (and optionally `config/themes.yaml`) into a
+  list of `Cohort` records (region, label, benchmark, instrument map). The
+  hardcoded `("US", "EU")` loops in `dashboard/validation.py`,
+  `dashboard/badges.py`, `dashboard/correlation.py` and `src/report.py` now
+  iterate that list, and the correlation heatmap's single hardcoded US/EU
+  divider generalised to one line per cohort boundary. Pure refactor — every
+  consumer still receives sector cohorts only, verified by a byte-identical
+  dashboard build. `src/data/news_sentiment.py` deliberately stays sector-only:
+  themes have an independent GDELT/FinBERT path, and routing them through both
+  would double-write theme sentiment. Spec:
+  `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-01-cohort-unification-design.md`.
+  *(2026-08-03)*
+
 - **Cohort unification PR 2 — readers switched to the shared tables** — the
   theme readers in `src/state.py` now read `scores`/`signals` filtered to
   `region='THEME'` instead of the legacy `theme_*` tables, with output shape

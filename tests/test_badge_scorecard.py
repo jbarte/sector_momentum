@@ -147,3 +147,11 @@ def test_scorecard_empty_history(mock_fetch):
     mock_fetch.return_value = {}
     result = build_badge_scorecard(pd.DataFrame(), UNIVERSE)
     assert result == []
+
+
+def test_ticker_map_is_cohort_driven():
+    """_sector_ticker_map must follow config, not a hardcoded region pair."""
+    from dashboard.badges import _sector_ticker_map
+    result = _sector_ticker_map({"us_sectors": {"Energy": "XLE"}})
+    assert result == {"US|Energy": "XLE"}
+    assert _sector_ticker_map({}) == {}
