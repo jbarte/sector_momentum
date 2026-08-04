@@ -168,6 +168,44 @@ class TestBuildCorrelationContext:
         assert ctx["correlation_fig_json"] is None
 
 
+def test_order_labels_includes_theme_cohort_when_themes_cfg_supplied():
+    """cohort-unification PR 5: correlation heatmap joins THEME when the
+    caller passes themes_cfg through, per src/cohorts.py's docstring."""
+    from dashboard.correlation import _order_labels
+    from src.cohorts import cohorts
+
+    universe = {
+        "us_sectors": {"Technology": "XLK"},
+        "eu_sectors": {"Banks": "EXV1.DE"},
+    }
+    themes_cfg = {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}}
+    ranks = {"US|Technology": 1, "EU|Banks": 1, "THEME|Space": 1}
+    labels, tickers, block_sizes = _order_labels(cohorts(universe, themes_cfg), ranks)
+
+    assert tickers == ["XLK", "EXV1.DE", "UFO"]
+    assert block_sizes == [1, 1, 1]
+    assert labels[-1].endswith("(THEME)")
+
+
+def test_build_correlation_context_raises_on_duplicate_ticker_across_cohorts():
+    """A ticker shared by two cohorts would duplicate heatmap rows/columns —
+    build_correlation_context must guard it rather than silently corrupt the
+    figure (caught by the function's own try/except, degrading to none_ctx)."""
+    from dashboard import correlation
+
+    universe = {"us_sectors": {"Technology": "DUPE"}}
+    themes_cfg = {"benchmark": "ACWI", "themes": {"Space": {"ticker": "DUPE"}}}
+
+    shared = {
+        "project_root": __import__("pathlib").Path("."),
+        "universe": universe,
+        "themes_cfg": themes_cfg,
+        "history_df": _history_df_with_ranks({"US|Technology": 1, "THEME|Space": 1}),
+    }
+    ctx = correlation.build_correlation_context(shared)
+    assert ctx["correlation_fig_json"] is None
+
+
 def test_order_labels_follows_cohorts_and_reports_block_sizes():
     from dashboard.correlation import _order_labels
     from src.cohorts import cohorts

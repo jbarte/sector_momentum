@@ -11,6 +11,36 @@
 }
 
 /* =========================================================
+   Cohort selector — drives RRG / Drill-down / Movers / History / Backtest
+   ========================================================= */
+.cohort-select-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  flex-wrap: wrap;
+}
+.cohort-select-row label {
+  color: var(--fg4);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
+.cohort-select-row select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg1);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 7px 12px;
+  cursor: pointer;
+  min-width: 160px;
+  outline: none;
+}
+
+/* =========================================================
    Drill-down panel
    ========================================================= */
 .drilldown-controls {

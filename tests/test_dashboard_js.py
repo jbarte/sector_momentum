@@ -7,6 +7,8 @@ string, producing `var X = ;` — a syntax error that kills ALL interactivity
 """
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -27,6 +29,20 @@ from dashboard.build import (
     _safe_float,
     _render,
 )
+from src.cohorts import Cohort
+
+
+def _grouped_rows_for(rows):
+    """Group already-built leaderboard row dicts by region into the
+    (Cohort, [row_dict]) shape build.py's `grouped_rows` context var takes."""
+    by_region = {}
+    for r in rows:
+        by_region.setdefault(r["region"], []).append(r)
+    labels = {"US": "US Sectors", "EU": "EU Sectors", "THEME": "Themes"}
+    return [
+        (Cohort(region=region, label=labels.get(region, region), benchmark="", instruments={}), rs)
+        for region, rs in by_region.items()
+    ]
 
 _TEMPLATE = Path(__file__).parent.parent / "dashboard" / "templates" / "index.html.j2"
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -73,9 +89,9 @@ def _render_context_keys() -> set[str]:
 
     Post hub-file-split refactor, build.py no longer builds one flat
     `context=dict(...)` call per page — it assembles a `{...}` dict literal
-    (`sectors_ctx`, `sentiment_ctx`, `themes_ctx`) and merges in the keys
-    returned by each module's `build_page_context` / `build_sectors_context` /
-    `build_themes_context` via `.update(...)`. This walks both sources:
+    (`sectors_ctx`, `sentiment_ctx`) and merges in the keys returned by each
+    module's `build_page_context` / `build_sectors_context` via
+    `.update(...)`. This walks both sources:
       1. The literal `xxx_ctx = { ... }` dicts declared in build.py's main().
       2. The `return { ... }` dict literals of the context-builder functions
          in dashboard/figures.py, sentiment.py, badges.py, and macro.py.
@@ -192,11 +208,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            rrg_data_json=_make_mock_plotly_json(),
-            drilldown_data=json.dumps({}),
-            sector_keys=[],
-            movers_json=_make_mock_plotly_json(),
-            history_json=_make_mock_plotly_json(),
+            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
@@ -255,11 +267,7 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            rrg_data_json=_make_mock_plotly_json(),
-            drilldown_data=json.dumps({}),
-            sector_keys=[],
-            movers_json=_make_mock_plotly_json(),
-            history_json=_make_mock_plotly_json(),
+            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
@@ -298,8 +306,8 @@ def test_history_tab_has_scan_index(tmp_path):
     out = tmp_path / "index.html"
     _render(_TEMPLATE, out, dict(
         scan_date="2026-06-02 06:00 UTC", active_scan_id=2, scan_index=scan_index,
-        leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[], rrg_data_json="{}", drilldown_data="{}",
-        sector_keys=[], movers_json="{}", history_json="{}", sentiment_scatter_json="{}",
+        leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
+        cohort_list=[], cohorts_json=_json.dumps([]), cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
@@ -329,12 +337,15 @@ def test_built_html_has_no_composite_toggle(tmp_path):
         r["breakdown_html"] = "<div>PANEL</div>"
 
     out = tmp_path / "index.html"
+    grouped_rows = _grouped_rows_for(lb_rows)
     _render(_TEMPLATE, out, dict(
         scan_date=scan_date, leaderboard_rows=lb_rows,
         us_leaderboard_rows=[r for r in lb_rows if r["region"] == "US"],
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
-        rrg_data_json="{}", drilldown_data="{}", sector_keys=[], movers_json="{}",
-        history_json="{}", sentiment_scatter_json="{}",
+        cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
+        has_any_rows=any(rs for _, rs in grouped_rows),
+        cohorts_json=_json.dumps([]),
+        cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
@@ -381,13 +392,15 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
         )
 
     out = tmp_path / "index.html"
+    grouped_rows = _grouped_rows_for(lb_rows)
     _render(_TEMPLATE, out, dict(
         scan_date=scan_date, leaderboard_rows=lb_rows,
         us_leaderboard_rows=[r for r in lb_rows if r["region"] == "US"],
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
-        rrg_data_json=_make_mock_plotly_json(), drilldown_data=_json.dumps({}),
-        sector_keys=[], movers_json=_make_mock_plotly_json(),
-        history_json=_make_mock_plotly_json(),
+        cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
+        has_any_rows=any(rs for _, rs in grouped_rows),
+        cohorts_json=_json.dumps([]),
+        cohort_charts_json=_json.dumps({}),
         sentiment_scatter_json=_make_mock_plotly_json(),
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
@@ -485,13 +498,14 @@ def test_render_context_keys_finds_all_render_calls():
     # index.html context keys
     assert "scan_date" in keys
     assert "leaderboard_rows" in keys
-    assert "rrg_data_json" in keys
+    assert "cohort_charts_json" in keys
     # sentiment.html context keys
     assert "sentiment_scatter_json" in keys
     assert "sentiment_signal_rows" in keys
-    # themes.html context keys
-    assert "theme_rows" in keys
-    assert "theme_rrg_json" in keys
+    # index.html cohort-grouping keys (themes.html.j2 was retired; the
+    # leaderboard now groups every cohort, including THEME, on one page)
+    assert "grouped_rows" in keys
+    assert "cohort_list" in keys
 
 
 # ---------------------------------------------------------------------------
@@ -612,11 +626,7 @@ def test_scan_history_json_in_rendered_output(tmp_path):
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            rrg_data_json=_make_mock_plotly_json(),
-            drilldown_data=json.dumps({}),
-            sector_keys=[],
-            movers_json=_make_mock_plotly_json(),
-            history_json=_make_mock_plotly_json(),
+            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),
@@ -659,11 +669,7 @@ def test_scan_digest_markup_in_rendered_output(tmp_path):
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            rrg_data_json=_make_mock_plotly_json(),
-            drilldown_data=json.dumps({}),
-            sector_keys=[],
-            movers_json=_make_mock_plotly_json(),
-            history_json=_make_mock_plotly_json(),
+            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),
@@ -685,3 +691,109 @@ def test_scan_digest_markup_in_rendered_output(tmp_path):
     assert 'id="digest-chips-entries"' in html
     assert 'id="digest-chips-up"' in html
     assert 'id="digest-chips-down"' in html
+
+
+# ---------------------------------------------------------------------------
+# Per-cohort chart context (Task 3 — chart tabs get a cohort selector)
+# ---------------------------------------------------------------------------
+
+def test_cohort_charts_context_is_keyed_by_cohort():
+    """One chart context per configured cohort, so the selector can switch
+    between them without the page holding three differently-named blobs."""
+    import pandas as pd
+    from pathlib import Path
+    from dashboard.figures import build_cohort_chart_context
+
+    rows = []
+    for scan in range(1, 7):
+        for region, name in (("US", "Energy"), ("EU", "Banks"), ("THEME", "Space")):
+            rows.append({
+                "scan_id": scan, "run_at": f"2026-07-{scan:02d}",
+                "region": region, "gics_sector": name,
+                "level_score": 0.5, "change_score": 0.4, "data_score": 0.45,
+                "sentiment_score": None, "composite": 0.45, "rank": 1.0,
+            })
+    df = pd.DataFrame(rows)
+    shared = {
+        "all_scores_df": df,
+        "history_df": df,
+        "rrg_df": df.assign(rs_ratio=101.0, rs_momentum=99.0),
+        "universe": {"us_sectors": {"Energy": "XLE"}, "eu_sectors": {"Banks": "EXV1.DE"},
+                     "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE"},
+        "themes_cfg": {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}},
+        "project_root": Path("/tmp"),
+    }
+    charts = build_cohort_chart_context(shared)["cohort_charts"]
+
+    assert set(charts) >= {"US", "EU", "THEME"}
+    for region in ("US", "EU", "THEME"):
+        assert {"rrg", "movers", "history"} <= set(charts[region])
+
+
+# ---------------------------------------------------------------------------
+# Cohort-aware JS assets (Task 4 — auth.js live upgrade + scan-history.js)
+# ---------------------------------------------------------------------------
+
+def test_scan_history_does_not_dump_unknown_regions_into_us():
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    assert "regionGroups.US.push" not in src, (
+        "unknown regions fall into the US group — a THEME row would render as a sector"
+    )
+    assert "{ US: [], EU: [] }" not in src, "region groups are still hardcoded"
+
+
+def test_auth_js_region_labels_are_not_hardcoded():
+    src = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    assert '[["US", "US Sectors"], ["EU", "EU Sectors"]]' not in src
+
+
+# ---------------------------------------------------------------------------
+# positions.js — itemForRow row classification (theme star-toggle corruption)
+# ---------------------------------------------------------------------------
+
+def _extract_item_for_row_js():
+    """Pull the itemForRow() function body verbatim out of positions.js so the
+    test executes the real production code, not a re-implementation of it."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/positions.js").read_text()
+    match = re.search(r"function itemForRow\(tr\) \{.*?\n  \}", src, re.S)
+    assert match, "itemForRow() not found in dashboard/assets/positions.js"
+    return match.group(0)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_item_for_row_classifies_by_region_not_dataset_shape():
+    """Regression for the theme-star corruption bug: itemForRow must key off
+    data-region === "THEME", not off which of data-sector/data-theme happens
+    to be present on the row. auth.js's live-upgrade path (renderLatestRows)
+    sets tr.dataset.sector on EVERY rebuilt row, including THEME ones, so a
+    classifier keyed on "has data-sector" misfiled themes as
+    item_type="sector", region="THEME" — silently breaking held-theme exit
+    alerts and orphaning positions written by the old themes.html.j2 (which
+    keyed themes as item_type="theme", region="")."""
+    fn_src = _extract_item_for_row_js()
+    script = f"""
+        {fn_src}
+        const cases = [
+          // Live-upgraded THEME row: auth.js sets data-sector, not data-theme.
+          {{ dataset: {{ region: "THEME", sector: "Space" }} }},
+          // Static (pre-login) THEME row: index.html.j2 also sets data-sector.
+          {{ dataset: {{ region: "THEME", sector: "Space" }} }},
+          // Legacy markup shape (old deleted themes.html.j2): only data-theme set.
+          {{ dataset: {{ region: "THEME", theme: "Space" }} }},
+          // Ordinary sector row must still classify as a sector.
+          {{ dataset: {{ region: "US", sector: "Energy" }} }},
+          {{ dataset: {{ region: "EU", sector: "Banks" }} }},
+          // Region header / breakdown row: neither identity attribute set.
+          {{ dataset: {{}} }},
+        ];
+        process.stdout.write(JSON.stringify(cases.map(itemForRow)));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    results = json.loads(res.stdout)
+
+    assert results[0] == {"item_type": "theme", "region": "", "name": "Space"}
+    assert results[1] == {"item_type": "theme", "region": "", "name": "Space"}
+    assert results[2] == {"item_type": "theme", "region": "", "name": "Space"}
+    assert results[3] == {"item_type": "sector", "region": "US", "name": "Energy"}
+    assert results[4] == {"item_type": "sector", "region": "EU", "name": "Banks"}
+    assert results[5] is None

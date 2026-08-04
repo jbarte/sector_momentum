@@ -56,12 +56,38 @@
   <button class="tab-btn" onclick="switchTab('correlation', this)" role="tab" aria-selected="false" aria-controls="tab-correlation" data-i18n="tab_correlation">Correlation</button>
 </nav>
 
+<!-- Cohort selector — drives RRG / Drill-down / Movers / History / Backtest.
+     rs_ratio/rs_momentum are computed against each cohort's own benchmark
+     (US vs RSP, EU vs EXSA.DE, THEME vs ACWI), so those tabs render one
+     cohort at a time rather than mixing benchmarks on one chart. The
+     Leaderboard (grouped by cohort already) and Correlation (one combined
+     heatmap) tabs are unaffected by this selector. -->
+{% if cohort_list %}
+<div class="cohort-select-row">
+  <label for="cohort-select" data-i18n="cohort_label">Cohort:</label>
+  <select id="cohort-select" onchange="switchCohort(this.value)">
+    {% for cohort in cohort_list %}
+    <option value="{{ cohort.region }}">{{ cohort.label }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endif %}
+
 <!-- ============================================================
      Tab: Leaderboard
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <div class="utility-row">
     <div class="filter-bar" id="leaderboard-filter-bar">
+      <!-- Cohort chip labels come from config (cohort.label), not data-i18n
+           keys — a deliberate departure from the other filter groups below,
+           which are static UI copy. -->
+      <div class="filter-group" role="group" aria-label="Cohort">
+        {% for cohort in cohort_list %}
+        <button type="button" class="filter-chip" data-filter-group="cohort"
+                data-filter-value="{{ cohort.region }}" aria-pressed="false">{{ cohort.label }}</button>
+        {% endfor %}
+      </div>
       <div class="filter-group" role="group" aria-label="Setup">
         <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Entry</button>
         <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false" data-i18n="filter_exit">▼ Exit</button>
@@ -153,15 +179,13 @@
         </tr>
       </thead>
       <tbody>
-        {% for region_label, region_rows in [("US Sectors", us_leaderboard_rows), ("EU Sectors", eu_leaderboard_rows)] %}
+        {% for cohort, region_rows in grouped_rows %}
         {% if region_rows %}
         <tr class="region-header-row">
-          <td colspan="10">{{ region_label }}</td>
+          <td colspan="10">{{ cohort.label }}</td>
         </tr>
         {% for row in region_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}"
-            data-setup="{{ row.setup or '' }}"
-            data-trend="{{ row.trajectory_state }}"
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"
             data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
             data-rank="{{ row.rank }}"
@@ -190,7 +214,7 @@
         {% endfor %}
         {% endif %}
         {% endfor %}
-        {% if not us_leaderboard_rows and not eu_leaderboard_rows %}
+        {% if not has_any_rows %}
         <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
@@ -250,11 +274,11 @@
   </div>
   <div class="drilldown-controls">
     <label for="sector-select">Sector:</label>
-    <select class="sector-select" id="sector-select" onchange="updateDrilldown()">
-      {% for sk in sector_keys %}
-      <option value="{{ sk }}">{{ sk }}</option>
-      {% endfor %}
-    </select>
+    <!-- Options are populated by JS (_populateDrilldownSelect) from
+         COHORT_CHARTS[activeCohort].keys — the set of sector keys is
+         per-cohort now, so a static Jinja loop can only ever render one
+         cohort's options. -->
+    <select class="sector-select" id="sector-select" onchange="updateDrilldown()"></select>
   </div>
   <div class="chart-container" id="drilldown-chart" style="height:460px"></div>
 </section>
@@ -422,11 +446,27 @@
 <script>
 {% include '_tabs.js.j2' %}
 
+// Ordered cohort regions, from config via src/cohorts.py. Everything that
+// regroups leaderboard rows must iterate THIS rather than a literal
+// ["US","EU"] — a hardcoded pair silently misfiles THEME rows into the US
+// group and strands the Themes header.
+var COHORT_REGIONS = [{% for c in cohort_list %}"{{ c.region }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+
+// {region, label} pairs — a companion to COHORT_REGIONS rather than a
+// widened version of it. COHORT_REGIONS is consumed in many places above
+// as a plain array of region strings (`.forEach(function(region) {...})`);
+// changing its element shape would break every one of those call sites.
+// External assets (auth.js, scan-history.js) that also need the
+// human-readable label read this instead.
+var COHORTS = {{ cohorts_json | js_json }};   // [{region, label}, ...]
+
 // ----- Plotly data (injected by build.py) -----
-var RRG_DATA    = {{ rrg_data_json | js_json }};
-var MOVERS_DATA = {{ movers_json | js_json }};
-var HISTORY_DATA = {{ history_json | js_json }};
-var DRILLDOWN_DATA = {{ drilldown_data | js_json }};
+// COHORT_CHARTS is keyed by cohort region ("US"/"EU"/"THEME"); each entry
+// holds that cohort's own rrg/movers/history/drilldown figures plus the
+// list of sector keys the Drill-down dropdown should offer. Cohorts are
+// never merged onto one figure — see the cohort-select-row comment above.
+var COHORT_CHARTS = {{ cohort_charts_json | js_json }};
+var activeCohort = COHORT_REGIONS.length ? COHORT_REGIONS[0] : null;
 var RESCORE_DATA = {{ rescore_data_json | js_json }};
 var SCAN_HISTORY = {{ scan_history_json | js_json }};
 var BACKTEST_DATA = {{ backtest_json | js_json }};
@@ -441,29 +481,44 @@ var _rendered = {};
 function renderRRG() {
   if (_rendered.rrg) return;
   _rendered.rrg = true;
-  Plotly.newPlot('rrg-chart', RRG_DATA.data, RRG_DATA.layout, {responsive: true, displayModeBar: true});
+  var chart = COHORT_CHARTS[activeCohort];
+  if (!chart) return;
+  Plotly.newPlot('rrg-chart', chart.rrg.data, chart.rrg.layout, {responsive: true, displayModeBar: true});
 }
 
 function renderMovers() {
   if (_rendered.movers) return;
   _rendered.movers = true;
-  Plotly.newPlot('movers-chart', MOVERS_DATA.data, MOVERS_DATA.layout, {responsive: true, displayModeBar: true});
+  var chart = COHORT_CHARTS[activeCohort];
+  if (!chart) return;
+  Plotly.newPlot('movers-chart', chart.movers.data, chart.movers.layout, {responsive: true, displayModeBar: true});
 }
 
 function renderHistory() {
   if (_rendered.history) return;
   _rendered.history = true;
-  Plotly.newPlot('history-chart', HISTORY_DATA.data, HISTORY_DATA.layout, {responsive: true, displayModeBar: true});
+  var chart = COHORT_CHARTS[activeCohort];
+  if (!chart) return;
+  Plotly.newPlot('history-chart', chart.history.data, chart.history.layout, {responsive: true, displayModeBar: true});
 }
 
+// Backtest stays per-track (sector rotation and theme rotation are genuinely
+// different strategies — see backtest_json's US/EU-only shape). Only the
+// chart matching activeCohort renders; the other track's container (and any
+// cohort with no track, e.g. THEME) is hidden rather than shown stale or
+// showing another cohort's data.
 function renderBacktest() {
   if (_rendered.backtest) return;
   _rendered.backtest = true;
   ['US', 'EU'].forEach(function (rg) {
     var el = document.getElementById('backtest-chart-' + rg);
-    if (el && BACKTEST_DATA[rg]) {
+    if (!el) return;
+    if (rg === activeCohort && BACKTEST_DATA[rg]) {
+      el.style.display = '';
       var f = BACKTEST_DATA[rg];
       Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
+    } else {
+      el.style.display = 'none';
     }
   });
   var rc = document.getElementById('rotation-charts');
@@ -494,19 +549,57 @@ function renderDrilldown() {
   updateDrilldown();
 }
 
+// Rebuilds the Drill-down sector <select> from the active cohort's own key
+// list. Cohorts don't share sector keys (US|Energy vs THEME|Space), so the
+// dropdown must be repopulated on every cohort switch rather than filtered.
+function _populateDrilldownSelect() {
+  var sel = document.getElementById('sector-select');
+  if (!sel) return;
+  var chart = COHORT_CHARTS[activeCohort];
+  var keys = (chart && chart.keys) || [];
+  sel.innerHTML = '';
+  keys.forEach(function (k) {
+    var opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = k;
+    sel.appendChild(opt);
+  });
+}
+
 function updateDrilldown() {
   var sel = document.getElementById('sector-select');
   if (!sel) return;
   var key = sel.value;
-  var figJson = DRILLDOWN_DATA[key];
-  if (!figJson) {
+  var chart = COHORT_CHARTS[activeCohort];
+  var fig = chart && chart.drilldown ? chart.drilldown[key] : null;
+  if (!fig) {
     document.getElementById('drilldown-chart').innerHTML =
       '<p style="padding:24px;color:var(--fg4)">No data for ' + key + '</p>';
     return;
   }
-  var fig = typeof figJson === 'string' ? JSON.parse(figJson) : figJson;
   Plotly.newPlot('drilldown-chart', fig.data, fig.layout, {responsive: true, displayModeBar: true});
 }
+
+// ----- Cohort switching -----
+// Drives RRG / Drill-down / Movers / History / Backtest. Clears the render
+// memo and re-renders whichever chart tab is currently visible; other tabs
+// pick up the new activeCohort lazily the next time they're activated.
+function switchCohort(region) {
+  activeCohort = region;
+  _rendered = {};
+  _populateDrilldownSelect();
+  var active = document.querySelector('.tab-panel.active');
+  if (!active) return;
+  var name = active.id.replace('tab-', '');
+  if (name === 'rrg')       renderRRG();
+  if (name === 'movers')    renderMovers();
+  if (name === 'history')   renderHistory();
+  if (name === 'drilldown') renderDrilldown();
+  if (typeof renderBacktest === 'function' && name === 'backtest') renderBacktest();
+}
+window.switchCohort = switchCohort;
+
+_populateDrilldownSelect();
 
 // ----- Breakdown toggle -----
 function toggleBreakdown(id) {
@@ -522,7 +615,7 @@ var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
 
 // ----- Leaderboard filtering -----
 // Visibility-only: filters decide which rows show, sortTable decides order.
-var _filterState = { setup: [], trend: [], thresholds: [] };
+var _filterState = { cohort: [], setup: [], trend: [], thresholds: [] };
 
 var _TREND_GROUPS = {
   rising:  ['up', 'strong_up'],
@@ -540,8 +633,13 @@ function _filterLang() {
 }
 
 function _filterAnyActive() {
-  return !!(_filterState.setup.length || _filterState.trend.length
-            || _filterState.thresholds.length);
+  return !!(_filterState.cohort.length || _filterState.setup.length
+            || _filterState.trend.length || _filterState.thresholds.length);
+}
+
+function _matchesCohort(r) {
+  if (!_filterState.cohort.length) return true;
+  return _filterState.cohort.indexOf(r.dataset.region || '') !== -1;
 }
 
 function _matchesSetup(r) {
@@ -614,7 +712,7 @@ function applyFilters() {
   var rows = tbody.querySelectorAll('tr.leaderboard-row');
   var shown = 0;
   Array.prototype.forEach.call(rows, function (r) {
-    var ok = _matchesSetup(r) && _matchesTrend(r) && _matchesThresholds(r);
+    var ok = _matchesCohort(r) && _matchesSetup(r) && _matchesTrend(r) && _matchesThresholds(r);
     r.style.display = ok ? '' : 'none';
     if (ok) { shown++; } else { _collapseBreakdown(r.dataset.sectorId); }
   });
@@ -627,7 +725,7 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  _filterState = { setup: [], trend: [], thresholds: [] };
+  _filterState = { cohort: [], setup: [], trend: [], thresholds: [] };
   var chips = document.querySelectorAll('#leaderboard-filter-bar .filter-chip');
   Array.prototype.forEach.call(chips, function (c) {
     c.classList.remove('active');
@@ -706,13 +804,15 @@ function sortTable(col) {
 
   // Re-append region headers then sorted rows within each region
   var regionHeaders = Array.from(tbody.querySelectorAll('tr.region-header-row'));
-  var groups = { US: [], EU: [] };
+  var groups = {};
+  COHORT_REGIONS.forEach(function(region) { groups[region] = []; });
   rows.forEach(function(r) {
     var key = (r.dataset.sectorKey || '').split('|')[0];
+    // No fallback bucket: a row whose region is not a configured cohort is
+    // skipped rather than misfiled under another cohort's header.
     if (groups[key]) { groups[key].push(r); }
-    else { groups.US.push(r); }
   });
-  ['US', 'EU'].forEach(function(region, idx) {
+  COHORT_REGIONS.forEach(function(region, idx) {
     if (regionHeaders[idx]) { tbody.appendChild(regionHeaders[idx]); }
     groups[region].forEach(function(r) {
       tbody.appendChild(r);
@@ -815,21 +915,22 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   function sortVisibleByRank(rows, scored, tbody) {
     var regionHeaders = Array.prototype.slice.call(
       tbody.querySelectorAll('tr.region-header-row'));
-    var groups = { US: [], EU: [] };
+    var groups = {};
+    COHORT_REGIONS.forEach(function (region) { groups[region] = []; });
     rows.forEach(function (tr) {
       var key = tr.getAttribute("data-sector-key") || "";
       var region = key.split("|")[0];
+      // No fallback bucket — see the note on COHORT_REGIONS.
       if (groups[region]) { groups[region].push(tr); }
-      else { groups.US.push(tr); }
     });
-    ["US", "EU"].forEach(function (region, idx) {
+    COHORT_REGIONS.forEach(function (region) {
       groups[region].sort(function (a, b) {
         var ra = scored[a.getAttribute("data-sector-key")];
         var rb = scored[b.getAttribute("data-sector-key")];
         return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
       });
     });
-    ["US", "EU"].forEach(function (region, idx) {
+    COHORT_REGIONS.forEach(function (region, idx) {
       if (regionHeaders[idx]) { tbody.appendChild(regionHeaders[idx]); }
       groups[region].forEach(function (tr) {
         tbody.appendChild(tr);

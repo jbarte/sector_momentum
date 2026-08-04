@@ -34,6 +34,14 @@ _SCORE_SIGNAL_COLORS: dict[str, str] = {
     "rank":         "#8F8568",
 }
 
+# The signal columns _build_drilldown_data plots — a constant, not
+# data-derived, so callers that only need the label list (e.g.
+# build_sectors_context's `signals_list`) don't have to invoke the builder
+# (and pay for building every sector's drilldown figure) just to read it.
+_DRILLDOWN_SIGNALS: list[str] = [
+    "composite", "level_score", "change_score", "data_score", "rank"
+]
+
 
 # ---------------------------------------------------------------------------
 # Base layout helper — eliminates ~80 lines of per-figure boilerplate
@@ -207,8 +215,13 @@ def _build_sentiment_scatter_figure(history_df) -> str:
     solid = df[has_sentiment]
     faded = df[~has_sentiment]
 
-    # THEME is included so the shared builder also renders the theme cohort's
-    # solid points (region="THEME"); sector history never contains THEME rows.
+    # The Sentiment page has never shown themes — its FinBERT signal table
+    # stays SECTOR_REGIONS-scoped, and dashboard/sentiment.py filters the
+    # history_df it passes into this builder down to sector regions before
+    # calling it (see _sector_scoped_history), so a THEME row should never
+    # actually reach here. The THEME entry below is defensive only: this is
+    # a shared builder, not sentiment-page-specific, so it stays correct if
+    # some other, unfiltered caller ever feeds it a THEME-inclusive frame.
     region_colors = {"US": "#A55A3C", "EU": "#5A6F49", "THEME": "#7A5B8E"}
 
     fig = go.Figure()
@@ -276,9 +289,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     """
     import pandas as pd
 
-    score_signals = [
-        "composite", "level_score", "change_score", "data_score", "rank"
-    ]
+    score_signals = _DRILLDOWN_SIGNALS
 
     if history_df.empty:
         return {}, [], score_signals
@@ -498,53 +509,6 @@ def _build_backtest_context(backtests_dir: str) -> dict:
     }
 
 
-def _build_theme_backtest_context(backtests_dir: str) -> dict:
-    """Load theme backtest summary and shape it for the template."""
-    import json as _json
-    from src.backtest.results import load_summary
-
-    summary = load_summary(backtests_dir)
-    track = summary.get("track") if summary else None
-    fig_json = "null"
-    rows: list[dict] = []
-
-    if track and track.get("equity_curve"):
-        dates = [p["date"] for p in track["equity_curve"]]
-        strat = [p["strategy"] for p in track["equity_curve"]]
-        bench = [p["benchmark"] for p in track["equity_curve"]]
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=dates, y=strat, mode="lines",
-                                 name=f"Top {track['top_n']} strategy",
-                                 line=dict(color=_WARM_PALETTE[0])))
-        fig.add_trace(go.Scatter(x=dates, y=bench, mode="lines",
-                                 name=f"Benchmark ({track['benchmark']})",
-                                 line=dict(color=_WARM_PALETTE[3], dash="dash")))
-        fig.update_layout(**_base_layout(
-            title=dict(text="Themes — growth of 1.0", font=dict(size=13, color="#3E392B")),
-            xaxis=dict(title="Date", gridcolor="#DFD5BE"),
-            yaxis=dict(title="Equity (×)", gridcolor="#DFD5BE"),
-        ))
-        fig_json = pio.to_json(fig)
-
-        m = track["metrics"]
-        rows.append({
-            "region": "THEME", "start": track["start"], "end": track["end"],
-            "benchmark": track["benchmark"], "top_n": track["top_n"],
-            "cagr": f"{100 * m['cagr']:.1f}%",
-            "benchmark_cagr": f"{100 * m['benchmark_cagr']:.1f}%",
-            "sharpe": f"{m['sharpe']:.2f}",
-            "max_drawdown": f"{100 * m['max_drawdown']:.1f}%",
-            "hit_rate": f"{100 * m['hit_rate']:.0f}%",
-            "avg_turnover": f"{100 * m['avg_turnover']:.0f}%",
-        })
-
-    return {
-        "theme_backtest_json": fig_json,
-        "theme_backtest_metrics": rows,
-        "has_theme_backtest": bool(fig_json),
-    }
-
-
 def _build_rescore_data(history_df) -> dict:
     """Per-scan x per-sector data_score and sentiment_score arrays for the
     client-side leaderboard rescoring."""
@@ -630,24 +594,24 @@ def _build_scan_history_data(all_scores_df) -> dict:
 # ---------------------------------------------------------------------------
 
 def build_sectors_context(shared: dict) -> dict:
-    """Assemble all figure + backtest context entries for the sectors page."""
+    """Assemble the non-chart figure + backtest context entries for the
+    sectors page.
+
+    The four per-cohort chart entries (RRG, Movers, History, Drill-down) live
+    in `build_cohort_chart_context` instead — one cohort at a time, sliced by
+    region, rather than one shared cross-cohort figure. See that function's
+    docstring for why (mixed-cohort RRG/History figures would plot different
+    benchmarks — RSP, EXSA.DE, ACWI — on the same axis).
+    """
     import json as _json
 
-    rrg_json = _build_rrg_figure(shared["rrg_df"])
-    sector_signal_data, sector_keys, signals_list = _build_drilldown_data(shared["history_df"])
-    movers_json = _build_movers_figure(shared["history_df"])
-    history_json = _build_history_figure(shared["history_df"])
+    signals_list = _DRILLDOWN_SIGNALS
     rescore_data_json = _json.dumps(_build_rescore_data(shared["history_df"]))
     scan_history_json = _json.dumps(_build_scan_history_data(shared["all_scores_df"]))
     bt = _build_backtest_context(str(shared["project_root"] / "backtests"))
 
     return {
-        "rrg_data_json": rrg_json,
-        "drilldown_data": _json.dumps(sector_signal_data),
-        "sector_keys": sector_keys,
         "signals_list": signals_list,
-        "movers_json": movers_json,
-        "history_json": history_json,
         "rescore_data_json": rescore_data_json,
         "scan_history_json": scan_history_json,
         "backtest_json": bt["backtest_json"],
@@ -658,23 +622,52 @@ def build_sectors_context(shared: dict) -> dict:
     }
 
 
-def build_themes_context(shared: dict) -> dict:
-    """Assemble all figure + backtest context entries for the themes page."""
+def build_cohort_chart_context(shared: dict) -> dict:
+    """One chart context per configured cohort (US, EU, THEME).
+
+    rs_ratio/rs_momentum are computed against each cohort's own benchmark
+    (themes vs ACWI, US sectors vs RSP, EU vs EXSA.DE — src/pipeline.py), so
+    plotting cohorts together on one RRG/History figure would put "5% above
+    ACWI" and "5% above RSP" on the same axis. This builder slices
+    `shared["history_df"]` and `shared["rrg_df"]` to each cohort's region and
+    calls the existing (unmodified) figure builders per slice, rather than
+    building one mixed-cohort figure.
+
+    Returns {"cohort_charts": {region: {...}}, "cohort_charts_json": "..."}
+    — the dict form for Python callers/tests, the serialised form for direct
+    embedding as the template's `COHORT_CHARTS` JS blob (mirrors the
+    load-then-redump pattern `_build_backtest_context` already uses for
+    `backtest_json`, so NaN/Infinity survive the round-trip the same way).
+    """
     import json as _json
 
-    theme_rrg_json = _build_rrg_figure(shared["theme_rrg_df"])
-    theme_dd, theme_keys, _ = _build_drilldown_data(shared["theme_history_df"])
-    theme_movers_json = _build_movers_figure(shared["theme_history_df"])
-    theme_history_json = _build_history_figure(shared["theme_history_df"])
-    bt = _build_theme_backtest_context(str(shared["project_root"] / "backtests_themes"))
+    from src.cohorts import cohorts
+
+    universe = shared["universe"]
+    themes_cfg = shared.get("themes_cfg")
+    history_df = shared["history_df"]
+    rrg_df = shared["rrg_df"]
+
+    cohort_charts: dict[str, dict] = {}
+    for cohort in cohorts(universe, themes_cfg):
+        region = cohort.region
+        region_history = history_df[history_df["region"] == region]
+        region_rrg = rrg_df[rrg_df["region"] == region]
+
+        rrg_json = _build_rrg_figure(region_rrg)
+        movers_json = _build_movers_figure(region_history)
+        history_json = _build_history_figure(region_history)
+        drilldown_raw, sector_keys, _ = _build_drilldown_data(region_history)
+
+        cohort_charts[region] = {
+            "rrg": _json.loads(rrg_json),
+            "movers": _json.loads(movers_json),
+            "history": _json.loads(history_json),
+            "drilldown": {k: _json.loads(v) for k, v in drilldown_raw.items()},
+            "keys": sector_keys,
+        }
 
     return {
-        "theme_rrg_json": theme_rrg_json,
-        "theme_drilldown_data": _json.dumps(theme_dd),
-        "theme_keys": theme_keys,
-        "theme_movers_json": theme_movers_json,
-        "theme_history_json": theme_history_json,
-        "theme_backtest_json": bt["theme_backtest_json"],
-        "theme_backtest_metrics": bt["theme_backtest_metrics"],
-        "has_theme_backtest": bt["has_theme_backtest"],
+        "cohort_charts": cohort_charts,
+        "cohort_charts_json": _json.dumps(cohort_charts),
     }

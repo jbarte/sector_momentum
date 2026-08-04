@@ -9,6 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.cohorts import cohorts as _cohorts_fn
+
 _TPL_DIR = Path(__file__).parent.parent / "dashboard" / "templates"
 
 
@@ -37,13 +39,47 @@ def _row(**over):
     return row
 
 
-def _render_leaderboard(rows):
-    """Render index.html.j2. Only the looped context vars are required;
-    everything else renders as Jinja's default empty Undefined."""
+def _render_index(grouped_rows, cohort_list=None):
+    """Render index.html.j2 from a list of (Cohort, [row_dict]) tuples —
+    the shape build.py's `grouped_rows` context var takes. `has_any_rows` is
+    derived the same way build.py derives it, so tests don't have to keep it
+    in sync by hand."""
     return _jinja_env().get_template("index.html.j2").render(
-        us_leaderboard_rows=rows, eu_leaderboard_rows=[],
+        grouped_rows=grouped_rows,
+        cohort_list=cohort_list if cohort_list is not None else [c for c, _ in grouped_rows],
+        has_any_rows=any(rows for _, rows in grouped_rows),
         sector_keys=[], scan_index=[], backtest_metrics=[], badge_scorecard=[],
     )
+
+
+def _render_leaderboard(rows):
+    """Render index.html.j2 with a single US-labelled cohort group — the
+    shape these pre-cohort-unification tests were written against, now
+    expressed as a one-entry `grouped_rows` list."""
+    from types import SimpleNamespace
+    return _render_index([(SimpleNamespace(region="US", label="US Sectors"), rows)])
+
+
+# Three real cohorts (one member each) built through src.cohorts.cohorts()
+# rather than hand-rolled, so this fixture can't drift from the real shape.
+_TEST_UNIVERSE = {
+    "us_sectors": {"Technology": "XLK"},
+    "eu_sectors": {"Technology": "EXV3.DE"},
+}
+_TEST_THEMES_CFG = {"themes": {"Space": {"ticker": "UFO"}}}
+
+
+def _rows_for_cohort(cohort):
+    rows = []
+    for key in cohort.instruments:
+        region, name = key.split("|", 1)
+        rows.append(_row(key=key, sector_id=f"{region}-{name}", sector=name, region=region))
+    return rows
+
+
+_THREE_COHORT_GROUPS = [
+    (c, _rows_for_cohort(c)) for c in _cohorts_fn(_TEST_UNIVERSE, _TEST_THEMES_CFG)
+]
 
 
 def _row_tag(html):
@@ -88,3 +124,25 @@ def test_row_with_missing_scores_renders_empty_numeric_attrs():
         [_row(_raw_composite=None, _raw_change=None)]))
     assert 'data-composite=""' in tag
     assert 'data-change=""' in tag
+
+
+def test_leaderboard_renders_every_cohort_group():
+    html = _render_index(grouped_rows=_THREE_COHORT_GROUPS)
+    assert "US Sectors" in html
+    assert "EU Sectors" in html
+    assert "Themes" in html
+
+
+def test_theme_rows_carry_filter_data_attributes():
+    """Themes must be filterable like sectors — the chips read these."""
+    html = _render_index(grouped_rows=_THREE_COHORT_GROUPS)
+    theme_row = [l for l in html.splitlines() if 'data-sector-key="THEME|Space"' in l]
+    assert theme_row, "theme row missing"
+    assert 'data-setup=' in theme_row[0]
+    assert 'data-trend=' in theme_row[0]
+
+
+def test_cohort_filter_chips_present():
+    html = _render_index(grouped_rows=_THREE_COHORT_GROUPS)
+    for value in ("US", "EU", "THEME"):
+        assert f'data-filter-value="{value}"' in html
