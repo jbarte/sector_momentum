@@ -116,7 +116,7 @@ def _build_rows_common(
     row_iter_fn,
 ) -> tuple[list[dict], str]:
     """
-    Core merge/format logic shared by sector and theme leaderboard builders.
+    Core merge/format logic used by the leaderboard row builder.
 
     Parameters
     ----------
@@ -201,66 +201,3 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
         merge_key_cols=["region", "gics_sector"],
         row_iter_fn=_iter,
     )
-
-
-# ---------------------------------------------------------------------------
-# Theme leaderboard
-# ---------------------------------------------------------------------------
-
-def _build_theme_leaderboard_rows(
-    history_df,
-    signals_df,
-    themes_cfg: dict,
-    weights: dict,
-    trajectories: dict,
-) -> list[dict]:
-    """Themes leaderboard rows with build-time deltas + trajectory, sorted by rank."""
-    from .breakdown import _build_breakdown_html
-
-    if history_df is None or history_df.empty:
-        return []
-
-    def _fv(v):
-        f = _safe_float(v)
-        return f"{f:.3f}" if f is not None else "—"
-
-    def _iter(latest):
-        for _, s in latest.iterrows():
-            theme = s["gics_sector"]
-            key = f"THEME|{theme}"
-            row_signals = (
-                signals_df[signals_df["theme"] == theme].to_dict("records")
-                if signals_df is not None and not signals_df.empty else []
-            )
-            breakdown = _build_breakdown_html(
-                key, s.to_dict(), row_signals, universe={}, weights=weights,
-                sector_etfs=None, themes_cfg=themes_cfg,
-            )
-            traj = trajectories.get(key, {"label": "→", "state": "flat"})
-            rank = _safe_float(s.get("rank"))
-            yield {
-                "rank": int(rank) if rank is not None else "—",
-                "theme": theme,
-                "sector_id": key.replace("|", "-").replace(" ", "_"),
-                "composite": _fv(s["composite"]),
-                "level_score": _fv(s["level_score"]),
-                "change_score": _fv(s["change_score"]),
-                "data_score": _fv(s["data_score"]),
-                "delta_rank": _safe_float(s.get("delta_rank", 0)) or 0.0,
-                "trajectory_label": traj["label"],
-                "trajectory_state": traj["state"],
-                "_raw_composite": _safe_float(s.get("composite")),
-                "_raw_change": _safe_float(s.get("change_score")),
-                "breakdown_html": breakdown,
-            }
-
-    rows, _ = _build_rows_common(
-        history_df,
-        merge_key_cols=["region", "gics_sector"],
-        row_iter_fn=_iter,
-    )
-
-    for row in rows:
-        _compute_setup(row)
-
-    return rows

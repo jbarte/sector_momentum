@@ -77,7 +77,6 @@ from dashboard.reports import (                      # noqa: E402, F401
 )
 from dashboard.rows import (                         # noqa: E402, F401
     _build_leaderboard_rows,
-    _build_theme_leaderboard_rows,
     _compute_rank_trajectories,
     _compute_setup,
     _format_raw_value,
@@ -249,22 +248,24 @@ def main() -> None:
     from src.state import (
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
-        get_theme_signals_for_latest_scan, get_theme_scan_history,
+        get_theme_scan_history,
         get_theme_rrg_history,
         get_latest_health,
         get_signals_for_scan,
     )
 
     conn = init_db()
-    history_df = get_scan_history(conn, n_scans=20)
-    signals_df = get_signals_for_latest_scan(conn)
+    # regions=None selects every cohort (US, EU, THEME) — the leaderboard
+    # rows and their breakdown-panel signals are now built through one path,
+    # so both dataframes must carry all three cohorts, not just US/EU.
+    history_df = get_scan_history(conn, n_scans=20, regions=None)
+    signals_df = get_signals_for_latest_scan(conn, regions=None)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
-    theme_signals_df = get_theme_signals_for_latest_scan(conn)
     theme_history_df = get_theme_scan_history(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
     theme_rrg_df = get_theme_rrg_history(conn, n_scans=6)
 
-    all_scores_df = get_scan_history(conn, n_scans=None)
+    all_scores_df = get_scan_history(conn, n_scans=None, regions=None)
     health_row = get_latest_health(conn)
 
     if history_df.empty:
@@ -295,7 +296,7 @@ def main() -> None:
         rrg_df = rrg_df[rrg_df["scan_id"] <= lb_scan_id].copy()
         theme_history_df = theme_history_df[theme_history_df["scan_id"] <= lb_scan_id].copy()
         theme_rrg_df = theme_rrg_df[theme_rrg_df["scan_id"] <= lb_scan_id].copy()
-        signals_df = get_signals_for_scan(conn, lb_scan_id)
+        signals_df = get_signals_for_scan(conn, lb_scan_id, regions=None)
 
     # Load config for breakdown panel (universe needed early — the per-scan
     # reports below are generated per-cohort).
@@ -337,13 +338,9 @@ def main() -> None:
     # Page-specific context that stays in build.py (complex, stable)
     # ------------------------------------------------------------------
 
-    # Themes leaderboard rows
-    theme_trajectories = _compute_rank_trajectories(theme_history_df)
-    theme_rows = _build_theme_leaderboard_rows(
-        theme_history_df, theme_signals_df, _themes_cfg, _weights, theme_trajectories,
-    )
-
-    # Leaderboard rows + enrichment.
+    # Leaderboard rows + enrichment — one path for every cohort (US, EU,
+    # THEME). lb_history_df already carries all three cohorts because
+    # history_df above was fetched with regions=None.
     logger.info("Building leaderboard …")
     leaderboard_rows, scan_date = _build_leaderboard_rows(lb_history_df)
     trajectories = _compute_rank_trajectories(lb_history_df)
@@ -374,11 +371,30 @@ def main() -> None:
         else:
             row_signals = []
         row["breakdown_html"] = _build_breakdown_html(
-            key, score_row_dict, row_signals, _universe, _weights, _sector_etfs
+            key, score_row_dict, row_signals, _universe, _weights, _sector_etfs,
+            themes_cfg=_themes_cfg,
         )
 
+    # us_leaderboard_rows / eu_leaderboard_rows are still consumed by
+    # index.html.j2's hardcoded region loop — remove once the template
+    # switches to grouped_rows.
     us_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "US"]
     eu_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "EU"]
+
+    cohort_list = cohorts(_universe, _themes_cfg)
+    grouped_rows = [
+        (c, [r for r in leaderboard_rows if r["region"] == c.region])
+        for c in cohort_list
+    ]
+
+    # Backward-compat shape for the pre-cohort-unification themes page
+    # (dashboard/templates/themes.html.j2, removed once the page is retired):
+    # it reads row.theme rather than row.sector. Sourced from the same
+    # unified leaderboard_rows — filtered + aliased, not a second build.
+    theme_rows = [
+        {**row, "theme": row["sector"]}
+        for row in leaderboard_rows if row["region"] == "THEME"
+    ]
 
     conn.close()
 
@@ -431,6 +447,8 @@ def main() -> None:
         "leaderboard_rows": leaderboard_rows,
         "us_leaderboard_rows": us_leaderboard_rows,
         "eu_leaderboard_rows": eu_leaderboard_rows,
+        "cohort_list": cohort_list,
+        "grouped_rows": grouped_rows,
         "plotly_bundle": plotly_bundle_rel,
         "lag_banner_date": lag_banner_date,
     }
@@ -521,7 +539,10 @@ def main() -> None:
             theme_latest_df = theme_history_df
 
         data_payload = build_data_export(
-            sector_rows=leaderboard_rows,
+            # leaderboard_rows now spans all three cohorts (regions=None) —
+            # data.json keeps its published sectors/themes split, so filter
+            # THEME out of the "sectors" side rather than passing it whole.
+            sector_rows=us_leaderboard_rows + eu_leaderboard_rows,
             theme_rows=theme_rows,
             latest_scores_df=latest_scores,
             theme_latest_df=theme_latest_df,

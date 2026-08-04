@@ -1,5 +1,5 @@
 import pandas as pd
-from dashboard.build import _build_theme_leaderboard_rows, _compute_rank_trajectories
+from dashboard.build import _compute_rank_trajectories
 
 
 def _history_two_scans():
@@ -20,43 +20,6 @@ def _history_two_scans():
     ])
 
 
-def _signals():
-    return pd.DataFrame([
-        {"theme": "Space", "signal_name": "rs_ratio", "raw_value": 101.0, "z_value": 0.4},
-        {"theme": "Semiconductors", "signal_name": "rs_ratio", "raw_value": 104.0, "z_value": 1.1},
-    ])
-
-
-def test_theme_rows_deltas_and_trajectory():
-    cfg = {"benchmark": "ACWI", "themes": {"Space": "UFO", "Semiconductors": "SOXX"}}
-    traj = {"THEME|Semiconductors": {"label": "↑↑", "state": "strong_up"},
-            "THEME|Space": {"label": "↓", "state": "down"}}
-    rows = _build_theme_leaderboard_rows(_history_two_scans(), _signals(), cfg, weights={}, trajectories=traj)
-    assert [r["theme"] for r in rows] == ["Semiconductors", "Space"]   # sorted by latest rank
-    semis = rows[0]
-    assert semis["rank"] == 1
-    assert semis["arrow"] == "▲"                       # 2 -> 1, improved
-    assert semis["delta_rank"] == "+1.0"
-    assert semis["setup"] == "entry"                   # composite > 0, strong_up traj, change > 0
-    assert semis["trajectory_label"] == "↑↑"
-    assert semis["trajectory_state"] == "strong_up"
-    space = rows[1]
-    assert space["arrow"] == "▼"                         # 1 -> 2, dropped
-    assert "SOXX" in semis["breakdown_html"]            # breakdown still rendered
-
-
-def test_theme_rows_single_scan_no_delta():
-    hist = _history_two_scans()
-    hist = hist[hist["scan_id"] == 2]                    # only the latest scan
-    rows = _build_theme_leaderboard_rows(hist, _signals(), {}, {}, {})
-    assert all(r["delta_rank"] == "—" and r["arrow"] == "" and r["setup"] is None for r in rows)
-    assert all(r["trajectory_label"] == "→" for r in rows)   # default flat when no traj passed
-
-
-def test_theme_rows_empty_history():
-    assert _build_theme_leaderboard_rows(pd.DataFrame(), pd.DataFrame(), {}, {}, {}) == []
-
-
 def test_compute_rank_trajectories_produces_theme_prefixed_keys():
     # Locks the integration contract: _compute_rank_trajectories keys its output
     # "region|gics_sector", and get_theme_scan_history reads rows whose region
@@ -66,3 +29,31 @@ def test_compute_rank_trajectories_produces_theme_prefixed_keys():
     assert "THEME|Semiconductors" in traj
     assert "THEME|Space" in traj
     assert traj["THEME|Semiconductors"]["state"] == "up"   # rank 2 -> 1 over 2 scans (slope -1.0)
+
+
+def test_one_builder_produces_rows_for_every_cohort():
+    """Theme rows now live in `scores` with region='THEME', so the sector row
+    builder handles them — same shape, including region and sentiment_score."""
+    import pandas as pd
+    from dashboard.rows import _build_leaderboard_rows
+
+    df = pd.DataFrame([
+        {"scan_id": 2, "run_at": "2026-08-04", "region": "US",
+         "gics_sector": "Energy", "level_score": 0.5, "change_score": 0.4,
+         "data_score": 0.45, "sentiment_score": 0.1, "composite": 0.45, "rank": 1.0},
+        {"scan_id": 2, "run_at": "2026-08-04", "region": "THEME",
+         "gics_sector": "Space", "level_score": 0.9, "change_score": 0.2,
+         "data_score": 0.8, "sentiment_score": None, "composite": 0.8, "rank": 1.0},
+    ])
+    rows, _ = _build_leaderboard_rows(df)
+
+    by_region = {r["region"]: r for r in rows}
+    assert set(by_region) == {"US", "THEME"}
+    assert by_region["THEME"]["sector"] == "Space"
+    assert "sentiment_score" in by_region["THEME"]
+
+
+def test_theme_row_builder_is_gone():
+    """Superseded by _build_leaderboard_rows once themes joined the shared table."""
+    from dashboard import rows
+    assert not hasattr(rows, "_build_theme_leaderboard_rows")
