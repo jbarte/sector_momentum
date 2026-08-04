@@ -56,6 +56,23 @@
   <button class="tab-btn" onclick="switchTab('correlation', this)" role="tab" aria-selected="false" aria-controls="tab-correlation" data-i18n="tab_correlation">Correlation</button>
 </nav>
 
+<!-- Cohort selector — drives RRG / Drill-down / Movers / History / Backtest.
+     rs_ratio/rs_momentum are computed against each cohort's own benchmark
+     (US vs RSP, EU vs EXSA.DE, THEME vs ACWI), so those tabs render one
+     cohort at a time rather than mixing benchmarks on one chart. The
+     Leaderboard (grouped by cohort already) and Correlation (one combined
+     heatmap) tabs are unaffected by this selector. -->
+{% if cohort_list %}
+<div class="cohort-select-row">
+  <label for="cohort-select" data-i18n="cohort_label">Cohort:</label>
+  <select id="cohort-select" onchange="switchCohort(this.value)">
+    {% for cohort in cohort_list %}
+    <option value="{{ cohort.region }}">{{ cohort.label }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endif %}
+
 <!-- ============================================================
      Tab: Leaderboard
      ============================================================ -->
@@ -257,11 +274,11 @@
   </div>
   <div class="drilldown-controls">
     <label for="sector-select">Sector:</label>
-    <select class="sector-select" id="sector-select" onchange="updateDrilldown()">
-      {% for sk in sector_keys %}
-      <option value="{{ sk }}">{{ sk }}</option>
-      {% endfor %}
-    </select>
+    <!-- Options are populated by JS (_populateDrilldownSelect) from
+         COHORT_CHARTS[activeCohort].keys — the set of sector keys is
+         per-cohort now, so a static Jinja loop can only ever render one
+         cohort's options. -->
+    <select class="sector-select" id="sector-select" onchange="updateDrilldown()"></select>
   </div>
   <div class="chart-container" id="drilldown-chart" style="height:460px"></div>
 </section>
@@ -436,10 +453,12 @@
 var COHORT_REGIONS = [{% for c in cohort_list %}"{{ c.region }}"{% if not loop.last %}, {% endif %}{% endfor %}];
 
 // ----- Plotly data (injected by build.py) -----
-var RRG_DATA    = {{ rrg_data_json | js_json }};
-var MOVERS_DATA = {{ movers_json | js_json }};
-var HISTORY_DATA = {{ history_json | js_json }};
-var DRILLDOWN_DATA = {{ drilldown_data | js_json }};
+// COHORT_CHARTS is keyed by cohort region ("US"/"EU"/"THEME"); each entry
+// holds that cohort's own rrg/movers/history/drilldown figures plus the
+// list of sector keys the Drill-down dropdown should offer. Cohorts are
+// never merged onto one figure — see the cohort-select-row comment above.
+var COHORT_CHARTS = {{ cohort_charts_json | js_json }};
+var activeCohort = COHORT_REGIONS.length ? COHORT_REGIONS[0] : null;
 var RESCORE_DATA = {{ rescore_data_json | js_json }};
 var SCAN_HISTORY = {{ scan_history_json | js_json }};
 var BACKTEST_DATA = {{ backtest_json | js_json }};
@@ -454,29 +473,44 @@ var _rendered = {};
 function renderRRG() {
   if (_rendered.rrg) return;
   _rendered.rrg = true;
-  Plotly.newPlot('rrg-chart', RRG_DATA.data, RRG_DATA.layout, {responsive: true, displayModeBar: true});
+  var chart = COHORT_CHARTS[activeCohort];
+  if (!chart) return;
+  Plotly.newPlot('rrg-chart', chart.rrg.data, chart.rrg.layout, {responsive: true, displayModeBar: true});
 }
 
 function renderMovers() {
   if (_rendered.movers) return;
   _rendered.movers = true;
-  Plotly.newPlot('movers-chart', MOVERS_DATA.data, MOVERS_DATA.layout, {responsive: true, displayModeBar: true});
+  var chart = COHORT_CHARTS[activeCohort];
+  if (!chart) return;
+  Plotly.newPlot('movers-chart', chart.movers.data, chart.movers.layout, {responsive: true, displayModeBar: true});
 }
 
 function renderHistory() {
   if (_rendered.history) return;
   _rendered.history = true;
-  Plotly.newPlot('history-chart', HISTORY_DATA.data, HISTORY_DATA.layout, {responsive: true, displayModeBar: true});
+  var chart = COHORT_CHARTS[activeCohort];
+  if (!chart) return;
+  Plotly.newPlot('history-chart', chart.history.data, chart.history.layout, {responsive: true, displayModeBar: true});
 }
 
+// Backtest stays per-track (sector rotation and theme rotation are genuinely
+// different strategies — see backtest_json's US/EU-only shape). Only the
+// chart matching activeCohort renders; the other track's container (and any
+// cohort with no track, e.g. THEME) is hidden rather than shown stale or
+// showing another cohort's data.
 function renderBacktest() {
   if (_rendered.backtest) return;
   _rendered.backtest = true;
   ['US', 'EU'].forEach(function (rg) {
     var el = document.getElementById('backtest-chart-' + rg);
-    if (el && BACKTEST_DATA[rg]) {
+    if (!el) return;
+    if (rg === activeCohort && BACKTEST_DATA[rg]) {
+      el.style.display = '';
       var f = BACKTEST_DATA[rg];
       Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
+    } else {
+      el.style.display = 'none';
     }
   });
   var rc = document.getElementById('rotation-charts');
@@ -507,19 +541,57 @@ function renderDrilldown() {
   updateDrilldown();
 }
 
+// Rebuilds the Drill-down sector <select> from the active cohort's own key
+// list. Cohorts don't share sector keys (US|Energy vs THEME|Space), so the
+// dropdown must be repopulated on every cohort switch rather than filtered.
+function _populateDrilldownSelect() {
+  var sel = document.getElementById('sector-select');
+  if (!sel) return;
+  var chart = COHORT_CHARTS[activeCohort];
+  var keys = (chart && chart.keys) || [];
+  sel.innerHTML = '';
+  keys.forEach(function (k) {
+    var opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = k;
+    sel.appendChild(opt);
+  });
+}
+
 function updateDrilldown() {
   var sel = document.getElementById('sector-select');
   if (!sel) return;
   var key = sel.value;
-  var figJson = DRILLDOWN_DATA[key];
-  if (!figJson) {
+  var chart = COHORT_CHARTS[activeCohort];
+  var fig = chart && chart.drilldown ? chart.drilldown[key] : null;
+  if (!fig) {
     document.getElementById('drilldown-chart').innerHTML =
       '<p style="padding:24px;color:var(--fg4)">No data for ' + key + '</p>';
     return;
   }
-  var fig = typeof figJson === 'string' ? JSON.parse(figJson) : figJson;
   Plotly.newPlot('drilldown-chart', fig.data, fig.layout, {responsive: true, displayModeBar: true});
 }
+
+// ----- Cohort switching -----
+// Drives RRG / Drill-down / Movers / History / Backtest. Clears the render
+// memo and re-renders whichever chart tab is currently visible; other tabs
+// pick up the new activeCohort lazily the next time they're activated.
+function switchCohort(region) {
+  activeCohort = region;
+  _rendered = {};
+  _populateDrilldownSelect();
+  var active = document.querySelector('.tab-panel.active');
+  if (!active) return;
+  var name = active.id.replace('tab-', '');
+  if (name === 'rrg')       renderRRG();
+  if (name === 'movers')    renderMovers();
+  if (name === 'history')   renderHistory();
+  if (name === 'drilldown') renderDrilldown();
+  if (typeof renderBacktest === 'function' && name === 'backtest') renderBacktest();
+}
+window.switchCohort = switchCohort;
+
+_populateDrilldownSelect();
 
 // ----- Breakdown toggle -----
 function toggleBreakdown(id) {

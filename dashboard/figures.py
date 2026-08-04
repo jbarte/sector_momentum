@@ -34,6 +34,14 @@ _SCORE_SIGNAL_COLORS: dict[str, str] = {
     "rank":         "#8F8568",
 }
 
+# The signal columns _build_drilldown_data plots — a constant, not
+# data-derived, so callers that only need the label list (e.g.
+# build_sectors_context's `signals_list`) don't have to invoke the builder
+# (and pay for building every sector's drilldown figure) just to read it.
+_DRILLDOWN_SIGNALS: list[str] = [
+    "composite", "level_score", "change_score", "data_score", "rank"
+]
+
 
 # ---------------------------------------------------------------------------
 # Base layout helper — eliminates ~80 lines of per-figure boilerplate
@@ -276,9 +284,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     """
     import pandas as pd
 
-    score_signals = [
-        "composite", "level_score", "change_score", "data_score", "rank"
-    ]
+    score_signals = _DRILLDOWN_SIGNALS
 
     if history_df.empty:
         return {}, [], score_signals
@@ -630,24 +636,24 @@ def _build_scan_history_data(all_scores_df) -> dict:
 # ---------------------------------------------------------------------------
 
 def build_sectors_context(shared: dict) -> dict:
-    """Assemble all figure + backtest context entries for the sectors page."""
+    """Assemble the non-chart figure + backtest context entries for the
+    sectors page.
+
+    The four per-cohort chart entries (RRG, Movers, History, Drill-down) live
+    in `build_cohort_chart_context` instead — one cohort at a time, sliced by
+    region, rather than one shared cross-cohort figure. See that function's
+    docstring for why (mixed-cohort RRG/History figures would plot different
+    benchmarks — RSP, EXSA.DE, ACWI — on the same axis).
+    """
     import json as _json
 
-    rrg_json = _build_rrg_figure(shared["rrg_df"])
-    sector_signal_data, sector_keys, signals_list = _build_drilldown_data(shared["history_df"])
-    movers_json = _build_movers_figure(shared["history_df"])
-    history_json = _build_history_figure(shared["history_df"])
+    signals_list = _DRILLDOWN_SIGNALS
     rescore_data_json = _json.dumps(_build_rescore_data(shared["history_df"]))
     scan_history_json = _json.dumps(_build_scan_history_data(shared["all_scores_df"]))
     bt = _build_backtest_context(str(shared["project_root"] / "backtests"))
 
     return {
-        "rrg_data_json": rrg_json,
-        "drilldown_data": _json.dumps(sector_signal_data),
-        "sector_keys": sector_keys,
         "signals_list": signals_list,
-        "movers_json": movers_json,
-        "history_json": history_json,
         "rescore_data_json": rescore_data_json,
         "scan_history_json": scan_history_json,
         "backtest_json": bt["backtest_json"],
@@ -655,6 +661,57 @@ def build_sectors_context(shared: dict) -> dict:
         "has_backtest": bt["has_backtest"],
         "rotation_json": bt["rotation_json"],
         "has_rotations": bt["has_rotations"],
+    }
+
+
+def build_cohort_chart_context(shared: dict) -> dict:
+    """One chart context per configured cohort (US, EU, THEME).
+
+    rs_ratio/rs_momentum are computed against each cohort's own benchmark
+    (themes vs ACWI, US sectors vs RSP, EU vs EXSA.DE — src/pipeline.py), so
+    plotting cohorts together on one RRG/History figure would put "5% above
+    ACWI" and "5% above RSP" on the same axis. This builder slices
+    `shared["history_df"]` and `shared["rrg_df"]` to each cohort's region and
+    calls the existing (unmodified) figure builders per slice, rather than
+    building one mixed-cohort figure.
+
+    Returns {"cohort_charts": {region: {...}}, "cohort_charts_json": "..."}
+    — the dict form for Python callers/tests, the serialised form for direct
+    embedding as the template's `COHORT_CHARTS` JS blob (mirrors the
+    load-then-redump pattern `_build_backtest_context` already uses for
+    `backtest_json`, so NaN/Infinity survive the round-trip the same way).
+    """
+    import json as _json
+
+    from src.cohorts import cohorts
+
+    universe = shared["universe"]
+    themes_cfg = shared.get("themes_cfg")
+    history_df = shared["history_df"]
+    rrg_df = shared["rrg_df"]
+
+    cohort_charts: dict[str, dict] = {}
+    for cohort in cohorts(universe, themes_cfg):
+        region = cohort.region
+        region_history = history_df[history_df["region"] == region]
+        region_rrg = rrg_df[rrg_df["region"] == region]
+
+        rrg_json = _build_rrg_figure(region_rrg)
+        movers_json = _build_movers_figure(region_history)
+        history_json = _build_history_figure(region_history)
+        drilldown_raw, sector_keys, _ = _build_drilldown_data(region_history)
+
+        cohort_charts[region] = {
+            "rrg": _json.loads(rrg_json),
+            "movers": _json.loads(movers_json),
+            "history": _json.loads(history_json),
+            "drilldown": {k: _json.loads(v) for k, v in drilldown_raw.items()},
+            "keys": sector_keys,
+        }
+
+    return {
+        "cohort_charts": cohort_charts,
+        "cohort_charts_json": _json.dumps(cohort_charts),
     }
 
 

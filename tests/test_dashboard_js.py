@@ -206,11 +206,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            rrg_data_json=_make_mock_plotly_json(),
-            drilldown_data=json.dumps({}),
-            sector_keys=[],
-            movers_json=_make_mock_plotly_json(),
-            history_json=_make_mock_plotly_json(),
+            cohort_list=[], cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
@@ -269,11 +265,7 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            rrg_data_json=_make_mock_plotly_json(),
-            drilldown_data=json.dumps({}),
-            sector_keys=[],
-            movers_json=_make_mock_plotly_json(),
-            history_json=_make_mock_plotly_json(),
+            cohort_list=[], cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
@@ -312,8 +304,8 @@ def test_history_tab_has_scan_index(tmp_path):
     out = tmp_path / "index.html"
     _render(_TEMPLATE, out, dict(
         scan_date="2026-06-02 06:00 UTC", active_scan_id=2, scan_index=scan_index,
-        leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[], rrg_data_json="{}", drilldown_data="{}",
-        sector_keys=[], movers_json="{}", history_json="{}", sentiment_scatter_json="{}",
+        leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
+        cohort_list=[], cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
@@ -350,8 +342,7 @@ def test_built_html_has_no_composite_toggle(tmp_path):
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
         cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
         has_any_rows=any(rs for _, rs in grouped_rows),
-        rrg_data_json="{}", drilldown_data="{}", sector_keys=[], movers_json="{}",
-        history_json="{}", sentiment_scatter_json="{}",
+        cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
@@ -405,9 +396,7 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
         cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
         has_any_rows=any(rs for _, rs in grouped_rows),
-        rrg_data_json=_make_mock_plotly_json(), drilldown_data=_json.dumps({}),
-        sector_keys=[], movers_json=_make_mock_plotly_json(),
-        history_json=_make_mock_plotly_json(),
+        cohort_charts_json=_json.dumps({}),
         sentiment_scatter_json=_make_mock_plotly_json(),
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
@@ -505,7 +494,7 @@ def test_render_context_keys_finds_all_render_calls():
     # index.html context keys
     assert "scan_date" in keys
     assert "leaderboard_rows" in keys
-    assert "rrg_data_json" in keys
+    assert "cohort_charts_json" in keys
     # sentiment.html context keys
     assert "sentiment_scatter_json" in keys
     assert "sentiment_signal_rows" in keys
@@ -632,11 +621,7 @@ def test_scan_history_json_in_rendered_output(tmp_path):
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            rrg_data_json=_make_mock_plotly_json(),
-            drilldown_data=json.dumps({}),
-            sector_keys=[],
-            movers_json=_make_mock_plotly_json(),
-            history_json=_make_mock_plotly_json(),
+            cohort_list=[], cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),
@@ -679,11 +664,7 @@ def test_scan_digest_markup_in_rendered_output(tmp_path):
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            rrg_data_json=_make_mock_plotly_json(),
-            drilldown_data=json.dumps({}),
-            sector_keys=[],
-            movers_json=_make_mock_plotly_json(),
-            history_json=_make_mock_plotly_json(),
+            cohort_list=[], cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),
@@ -705,3 +686,40 @@ def test_scan_digest_markup_in_rendered_output(tmp_path):
     assert 'id="digest-chips-entries"' in html
     assert 'id="digest-chips-up"' in html
     assert 'id="digest-chips-down"' in html
+
+
+# ---------------------------------------------------------------------------
+# Per-cohort chart context (Task 3 — chart tabs get a cohort selector)
+# ---------------------------------------------------------------------------
+
+def test_cohort_charts_context_is_keyed_by_cohort():
+    """One chart context per configured cohort, so the selector can switch
+    between them without the page holding three differently-named blobs."""
+    import pandas as pd
+    from pathlib import Path
+    from dashboard.figures import build_cohort_chart_context
+
+    rows = []
+    for scan in range(1, 7):
+        for region, name in (("US", "Energy"), ("EU", "Banks"), ("THEME", "Space")):
+            rows.append({
+                "scan_id": scan, "run_at": f"2026-07-{scan:02d}",
+                "region": region, "gics_sector": name,
+                "level_score": 0.5, "change_score": 0.4, "data_score": 0.45,
+                "sentiment_score": None, "composite": 0.45, "rank": 1.0,
+            })
+    df = pd.DataFrame(rows)
+    shared = {
+        "all_scores_df": df,
+        "history_df": df,
+        "rrg_df": df.assign(rs_ratio=101.0, rs_momentum=99.0),
+        "universe": {"us_sectors": {"Energy": "XLE"}, "eu_sectors": {"Banks": "EXV1.DE"},
+                     "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE"},
+        "themes_cfg": {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}},
+        "project_root": Path("/tmp"),
+    }
+    charts = build_cohort_chart_context(shared)["cohort_charts"]
+
+    assert set(charts) >= {"US", "EU", "THEME"}
+    for region in ("US", "EU", "THEME"):
+        assert {"rrg", "movers", "history"} <= set(charts[region])

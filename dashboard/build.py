@@ -63,6 +63,7 @@ from dashboard.figures import (                      # noqa: E402, F401
     _build_scan_history_data,
     _build_sentiment_scatter_figure,
     _build_theme_backtest_context,
+    build_cohort_chart_context as _figures_cohort_charts_ctx,
     build_sectors_context as _figures_sectors_ctx,
     build_themes_context as _figures_themes_ctx,
 )
@@ -262,7 +263,11 @@ def main() -> None:
     signals_df = get_signals_for_latest_scan(conn, regions=None)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
     theme_history_df = get_theme_scan_history(conn)
-    rrg_df = get_rrg_history(conn, n_scans=6)
+    # regions=None so THEME is included alongside US/EU — build_cohort_chart_context
+    # (Task 3) slices this single frame per cohort rather than combining a
+    # separate sector-only rrg_df with theme_rrg_df below. theme_rrg_df is kept
+    # for the (still-live) themes.html.j2 page, which reads it directly.
+    rrg_df = get_rrg_history(conn, n_scans=6, regions=None)
     theme_rrg_df = get_theme_rrg_history(conn, n_scans=6)
 
     all_scores_df = get_scan_history(conn, n_scans=None, regions=None)
@@ -343,6 +348,7 @@ def main() -> None:
         "rrg_df": rrg_df,
         "theme_rrg_df": theme_rrg_df,
         "universe": _universe,
+        "themes_cfg": _themes_cfg,
         "sentiment_signals_df": sentiment_signals_df,
     }
 
@@ -466,6 +472,7 @@ def main() -> None:
         "lag_banner_date": lag_banner_date,
     }
     sectors_ctx.update(_figures_sectors_ctx(shared))
+    sectors_ctx.update(_figures_cohort_charts_ctx(shared))
     sectors_ctx.update(_badges_ctx(shared))
     sectors_ctx.update(_validation_ctx(shared))
     sectors_ctx.update(macro_page_ctx)
