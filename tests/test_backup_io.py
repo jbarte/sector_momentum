@@ -23,19 +23,8 @@ def _sample():
     sentiment_signals = pd.DataFrame({
         "scan_id": [1], "region": ["US"], "gics_sector": ["Technology"],
         "signal_name": ["trend_momentum"], "value": [0.5], "text_value": [np.nan]})
-    theme_scores = pd.DataFrame({
-        "scan_id": [1], "theme": ["AI"], "level_score": [0.6], "change_score": [0.3],
-        "data_score": [0.45], "sentiment_score": [np.nan], "composite": [0.45], "rank": [1.0]})
-    theme_signals = pd.DataFrame({
-        "scan_id": [1], "theme": ["AI"], "signal_name": ["rs_ratio"],
-        "raw_value": [102.0], "z_value": [0.7]})
-    theme_sentiment_signals = pd.DataFrame({
-        "scan_id": [1], "theme": ["AI"], "signal_name": ["momentum"],
-        "value": [0.9], "text_value": [np.nan]})
     return {"scans": scans, "scores": scores, "signals": signals,
-            "sentiment_signals": sentiment_signals, "theme_scores": theme_scores,
-            "theme_signals": theme_signals,
-            "theme_sentiment_signals": theme_sentiment_signals}
+            "sentiment_signals": sentiment_signals}
 
 
 def test_roundtrip_preserves_values_including_nan(tmp_path):
@@ -75,17 +64,17 @@ def test_read_backup_missing_column_raises(tmp_path):
         read_backup(tmp_path)
 
 
-def test_read_backup_old_format_without_theme_tables(tmp_path):
-    """Pre-theme backups lack the 3 new CSVs — read_backup returns empty DFs."""
+def test_read_backup_old_format_without_optional_tables(tmp_path):
+    """An archive predating an optional table (e.g. sentiment_signals, added
+    after the original scans/scores/signals schema) lacks its CSV —
+    read_backup fills it in as an empty DF rather than raising."""
     tables = _sample()
     write_backup(tables, tmp_path)
-    for name in ("sentiment_signals", "theme_scores", "theme_signals"):
-        (tmp_path / f"{name}.csv").unlink()
+    (tmp_path / "sentiment_signals.csv").unlink()
     back = read_backup(tmp_path)
-    for name in ("sentiment_signals", "theme_scores", "theme_signals"):
-        assert name in back
-        assert len(back[name]) == 0
-        assert list(back[name].columns) == list(_COLUMNS[name])
+    assert "sentiment_signals" in back
+    assert len(back["sentiment_signals"]) == 0
+    assert list(back["sentiment_signals"].columns) == list(_COLUMNS["sentiment_signals"])
 
 
 def test_columns_cover_all_ddl_tables():

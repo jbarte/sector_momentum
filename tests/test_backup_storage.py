@@ -15,14 +15,6 @@ def _tables():
                                   "signal_name": "return_1m", "raw_value": 0.5, "z_value": 0.6}]),
         "sentiment_signals": pd.DataFrame([{"scan_id": 1, "region": "US", "gics_sector": "Energy",
                                             "signal_name": "trend_momentum", "value": 0.5}]),
-        "theme_scores": pd.DataFrame([{"scan_id": 1, "theme": "AI", "level_score": 0.6,
-                                       "change_score": 0.3, "data_score": 0.45,
-                                       "sentiment_score": 0.0, "composite": 0.45, "rank": 1.0}]),
-        "theme_signals": pd.DataFrame([{"scan_id": 1, "theme": "AI", "signal_name": "rs_ratio",
-                                        "raw_value": 102.0, "z_value": 0.7}]),
-        "theme_sentiment_signals": pd.DataFrame([{"scan_id": 1, "theme": "AI",
-                                                  "signal_name": "momentum", "value": 0.9,
-                                                  "text_value": None}]),
     }
 
 
@@ -36,7 +28,8 @@ def test_backup_to_storage_uploads_valid_zip(monkeypatch):
     with zipfile.ZipFile(io.BytesIO(captured["data"])) as zf:
         names = set(zf.namelist())
     assert {"scans.csv", "scores.csv", "signals.csv", "sentiment_signals.csv",
-            "theme_scores.csv", "theme_signals.csv", "manifest.json"} <= names
+            "manifest.json"} <= names
+    assert "theme_scores.csv" not in names and "theme_signals.csv" not in names
 
 
 def test_restore_from_storage_latest_then_load(monkeypatch):

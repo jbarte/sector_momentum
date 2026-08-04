@@ -128,11 +128,9 @@ Weights live in `config/weights.yaml`. Signal parameters (e.g.
 | Table | Content |
 |---|---|
 | `scans` | One row per scan run (`scan_id`, `run_at`, `config_hash`) |
-| `signals` | Long-format: one row per (scan, region, sector, signal_name) with `raw_value` and `z_value` |
-| `scores` | One row per (scan, region, sector) with `level_score`, `change_score`, `data_score`, `sentiment_score`, `composite`, `rank`, deltas, `emerging_flag` |
-| `sentiment_signals` | FinBERT news signals per (scan, region, sector, signal_name); historical Google Trends rows retained but no longer written |
-| `theme_scores` | Same shape as `scores` but for thematic ETFs |
-| `theme_signals` | Same shape as `signals` but for thematic ETFs |
+| `signals` | Long-format: one row per (scan, region, sector, signal_name) with `raw_value` and `z_value`; `region` discriminates `US`/`EU`/`THEME` |
+| `scores` | One row per (scan, region, sector) with `level_score`, `change_score`, `data_score`, `sentiment_score`, `composite`, `rank`, deltas, `emerging_flag`; `region` discriminates `US`/`EU`/`THEME` |
+| `sentiment_signals` | FinBERT news signals per (scan, region, sector, signal_name); `region` discriminates `US`/`EU`/`THEME`; historical Google Trends rows retained but no longer written |
 
 **Idempotency:** same-UTC-day scans are replaced (not duplicated).
 

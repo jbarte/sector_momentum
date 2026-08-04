@@ -70,12 +70,19 @@ def test_load_force_deletes_children_before_scans():
     deletes = [sql for sql, _ in conn._cur.executed if sql.strip().startswith("DELETE")]
     table_order = []
     for d in deletes:
-        for t in ("scans", "signals", "scores", "sentiment_signals", "theme_scores", "theme_signals"):
+        for t in ("scans", "signals", "scores", "sentiment_signals"):
             if t in d and t not in table_order:
                 table_order.append(t)
     assert table_order.index("scans") == len(table_order) - 1, (
         f"scans must be deleted last (FK safety), but order was: {table_order}"
     )
+
+
+def test_backup_no_longer_dumps_legacy_theme_tables():
+    from src.backup import _COLUMNS, _INSERT_ORDER
+    for table in ("theme_scores", "theme_signals", "theme_sentiment_signals"):
+        assert table not in _COLUMNS
+        assert table not in _INSERT_ORDER
 
 
 def test_dump_tables_queries_all_tables(monkeypatch):

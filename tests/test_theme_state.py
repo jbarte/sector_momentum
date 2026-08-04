@@ -50,20 +50,6 @@ def _signals_df():
     ])
 
 
-def test_save_theme_scan_shapes_rows_with_theme_from_gics_sector():
-    conn = _FakeConn()
-    save_theme_scan(conn, 7, _scores_df(), _signals_df())
-    calls = conn._cur.executemany_calls
-    score_call = next(c for c in calls if "theme_scores" in c[0])
-    sig_call = next(c for c in calls if "theme_signals" in c[0])
-    # scores: (scan_id, theme, level, change, data, sentiment, composite, rank)
-    assert score_call[1][0][0] == 7                       # scan_id
-    assert score_call[1][0][1] == "Space"                 # theme == gics_sector
-    assert score_call[1][0][6] == 0.8                     # composite
-    # signals: (scan_id, theme, signal_name, raw_value, z_value)
-    assert sig_call[1][0] == (7, "Space", "rs_ratio", 101.2, 1.3)
-
-
 def test_save_theme_scan_empty_frames_no_insert():
     conn = _FakeConn()
     save_theme_scan(conn, 7, pd.DataFrame(), pd.DataFrame())
@@ -107,13 +93,21 @@ def test_save_theme_scan_dual_writes_sentiment_mapping_theme_to_gics_sector():
     assert shared[1][0] == (7, "THEME", "Space", "news_polarity", 0.42, None)
 
 
-def test_save_theme_scan_still_writes_legacy_theme_tables():
-    """Dual-write, not migration: the theme_* inserts must remain until PR 3."""
+def test_save_theme_scan_no_longer_writes_legacy_tables():
+    """The dual-write scaffolding is removed — the shared tables are the only
+    destination. (Superseded test_save_theme_scan_still_writes_legacy_theme_tables,
+    which pinned the temporary dual-write during cohort-unification PR 1.)"""
     conn = _FakeConn()
-    save_theme_scan(conn, 7, _scores_df(), _signals_df())
+    save_theme_scan(conn, 7, _scores_df(), _signals_df(),
+                    sentiment_signals_df=_sentiment_df())
     sql = [c[0].lower() for c in conn._cur.executemany_calls]
-    assert any("into theme_scores" in s for s in sql)
-    assert any("into theme_signals" in s for s in sql)
+    assert not any("into theme_scores" in s for s in sql)
+    assert not any("into theme_signals" in s for s in sql)
+    assert not any("into theme_sentiment_signals" in s for s in sql)
+    # and the shared writes are still there
+    assert any("into scores" in s for s in sql)
+    assert any("into signals" in s for s in sql)
+    assert any("into sentiment_signals" in s for s in sql)
 
 
 def test_save_theme_scan_empty_frames_write_nothing_anywhere():

@@ -10,9 +10,6 @@ alter table public.scans enable row level security;
 alter table public.scores enable row level security;
 alter table public.signals enable row level security;
 alter table public.sentiment_signals enable row level security;
-alter table public.theme_scores enable row level security;
-alter table public.theme_signals enable row level security;
-alter table public.theme_sentiment_signals enable row level security;
 
 -- Verification: every row should show rowsecurity = t
 select tablename, rowsecurity

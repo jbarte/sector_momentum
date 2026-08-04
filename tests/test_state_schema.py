@@ -35,3 +35,12 @@ def test_scan_child_tables_has_no_stale_entries():
     }
     for child in _SCAN_CHILD_TABLES:
         assert child in ddl_tables, f"{child} not present in DDL"
+
+
+def test_legacy_theme_tables_are_gone_from_the_ddl():
+    """The theme_* schema was a redundant fork of scores/signals; cohort
+    unification PR 3 retired it. Re-adding it would resurrect the fork."""
+    ddl = " ".join(_DDL_STATEMENTS)
+    for table in ("theme_scores", "theme_signals", "theme_sentiment_signals"):
+        assert table not in ddl, f"{table} is back in the DDL"
+    assert not any(t.startswith("theme_") for t in _SCAN_CHILD_TABLES)
