@@ -167,8 +167,11 @@ bundle). The site is self-contained and offline-capable.
 ### Pages
 
 - **Sectors** (`docs/index.html`) -- Leaderboard, RRG rotation plot, Drill-down,
-  Movers, History, Backtest, and Guide tabs. EN/SV language toggle.
-- **Themes** (`docs/themes.html`) -- same tab structure for thematic ETFs.
+  Movers, History, Backtest, and Guide tabs. EN/SV language toggle. The
+  leaderboard groups every cohort (US 11, EU 14, THEME 13) under cohort
+  headers with cohort filter chips; the RRG/Drill-down/Movers/History tabs
+  render one cohort at a time via a selector, since `rs_ratio` is measured
+  against each cohort's own benchmark.
 - **Sentiment** (`docs/sentiment.html`) -- FinBERT news-sentiment dashboard
   (info-only, separate from sector scoring).
 - **Per-scan reports** (`docs/reports/report_<scan_id>.md`) -- Markdown

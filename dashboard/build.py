@@ -62,10 +62,8 @@ from dashboard.figures import (                      # noqa: E402, F401
     _build_rrg_figure,
     _build_scan_history_data,
     _build_sentiment_scatter_figure,
-    _build_theme_backtest_context,
     build_cohort_chart_context as _figures_cohort_charts_ctx,
     build_sectors_context as _figures_sectors_ctx,
-    build_themes_context as _figures_themes_ctx,
 )
 from dashboard.macro import (                        # noqa: E402, F401
     build_macro_context,
@@ -249,8 +247,6 @@ def main() -> None:
     from src.state import (
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
-        get_theme_scan_history,
-        get_theme_rrg_history,
         get_latest_health,
         get_signals_for_scan,
     )
@@ -262,13 +258,10 @@ def main() -> None:
     history_df = get_scan_history(conn, n_scans=20, regions=None)
     signals_df = get_signals_for_latest_scan(conn, regions=None)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
-    theme_history_df = get_theme_scan_history(conn)
     # regions=None so THEME is included alongside US/EU — build_cohort_chart_context
     # (Task 3) slices this single frame per cohort rather than combining a
-    # separate sector-only rrg_df with theme_rrg_df below. theme_rrg_df is kept
-    # for the (still-live) themes.html.j2 page, which reads it directly.
+    # separate sector-only rrg_df with a theme-only one.
     rrg_df = get_rrg_history(conn, n_scans=6, regions=None)
-    theme_rrg_df = get_theme_rrg_history(conn, n_scans=6)
 
     all_scores_df = get_scan_history(conn, n_scans=None, regions=None)
     health_row = get_latest_health(conn)
@@ -299,8 +292,6 @@ def main() -> None:
         all_scores_df = all_scores_df[all_scores_df["scan_id"] <= lb_scan_id].copy()
         history_df = history_df[history_df["scan_id"] <= lb_scan_id].copy()
         rrg_df = rrg_df[rrg_df["scan_id"] <= lb_scan_id].copy()
-        theme_history_df = theme_history_df[theme_history_df["scan_id"] <= lb_scan_id].copy()
-        theme_rrg_df = theme_rrg_df[theme_rrg_df["scan_id"] <= lb_scan_id].copy()
         signals_df = get_signals_for_scan(conn, lb_scan_id, regions=None)
 
     # Load config for breakdown panel (universe needed early — the per-scan
@@ -344,9 +335,7 @@ def main() -> None:
         "project_root": project_root,
         "all_scores_df": all_scores_df,
         "history_df": history_df,
-        "theme_history_df": theme_history_df,
         "rrg_df": rrg_df,
-        "theme_rrg_df": theme_rrg_df,
         "universe": _universe,
         "themes_cfg": _themes_cfg,
         "sentiment_signals_df": sentiment_signals_df,
@@ -413,10 +402,10 @@ def main() -> None:
         for c in cohort_list
     ]
 
-    # Backward-compat shape for the pre-cohort-unification themes page
-    # (dashboard/templates/themes.html.j2, removed once the page is retired):
-    # it reads row.theme rather than row.sector. Sourced from the same
-    # unified leaderboard_rows — filtered + aliased, not a second build.
+    # data.json's published "themes" array keys entries by "theme" rather
+    # than "sector" (see dashboard/data_export.py) — sourced from the same
+    # unified leaderboard_rows, filtered to THEME and aliased, not a second
+    # build.
     theme_rows = [
         {**row, "theme": row["sector"]}
         for row in leaderboard_rows if row["region"] == "THEME"
@@ -514,24 +503,6 @@ def main() -> None:
         context=sentiment_ctx,
     )
 
-    # --- Themes page ---
-    logger.info("Building themes page context …")
-    themes_ctx = {
-        "scan_date": scan_date,
-        "active_scan_id": active_scan_id,
-        "theme_rows": theme_rows,
-        "plotly_bundle": plotly_bundle_rel,
-    }
-    themes_ctx.update(_figures_themes_ctx(shared))
-    themes_ctx.update(macro_page_ctx)
-    themes_ctx.update(auth_ctx)
-
-    _render(
-        template_path=template_dir / "themes.html.j2",
-        out_path=out_dir / "themes.html",
-        context=themes_ctx,
-    )
-
     # 6. Atom feed
     logger.info("Building Atom feed …")
     feed_entries = build_feed_entries(sector_scores_df, n_entries=30)
@@ -561,11 +532,10 @@ def main() -> None:
         from datetime import datetime, timezone
         from dashboard.data_export import build_data_export
 
-        if (theme_history_df is not None and not theme_history_df.empty
-                and active_scan_id is not None):
-            theme_latest_df = theme_history_df[theme_history_df["scan_id"] == active_scan_id]
-        else:
-            theme_latest_df = theme_history_df
+        # latest_scores already spans every cohort (built from lb_history_df,
+        # fetched with regions=None) — slice out THEME rather than issuing a
+        # second, theme-only query.
+        theme_latest_df = latest_scores[latest_scores["region"] == "THEME"]
 
         data_payload = build_data_export(
             # leaderboard_rows now spans all three cohorts (regions=None) —

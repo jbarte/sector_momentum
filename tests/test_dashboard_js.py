@@ -87,9 +87,9 @@ def _render_context_keys() -> set[str]:
 
     Post hub-file-split refactor, build.py no longer builds one flat
     `context=dict(...)` call per page — it assembles a `{...}` dict literal
-    (`sectors_ctx`, `sentiment_ctx`, `themes_ctx`) and merges in the keys
-    returned by each module's `build_page_context` / `build_sectors_context` /
-    `build_themes_context` via `.update(...)`. This walks both sources:
+    (`sectors_ctx`, `sentiment_ctx`) and merges in the keys returned by each
+    module's `build_page_context` / `build_sectors_context` via
+    `.update(...)`. This walks both sources:
       1. The literal `xxx_ctx = { ... }` dicts declared in build.py's main().
       2. The `return { ... }` dict literals of the context-builder functions
          in dashboard/figures.py, sentiment.py, badges.py, and macro.py.
@@ -500,9 +500,10 @@ def test_render_context_keys_finds_all_render_calls():
     # sentiment.html context keys
     assert "sentiment_scatter_json" in keys
     assert "sentiment_signal_rows" in keys
-    # themes.html context keys
-    assert "theme_rows" in keys
-    assert "theme_rrg_json" in keys
+    # index.html cohort-grouping keys (themes.html.j2 was retired; the
+    # leaderboard now groups every cohort, including THEME, on one page)
+    assert "grouped_rows" in keys
+    assert "cohort_list" in keys
 
 
 # ---------------------------------------------------------------------------

@@ -165,6 +165,7 @@ def build_correlation_context(shared: dict) -> dict:
     }
     try:
         universe = shared["universe"]
+        themes_cfg = shared.get("themes_cfg")
         history_df = shared["history_df"]
         cache_dir = str(shared["project_root"] / "data" / "cache")
 
@@ -177,7 +178,19 @@ def build_correlation_context(shared: dict) -> dict:
                 key = f"{row['region']}|{row['gics_sector']}"
                 ranks[key] = int(row["rank"])
 
-        labels, tickers, block_sizes = _order_labels(cohorts(universe), ranks)
+        # themes_cfg widens cohorts() to include THEME alongside US/EU (see
+        # src/cohorts.py) — history_df above already spans every cohort
+        # because shared["history_df"] is fetched with regions=None.
+        labels, tickers, block_sizes = _order_labels(cohorts(universe, themes_cfg), ranks)
+
+        # A ticker shared by two cohorts would duplicate rows/columns in the
+        # heatmap (reindex silently collapses/duplicates on the repeated
+        # label). There are none configured today, but nothing enforces that
+        # invariant, so guard it explicitly now that THEME tickers can join
+        # the same list as US/EU ones.
+        if len(tickers) != len(set(tickers)):
+            dupes = sorted({t for t in tickers if tickers.count(t) > 1})
+            raise ValueError(f"Duplicate ticker(s) across cohorts in correlation heatmap: {dupes}")
 
         # Fetch prices
         start = (date.today() - timedelta(days=_CALENDAR_BUFFER)).isoformat()

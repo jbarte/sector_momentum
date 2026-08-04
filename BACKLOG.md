@@ -148,6 +148,28 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Cohort unification PR 5 — one page for every cohort** — `themes.html.j2` is
+  deleted and the main page renders all three cohorts (US 11, EU 14, THEME 13).
+  Themes inherit the twelve features that were sector-only: filter chips (plus a
+  new cohort filter), sortable columns, the sentiment column (theme sentiment has
+  been computed and stored since July but never displayed), scan-history
+  browsing, the digest banner, per-scan reports, the validation panel,
+  correlation and badge scorecard. The correlation heatmap now spans all three
+  cohorts in one combined 38×38 matrix (unlike RRG, correlation has no
+  per-cohort benchmark to conflict), guarded against a ticker configured in two
+  cohorts — none exist today, but nothing previously enforced that. The other
+  chart tabs (RRG, Drill-down, Movers, History, Backtest) render one cohort at a
+  time via a selector, because `rs_ratio` is measured against each cohort's own
+  benchmark and combining them would put ACWI-relative and RSP-relative values
+  on one axis. Also fixed two latent bugs where a hardcoded `["US","EU"]` region
+  pair with a silent fallback would have misfiled THEME rows into the US group:
+  `index.html.j2`'s `sortTable()`/`sortVisibleByRank()`, and
+  `scan-history.js`'s past-scan browser. Sector rendering (leaderboard rows,
+  per-scan reports, the Atom feed) verified byte-identical to pre-merge output.
+  Completes the cohort unification (PRs 1–5). Spec:
+  `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-01-cohort-unification-design.md`.
+  *(2026-08-04)*
+
 - **Cohort unification PR 3 — legacy theme schema retired** — `save_theme_scan`
   no longer dual-writes; the `theme_scores`/`theme_signals`/
   `theme_sentiment_signals` tables are gone from `_DDL_STATEMENTS`,

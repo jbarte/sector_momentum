@@ -56,7 +56,7 @@ def test_footer_has_methodology_link():
 
 
 def test_all_pages_include_methodology_partial():
-    for page in ["index.html.j2", "themes.html.j2", "sentiment.html.j2"]:
+    for page in ["index.html.j2", "sentiment.html.j2"]:
         src = (_TPL_DIR / page).read_text(encoding="utf-8")
         assert '_methodology.html.j2' in src, page
 
