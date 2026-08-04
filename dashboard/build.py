@@ -305,12 +305,24 @@ def main() -> None:
     with open(project_root / "config/universe.yaml") as _fh:
         _universe = _yaml.safe_load(_fh)
 
+    # Sector-scoped view of the widened all_scores_df (US + EU only, no
+    # THEME). Global Constraint 2 requires sector rendering to stay
+    # undisturbed by the cohort-unification widening — reports, the Atom
+    # feed and the scan index are sector-only surfaces, so they must keep
+    # reading a US/EU frame even though all_scores_df itself now spans all
+    # three cohorts. Regions sourced from cohorts(_universe) (no themes_cfg)
+    # rather than a literal, so this follows config the way the rest of
+    # cohort-unification does — see src/cohorts.py.
+    _sector_cohorts = cohorts(_universe)
+    _sector_regions = tuple(c.region for c in _sector_cohorts)
+    sector_scores_df = all_scores_df[all_scores_df["region"].isin(_sector_regions)].copy()
+
     logger.info("Building scan index + per-scan reports …")
-    scan_index = build_scan_index(all_scores_df)
+    scan_index = build_scan_index(sector_scores_df)
     active_scan_id = lb_scan_id if lb_scan_id is not None else (
         scan_index[0]["scan_id"] if scan_index else None
     )
-    _generate_scan_reports(all_scores_df, out_dir / "reports", cohorts(_universe))
+    _generate_scan_reports(sector_scores_df, out_dir / "reports", _sector_cohorts)
 
     with open(project_root / "config/weights.yaml") as _fh:
         _weights = _yaml.safe_load(_fh)
@@ -505,7 +517,7 @@ def main() -> None:
 
     # 6. Atom feed
     logger.info("Building Atom feed …")
-    feed_entries = build_feed_entries(all_scores_df, n_entries=30)
+    feed_entries = build_feed_entries(sector_scores_df, n_entries=30)
     dashboard_url = "https://jbarte.github.io/sector_momentum/"
     feed_url = dashboard_url + "feed.xml"
 
