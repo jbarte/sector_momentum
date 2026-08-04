@@ -7,6 +7,8 @@ string, producing `var X = ;` — a syntax error that kills ALL interactivity
 """
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -743,3 +745,55 @@ def test_scan_history_does_not_dump_unknown_regions_into_us():
 def test_auth_js_region_labels_are_not_hardcoded():
     src = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
     assert '[["US", "US Sectors"], ["EU", "EU Sectors"]]' not in src
+
+
+# ---------------------------------------------------------------------------
+# positions.js — itemForRow row classification (theme star-toggle corruption)
+# ---------------------------------------------------------------------------
+
+def _extract_item_for_row_js():
+    """Pull the itemForRow() function body verbatim out of positions.js so the
+    test executes the real production code, not a re-implementation of it."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/positions.js").read_text()
+    match = re.search(r"function itemForRow\(tr\) \{.*?\n  \}", src, re.S)
+    assert match, "itemForRow() not found in dashboard/assets/positions.js"
+    return match.group(0)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_item_for_row_classifies_by_region_not_dataset_shape():
+    """Regression for the theme-star corruption bug: itemForRow must key off
+    data-region === "THEME", not off which of data-sector/data-theme happens
+    to be present on the row. auth.js's live-upgrade path (renderLatestRows)
+    sets tr.dataset.sector on EVERY rebuilt row, including THEME ones, so a
+    classifier keyed on "has data-sector" misfiled themes as
+    item_type="sector", region="THEME" — silently breaking held-theme exit
+    alerts and orphaning positions written by the old themes.html.j2 (which
+    keyed themes as item_type="theme", region="")."""
+    fn_src = _extract_item_for_row_js()
+    script = f"""
+        {fn_src}
+        const cases = [
+          // Live-upgraded THEME row: auth.js sets data-sector, not data-theme.
+          {{ dataset: {{ region: "THEME", sector: "Space" }} }},
+          // Static (pre-login) THEME row: index.html.j2 also sets data-sector.
+          {{ dataset: {{ region: "THEME", sector: "Space" }} }},
+          // Legacy markup shape (old deleted themes.html.j2): only data-theme set.
+          {{ dataset: {{ region: "THEME", theme: "Space" }} }},
+          // Ordinary sector row must still classify as a sector.
+          {{ dataset: {{ region: "US", sector: "Energy" }} }},
+          {{ dataset: {{ region: "EU", sector: "Banks" }} }},
+          // Region header / breakdown row: neither identity attribute set.
+          {{ dataset: {{}} }},
+        ];
+        process.stdout.write(JSON.stringify(cases.map(itemForRow)));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    results = json.loads(res.stdout)
+
+    assert results[0] == {"item_type": "theme", "region": "", "name": "Space"}
+    assert results[1] == {"item_type": "theme", "region": "", "name": "Space"}
+    assert results[2] == {"item_type": "theme", "region": "", "name": "Space"}
+    assert results[3] == {"item_type": "sector", "region": "US", "name": "Energy"}
+    assert results[4] == {"item_type": "sector", "region": "EU", "name": "Banks"}
+    assert results[5] is None

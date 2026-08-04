@@ -185,7 +185,7 @@
           <td colspan="10">{{ cohort.label }}</td>
         </tr>
         {% for row in region_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"
             data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
             data-rank="{{ row.rank }}"

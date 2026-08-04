@@ -16,10 +16,19 @@
     return itemType + "|" + region + "|" + name;
   }
 
-  // Row identity: sector rows carry data-region + data-sector (from auth.js);
-  // theme rows carry data-theme. Anything else (region headers, breakdown
-  // rows) yields null and is skipped.
+  // Row identity: classify by cohort (data-region), not by which name
+  // attribute happens to be present. Rows in the THEME cohort are themes
+  // regardless of whether data-sector or the legacy data-theme is set;
+  // everything else is a sector keyed by its region. Both the static build
+  // (index.html.j2) and the live-upgrade rebuild (auth.js) set data-region
+  // + data-sector on every row, including THEME ones — data-theme only
+  // exists as a fallback for any pre-unification markup that still sets it.
+  // Anything else (region headers, breakdown rows) yields null and is
+  // skipped.
   function itemForRow(tr) {
+    if (tr.dataset.region === "THEME") {
+      return { item_type: "theme", region: "", name: tr.dataset.sector || tr.dataset.theme };
+    }
     if (tr.dataset.sector) {
       return { item_type: "sector", region: tr.dataset.region || "", name: tr.dataset.sector };
     }
