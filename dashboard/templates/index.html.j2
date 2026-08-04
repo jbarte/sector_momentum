@@ -62,6 +62,15 @@
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <div class="utility-row">
     <div class="filter-bar" id="leaderboard-filter-bar">
+      <!-- Cohort chip labels come from config (cohort.label), not data-i18n
+           keys — a deliberate departure from the other filter groups below,
+           which are static UI copy. -->
+      <div class="filter-group" role="group" aria-label="Cohort">
+        {% for cohort in cohort_list %}
+        <button type="button" class="filter-chip" data-filter-group="cohort"
+                data-filter-value="{{ cohort.region }}" aria-pressed="false">{{ cohort.label }}</button>
+        {% endfor %}
+      </div>
       <div class="filter-group" role="group" aria-label="Setup">
         <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Entry</button>
         <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false" data-i18n="filter_exit">▼ Exit</button>
@@ -153,15 +162,13 @@
         </tr>
       </thead>
       <tbody>
-        {% for region_label, region_rows in [("US Sectors", us_leaderboard_rows), ("EU Sectors", eu_leaderboard_rows)] %}
+        {% for cohort, region_rows in grouped_rows %}
         {% if region_rows %}
         <tr class="region-header-row">
-          <td colspan="10">{{ region_label }}</td>
+          <td colspan="10">{{ cohort.label }}</td>
         </tr>
         {% for row in region_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}"
-            data-setup="{{ row.setup or '' }}"
-            data-trend="{{ row.trajectory_state }}"
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"
             data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
             data-rank="{{ row.rank }}"
@@ -190,7 +197,7 @@
         {% endfor %}
         {% endif %}
         {% endfor %}
-        {% if not us_leaderboard_rows and not eu_leaderboard_rows %}
+        {% if not has_any_rows %}
         <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
@@ -522,7 +529,7 @@ var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
 
 // ----- Leaderboard filtering -----
 // Visibility-only: filters decide which rows show, sortTable decides order.
-var _filterState = { setup: [], trend: [], thresholds: [] };
+var _filterState = { cohort: [], setup: [], trend: [], thresholds: [] };
 
 var _TREND_GROUPS = {
   rising:  ['up', 'strong_up'],
@@ -540,8 +547,13 @@ function _filterLang() {
 }
 
 function _filterAnyActive() {
-  return !!(_filterState.setup.length || _filterState.trend.length
-            || _filterState.thresholds.length);
+  return !!(_filterState.cohort.length || _filterState.setup.length
+            || _filterState.trend.length || _filterState.thresholds.length);
+}
+
+function _matchesCohort(r) {
+  if (!_filterState.cohort.length) return true;
+  return _filterState.cohort.indexOf(r.dataset.region || '') !== -1;
 }
 
 function _matchesSetup(r) {
@@ -614,7 +626,7 @@ function applyFilters() {
   var rows = tbody.querySelectorAll('tr.leaderboard-row');
   var shown = 0;
   Array.prototype.forEach.call(rows, function (r) {
-    var ok = _matchesSetup(r) && _matchesTrend(r) && _matchesThresholds(r);
+    var ok = _matchesCohort(r) && _matchesSetup(r) && _matchesTrend(r) && _matchesThresholds(r);
     r.style.display = ok ? '' : 'none';
     if (ok) { shown++; } else { _collapseBreakdown(r.dataset.sectorId); }
   });
@@ -627,7 +639,7 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  _filterState = { setup: [], trend: [], thresholds: [] };
+  _filterState = { cohort: [], setup: [], trend: [], thresholds: [] };
   var chips = document.querySelectorAll('#leaderboard-filter-bar .filter-chip');
   Array.prototype.forEach.call(chips, function (c) {
     c.classList.remove('active');

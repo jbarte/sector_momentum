@@ -461,6 +461,7 @@ def main() -> None:
         "eu_leaderboard_rows": eu_leaderboard_rows,
         "cohort_list": cohort_list,
         "grouped_rows": grouped_rows,
+        "has_any_rows": any(rows for _, rows in grouped_rows),
         "plotly_bundle": plotly_bundle_rel,
         "lag_banner_date": lag_banner_date,
     }

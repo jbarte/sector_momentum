@@ -27,6 +27,20 @@ from dashboard.build import (
     _safe_float,
     _render,
 )
+from src.cohorts import Cohort
+
+
+def _grouped_rows_for(rows):
+    """Group already-built leaderboard row dicts by region into the
+    (Cohort, [row_dict]) shape build.py's `grouped_rows` context var takes."""
+    by_region = {}
+    for r in rows:
+        by_region.setdefault(r["region"], []).append(r)
+    labels = {"US": "US Sectors", "EU": "EU Sectors", "THEME": "Themes"}
+    return [
+        (Cohort(region=region, label=labels.get(region, region), benchmark="", instruments={}), rs)
+        for region, rs in by_region.items()
+    ]
 
 _TEMPLATE = Path(__file__).parent.parent / "dashboard" / "templates" / "index.html.j2"
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -329,10 +343,13 @@ def test_built_html_has_no_composite_toggle(tmp_path):
         r["breakdown_html"] = "<div>PANEL</div>"
 
     out = tmp_path / "index.html"
+    grouped_rows = _grouped_rows_for(lb_rows)
     _render(_TEMPLATE, out, dict(
         scan_date=scan_date, leaderboard_rows=lb_rows,
         us_leaderboard_rows=[r for r in lb_rows if r["region"] == "US"],
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
+        cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
+        has_any_rows=any(rs for _, rs in grouped_rows),
         rrg_data_json="{}", drilldown_data="{}", sector_keys=[], movers_json="{}",
         history_json="{}", sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
@@ -381,10 +398,13 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
         )
 
     out = tmp_path / "index.html"
+    grouped_rows = _grouped_rows_for(lb_rows)
     _render(_TEMPLATE, out, dict(
         scan_date=scan_date, leaderboard_rows=lb_rows,
         us_leaderboard_rows=[r for r in lb_rows if r["region"] == "US"],
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
+        cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
+        has_any_rows=any(rs for _, rs in grouped_rows),
         rrg_data_json=_make_mock_plotly_json(), drilldown_data=_json.dumps({}),
         sector_keys=[], movers_json=_make_mock_plotly_json(),
         history_json=_make_mock_plotly_json(),
