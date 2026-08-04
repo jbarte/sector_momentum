@@ -429,6 +429,12 @@
 <script>
 {% include '_tabs.js.j2' %}
 
+// Ordered cohort regions, from config via src/cohorts.py. Everything that
+// regroups leaderboard rows must iterate THIS rather than a literal
+// ["US","EU"] — a hardcoded pair silently misfiles THEME rows into the US
+// group and strands the Themes header.
+var COHORT_REGIONS = [{% for c in cohort_list %}"{{ c.region }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+
 // ----- Plotly data (injected by build.py) -----
 var RRG_DATA    = {{ rrg_data_json | js_json }};
 var MOVERS_DATA = {{ movers_json | js_json }};
@@ -718,13 +724,15 @@ function sortTable(col) {
 
   // Re-append region headers then sorted rows within each region
   var regionHeaders = Array.from(tbody.querySelectorAll('tr.region-header-row'));
-  var groups = { US: [], EU: [] };
+  var groups = {};
+  COHORT_REGIONS.forEach(function(region) { groups[region] = []; });
   rows.forEach(function(r) {
     var key = (r.dataset.sectorKey || '').split('|')[0];
+    // No fallback bucket: a row whose region is not a configured cohort is
+    // skipped rather than misfiled under another cohort's header.
     if (groups[key]) { groups[key].push(r); }
-    else { groups.US.push(r); }
   });
-  ['US', 'EU'].forEach(function(region, idx) {
+  COHORT_REGIONS.forEach(function(region, idx) {
     if (regionHeaders[idx]) { tbody.appendChild(regionHeaders[idx]); }
     groups[region].forEach(function(r) {
       tbody.appendChild(r);
@@ -827,21 +835,22 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   function sortVisibleByRank(rows, scored, tbody) {
     var regionHeaders = Array.prototype.slice.call(
       tbody.querySelectorAll('tr.region-header-row'));
-    var groups = { US: [], EU: [] };
+    var groups = {};
+    COHORT_REGIONS.forEach(function (region) { groups[region] = []; });
     rows.forEach(function (tr) {
       var key = tr.getAttribute("data-sector-key") || "";
       var region = key.split("|")[0];
+      // No fallback bucket — see the note on COHORT_REGIONS.
       if (groups[region]) { groups[region].push(tr); }
-      else { groups.US.push(tr); }
     });
-    ["US", "EU"].forEach(function (region, idx) {
+    COHORT_REGIONS.forEach(function (region) {
       groups[region].sort(function (a, b) {
         var ra = scored[a.getAttribute("data-sector-key")];
         var rb = scored[b.getAttribute("data-sector-key")];
         return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
       });
     });
-    ["US", "EU"].forEach(function (region, idx) {
+    COHORT_REGIONS.forEach(function (region, idx) {
       if (regionHeaders[idx]) { tbody.appendChild(regionHeaders[idx]); }
       groups[region].forEach(function (tr) {
         tbody.appendChild(tr);
