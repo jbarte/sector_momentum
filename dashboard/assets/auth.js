@@ -142,8 +142,18 @@
     Array.prototype.forEach.call(tbody.querySelectorAll(".breakdown-row"),
       function (r) { bdRows[r.id] = r; });
     tbody.innerHTML = "";
-    [["US", "US Sectors"], ["EU", "EU Sectors"]].forEach(function (pair) {
-      var region = pair[0], label = pair[1];
+    // window.COHORTS (injected by build.py from src/cohorts.py) is the
+    // single source of truth for which regions exist and their display
+    // labels — v_recent_scores has no region filter, so THEME rows are
+    // already in `rows`/`byRegion` above; this list is what decides
+    // whether they get their own group. Fall back to the legacy US/EU
+    // pair so this file stays safe on a page that doesn't define it
+    // (e.g. sentiment.html).
+    var cohorts = (window.COHORTS && window.COHORTS.length)
+      ? window.COHORTS
+      : [{ region: "US", label: "US Sectors" }, { region: "EU", label: "EU Sectors" }];
+    cohorts.forEach(function (cohort) {
+      var region = cohort.region, label = cohort.label;
       var list = byRegion[region] || [];
       if (!list.length) return;
       list.sort(function (a, b) { return a.rank - b.rank; });

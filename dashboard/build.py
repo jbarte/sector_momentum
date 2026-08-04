@@ -400,6 +400,14 @@ def main() -> None:
     eu_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "EU"]
 
     cohort_list = cohorts(_universe, _themes_cfg)
+    # {region, label} pairs for JS consumers that need the human-readable
+    # label alongside the region code (COHORT_REGIONS in index.html.j2 only
+    # carries the bare region strings — see the comment there for why that
+    # shape stays as-is rather than being widened in place).
+    import json as _json
+    cohorts_json = _json.dumps(
+        [{"region": c.region, "label": c.label} for c in cohort_list]
+    )
     grouped_rows = [
         (c, [r for r in leaderboard_rows if r["region"] == c.region])
         for c in cohort_list
@@ -466,6 +474,7 @@ def main() -> None:
         "us_leaderboard_rows": us_leaderboard_rows,
         "eu_leaderboard_rows": eu_leaderboard_rows,
         "cohort_list": cohort_list,
+        "cohorts_json": cohorts_json,
         "grouped_rows": grouped_rows,
         "has_any_rows": any(rows for _, rows in grouped_rows),
         "plotly_bundle": plotly_bundle_rel,

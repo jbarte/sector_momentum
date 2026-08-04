@@ -452,6 +452,14 @@
 // group and strands the Themes header.
 var COHORT_REGIONS = [{% for c in cohort_list %}"{{ c.region }}"{% if not loop.last %}, {% endif %}{% endfor %}];
 
+// {region, label} pairs — a companion to COHORT_REGIONS rather than a
+// widened version of it. COHORT_REGIONS is consumed in many places above
+// as a plain array of region strings (`.forEach(function(region) {...})`);
+// changing its element shape would break every one of those call sites.
+// External assets (auth.js, scan-history.js) that also need the
+// human-readable label read this instead.
+var COHORTS = {{ cohorts_json | js_json }};   // [{region, label}, ...]
+
 // ----- Plotly data (injected by build.py) -----
 // COHORT_CHARTS is keyed by cohort region ("US"/"EU"/"THEME"); each entry
 // holds that cohort's own rrg/movers/history/drilldown figures plus the

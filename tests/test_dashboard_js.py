@@ -206,7 +206,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohort_charts_json=json.dumps({}),
+            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
@@ -265,7 +265,7 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohort_charts_json=json.dumps({}),
+            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
@@ -305,7 +305,7 @@ def test_history_tab_has_scan_index(tmp_path):
     _render(_TEMPLATE, out, dict(
         scan_date="2026-06-02 06:00 UTC", active_scan_id=2, scan_index=scan_index,
         leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-        cohort_list=[], cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
+        cohort_list=[], cohorts_json=_json.dumps([]), cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
@@ -342,6 +342,7 @@ def test_built_html_has_no_composite_toggle(tmp_path):
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
         cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
         has_any_rows=any(rs for _, rs in grouped_rows),
+        cohorts_json=_json.dumps([]),
         cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
@@ -396,6 +397,7 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
         cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
         has_any_rows=any(rs for _, rs in grouped_rows),
+        cohorts_json=_json.dumps([]),
         cohort_charts_json=_json.dumps({}),
         sentiment_scatter_json=_make_mock_plotly_json(),
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
@@ -621,7 +623,7 @@ def test_scan_history_json_in_rendered_output(tmp_path):
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohort_charts_json=json.dumps({}),
+            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),
@@ -664,7 +666,7 @@ def test_scan_digest_markup_in_rendered_output(tmp_path):
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohort_charts_json=json.dumps({}),
+            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),
@@ -723,3 +725,20 @@ def test_cohort_charts_context_is_keyed_by_cohort():
     assert set(charts) >= {"US", "EU", "THEME"}
     for region in ("US", "EU", "THEME"):
         assert {"rrg", "movers", "history"} <= set(charts[region])
+
+
+# ---------------------------------------------------------------------------
+# Cohort-aware JS assets (Task 4 — auth.js live upgrade + scan-history.js)
+# ---------------------------------------------------------------------------
+
+def test_scan_history_does_not_dump_unknown_regions_into_us():
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    assert "regionGroups.US.push" not in src, (
+        "unknown regions fall into the US group — a THEME row would render as a sector"
+    )
+    assert "{ US: [], EU: [] }" not in src, "region groups are still hardcoded"
+
+
+def test_auth_js_region_labels_are_not_hardcoded():
+    src = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    assert '[["US", "US Sectors"], ["EU", "EU Sectors"]]' not in src
