@@ -215,8 +215,13 @@ def _build_sentiment_scatter_figure(history_df) -> str:
     solid = df[has_sentiment]
     faded = df[~has_sentiment]
 
-    # THEME is included so the shared builder also renders the theme cohort's
-    # solid points (region="THEME"); sector history never contains THEME rows.
+    # The Sentiment page has never shown themes — its FinBERT signal table
+    # stays SECTOR_REGIONS-scoped, and dashboard/sentiment.py filters the
+    # history_df it passes into this builder down to sector regions before
+    # calling it (see _sector_scoped_history), so a THEME row should never
+    # actually reach here. The THEME entry below is defensive only: this is
+    # a shared builder, not sentiment-page-specific, so it stays correct if
+    # some other, unfiltered caller ever feeds it a THEME-inclusive frame.
     region_colors = {"US": "#A55A3C", "EU": "#5A6F49", "THEME": "#7A5B8E"}
 
     fig = go.Figure()
