@@ -69,9 +69,12 @@ market history, so the best cell will overstate its own edge. Prefer a broad
 plateau of good-and-similar cells over the single best point, and sanity-check
 the winner on a held-out period before adopting it.
 
-Depends on nothing, but should be sequenced *after* any sectors→themes universe
-decision — the sweet spot for a 13-theme universe need not match an
-11+14-sector one.
+Depends on nothing, but should be sequenced *after* the sectors→themes
+retirement completes — the sweet spot for the 20-theme universe need not match
+an 11+14-sector one. Note the universe expanded from 13 to 20 on 2026-08-05 and
+cohort mean pairwise correlation fell 0.52 → 0.375, which changes how much
+diversification a given `top_n` actually buys; re-derive, don't reuse old
+intuitions.
 
 ## Deferred UI/code polish (small, grouped sweep)
 
@@ -147,6 +150,26 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Theme universe expanded to 20 — correlation diversifiers** — the 13-theme
+  cohort averaged 0.52 pairwise correlation, three times the 0.17 of the 25
+  sectors it is due to replace, with no defensive member and four expressions of
+  the same AI trade at 0.72–0.88. Since momentum rotation is relative, "top 3 of
+  13" was selecting between correlated versions of one factor. Screened 28 liquid
+  US-listed thematic/industry ETFs by their effect on cohort mean correlation and
+  added the seven best: Insurance (IAK), Healthcare Providers (IHF), Energy
+  Producers (IXC), Gold & Precious Metals Miners (GDX), Shipping (BOAT), Food &
+  Beverage (PBJ), Medical Devices (IHI). Cohort mean falls 0.519 → 0.375.
+  Config-only — `src/cohorts.py` already derives the cohort from YAML. Dropped
+  GLD (commodity, redundant with GDX) and FCG (0.91 with energy) from the greedy
+  output; used IXC rather than XLE because XLE is already the US Energy sector
+  instrument and a cross-cohort duplicate ticker makes the correlation heatmap
+  fail silently. New `tests/test_themes_config.py` guards that and four other
+  config invariants against the shipped file. Spec:
+  `sector_momentum-notes/specs/2026-08-05-retire-sector-cohort-design.md` (PR A
+  of 3). *Note: the 7 new themes only appear on the dashboard after the next
+  scan scores them, and every theme's z-scored composite steps discontinuously
+  at that scan because the cohort grew from 13 to 20.*
 
 - **Cohort unification PR 5 — one page for every cohort** — `themes.html.j2` is
   deleted and the main page renders all three cohorts (US 11, EU 14, THEME 13).
