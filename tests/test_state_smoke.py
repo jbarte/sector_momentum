@@ -422,7 +422,13 @@ def test_same_day_rerun_leaves_one_set_of_theme_rows(db_conn):
         save_theme_scan(db_conn, scan_id, theme_scores, theme_signals)
 
     rows = get_scan_history(db_conn, n_scans=None, regions=(THEME_REGION,))
-    assert len(rows) == 1, f"expected 1 theme row after re-run, got {len(rows)}"
+    # save_scan writes _make_scan_data's members and save_theme_scan adds
+    # "Space", so one clean set is len(scores_df) + 1. The point of the test is
+    # that a same-day re-run REPLACES: two passes must not double any of them.
+    assert len(rows) == len(scores_df) + 1, \
+        f"expected one set of rows after re-run, got {len(rows)}"
+    assert (rows["gics_sector"] == "Space").sum() == 1, "theme row duplicated"
+    assert not rows["gics_sector"].duplicated().any(), "rows duplicated on re-run"
 
 
 @skipif_no_db
