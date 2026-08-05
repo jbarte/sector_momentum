@@ -43,10 +43,8 @@ logging.basicConfig(
 logger = logging.getLogger("scan")
 
 from src.data.prices import fetch_prices
-from src.data.constituents import fetch_sp500_constituents
-from src.signals.breadth import compute_constituent_breadth
 from src.backup import backup_to_storage
-from src.pipeline import SIGNAL_COLUMNS, build_signals_rows, build_theme_signals_rows
+from src.pipeline import SIGNAL_COLUMNS, build_theme_signals_rows
 
 # ---------------------------------------------------------------------------
 # Pipeline
@@ -85,34 +83,9 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _load_config(universe_path: str = "config/universe.yaml") -> dict:
-    with open(universe_path, "r") as fh:
+def _load_config(path: str) -> dict:
+    with open(path, "r") as fh:
         return yaml.safe_load(fh)
-
-
-def _inject_constituent_breadth(rows: list[dict], start: str, end: str) -> None:
-    """Mutate rows in place: set breadth_above_50dma to true constituent breadth
-    for US sectors (NaN if unavailable/under-covered), and NaN for EU sectors.
-    Fully non-fatal — any failure leaves all breadth values NaN."""
-    nan = float("nan")
-    breadth: dict[str, float] = {}
-    try:
-        constituents = fetch_sp500_constituents()
-        if constituents:
-            all_tickers = sorted({t for ts in constituents.values() for t in ts})
-            logger.info("Fetching prices for %d S&P 500 constituents …", len(all_tickers))
-            cons_prices = fetch_prices(tickers=all_tickers, start=start, end=end)
-            breadth = compute_constituent_breadth(cons_prices, constituents)
-        else:
-            logger.warning("Constituent breadth unavailable — leaving NaN")
-    except Exception as exc:
-        logger.warning("Constituent breadth step failed (%s) — leaving NaN", exc)
-
-    for row in rows:
-        if row.get("region") == "US":
-            row["breadth_above_50dma"] = breadth.get(f"US|{row['gics_sector']}", nan)
-        else:
-            row["breadth_above_50dma"] = nan
 
 
 def _build_long_signals_df(rows: list[dict], z_wide_df=None) -> pd.DataFrame:
@@ -177,7 +150,7 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
         print("  No sectors were scored.")
         return
 
-    for region in ("US", "EU"):
+    for region in scored_df_for_db["region"].drop_duplicates():
         region_df = scored_df_for_db[scored_df_for_db["region"] == region]
         if region_df.empty:
             continue
@@ -200,7 +173,7 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
     print(f"\n{'='*60}\n")
 
 
-def _compute_finbert_sentiment(wide_df, universe, parent_map, args):
+def _compute_finbert_sentiment(wide_df, themes_cfg, args):
     """Compute FinBERT news-sentiment z-scores from GDELT headlines.
 
     Returns (sentiment_score, sentiment_signals_df, finbert_health). Non-fatal:
@@ -222,35 +195,36 @@ def _compute_finbert_sentiment(wide_df, universe, parent_map, args):
     logger.info("Fetching GDELT headlines + FinBERT scoring …")
     try:
         from src.data.news_sentiment import (
-            fetch_news_headlines, score_headlines, zscore_polarity,
-            apply_polarity_to_keys, build_news_signal_rows,
+            fetch_theme_headlines, score_headlines,
+            zscore_polarity, build_theme_news_signal_rows,
         )
-        _headlines = fetch_news_headlines()
+        _headlines = fetch_theme_headlines(themes_cfg)
         _total_articles = sum(len(h) for h in _headlines.values())
-        logger.info("GDELT: %d headlines across %d sectors",
+        logger.info("GDELT: %d headlines across %d themes",
                     _total_articles, len(_headlines))
 
         _finbert_scores = score_headlines(_headlines)
         _finbert_z = zscore_polarity(_finbert_scores)
 
         _live_finbert = sum(1 for v in _finbert_z.values() if not math.isnan(v))
-        logger.info("FinBERT: %d/%d sectors scored", _live_finbert, len(_finbert_z))
+        logger.info("FinBERT: %d/%d themes scored", _live_finbert, len(_finbert_z))
 
         finbert_health["finbert_scored"] = _live_finbert
         finbert_health["finbert_total"] = len(_finbert_z)
         finbert_health["gdelt_articles"] = _total_articles
 
+        # Themes are keyed directly by name — there is no parent/sub-sector
+        # rollup to resolve, which is what apply_polarity_to_keys existed for.
         if _live_finbert >= 2:
-            sentiment_score = apply_polarity_to_keys(
-                sentiment_score, _finbert_z, parent_map,
-            )
+            for key in wide_df.index:
+                z = _finbert_z.get(key.split("|", 1)[1])
+                if z is not None and not math.isnan(z):
+                    sentiment_score[key] = z
             logger.info("sentiment_score overwritten with FinBERT polarity z-scores")
 
-        _finbert_signal_rows = build_news_signal_rows(
-            _finbert_scores, universe, parent_map,
-        )
         sentiment_signals_df = pd.concat(
-            [sentiment_signals_df, pd.DataFrame(_finbert_signal_rows)],
+            [sentiment_signals_df,
+             pd.DataFrame(build_theme_news_signal_rows(_finbert_scores))],
             ignore_index=True,
         )
     except Exception as exc:
@@ -289,83 +263,6 @@ def _persist_scan(conn, run_at, long_signals_df, scored_with_deltas,
     return scan_id
 
 
-def _run_themes_track(conn, scan_id, start_date, end_date, signal_params, args):
-    """Score the thematic-ETF universe vs a global benchmark and persist to the
-    theme tables under scan_id. Fully non-fatal — a themes failure must not
-    affect the sector scan."""
-    from src.data.prices import fetch_prices
-    from src.scoring import score_all, zscore_cross_section
-    from src.state import save_theme_scan
-    try:
-        with open("config/themes.yaml", "r") as _fh:
-            _themes_cfg = yaml.safe_load(_fh) or {}
-        _theme_tickers = sorted({
-            *(cfg["ticker"] if isinstance(cfg, dict) else cfg
-              for cfg in _themes_cfg.get("themes", {}).values()),
-            _themes_cfg.get("benchmark", "ACWI"), "SPY",
-        })
-        _theme_prices = fetch_prices(
-            tickers=_theme_tickers, start=str(start_date), end=str(end_date),
-        )
-        _theme_rows = build_theme_signals_rows(_themes_cfg, _theme_prices, signal_params=signal_params)
-        if _theme_rows:
-            _theme_wide = pd.DataFrame(_theme_rows).set_index("sector_key")[SIGNAL_COLUMNS]
-
-            _theme_sentiment = pd.Series(float("nan"), index=_theme_wide.index, dtype=float)
-            _theme_sent_signals_df = None
-
-            if not args.no_finbert:
-                try:
-                    from src.data.news_sentiment import (
-                        fetch_theme_headlines, score_headlines,
-                        zscore_polarity as finbert_zscore,
-                        build_theme_news_signal_rows,
-                    )
-                    _th_headlines = fetch_theme_headlines(_themes_cfg)
-                    _th_total = sum(len(h) for h in _th_headlines.values())
-                    logger.info("GDELT themes: %d headlines across %d themes",
-                                _th_total, len(_th_headlines))
-
-                    _th_fb_scores = score_headlines(_th_headlines)
-                    _th_fb_z = finbert_zscore(_th_fb_scores)
-
-                    _th_live = sum(1 for v in _th_fb_z.values() if not math.isnan(v))
-                    logger.info("FinBERT themes: %d/%d themes scored", _th_live, len(_th_fb_z))
-
-                    if _th_live >= 2:
-                        for key in _theme_wide.index:
-                            theme_name = key.split("|", 1)[1]
-                            z = _th_fb_z.get(theme_name)
-                            if z is not None and not math.isnan(z):
-                                _theme_sentiment[key] = z
-
-                    _theme_sent_signals_df = pd.DataFrame(
-                        build_theme_news_signal_rows(_th_fb_scores)
-                    )
-                except Exception as exc:
-                    logger.warning("Theme FinBERT failed (%s) — theme sentiment stays NULL", exc)
-
-            _theme_scored = score_all(
-                _theme_wide,
-                sentiment_score=_theme_sentiment,
-                blend_sentiment=False,
-            )
-            _theme_scores_df = _build_scored_df_for_db(_theme_scored)
-            _theme_z = zscore_cross_section(_theme_wide)
-            _theme_signals_df = _build_long_signals_df(_theme_rows, z_wide_df=_theme_z)
-            save_theme_scan(
-                conn, scan_id, _theme_scores_df, _theme_signals_df,
-                sentiment_signals_df=_theme_sent_signals_df,
-            )
-            logger.info("Themes: scored and saved %d themes", len(_theme_rows))
-        else:
-            logger.warning("Themes: no themes with price data — skipping")
-    except FileNotFoundError:
-        logger.info("Themes: config/themes.yaml not found — skipping themes track")
-    except Exception as exc:  # non-fatal
-        logger.warning("Themes pass failed (%s) — sector scan unaffected", exc)
-
-
 def _run_dashboard_build():
     """Run dashboard/build.py as a subprocess. Non-fatal."""
     try:
@@ -398,45 +295,39 @@ def _send_threshold_alerts(conn, scan_date):
 def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     _t0 = time.time()
-    from src.data.prices import fetch_prices, load_universe
+    from src.data.prices import fetch_prices
     from src.scoring import score_all, zscore_cross_section
-    from src.sector_map import load_parent_map
     from src.state import init_db, load_last_scan, compute_deltas
-    from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
+    from src.report import build_ranked_table, build_movers, write_report
     from src.cohorts import cohorts
 
     # 1. Load config
-    logger.info("Loading universe config …")
-    universe = load_universe("config/universe.yaml")
-    _parent_map = load_parent_map()
+    logger.info("Loading config …")
+    scan_cfg = _load_config("config/universe.yaml")
+    themes_cfg = _load_config("config/themes.yaml")
     weights_cfg = _load_config("config/weights.yaml")
     signal_params = weights_cfg.get("signal_params", {})
+    cohort_list = cohorts(themes_cfg)
+    if not cohort_list:
+        logger.error("No cohorts configured in config/themes.yaml — aborting.")
+        return 1
 
     # 2. Determine date range
-    lookback_days = universe.get("price_lookback_days", 252)
+    lookback_days = scan_cfg.get("price_lookback_days", 252)
     end_date = date.today()
     # Add a buffer to ensure we have enough trading days
     start_date = end_date - timedelta(days=int(lookback_days * 1.5))
     scan_date = end_date.strftime("%Y-%m-%d")
-    logger.info("Date range: %s → %s (lookback_days=%d)", start_date, end_date, lookback_days)
+    logger.info("Date range: %s \u2192 %s (lookback_days=%d)", start_date, end_date, lookback_days)
 
     # 3. Collect all tickers and fetch prices
-    us_sectors: dict[str, str] = universe.get("us_sectors", {})
-    eu_sectors: dict[str, str] = universe.get("eu_sectors", {})
-    us_benchmark: str = universe["us_benchmark"]
-    eu_benchmark: str = universe["eu_benchmark"]
-    all_tickers: list[str] = (
-        list(us_sectors.values())
-        + list(eu_sectors.values())
-        + [us_benchmark, eu_benchmark]
-    )
-    seen: set[str] = set()
-    unique_tickers: list[str] = []
-    for t in all_tickers:
-        if t not in seen:
-            seen.add(t)
-            unique_tickers.append(t)
-    logger.info("Fetching prices for %d tickers …", len(unique_tickers))
+    benchmark = themes_cfg.get("benchmark") or "ACWI"
+    themes: dict = themes_cfg.get("themes", {})
+    unique_tickers = sorted({
+        *(cfg["ticker"] if isinstance(cfg, dict) else cfg for cfg in themes.values()),
+        benchmark, "SPY",   # SPY is the documented benchmark fallback
+    })
+    logger.info("Fetching prices for %d tickers \u2026", len(unique_tickers))
     _price_stats: dict[str, int] = {}
     prices = fetch_prices(
         tickers=unique_tickers,
@@ -446,52 +337,58 @@ def run(args: argparse.Namespace) -> int:
     )
     logger.info("Received price data for %d / %d tickers", len(prices), len(unique_tickers))
 
-    # 4. Compute per-sector signals + coverage guard
-    logger.info("Computing signals …")
-    rows = build_signals_rows(universe, prices, signal_params=signal_params)
+    # 4. Compute per-theme signals + coverage guard
+    logger.info("Computing signals \u2026")
+    rows = build_theme_signals_rows(themes_cfg, prices, signal_params=signal_params)
     if not rows:
-        logger.error("No signal rows produced — all sectors failed. Aborting.")
+        logger.error("No signal rows produced \u2014 all themes failed. Aborting.")
         return 1
-    expected_sectors = len(universe.get("us_sectors", {})) + len(universe.get("eu_sectors", {}))
+    expected_sectors = len(themes)
     coverage = len(rows) / expected_sectors if expected_sectors else 0
     if coverage < 0.8:
         logger.error(
-            "Partial scan: only %d/%d sectors (%.0f%%) produced signals — aborting.",
+            "Partial scan: only %d/%d themes (%.0f%%) produced signals \u2014 aborting.",
             len(rows), expected_sectors, coverage * 100,
         )
         return 1
-    logger.info("Signals computed for %d sectors", len(rows))
+    logger.info("Signals computed for %d themes", len(rows))
 
-    # 5. Inject true constituent breadth (non-fatal)
-    logger.info("Computing true constituent breadth …")
-    _inject_constituent_breadth(rows, start=str(start_date), end=str(end_date))
-
-    # 6. Build wide DataFrame for scoring
+    # 5. Build wide DataFrame for scoring.
+    #    breadth_above_50dma stays in SIGNAL_COLUMNS but is always NaN: it needs
+    #    a constituent list, which themes structurally do not have. This is the
+    #    state themes have always been in \u2014 the column is kept rather than dropped
+    #    so SIGNAL_COLUMNS, weights.yaml and stored history stay stable.
     wide_df = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
 
-    # 7. FinBERT news sentiment (non-fatal)
+    # 6. FinBERT news sentiment (non-fatal)
     sentiment_score, sentiment_signals_df, _finbert_health = _compute_finbert_sentiment(
-        wide_df, universe, _parent_map, args,
+        wide_df, themes_cfg, args,
     )
 
-    # 8. Score sectors (per-region cohorts: US and EU each within their own pool)
-    logger.info("Scoring sectors …")
-    scored_parts = []
-    for region_prefix in ("US", "EU"):
-        mask = wide_df.index.str.startswith(f"{region_prefix}|")
-        region_df = wide_df[mask]
-        if region_df.empty:
+    # 7. Score. One cohort today, so one cross-sectional pool \u2014 but this stays a
+    #    per-cohort loop because composites are z-scores *within* a cohort and
+    #    must never be computed across them if a second cohort is added.
+    logger.info("Scoring \u2026")
+    scored_parts, z_parts = [], []
+    for cohort in cohort_list:
+        mask = wide_df.index.str.startswith(f"{cohort.region}|")
+        cohort_df = wide_df[mask]
+        if cohort_df.empty:
             continue
-        region_sentiment = sentiment_score[mask] if sentiment_score is not None else None
-        region_scored = score_all(
-            region_df,
+        cohort_sentiment = sentiment_score[mask] if sentiment_score is not None else None
+        scored_parts.append(score_all(
+            cohort_df,
             weights_path="config/weights.yaml",
-            sentiment_score=region_sentiment,
+            sentiment_score=cohort_sentiment,
             blend_sentiment=False,
-        )
-        scored_parts.append(region_scored)
+        ))
+        z_parts.append(zscore_cross_section(cohort_df))
+    if not scored_parts:
+        logger.error("No cohort produced scores \u2014 aborting.")
+        return 1
     scored = pd.concat(scored_parts)
-    logger.info("Scoring complete. %d sectors ranked.", len(scored))
+    z_df = pd.concat(z_parts)
+    logger.info("Scoring complete. %d items ranked.", len(scored))
 
     # 9. Connect DB + pre-run backup
     logger.info("Connecting to Supabase …")
@@ -512,14 +409,6 @@ def run(args: argparse.Namespace) -> int:
             logger.info("No prior scan found — this is the first run.")
         scored_df_for_db = _build_scored_df_for_db(scored)
         scored_with_deltas = compute_deltas(scored_df_for_db, prior_scan)
-
-        # 11. Build long-format signals for DB (per-region z-scores)
-        z_parts = []
-        for region_prefix in ("US", "EU"):
-            mask = wide_df.index.str.startswith(f"{region_prefix}|")
-            if mask.any():
-                z_parts.append(zscore_cross_section(wide_df[mask]))
-        z_df = pd.concat(z_parts)
         long_signals_df = _build_long_signals_df(rows, z_wide_df=z_df)
 
         if args.dry_run:
@@ -536,20 +425,15 @@ def run(args: argparse.Namespace) -> int:
                 sectors_expected=expected_sectors, sectors_produced=len(rows),
             )
 
-            # 13. Themes track (non-fatal)
-            _run_themes_track(conn, scan_id, start_date, end_date, signal_params, args)
-
-            # 14. Write report (non-fatal)
+            # 13. Write report (non-fatal)
             try:
                 logger.info("Writing report …")
-                ranked_table = build_ranked_table(scored_with_deltas, cohorts(themes_cfg))
+                ranked_table = build_ranked_table(scored_with_deltas, cohort_list)
                 movers = build_movers(scored_with_deltas)
-                swedish = build_swedish_overlay(scored_with_deltas)
                 report_path = write_report(
                     scan_date=scan_date,
                     ranked_table=ranked_table,
                     movers=movers,
-                    swedish=swedish,
                 )
                 logger.info("Report written to %s", report_path)
             except Exception as exc:

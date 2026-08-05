@@ -75,20 +75,13 @@ def build_theme_ticker_list(themes_cfg: dict) -> list[str]:
 
 def run(args: argparse.Namespace) -> int:
     import yaml
-    from src.data.prices import load_universe, fetch_prices
-    from src.backtest.engine import run_all, run_theme_track
+    from src.data.prices import fetch_prices
+    from src.backtest.engine import run_theme_track
     from src.backtest.results import write_results
-    from src.backtest.rotations import load_rotations, event_study
 
-    universe = load_universe("config/universe.yaml")
-    tickers = build_ticker_list(universe)
-
-    run_themes = args.themes and not args.no_themes
-    themes_cfg: dict = {}
-    if run_themes:
-        with open("config/themes.yaml") as f:
-            themes_cfg = yaml.safe_load(f) or {}
-        tickers = list(dict.fromkeys(tickers + build_theme_ticker_list(themes_cfg)))
+    with open("config/themes.yaml") as f:
+        themes_cfg = yaml.safe_load(f) or {}
+    tickers = build_theme_ticker_list(themes_cfg)
 
     end = date.today().strftime("%Y-%m-%d")
 
@@ -96,25 +89,13 @@ def run(args: argparse.Namespace) -> int:
     prices = fetch_prices(tickers=tickers, start=args.start, end=end, cache_dir=BACKTEST_CACHE)
     logger.info("Got %d / %d tickers", len(prices), len(tickers))
 
-    logger.info("Running sector tracks (top_n=%d, cost_bps=%.0f) …", args.top_n, args.cost_bps)
-    tracks = run_all(universe, prices, top_n=args.top_n, cost_bps=args.cost_bps)
-
-    # The theme track joins the same dict rather than getting its own file. Each
-    # track already carries its own top_n, benchmark and region, so the differing
-    # theme top_n survives; the dashboard keys BACKTEST_DATA by region and needs
-    # nothing else. Until this, the theme track was written to backtests_themes/
-    # and read by nothing.
-    if run_themes:
-        logger.info("Running theme track (top_n=%d, cost_bps=%.0f) …",
-                    args.theme_top_n, args.cost_bps)
-        tracks["THEME"] = run_theme_track(themes_cfg, prices,
-                                          top_n=args.theme_top_n, cost_bps=args.cost_bps)
-
+    # One track, still keyed by region in a dict: write_results and the
+    # dashboard both index by region, and a second cohort would slot in here.
+    logger.info("Running theme track (top_n=%d, cost_bps=%.0f) …",
+                args.theme_top_n, args.cost_bps)
+    tracks = {"THEME": run_theme_track(themes_cfg, prices,
+                                       top_n=args.theme_top_n, cost_bps=args.cost_bps)}
     rotations_data = []
-    if not args.no_rotations:
-        rots = load_rotations("config/rotations.yaml")
-        rotations_data = event_study(universe, prices, rots)
-        logger.info("Rotation event-study: %d/%d rotations produced", len(rotations_data), len(rots))
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 

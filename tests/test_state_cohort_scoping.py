@@ -74,12 +74,12 @@ _SECTOR_READERS = [
 # "latest scan" readers route through `_latest_scan_query`, which has no
 # leading scan-id/n_scans param — the region list is the only param.
 _SECTOR_READERS_PARAMS = [
-    ("get_scan_history", {}, (10, list(state.SECTOR_REGIONS))),
-    ("get_rrg_history", {}, (6, list(state.SECTOR_REGIONS))),
-    ("get_signals_for_latest_scan", {}, (list(state.SECTOR_REGIONS),)),
-    ("get_signals_for_scan", {"scan_id": 1}, (1, list(state.SECTOR_REGIONS))),
-    ("get_sentiment_signals_for_latest_scan", {}, (list(state.SECTOR_REGIONS),)),
-    ("load_last_scan", {}, (1, list(state.SECTOR_REGIONS))),
+    ("get_scan_history", {}, (10, list(state.DEFAULT_REGIONS))),
+    ("get_rrg_history", {}, (6, list(state.DEFAULT_REGIONS))),
+    ("get_signals_for_latest_scan", {}, (list(state.DEFAULT_REGIONS),)),
+    ("get_signals_for_scan", {"scan_id": 1}, (1, list(state.DEFAULT_REGIONS))),
+    ("get_sentiment_signals_for_latest_scan", {}, (list(state.DEFAULT_REGIONS),)),
+    ("load_last_scan", {}, (1, list(state.DEFAULT_REGIONS))),
 ]
 
 
@@ -88,7 +88,7 @@ def test_reader_defaults_to_sector_regions(name, kwargs, monkeypatch):
     seen = _capture(monkeypatch)
     getattr(state, name)(_FakeConn(), **kwargs)
     assert "region = any" in seen["q"], f"{name} is not region-scoped"
-    assert list(state.SECTOR_REGIONS) in list(seen["p"]), f"{name} lost its region params"
+    assert list(state.DEFAULT_REGIONS) in list(seen["p"]), f"{name} lost its region params"
 
 
 @pytest.mark.parametrize("name,kwargs,expected_params", _SECTOR_READERS_PARAMS)

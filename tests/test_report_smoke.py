@@ -5,7 +5,7 @@ import tempfile
 import pandas as pd
 import pytest
 
-from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
+from src.report import build_ranked_table, build_movers, write_report
 from src.cohorts import cohorts
 
 
@@ -68,21 +68,13 @@ def test_build_movers_contains_climbers(sample_scores):
     assert "Climbers" in movers_str
 
 
-def test_build_swedish_overlay_returns_string(sample_scores):
-    """build_swedish_overlay should return a non-empty string."""
-    result = build_swedish_overlay(sample_scores, top_n=3)
-    assert isinstance(result, str)
-    assert len(result) > 0
-
-
 def test_write_report_creates_file(sample_scores, sample_cohorts):
     """write_report should create a file that contains required content."""
     table = build_ranked_table(sample_scores, sample_cohorts)
     movers_str = build_movers(sample_scores)
-    swedish_str = build_swedish_overlay(sample_scores, top_n=3)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = write_report("2024-01-15", table, movers_str, swedish_str, output_dir=tmpdir)
+        path = write_report("2024-01-15", table, movers_str, output_dir=tmpdir)
         assert os.path.exists(path)
         content = open(path).read()
         assert "Sector Momentum Report" in content
