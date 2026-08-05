@@ -77,7 +77,7 @@ def run(args: argparse.Namespace) -> int:
     import yaml
     from src.data.prices import load_universe, fetch_prices
     from src.backtest.engine import run_all, run_theme_track
-    from src.backtest.results import write_results, write_theme_results
+    from src.backtest.results import write_results
     from src.backtest.rotations import load_rotations, event_study
 
     universe = load_universe("config/universe.yaml")
@@ -98,6 +98,17 @@ def run(args: argparse.Namespace) -> int:
 
     logger.info("Running sector tracks (top_n=%d, cost_bps=%.0f) …", args.top_n, args.cost_bps)
     tracks = run_all(universe, prices, top_n=args.top_n, cost_bps=args.cost_bps)
+
+    # The theme track joins the same dict rather than getting its own file. Each
+    # track already carries its own top_n, benchmark and region, so the differing
+    # theme top_n survives; the dashboard keys BACKTEST_DATA by region and needs
+    # nothing else. Until this, the theme track was written to backtests_themes/
+    # and read by nothing.
+    if run_themes:
+        logger.info("Running theme track (top_n=%d, cost_bps=%.0f) …",
+                    args.theme_top_n, args.cost_bps)
+        tracks["THEME"] = run_theme_track(themes_cfg, prices,
+                                          top_n=args.theme_top_n, cost_bps=args.cost_bps)
 
     rotations_data = []
     if not args.no_rotations:
@@ -120,20 +131,6 @@ def run(args: argparse.Namespace) -> int:
                     region, tr["start"], tr["end"], 100 * m["cagr"],
                     100 * m["benchmark_cagr"], m["sharpe"], 100 * m["max_drawdown"])
     logger.info("Wrote %s", path)
-
-    if run_themes:
-        logger.info("Running theme track (top_n=%d, cost_bps=%.0f) …", args.theme_top_n, args.cost_bps)
-        theme_track = run_theme_track(themes_cfg, prices, top_n=args.theme_top_n, cost_bps=args.cost_bps)
-        theme_path = write_theme_results(theme_track, out_dir="backtests_themes",
-                                         generated_at=generated_at, top_n=args.theme_top_n)
-        if theme_track:
-            m = theme_track["metrics"]
-            logger.info("  THEME %s→%s | strat CAGR %.1f%% vs bench %.1f%% | Sharpe %.2f | maxDD %.1f%%",
-                        theme_track["start"], theme_track["end"], 100 * m["cagr"],
-                        100 * m["benchmark_cagr"], m["sharpe"], 100 * m["max_drawdown"])
-        else:
-            logger.info("  THEME: no result (insufficient data)")
-        logger.info("Wrote %s", theme_path)
 
     return 0
 
