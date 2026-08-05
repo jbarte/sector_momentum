@@ -116,17 +116,10 @@ def _build_breakdown_html(
 
     region, sector_name = sector_key.split("|", 1)
 
-    # Ticker + benchmark from universe (or themes config for the THEME track)
-    if region == "THEME":
-        _tcfg = (themes_cfg or {}).get("themes", {}).get(sector_name)
-        ticker = (_tcfg["ticker"] if isinstance(_tcfg, dict) else _tcfg) if _tcfg else "—"
-        benchmark = (themes_cfg or {}).get("benchmark", "ACWI")
-    elif region == "US":
-        ticker = universe.get("us_sectors", {}).get(sector_name, "—")
-        benchmark = universe.get("us_benchmark", "RSP")
-    else:
-        ticker = universe.get("eu_sectors", {}).get(sector_name, "—")
-        benchmark = universe.get("eu_benchmark", "EXSA.DE")
+    # Ticker + benchmark from the themes config.
+    _tcfg = (themes_cfg or {}).get("themes", {}).get(sector_name)
+    ticker = (_tcfg["ticker"] if isinstance(_tcfg, dict) else _tcfg) if _tcfg else "—"
+    benchmark = (themes_cfg or {}).get("benchmark", "ACWI")
 
     # Weights
     data_weight  = weights.get("pillars", {}).get("data", 1.0)

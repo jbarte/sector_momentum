@@ -13,7 +13,6 @@ import time
 
 import requests
 
-from src.sector_map import parent_sector
 
 logger = logging.getLogger(__name__)
 
@@ -52,73 +51,6 @@ def _build_query(themes: list[str]) -> str:
     """Build the GDELT query string from a list of theme codes."""
     theme_clause = " OR ".join(f"theme:{t}" for t in themes)
     return f"({theme_clause}) sourcelang:english"
-
-
-def fetch_news_headlines(
-    sectors: list[str] | None = None,
-    timespan: str = "24h",
-    sleep_s: float = 20.0,
-    max_retries: int = 4,
-) -> dict[str, list[str]]:
-    """Fetch recent English headlines per GICS sector from GDELT.
-
-    Returns {sector: [headline, ...]}.  Deduplicates titles within each sector.
-    Retries on HTTP errors with exponential backoff.
-    """
-    if sectors is None:
-        sectors = list(GDELT_SECTOR_THEMES.keys())
-
-    result: dict[str, list[str]] = {}
-    for i, sector in enumerate(sectors):
-        themes = GDELT_SECTOR_THEMES[sector]
-        params = {
-            "query": _build_query(themes),
-            "mode": "ArtList",
-            "maxrecords": 250,
-            "format": "json",
-            "timespan": timespan,
-            "sort": "datedesc",
-        }
-
-        titles: list[str] = []
-        for attempt in range(max_retries):
-            try:
-                resp = requests.get(GDELT_ENDPOINT, params=params, timeout=30)
-                if resp.status_code == 429:
-                    if attempt < max_retries - 1:
-                        wait = 60 * (2 ** attempt)
-                        logger.warning("GDELT 429 for %s — backing off %ds", sector, wait)
-                        if sleep_s > 0:
-                            time.sleep(wait)
-                        continue
-                    logger.warning("GDELT 429 for %s after %d retries — skipping", sector, max_retries)
-                    break
-                resp.raise_for_status()
-                articles = resp.json().get("articles", [])
-                seen: set[str] = set()
-                for art in articles:
-                    title = art.get("title", "").strip()
-                    if title and title not in seen:
-                        seen.add(title)
-                        titles.append(title)
-                break
-            except Exception as exc:
-                if attempt < max_retries - 1:
-                    wait = 60 * (2 ** attempt)
-                    logger.warning("GDELT fetch failed for %s (%s) — retry in %ds", sector, exc, wait)
-                    if sleep_s > 0:
-                        time.sleep(wait)
-                else:
-                    logger.warning("GDELT fetch failed for %s after %d retries — skipping", sector, max_retries)
-
-        result[sector] = titles
-        if i < len(sectors) - 1 and sleep_s > 0:
-            time.sleep(sleep_s)
-
-    return result
-
-
-_finbert_pipeline = None
 
 
 def _load_finbert_pipeline():
@@ -219,56 +151,6 @@ def zscore_polarity(scores: dict[str, dict]) -> dict[str, float]:
         s: (v - mean) / std if not math.isnan(v) else float("nan")
         for s, v in raw.items()
     }
-
-
-def apply_polarity_to_keys(
-    sentiment_score: "pd.Series",
-    finbert_z: dict[str, float],
-    parent_map: dict[str, str],
-) -> "pd.Series":
-    """Overwrite per-key sentiment with FinBERT z-scores, resolving sub-sectors
-    to their GICS parent (identity fallback). Returns a copy; NaN/unscored
-    parents leave the existing value untouched."""
-    out = sentiment_score.copy()
-    for key in out.index:
-        _, _, sector = key.partition("|")
-        parent = parent_sector(sector, parent_map)
-        z = finbert_z.get(parent)
-        if z is not None and not math.isnan(z):
-            out[key] = z
-    return out
-
-
-def build_news_signal_rows(
-    finbert_scores: dict[str, dict],
-    universe: dict,
-    parent_map: dict[str, str],
-) -> list[dict]:
-    """Info-only news signal rows keyed by the universe's actual sector names.
-    Sub-sectors inherit their GICS parent's numbers; sectors whose parent has
-    no headline scores emit nothing."""
-    rows: list[dict] = []
-    # Sector cohorts only, deliberately. Themes have their own GDELT/FinBERT
-    # path (fetch_theme_headlines + build_theme_news_signal_rows, wired at
-    # scan.py:320) — routing them through here too would write two sets of
-    # theme sentiment rows per scan. When the sector cohorts are retired this
-    # function has no callers left and should be deleted outright.
-    for region, cfg_key in (("US", "us_sectors"), ("EU", "eu_sectors")):
-        for name in universe.get(cfg_key, {}):
-            sc = finbert_scores.get(parent_sector(name, parent_map))
-            if sc is None:
-                continue
-            rows.extend([
-                {"region": region, "gics_sector": name,
-                 "signal_name": "news_polarity", "value": sc["mean_polarity"]},
-                {"region": region, "gics_sector": name,
-                 "signal_name": "news_count", "value": float(sc["count"])},
-                {"region": region, "gics_sector": name,
-                 "signal_name": "news_positive_pct", "value": sc["positive_pct"]},
-                {"region": region, "gics_sector": name,
-                 "signal_name": "news_negative_pct", "value": sc["negative_pct"]},
-            ])
-    return rows
 
 
 def _build_keyword_query(keywords: list[str]) -> str:

@@ -718,15 +718,13 @@ def test_cohort_charts_context_is_keyed_by_cohort():
         "all_scores_df": df,
         "history_df": df,
         "rrg_df": df.assign(rs_ratio=101.0, rs_momentum=99.0),
-        "universe": {"us_sectors": {"Energy": "XLE"}, "eu_sectors": {"Banks": "EXV1.DE"},
-                     "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE"},
         "themes_cfg": {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}},
         "project_root": Path("/tmp"),
     }
     charts = build_cohort_chart_context(shared)["cohort_charts"]
 
-    assert set(charts) >= {"US", "EU", "THEME"}
-    for region in ("US", "EU", "THEME"):
+    assert set(charts) == {"THEME"}
+    for region in ("THEME",):
         assert {"rrg", "movers", "history"} <= set(charts[region])
 
 

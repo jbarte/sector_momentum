@@ -76,11 +76,17 @@ _SCAN_CHILD_TABLES = (
     "signals",
 )
 
-# Cohort discriminators on the shared scores/signals/sentiment_signals tables.
-# Sector cohorts and themes share these tables from the cohort-unification
-# migration on; `region` is the discriminator.
-SECTOR_REGIONS = ("US", "EU")
+# Cohort discriminator on the shared scores/signals/sentiment_signals tables.
 THEME_REGION = "THEME"
+
+# What readers select when a caller doesn't say otherwise.
+#
+# This deliberately stays an explicit filter rather than "select everything"
+# even though THEME is now the only live cohort: the retired US/EU sector rows
+# were kept in the database on purpose (41 scans, 2026-06-25 → 2026-08-05), so an
+# unfiltered read would resurrect them into the leaderboard, the history chart
+# and the movers list. Retiring the cohort removed the *writer*, not the rows.
+DEFAULT_REGIONS = (THEME_REGION,)
 
 
 def _region_filter(regions, alias: str) -> tuple[str, tuple]:
@@ -257,7 +263,7 @@ def save_scan(
 
 def load_last_scan(
     conn: psycopg2.extensions.connection,
-    regions=SECTOR_REGIONS,
+    regions=DEFAULT_REGIONS,
 ) -> pd.DataFrame | None:
     """
     Load the scores for the most recent scan.
@@ -320,7 +326,7 @@ def compute_deltas(
 
 
 def get_signals_for_latest_scan(
-    conn: psycopg2.extensions.connection, regions=SECTOR_REGIONS
+    conn: psycopg2.extensions.connection, regions=DEFAULT_REGIONS
 ) -> pd.DataFrame:
     """
     Return all signal rows for the most recent scan.
@@ -335,7 +341,7 @@ def get_signals_for_latest_scan(
 
 
 def get_signals_for_scan(
-    conn: psycopg2.extensions.connection, scan_id: int, regions=SECTOR_REGIONS
+    conn: psycopg2.extensions.connection, scan_id: int, regions=DEFAULT_REGIONS
 ) -> pd.DataFrame:
     """
     Return all signal rows for a specific scan_id.
@@ -353,7 +359,7 @@ def get_signals_for_scan(
 
 
 def get_sentiment_signals_for_latest_scan(
-    conn: psycopg2.extensions.connection, regions=SECTOR_REGIONS
+    conn: psycopg2.extensions.connection, regions=DEFAULT_REGIONS
 ) -> pd.DataFrame:
     """
     Return all derived sentiment-signal rows for the most recent scan.
@@ -475,7 +481,7 @@ def get_theme_scan_history(
 def get_rrg_history(
     conn: psycopg2.extensions.connection,
     n_scans: int = 6,
-    regions=SECTOR_REGIONS,
+    regions=DEFAULT_REGIONS,
 ) -> pd.DataFrame:
     """
     Return rs_ratio and rs_momentum for the last n_scans scans, for RRG tail traces.
@@ -501,7 +507,7 @@ def get_rrg_history(
 def get_scan_history(
     conn: psycopg2.extensions.connection,
     n_scans: int | None = 10,
-    regions=SECTOR_REGIONS,
+    regions=DEFAULT_REGIONS,
 ) -> pd.DataFrame:
     """
     Return scores for the last n_scans scans joined with scan metadata.

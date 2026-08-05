@@ -216,7 +216,7 @@ def _build_sentiment_scatter_figure(history_df) -> str:
     faded = df[~has_sentiment]
 
     # The Sentiment page has never shown themes — its FinBERT signal table
-    # stays SECTOR_REGIONS-scoped, and dashboard/sentiment.py filters the
+    # stays cohort-scoped, and dashboard/sentiment.py reads the
     # history_df it passes into this builder down to sector regions before
     # calling it (see _sector_scoped_history), so a THEME row should never
     # actually reach here. The THEME entry below is defensive only: this is
@@ -643,13 +643,12 @@ def build_cohort_chart_context(shared: dict) -> dict:
 
     from src.cohorts import cohorts
 
-    universe = shared["universe"]
     themes_cfg = shared.get("themes_cfg")
     history_df = shared["history_df"]
     rrg_df = shared["rrg_df"]
 
     cohort_charts: dict[str, dict] = {}
-    for cohort in cohorts(universe, themes_cfg):
+    for cohort in cohorts(themes_cfg):
         region = cohort.region
         region_history = history_df[history_df["region"] == region]
         region_rrg = rrg_df[rrg_df["region"] == region]

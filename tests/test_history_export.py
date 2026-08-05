@@ -70,23 +70,24 @@ def test_scan_index_counts_only_sector_rows_from_mixed_cohort_frame():
     leaked_idx = build_scan_index(mixed)
     assert leaked_idx[0]["sector_count"] == 5
 
-    # The fix: filter to sector regions (US, EU) before calling — this is
-    # what dashboard/build.py's sector_scores_df derivation does.
-    universe = {"us_sectors": {"Technology": "XLK", "Energy": "XLE"},
-                "eu_sectors": {"Financials": "EXV1.DE"}}
-    sector_regions = tuple(c.region for c in cohorts(universe))
-    sector_scores_df = mixed[mixed["region"].isin(sector_regions)]
+    # The fix: scope to the configured cohorts before calling. Readers default
+    # to the THEME cohort now, but the retired US/EU rows are still in the table,
+    # so an unscoped frame still has to be filtered.
+    themes_cfg = {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}}
+    cohort_regions = tuple(c.region for c in cohorts(themes_cfg))
+    scoped = mixed[mixed["region"].isin(cohort_regions)]
 
-    idx = build_scan_index(sector_scores_df)
+    idx = build_scan_index(scoped)
     assert len(idx) == 1
-    assert idx[0]["sector_count"] == 3          # 2 US + 1 EU, no THEME
-    assert idx[0]["top_region"] != "THEME"
+    assert idx[0]["top_region"] == "THEME"
+    assert idx[0]["sector_count"] < leaked_idx[0]["sector_count"]
 
 
 def test_generate_reports_one_file_per_scan(tmp_path):
-    universe = {"us_sectors": {"Technology": "XLK", "Energy": "XLE"}}
-    written = _generate_scan_reports(_two_scans(), tmp_path, cohorts(universe),
-                                     swedish_tickers_path="config/swedish_tickers.csv")
+    themes_cfg = {"benchmark": "ACWI", "themes": {
+        "Technology": {"ticker": "XLK"}, "Energy": {"ticker": "XLE"},
+    }}
+    written = _generate_scan_reports(_two_scans(), tmp_path, cohorts(themes_cfg))
     assert sorted(written) == [1, 2]
     assert (tmp_path / "report_1.md").exists()
     assert (tmp_path / "report_2.md").exists()

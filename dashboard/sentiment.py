@@ -49,38 +49,19 @@ def _latest_has_sentiment(history_df) -> bool:
     return bool((s.notna() & (s != 0.0)).any())
 
 
-def _sector_scoped_history(shared: dict):
-    """Sector-only view of shared["history_df"].
-
-    build.py now fetches history_df with regions=None, so it spans all
-    cohorts (US, EU, THEME). The Sentiment page predates cohort unification
-    and has never shown themes — its FinBERT signal table
-    (get_sentiment_signals_for_latest_scan) stays SECTOR_REGIONS-scoped by
-    default, so the scatter above it must match. Regions are sourced from
-    src.cohorts.cohorts(universe) (no themes_cfg), the same pattern build.py
-    uses for the scan index/reports/feed, rather than a hardcoded literal.
-    """
-    from src.cohorts import cohorts
-
-    history_df = shared["history_df"]
-    if history_df is None or history_df.empty or "region" not in history_df:
-        return history_df
-    universe = shared.get("universe")
-    if not universe:
-        return history_df  # fail-open: no config to scope by, leave df untouched
-    sector_regions = tuple(c.region for c in cohorts(universe))
-    if not sector_regions:
-        return history_df  # fail-open: cohorts() found no sector cohorts configured
-    return history_df[history_df["region"].isin(sector_regions)]
-
-
 def build_page_context(shared: dict) -> dict:
-    """Assemble sentiment page context (sectors only; FinBERT)."""
+    """Assemble sentiment page context (FinBERT).
+
+    This page used to scope itself to the sector cohorts, because history_df
+    spanned every cohort while the page's own FinBERT signal table did not.
+    Both sides now read the same single cohort, so no scoping is needed —
+    themes were always being scored by FinBERT, just never displayed here.
+    """
     from dashboard.figures import _build_sentiment_scatter_figure
 
-    sector_history_df = _sector_scoped_history(shared)
+    history_df = shared["history_df"]
     return {
-        "sentiment_scatter_json": _build_sentiment_scatter_figure(sector_history_df),
+        "sentiment_scatter_json": _build_sentiment_scatter_figure(history_df),
         "sentiment_signal_rows": _build_sentiment_signal_rows(shared["sentiment_signals_df"]),
-        "sentiment_available": _latest_has_sentiment(sector_history_df),
+        "sentiment_available": _latest_has_sentiment(history_df),
     }

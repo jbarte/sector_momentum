@@ -44,38 +44,27 @@ def test_sentiment_available_false_when_history_empty():
     assert build_page_context(shared)["sentiment_available"] is False
 
 
-def _universe():
-    return {
-        "us_sectors": {"Energy": "XLE"},
-        "eu_sectors": {"Banks": "EXV1.DE"},
-        "us_benchmark": "RSP",
-        "eu_benchmark": "EXSA.DE",
-    }
-
-
-def test_scatter_excludes_theme_rows_even_when_history_spans_all_cohorts():
-    """build.py now fetches history_df with regions=None (all cohorts). The
-    Sentiment page must keep showing sector-only points — its FinBERT table
-    stays sector-scoped, so a scatter with theme dots would contradict it."""
+def test_scatter_renders_the_theme_cohort():
+    """The Sentiment page used to scope itself to the sector cohorts, because
+    history_df spanned every cohort while the page's FinBERT table did not.
+    Both sides now read the THEME cohort, so every row in history_df belongs
+    on the scatter — theme sentiment was always computed, just never shown.
+    """
     import json
 
-    rows = []
-    for i in range(3):
-        rows.append({"scan_id": 2, "run_at": "2026-07-20T00:00:00Z", "region": "US",
-                      "gics_sector": f"Sector{i}", "data_score": 0.1 * i,
-                      "sentiment_score": 0.5, "composite": 0.1, "rank": i + 1})
-    for i in range(2):
-        rows.append({"scan_id": 2, "run_at": "2026-07-20T00:00:00Z", "region": "THEME",
-                      "gics_sector": f"Theme{i}", "data_score": 0.1 * i,
-                      "sentiment_score": 0.5, "composite": 0.1, "rank": i + 1})
-    shared = {"history_df": pd.DataFrame(rows), "sentiment_signals_df": pd.DataFrame(),
-              "universe": _universe()}
+    rows = [
+        {"scan_id": 2, "run_at": "2026-07-20T00:00:00Z", "region": "THEME",
+         "gics_sector": f"Theme{i}", "data_score": 0.1 * i,
+         "sentiment_score": 0.5, "composite": 0.1, "rank": i + 1}
+        for i in range(4)
+    ]
+    shared = {"history_df": pd.DataFrame(rows), "sentiment_signals_df": pd.DataFrame()}
 
     ctx = build_page_context(shared)
     scatter = json.loads(ctx["sentiment_scatter_json"])
     total_points = sum(len(trace.get("x", [])) for trace in scatter["data"])
 
-    assert total_points == 3, "THEME rows leaked into the sentiment scatter"
+    assert total_points == 4, "theme rows missing from the sentiment scatter"
 
 
 def test_scatter_falls_back_open_when_universe_missing():

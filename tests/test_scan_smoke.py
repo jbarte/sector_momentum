@@ -86,64 +86,23 @@ def test_parse_args_flags(monkeypatch):
     assert args.no_dashboard is True
 
 
-def test_breadth_injection_is_non_fatal_and_eu_is_nan():
-    """If constituent fetch returns None, breadth stays NaN and rows still build;
-    a helper injects true breadth for US and NaN for EU."""
-    import math
-    from unittest.mock import patch
-    from scan import _inject_constituent_breadth
-
-    rows = [
-        {"region": "US", "gics_sector": "Technology", "sector_key": "US|Technology",
-         "breadth_above_50dma": 1.0},
-        {"region": "EU", "gics_sector": "Technology", "sector_key": "EU|Technology",
-         "breadth_above_50dma": 1.0},
-    ]
-    # Constituent fetch fails → all breadth NaN, no exception raised.
-    with patch("scan.fetch_sp500_constituents", return_value=None):
-        _inject_constituent_breadth(rows, start="2026-01-01", end="2026-06-01")
-    assert math.isnan(rows[0]["breadth_above_50dma"])
-    assert math.isnan(rows[1]["breadth_above_50dma"])
-
-
-def test_breadth_injection_sets_us_value_and_eu_nan():
-    import math
-    from unittest.mock import patch
-    from scan import _inject_constituent_breadth
-
-    rows = [
-        {"region": "US", "gics_sector": "Technology", "sector_key": "US|Technology",
-         "breadth_above_50dma": float("nan")},
-        {"region": "EU", "gics_sector": "Technology", "sector_key": "EU|Technology",
-         "breadth_above_50dma": float("nan")},
-    ]
-    with patch("scan.fetch_sp500_constituents", return_value={"Technology": ["A", "B"]}), \
-         patch("scan.fetch_prices", return_value={}), \
-         patch("scan.compute_constituent_breadth", return_value={"US|Technology": 0.66}):
-        _inject_constituent_breadth(rows, start="2026-01-01", end="2026-06-01")
-    assert rows[0]["breadth_above_50dma"] == 0.66      # US injected
-    assert math.isnan(rows[1]["breadth_above_50dma"])  # EU forced NaN
-
-
 # ---------------------------------------------------------------------------
 # Helpers for run() integration tests
 # ---------------------------------------------------------------------------
 
-def _make_minimal_universe():
-    return {
-        "us_benchmark": "SPY",
-        "eu_benchmark": "SXXP",
-        "us_sectors": {"Technology": "XLK"},
-        "eu_sectors": {"Technology": "EXV3.DE"},
-        "price_lookback_days": 252,
-    }
+def _make_minimal_themes_cfg():
+    return {"benchmark": "SPY", "themes": {"Space": {"ticker": "UFO"}}}
+
+
+def _make_minimal_scan_cfg():
+    return {"price_lookback_days": 252}
 
 
 def _make_minimal_prices():
     import pandas as pd
     idx = pd.date_range("2025-01-01", periods=300, freq="B")
     df = pd.DataFrame({"Close": [100.0] * 300, "Volume": [1_000_000] * 300}, index=idx)
-    return {"SPY": df, "SXXP": df, "XLK": df, "EXV3.DE": df}
+    return {"SPY": df, "UFO": df}
 
 
 def _make_minimal_scored():
@@ -157,7 +116,7 @@ def _make_minimal_scored():
             "composite": [0.35],
             "rank": [1.0],
         },
-        index=["US|Technology"],
+        index=["THEME|Space"],
     )
 
 
@@ -174,7 +133,7 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     argv = ["scan.py", "--no-finbert"] + (extra_argv or [])
     monkeypatch.setattr(sys, "argv", argv)
 
-    universe = _make_minimal_universe()
+    themes_cfg = _make_minimal_themes_cfg()
     prices = _make_minimal_prices()
     scored = _make_minimal_scored()
 
@@ -183,8 +142,8 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
 
     # scored_with_deltas: needs region + gics_sector + composite + rank
     scored_with_deltas = pd.DataFrame({
-        "region": ["US"],
-        "gics_sector": ["Technology"],
+        "region": ["THEME"],
+        "gics_sector": ["Space"],
         "composite": [0.35],
         "rank": [1.0],
         "level_score": [0.5],
@@ -197,8 +156,14 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     fake_conn = MagicMock()
 
     monkeypatch.setattr("scan.fetch_prices", lambda *a, **k: prices)
-    monkeypatch.setattr("scan.fetch_sp500_constituents", lambda: None)
-    monkeypatch.setattr("scan.compute_constituent_breadth", lambda *a, **k: {})
+    monkeypatch.setattr("scan._load_config", lambda path: (
+        _make_minimal_themes_cfg() if "themes" in path
+        else _make_minimal_scan_cfg() if "universe" in path
+        else {}))
+    monkeypatch.setattr("scan.build_theme_signals_rows", lambda *a, **k: [
+        {"region": "THEME", "gics_sector": "Space", "sector_key": "THEME|Space",
+         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
+    ])
 
     # Patch inside run()'s local imports by replacing the module attributes after import
     import src.data.prices as _prices_mod
@@ -207,12 +172,11 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     import src.report as _report_mod
 
     monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: prices)
-    monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
     monkeypatch.setattr(_scoring_mod, "score_all", lambda *a, **k: scored)
     def _fake_zscore(wide_df, *a, **k):
         z = pd.DataFrame(
             {col: [0.0] for col in scan.SIGNAL_COLUMNS},
-            index=pd.Index(["US|Technology"], name="sector_key"),
+            index=pd.Index(["THEME|Space"], name="sector_key"),
         )
         return z
     monkeypatch.setattr(_scoring_mod, "zscore_cross_section", _fake_zscore)
@@ -222,7 +186,6 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     monkeypatch.setattr(_state_mod, "compute_deltas", lambda *a, **k: scored_with_deltas)
     monkeypatch.setattr(_report_mod, "build_ranked_table", lambda *a, **k: scored_with_deltas)
     monkeypatch.setattr(_report_mod, "build_movers", lambda *a, **k: {})
-    monkeypatch.setattr(_report_mod, "build_swedish_overlay", lambda *a, **k: {})
     monkeypatch.setattr(_report_mod, "write_report", lambda *a, **k: "/tmp/report.html")
 
     # Stub out dashboard build
@@ -297,30 +260,22 @@ def test_coverage_guard_aborts_on_partial_scan(monkeypatch):
     import src.data.prices as _prices_mod
     import src.scoring as _scoring_mod
 
-    universe = {
-        "us_benchmark": "SPY",
-        "eu_benchmark": "SXXP",
-        "us_sectors": {f"Sector{i}": f"T{i}" for i in range(10)},
-        "eu_sectors": {f"Sector{i}": f"E{i}" for i in range(10)},
-        "price_lookback_days": 252,
-    }
-    # Only 3 out of 20 expected sectors → 15% coverage → should abort
+    themes_cfg = {"benchmark": "SPY",
+                  "themes": {f"Theme{i}": {"ticker": f"T{i}"} for i in range(20)}}
+    # Only 3 of 20 expected themes → 15% coverage → should abort
     rows = [
-        {"region": "US", "gics_sector": "Sector0", "sector_key": "US|Sector0",
-         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
-        {"region": "US", "gics_sector": "Sector1", "sector_key": "US|Sector1",
-         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
-        {"region": "EU", "gics_sector": "Sector0", "sector_key": "EU|Sector0",
-         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
+        {"region": "THEME", "gics_sector": f"Theme{i}", "sector_key": f"THEME|Theme{i}",
+         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}}
+        for i in range(3)
     ]
 
     monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run", "--no-finbert"])
-    monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
     monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: {})
     monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: {})
-    monkeypatch.setattr(scan, "fetch_sp500_constituents", lambda: None)
-    monkeypatch.setattr(scan, "compute_constituent_breadth", lambda *a, **k: {})
-    monkeypatch.setattr("scan.build_signals_rows", lambda *a, **k: rows)
+    monkeypatch.setattr("scan._load_config", lambda path: (
+        themes_cfg if "themes" in path
+        else {"price_lookback_days": 252} if "universe" in path else {}))
+    monkeypatch.setattr("scan.build_theme_signals_rows", lambda *a, **k: rows)
 
     args = scan._parse_args()
     rc = scan.run(args)
@@ -336,31 +291,22 @@ def test_coverage_guard_passes_at_80_percent(monkeypatch):
     import src.report as _report_mod
     from unittest.mock import MagicMock
 
-    universe = {
-        "us_benchmark": "SPY",
-        "eu_benchmark": "SXXP",
-        "us_sectors": {f"Sector{i}": f"T{i}" for i in range(5)},
-        "eu_sectors": {f"Sector{i}": f"E{i}" for i in range(5)},
-        "price_lookback_days": 252,
-    }
-    # 8 out of 10 expected → exactly 80% → should pass
+    themes_cfg = {"benchmark": "SPY",
+                  "themes": {f"Theme{i}": {"ticker": f"T{i}"} for i in range(10)}}
+    # 8 of 10 expected → exactly 80% → should pass
     rows = [
-        {"region": "US", "gics_sector": f"Sector{i}", "sector_key": f"US|Sector{i}",
+        {"region": "THEME", "gics_sector": f"Theme{i}", "sector_key": f"THEME|Theme{i}",
          **{c: 1.0 for c in scan.SIGNAL_COLUMNS}}
-        for i in range(4)
-    ] + [
-        {"region": "EU", "gics_sector": f"Sector{i}", "sector_key": f"EU|Sector{i}",
-         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}}
-        for i in range(4)
+        for i in range(8)
     ]
 
     monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run", "--no-finbert"])
-    monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
     monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: {})
     monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: {})
-    monkeypatch.setattr(scan, "fetch_sp500_constituents", lambda: None)
-    monkeypatch.setattr(scan, "compute_constituent_breadth", lambda *a, **k: {})
-    monkeypatch.setattr("scan.build_signals_rows", lambda *a, **k: rows)
+    monkeypatch.setattr("scan._load_config", lambda path: (
+        themes_cfg if "themes" in path
+        else {"price_lookback_days": 252} if "universe" in path else {}))
+    monkeypatch.setattr("scan.build_theme_signals_rows", lambda *a, **k: rows)
 
     wide_idx = pd.Index([r["sector_key"] for r in rows], name="sector_key")
     scored = pd.DataFrame(
@@ -398,26 +344,29 @@ def test_conn_closed_on_exception(monkeypatch):
     import src.scoring as _scoring_mod
     import src.state as _state_mod
 
-    universe = _make_minimal_universe()
     prices = _make_minimal_prices()
     scored = _make_minimal_scored()
 
     fake_conn = MagicMock()
 
     monkeypatch.setattr(sys, "argv", ["scan.py", "--no-finbert"])
-    monkeypatch.setattr(_prices_mod, "load_universe", lambda *a, **k: universe)
     monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: prices)
     monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: prices)
-    monkeypatch.setattr(scan, "fetch_sp500_constituents", lambda: None)
-    monkeypatch.setattr(scan, "compute_constituent_breadth", lambda *a, **k: {})
+    monkeypatch.setattr("scan._load_config", lambda path: (
+        _make_minimal_themes_cfg() if "themes" in path
+        else _make_minimal_scan_cfg() if "universe" in path else {}))
+    monkeypatch.setattr("scan.build_theme_signals_rows", lambda *a, **k: [
+        {"region": "THEME", "gics_sector": "Space", "sector_key": "THEME|Space",
+         **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
+    ])
     monkeypatch.setattr(_scoring_mod, "score_all", lambda *a, **k: scored)
     monkeypatch.setattr(_scoring_mod, "zscore_cross_section",
                         lambda df: pd.DataFrame({c: [0.0] for c in df.columns},
-                                                index=pd.Index(["US|Technology"], name="sector_key")))
+                                                index=pd.Index(["THEME|Space"], name="sector_key")))
     monkeypatch.setattr(_state_mod, "init_db", lambda: fake_conn)
     monkeypatch.setattr(_state_mod, "load_last_scan", lambda *a, **k: None)
     scored_with_deltas = pd.DataFrame({
-        "region": ["US"], "gics_sector": ["Technology"],
+        "region": ["THEME"], "gics_sector": ["Space"],
         "composite": [0.35], "rank": [1.0],
         "level_score": [0.5], "change_score": [0.2],
         "data_score": [0.35], "sentiment_score": [0.0],

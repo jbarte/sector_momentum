@@ -147,63 +147,6 @@ def compute_signals_for_sector(
     return signals
 
 
-def build_signals_rows(
-    universe: dict,
-    prices: dict[str, pd.DataFrame],
-    signal_params: dict | None = None,
-) -> list[dict]:
-    """
-    Iterate over all US + EU sectors, compute signals, and collect into a list
-    of flat dicts suitable for a long-format DataFrame.
-
-    Each dict has keys: region, gics_sector, sector_key, + all SIGNAL_COLUMNS.
-    """
-    us_benchmark = universe["us_benchmark"]
-    eu_benchmark = universe["eu_benchmark"]
-    sp = signal_params or {}
-    rs_fast = sp.get("rs_momentum_fast", 5)
-
-    rows: list[dict] = []
-
-    # US sectors
-    for gics_sector, ticker in universe.get("us_sectors", {}).items():
-        sector_key = f"US|{gics_sector}"
-        sig = compute_signals_for_sector(
-            sector_key=sector_key,
-            region="US",
-            gics_sector=gics_sector,
-            sector_ticker=ticker,
-            benchmark_ticker=us_benchmark,
-            prices=prices,
-            rs_momentum_fast=rs_fast,
-        )
-        if sig is None:
-            continue
-        row = {"region": "US", "gics_sector": gics_sector, "sector_key": sector_key}
-        row.update(sig)
-        rows.append(row)
-
-    # EU sectors
-    for gics_sector, ticker in universe.get("eu_sectors", {}).items():
-        sector_key = f"EU|{gics_sector}"
-        sig = compute_signals_for_sector(
-            sector_key=sector_key,
-            region="EU",
-            gics_sector=gics_sector,
-            sector_ticker=ticker,
-            benchmark_ticker=eu_benchmark,
-            prices=prices,
-            rs_momentum_fast=rs_fast,
-        )
-        if sig is None:
-            continue
-        row = {"region": "EU", "gics_sector": gics_sector, "sector_key": sector_key}
-        row.update(sig)
-        rows.append(row)
-
-    return rows
-
-
 def build_theme_signals_rows(
     themes_cfg: dict,
     prices: dict[str, pd.DataFrame],

@@ -210,7 +210,7 @@ def _aggregate_fwd_returns(
 def build_validation_context(shared: dict) -> dict:
     """Assemble forward-return and holding-period context for the sectors page."""
     all_scores_df = shared["all_scores_df"]
-    universe = shared["universe"]
+    themes_cfg = shared["themes_cfg"]
     project_root = shared["project_root"]
 
     if all_scores_df.empty:
@@ -220,7 +220,7 @@ def build_validation_context(shared: dict) -> dict:
     if len(scan_ids) < MIN_SCANS:
         return {"validation_min_scans_met": False, "validation_conclusive": False}
 
-    cohort_list = cohorts(universe)
+    cohort_list = cohorts(themes_cfg)
     ticker_map = instrument_map(cohort_list)
     benchmarks = [c.benchmark for c in cohort_list]
     all_tickers = sorted(set(ticker_map.values()) | set(benchmarks))

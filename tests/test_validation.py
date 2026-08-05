@@ -218,13 +218,12 @@ class TestAggregateFwdReturns:
 class TestBuildValidationContext:
     def test_below_min_scans(self):
         df = _history([
-            (i, f"2026-01-{i:02d}", "US", "Energy", 0.9, 0.1, 1)
+            (i, f"2026-01-{i:02d}", "THEME", "Space", 0.9, 0.1, 1)
             for i in range(1, MIN_SCANS)
         ])
         shared = {
             "all_scores_df": df,
-            "universe": {"us_sectors": {"Energy": "XLE"}, "eu_sectors": {},
-                         "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE"},
+            "themes_cfg": {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}},
             "project_root": Path("/tmp"),
         }
         ctx = build_validation_context(shared)
@@ -235,8 +234,8 @@ class TestBuildValidationContext:
     def test_produces_context_keys(self, mock_prices):
         rows = []
         for i in range(1, 21):
-            rows.append((i, f"2026-01-{i:02d}", "US", "Energy", 0.9, 0.1, 2))
-            rows.append((i, f"2026-01-{i:02d}", "EU", "Energy", 0.8, 0.1, 3))
+            rows.append((i, f"2026-01-{i:02d}", "THEME", "Space", 0.9, 0.1, 2))
+            rows.append((i, f"2026-01-{i:02d}", "THEME", "Biotech", 0.8, 0.1, 3))
         df = _history(rows)
 
         trading_days = pd.bdate_range("2026-01-01", periods=80)
@@ -244,17 +243,14 @@ class TestBuildValidationContext:
             {"Close": [100.0] * len(trading_days)}, index=trading_days
         )
         mock_prices.return_value = {
-            "XLE": flat_prices, "EXH1.DE": flat_prices,
-            "RSP": flat_prices, "EXSA.DE": flat_prices,
+            "UFO": flat_prices, "XBI": flat_prices, "ACWI": flat_prices,
         }
 
         shared = {
             "all_scores_df": df,
-            "universe": {
-                "us_sectors": {"Energy": "XLE"},
-                "eu_sectors": {"Energy": "EXH1.DE"},
-                "us_benchmark": "RSP",
-                "eu_benchmark": "EXSA.DE",
+            "themes_cfg": {
+                "benchmark": "ACWI",
+                "themes": {"Space": {"ticker": "UFO"}, "Biotech": {"ticker": "XBI"}},
             },
             "project_root": Path("/tmp"),
         }
@@ -262,32 +258,35 @@ class TestBuildValidationContext:
         assert ctx["validation_min_scans_met"] is True
         assert "validation_fwd_returns" in ctx
         assert "validation_holding" in ctx
-        assert len(ctx["validation_fwd_returns"]) == 6
-        assert len(ctx["validation_holding"]) == 3
+        # One cohort + the "All" aggregate, times two horizons.
+        assert len(ctx["validation_fwd_returns"]) == 4
+        assert len(ctx["validation_holding"]) == 2
 
 
 def test_validation_iterates_configured_cohorts_not_hardcoded_regions():
-    """A universe with only US sectors must yield only US rows — proving the
-    region loop is config-driven, not a literal ("US", "EU") pair."""
+    """Rows must come out under the configured cohort's region, proving the loop
+    is config-driven rather than a literal ("US", "EU") pair. This guarded the
+    hardcoded-region bug before the sector cohorts were retired; it still guards
+    it, because the retired sector rows are all still sitting in the table."""
     from dashboard.validation import build_validation_context
     from unittest.mock import patch
     import pandas as pd
 
-    rows = [(i, f"2026-0{1 + i // 28}-{(i % 28) + 1:02d}", "US", "Energy", 0.9, 0.1, 2)
+    rows = [(i, f"2026-0{1 + i // 28}-{(i % 28) + 1:02d}", "THEME", "Space", 0.9, 0.1, 2)
             for i in range(1, 15)]
     df = pd.DataFrame(rows, columns=["scan_id", "run_at", "region", "gics_sector",
                                      "composite", "change_score", "rank"])
     shared = {
         "all_scores_df": df,
-        "universe": {"us_sectors": {"Energy": "XLE"}, "us_benchmark": "RSP"},
+        "themes_cfg": {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}},
         "project_root": __import__("pathlib").Path("/tmp"),
     }
     trading_days = pd.bdate_range("2025-12-01", periods=400)
     flat = pd.DataFrame({"Close": [100.0] * len(trading_days)}, index=trading_days)
     with patch("dashboard.validation.fetch_prices",
-               return_value={t: flat for t in ("XLE", "RSP")}):
+               return_value={t: flat for t in ("UFO", "ACWI")}):
         ctx = build_validation_context(shared)
 
     regions = {r["region"] for r in ctx["validation_fwd_returns"]}
-    assert "EU" not in regions, "EU appeared with no eu_sectors configured"
-    assert "US" in regions
+    # "All" is the cross-cohort aggregate row, not a cohort.
+    assert regions == {"THEME", "All"}, f"unexpected cohorts in output: {regions}"

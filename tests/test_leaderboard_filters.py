@@ -60,13 +60,14 @@ def _render_leaderboard(rows):
     return _render_index([(SimpleNamespace(region="US", label="US Sectors"), rows)])
 
 
-# Three real cohorts (one member each) built through src.cohorts.cohorts()
-# rather than hand-rolled, so this fixture can't drift from the real shape.
-_TEST_UNIVERSE = {
-    "us_sectors": {"Technology": "XLK"},
-    "eu_sectors": {"Technology": "EXV3.DE"},
-}
-_TEST_THEMES_CFG = {"themes": {"Space": {"ticker": "UFO"}}}
+# Real cohorts built through src.cohorts.cohorts() rather than hand-rolled, so
+# this fixture can't drift from the real shape. Since the sector cohorts were
+# retired there is one cohort; several members keep the grouping assertions
+# meaningful.
+_TEST_THEMES_CFG = {"themes": {
+    "Space": {"ticker": "UFO"},
+    "Biotech": {"ticker": "XBI"},
+}}
 
 
 def _rows_for_cohort(cohort):
@@ -77,8 +78,8 @@ def _rows_for_cohort(cohort):
     return rows
 
 
-_THREE_COHORT_GROUPS = [
-    (c, _rows_for_cohort(c)) for c in _cohorts_fn(_TEST_UNIVERSE, _TEST_THEMES_CFG)
+_COHORT_GROUPS = [
+    (c, _rows_for_cohort(c)) for c in _cohorts_fn(_TEST_THEMES_CFG)
 ]
 
 
@@ -127,15 +128,15 @@ def test_row_with_missing_scores_renders_empty_numeric_attrs():
 
 
 def test_leaderboard_renders_every_cohort_group():
-    html = _render_index(grouped_rows=_THREE_COHORT_GROUPS)
-    assert "US Sectors" in html
-    assert "EU Sectors" in html
+    html = _render_index(grouped_rows=_COHORT_GROUPS)
     assert "Themes" in html
+    assert "US Sectors" not in html
+    assert "EU Sectors" not in html
 
 
 def test_theme_rows_carry_filter_data_attributes():
     """Themes must be filterable like sectors — the chips read these."""
-    html = _render_index(grouped_rows=_THREE_COHORT_GROUPS)
+    html = _render_index(grouped_rows=_COHORT_GROUPS)
     theme_row = [l for l in html.splitlines() if 'data-sector-key="THEME|Space"' in l]
     assert theme_row, "theme row missing"
     assert 'data-setup=' in theme_row[0]
@@ -143,6 +144,7 @@ def test_theme_rows_carry_filter_data_attributes():
 
 
 def test_cohort_filter_chips_present():
-    html = _render_index(grouped_rows=_THREE_COHORT_GROUPS)
-    for value in ("US", "EU", "THEME"):
-        assert f'data-filter-value="{value}"' in html
+    html = _render_index(grouped_rows=_COHORT_GROUPS)
+    assert 'data-filter-value="THEME"' in html
+    for retired in ("US", "EU"):
+        assert f'data-filter-value="{retired}"' not in html

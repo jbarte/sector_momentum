@@ -37,13 +37,11 @@ def build_scan_index(all_scores_df) -> list[dict]:
     return out
 
 
-def _generate_scan_reports(all_scores_df, out_dir, cohort_list: list[Cohort],
-                           swedish_tickers_path="config/swedish_tickers.csv") -> list[int]:
+def _generate_scan_reports(all_scores_df, out_dir, cohort_list: list[Cohort]) -> list[int]:
     """Write report_<scan_id>.md for every scan; returns scan_ids written. Non-fatal per scan."""
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from src.state import compute_deltas
-    from src.report import (build_ranked_table, build_movers,
-                            build_swedish_overlay, build_report_markdown)
+    from src.report import build_ranked_table, build_movers, build_report_markdown
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -66,7 +64,6 @@ def _generate_scan_reports(all_scores_df, out_dir, cohort_list: list[Cohort],
                 scan_date,
                 build_ranked_table(swd, cohort_list),
                 build_movers(swd),
-                build_swedish_overlay(swd, swedish_tickers_path),
             )
             report_path.write_text(md, encoding="utf-8")
             written.append(int(sid))

@@ -5,7 +5,7 @@ import tempfile
 import pandas as pd
 import pytest
 
-from src.report import build_ranked_table, build_movers, build_swedish_overlay, write_report
+from src.report import build_ranked_table, build_movers, write_report
 from src.cohorts import cohorts
 
 
@@ -15,19 +15,20 @@ from src.cohorts import cohorts
 
 @pytest.fixture
 def sample_cohorts():
-    universe = {
-        "us_sectors": {"Technology": "XLK", "Energy": "XLE"},
-        "eu_sectors": {"Financials": "EXV1.DE", "Industrials": "EXH1.DE"},
-    }
-    return cohorts(universe)
+    return cohorts({"benchmark": "ACWI", "themes": {
+        "Semiconductors": {"ticker": "SOXX"},
+        "Space": {"ticker": "UFO"},
+        "Biotech": {"ticker": "XBI"},
+        "Defense": {"ticker": "ITA"},
+    }})
 
 
 @pytest.fixture
 def sample_scores():
     return pd.DataFrame(
         {
-            "region": ["US", "US", "EU", "EU"],
-            "gics_sector": ["Technology", "Energy", "Financials", "Industrials"],
+            "region": ["THEME"] * 4,
+            "gics_sector": ["Semiconductors", "Space", "Biotech", "Defense"],
             "composite": [0.8, 0.5, 0.3, -0.2],
             "level_score": [0.7, 0.4, 0.2, -0.3],
             "change_score": [0.9, 0.6, 0.4, -0.1],
@@ -53,7 +54,7 @@ def test_build_ranked_table_has_header(sample_scores, sample_cohorts):
 def test_build_ranked_table_contains_sector(sample_scores, sample_cohorts):
     """build_ranked_table should contain the top sector name."""
     table = build_ranked_table(sample_scores, sample_cohorts)
-    assert "Technology" in table
+    assert "Semiconductors" in table
 
 
 def test_build_ranked_table_emerging_flag(sample_scores, sample_cohorts):
@@ -68,21 +69,13 @@ def test_build_movers_contains_climbers(sample_scores):
     assert "Climbers" in movers_str
 
 
-def test_build_swedish_overlay_returns_string(sample_scores):
-    """build_swedish_overlay should return a non-empty string."""
-    result = build_swedish_overlay(sample_scores, top_n=3)
-    assert isinstance(result, str)
-    assert len(result) > 0
-
-
 def test_write_report_creates_file(sample_scores, sample_cohorts):
     """write_report should create a file that contains required content."""
     table = build_ranked_table(sample_scores, sample_cohorts)
     movers_str = build_movers(sample_scores)
-    swedish_str = build_swedish_overlay(sample_scores, top_n=3)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = write_report("2024-01-15", table, movers_str, swedish_str, output_dir=tmpdir)
+        path = write_report("2024-01-15", table, movers_str, output_dir=tmpdir)
         assert os.path.exists(path)
         content = open(path).read()
         assert "Sector Momentum Report" in content
