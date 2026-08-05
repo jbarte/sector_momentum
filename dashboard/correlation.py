@@ -181,7 +181,7 @@ def build_correlation_context(shared: dict) -> dict:
         # themes_cfg widens cohorts() to include THEME alongside US/EU (see
         # src/cohorts.py) — history_df above already spans every cohort
         # because shared["history_df"] is fetched with regions=None.
-        labels, tickers, block_sizes = _order_labels(cohorts(universe, themes_cfg), ranks)
+        labels, tickers, block_sizes = _order_labels(cohorts(themes_cfg), ranks)
 
         # A ticker shared by two cohorts would duplicate rows/columns in the
         # heatmap (reindex silently collapses/duplicates on the repeated

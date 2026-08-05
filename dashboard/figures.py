@@ -649,7 +649,7 @@ def build_cohort_chart_context(shared: dict) -> dict:
     rrg_df = shared["rrg_df"]
 
     cohort_charts: dict[str, dict] = {}
-    for cohort in cohorts(universe, themes_cfg):
+    for cohort in cohorts(themes_cfg):
         region = cohort.region
         region_history = history_df[history_df["region"] == region]
         region_rrg = rrg_df[rrg_df["region"] == region]

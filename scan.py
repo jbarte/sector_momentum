@@ -542,7 +542,7 @@ def run(args: argparse.Namespace) -> int:
             # 14. Write report (non-fatal)
             try:
                 logger.info("Writing report …")
-                ranked_table = build_ranked_table(scored_with_deltas, cohorts(universe))
+                ranked_table = build_ranked_table(scored_with_deltas, cohorts(themes_cfg))
                 movers = build_movers(scored_with_deltas)
                 swedish = build_swedish_overlay(scored_with_deltas)
                 report_path = write_report(

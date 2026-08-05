@@ -252,18 +252,16 @@ def main() -> None:
     )
 
     conn = init_db()
-    # regions=None selects every cohort (US, EU, THEME) — the leaderboard
-    # rows and their breakdown-panel signals are now built through one path,
-    # so both dataframes must carry all three cohorts, not just US/EU.
-    history_df = get_scan_history(conn, n_scans=20, regions=None)
-    signals_df = get_signals_for_latest_scan(conn, regions=None)
+    # These all take src.state.DEFAULT_REGIONS, which is THEME only. Do NOT
+    # pass regions=None here: the retired US/EU sector rows were deliberately
+    # kept in the database, so "every cohort" would pull 41 scans of dead
+    # sector history into the leaderboard, the charts and the movers list.
+    history_df = get_scan_history(conn, n_scans=20)
+    signals_df = get_signals_for_latest_scan(conn)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
-    # regions=None so THEME is included alongside US/EU — build_cohort_chart_context
-    # (Task 3) slices this single frame per cohort rather than combining a
-    # separate sector-only rrg_df with a theme-only one.
-    rrg_df = get_rrg_history(conn, n_scans=6, regions=None)
+    rrg_df = get_rrg_history(conn, n_scans=6)
 
-    all_scores_df = get_scan_history(conn, n_scans=None, regions=None)
+    all_scores_df = get_scan_history(conn, n_scans=None)
     health_row = get_latest_health(conn)
 
     if history_df.empty:
@@ -292,41 +290,34 @@ def main() -> None:
         all_scores_df = all_scores_df[all_scores_df["scan_id"] <= lb_scan_id].copy()
         history_df = history_df[history_df["scan_id"] <= lb_scan_id].copy()
         rrg_df = rrg_df[rrg_df["scan_id"] <= lb_scan_id].copy()
-        signals_df = get_signals_for_scan(conn, lb_scan_id, regions=None)
+        signals_df = get_signals_for_scan(conn, lb_scan_id)
 
-    # Load config for breakdown panel (universe needed early — the per-scan
-    # reports below are generated per-cohort).
+    # Load config. Themes are needed early — the per-scan reports below are
+    # generated per-cohort.
     import yaml as _yaml
     from src.cohorts import cohorts
     with open(project_root / "config/universe.yaml") as _fh:
         _universe = _yaml.safe_load(_fh)
 
-    # Sector-scoped view of the widened all_scores_df (US + EU only, no
-    # THEME). Global Constraint 2 requires sector rendering to stay
-    # undisturbed by the cohort-unification widening — reports, the Atom
-    # feed and the scan index are sector-only surfaces, so they must keep
-    # reading a US/EU frame even though all_scores_df itself now spans all
-    # three cohorts. Regions sourced from cohorts(_universe) (no themes_cfg)
-    # rather than a literal, so this follows config the way the rest of
-    # cohort-unification does — see src/cohorts.py.
-    _sector_cohorts = cohorts(_universe)
-    _sector_regions = tuple(c.region for c in _sector_cohorts)
-    sector_scores_df = all_scores_df[all_scores_df["region"].isin(_sector_regions)].copy()
-
-    logger.info("Building scan index + per-scan reports …")
-    scan_index = build_scan_index(sector_scores_df)
-    active_scan_id = lb_scan_id if lb_scan_id is not None else (
-        scan_index[0]["scan_id"] if scan_index else None
-    )
-    _generate_scan_reports(sector_scores_df, out_dir / "reports", _sector_cohorts)
-
     with open(project_root / "config/weights.yaml") as _fh:
         _weights = _yaml.safe_load(_fh)
-    _etfs_path = project_root / "config/sector_etfs.yaml"
-    _sector_etfs = _yaml.safe_load(_etfs_path.read_text()) if _etfs_path.exists() else {}
 
     _themes_path = project_root / "config/themes.yaml"
     _themes_cfg = _yaml.safe_load(_themes_path.read_text()) if _themes_path.exists() else {}
+
+    cohort_list = cohorts(_themes_cfg)
+
+    # The scan index, per-scan reports and Atom feed used to need a sector-only
+    # slice of all_scores_df, because that frame was widened to carry THEME
+    # alongside US/EU and those surfaces were sector-only. Both halves of that
+    # are gone: readers are THEME-scoped by default, and themes are the only
+    # cohort, so all_scores_df is already exactly what these want.
+    logger.info("Building scan index + per-scan reports …")
+    scan_index = build_scan_index(all_scores_df)
+    active_scan_id = lb_scan_id if lb_scan_id is not None else (
+        scan_index[0]["scan_id"] if scan_index else None
+    )
+    _generate_scan_reports(all_scores_df, out_dir / "reports", cohort_list)
 
     # ------------------------------------------------------------------
     # Shared dependencies for module context builders
@@ -378,17 +369,10 @@ def main() -> None:
         else:
             row_signals = []
         row["breakdown_html"] = _build_breakdown_html(
-            key, score_row_dict, row_signals, _universe, _weights, _sector_etfs,
+            key, score_row_dict, row_signals, _universe, _weights,
             themes_cfg=_themes_cfg,
         )
 
-    # us_leaderboard_rows / eu_leaderboard_rows are still consumed by
-    # index.html.j2's hardcoded region loop — remove once the template
-    # switches to grouped_rows.
-    us_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "US"]
-    eu_leaderboard_rows = [r for r in leaderboard_rows if r["region"] == "EU"]
-
-    cohort_list = cohorts(_universe, _themes_cfg)
     # {region, label} pairs for JS consumers that need the human-readable
     # label alongside the region code (COHORT_REGIONS in index.html.j2 only
     # carries the bare region strings — see the comment there for why that
@@ -460,8 +444,6 @@ def main() -> None:
         "scan_index": scan_index,
         "active_scan_id": active_scan_id,
         "leaderboard_rows": leaderboard_rows,
-        "us_leaderboard_rows": us_leaderboard_rows,
-        "eu_leaderboard_rows": eu_leaderboard_rows,
         "cohort_list": cohort_list,
         "cohorts_json": cohorts_json,
         "grouped_rows": grouped_rows,
@@ -505,7 +487,7 @@ def main() -> None:
 
     # 6. Atom feed
     logger.info("Building Atom feed …")
-    feed_entries = build_feed_entries(sector_scores_df, n_entries=30)
+    feed_entries = build_feed_entries(all_scores_df, n_entries=30)
     dashboard_url = "https://jbarte.github.io/sector_momentum/"
     feed_url = dashboard_url + "feed.xml"
 
@@ -532,19 +514,9 @@ def main() -> None:
         from datetime import datetime, timezone
         from dashboard.data_export import build_data_export
 
-        # latest_scores already spans every cohort (built from lb_history_df,
-        # fetched with regions=None) — slice out THEME rather than issuing a
-        # second, theme-only query.
-        theme_latest_df = latest_scores[latest_scores["region"] == "THEME"]
-
         data_payload = build_data_export(
-            # leaderboard_rows now spans all three cohorts (regions=None) —
-            # data.json keeps its published sectors/themes split, so filter
-            # THEME out of the "sectors" side rather than passing it whole.
-            sector_rows=us_leaderboard_rows + eu_leaderboard_rows,
             theme_rows=theme_rows,
-            latest_scores_df=latest_scores,
-            theme_latest_df=theme_latest_df,
+            theme_latest_df=latest_scores,
             scan_id=active_scan_id,
             scan_date=scan_date,
             lagged=bool(auth_ctx["auth"]) and lb_scan_id is not None,

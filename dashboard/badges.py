@@ -36,9 +36,9 @@ _TRAJ_STATE_TO_KEY = {
 }
 
 
-def _sector_ticker_map(universe: dict) -> dict[str, str]:
-    """Build {region|sector: ticker} for every configured sector cohort."""
-    return instrument_map(cohorts(universe))
+def _cohort_ticker_map(themes_cfg: dict) -> dict[str, str]:
+    """Build {region|name: ticker} for every configured cohort."""
+    return instrument_map(cohorts(themes_cfg))
 
 
 def _forward_date(
@@ -53,7 +53,7 @@ def _forward_date(
 
 def build_badge_scorecard(
     history_df: pd.DataFrame,
-    universe: dict,
+    themes_cfg: dict,
     price_cache_dir: str = "data/cache",
 ) -> list[dict]:
     """Compute badge scorecard stats from scan history and cached prices.
@@ -73,7 +73,7 @@ def build_badge_scorecard(
     if len(scan_ids) < MIN_SCANS:
         return []
 
-    ticker_map = _sector_ticker_map(universe)
+    ticker_map = _cohort_ticker_map(themes_cfg)
     all_tickers = sorted(set(ticker_map.values()))
 
     # run_at may be tz-naive or tz-aware depending on the source; normalise
@@ -181,7 +181,7 @@ def build_page_context(shared: dict) -> dict:
     return {
         "badge_scorecard": build_badge_scorecard(
             shared["all_scores_df"],
-            shared["universe"],
+            shared["themes_cfg"],
             price_cache_dir=str(shared["project_root"] / "data/cache"),
         ),
     }
