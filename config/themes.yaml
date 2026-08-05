@@ -48,6 +48,38 @@ themes:
     ticker: KROP
     gdelt_keywords: ["agtech", "precision agriculture", "food technology", "vertical farming"]
 
+  # --- Diversifiers (added 2026-08-05) -------------------------------------
+  # Selected by their effect on cohort pairwise correlation, not by narrative:
+  # the growth-thematic block above averages rho 0.52 against itself, which is
+  # three times the US sector cohort it replaces. These seven bring the 20-name
+  # cohort to rho 0.375. Several are industries rather than themes — that is
+  # exactly why they diversify. See the retire-sector-cohort design doc.
+  Insurance:
+    ticker: IAK
+    gdelt_keywords: ["insurance industry", "insurer earnings", "reinsurance", "property casualty insurance"]
+  Healthcare Providers:
+    ticker: IHF
+    gdelt_keywords: ["health insurer", "hospital operator", "managed care", "healthcare costs"]
+  Energy Producers:
+    # IXC, not XLE: XLE is already the US Energy sector instrument, and a ticker
+    # shared across cohorts breaks the correlation heatmap. IXC is global energy
+    # equity, correlates 0.25 against the rest (XLE was 0.24), and matches the
+    # global UCITS equivalent below more closely than XLE did.
+    ticker: IXC
+    gdelt_keywords: ["oil producer", "oil prices", "natural gas prices", "energy company earnings"]
+  Gold & Precious Metals Miners:
+    ticker: GDX
+    gdelt_keywords: ["gold mining", "gold price", "precious metals", "gold miner"]
+  Shipping:
+    ticker: BOAT
+    gdelt_keywords: ["container shipping", "freight rates", "shipping industry", "tanker rates"]
+  Food & Beverage:
+    ticker: PBJ
+    gdelt_keywords: ["food company", "beverage industry", "food prices", "packaged food"]
+  Medical Devices:
+    ticker: IHI
+    gdelt_keywords: ["medical device", "medical equipment", "surgical device", "FDA device approval"]
+
 ucits:
   Artificial Intelligence & Robotics:
     - ticker: XAIX
@@ -165,4 +197,63 @@ ucits:
       issuer: Global X
       match: exact
       url: https://www.justetf.com/en/etf-profile.html?isin=IE000EBFYWX3
+
+  # --- Diversifiers (verified against justETF 2026-08-05) ------------------
+  # Shipping (BOAT) has no entry: the only UCITS candidate found is the ETFS
+  # DAXglobal Shipping GO UCITS ETF (IE00B3CMS880), an ETF Securities product
+  # predating the WisdomTree acquisition whose current status is unconfirmed.
+  # Listing a possibly-dead instrument here is worse than listing none.
+  Insurance:
+    - ticker: SC0Y
+      name: Invesco European Insurance Sector UCITS ETF Acc
+      isin: IE00B5MTXJ97
+      ter: "0.20%"
+      issuer: Invesco
+      match: partial
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00B5MTXJ97
+
+  Healthcare Providers:
+    - ticker: SML4
+      name: Invesco US Health Care Sector UCITS ETF
+      isin: IE00B3WMTH43
+      ter: "0.14%"
+      issuer: Invesco
+      match: partial
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00B3WMTH43
+
+  Energy Producers:
+    - ticker: 5MVW
+      name: iShares MSCI World Energy Sector UCITS ETF USD (Dist)
+      isin: IE00BJ5JP105
+      ter: "0.18%"
+      issuer: iShares
+      match: close
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BJ5JP105
+
+  Gold & Precious Metals Miners:
+    - ticker: G2X
+      name: VanEck Gold Miners UCITS ETF
+      isin: IE00BQQP9F84
+      ter: "0.53%"
+      issuer: VanEck
+      match: exact
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BQQP9F84
+
+  Food & Beverage:
+    - ticker: SC03
+      name: Invesco European Food & Bev Sector UCITS ETF
+      isin: IE00B5MTYL84
+      ter: "0.20%"
+      issuer: Invesco
+      match: partial
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00B5MTYL84
+
+  Medical Devices:
+    - ticker: U5MD
+      name: iShares US Medical Devices UCITS ETF USD (Acc)
+      isin: IE00BMX0DF60
+      ter: "0.25%"
+      issuer: iShares
+      match: close
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BMX0DF60
 
