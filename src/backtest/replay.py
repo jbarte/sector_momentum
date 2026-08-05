@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.pipeline import SIGNAL_COLUMNS, build_signals_rows, build_theme_signals_rows
+from src.pipeline import SIGNAL_COLUMNS, build_theme_signals_rows
 from src.scoring import score_all
 
 
@@ -23,29 +23,6 @@ def month_end_dates(index: pd.DatetimeIndex) -> list[pd.Timestamp]:
     # group by year-month period, take the max (last) trading day in each
     last_per_month = s.groupby(index.to_period("M")).max()
     return [pd.Timestamp(d) for d in last_per_month.tolist()]
-
-
-def score_as_of(
-    universe: dict,
-    prices: dict[str, pd.DataFrame],
-    as_of: pd.Timestamp,
-    region: str,
-    level_weight: float | None = None,
-    change_weight: float | None = None,
-    level_signals: list[str] | None = None,
-    change_signals: list[str] | None = None,
-) -> pd.DataFrame | None:
-    truncated = truncate_prices(prices, as_of)
-    rows = build_signals_rows(universe, truncated)
-    rows = [r for r in rows if r["region"] == region]
-    if not rows:
-        return None
-    wide = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
-    scored = score_all(wide, weights_path="config/weights.yaml",
-                       sentiment_score=None, blend_sentiment=False,
-                       level_weight=level_weight, change_weight=change_weight,
-                       level_signals=level_signals, change_signals=change_signals)
-    return scored
 
 
 def score_themes_as_of(

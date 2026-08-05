@@ -27,23 +27,20 @@ def test_truncate_prices_drops_future_rows():
     assert out["XLK"].index.max() <= cut
 
 
-def test_score_as_of_returns_region_only_scored_frame():
-    universe = {
-        "us_sectors": {"Technology": "XLK", "Energy": "XLE"},
-        "eu_sectors": {"Technology": "EXV3.DE"},
-        "us_benchmark": "RSP",
-        "eu_benchmark": "EXSA.DE",
+def test_score_themes_as_of_returns_scored_frame():
+    themes_cfg = {
+        "benchmark": "ACWI",
+        "themes": {"Semiconductors": {"ticker": "SOXX"}, "Space": {"ticker": "UFO"}},
     }
     prices = {
-        "XLK": _ramp(300, 100, 0.8),
-        "XLE": _ramp(300, 100, 0.1),
-        "RSP": _ramp(300, 100, 0.4),
-        "EXV3.DE": _ramp(300, 100, 0.5),
-        "EXSA.DE": _ramp(300, 100, 0.4),
+        "SOXX": _ramp(300, 100, 0.8),
+        "UFO": _ramp(300, 100, 0.1),
+        "ACWI": _ramp(300, 100, 0.4),
     }
-    scored = replay.score_as_of(universe, prices, pd.Timestamp("2021-01-01"), region="US")
+    scored = replay.score_themes_as_of(themes_cfg, prices, pd.Timestamp("2021-01-01"))
     assert scored is not None
-    assert set(scored.index) == {"US|Technology", "US|Energy"}
+    assert set(scored.index) == {"THEME|Semiconductors", "THEME|Space"}
     assert "composite" in scored.columns
-    # Higher-trend XLK should outrank XLE
-    assert scored.loc["US|Technology", "composite"] > scored.loc["US|Energy", "composite"]
+    # Higher-trend SOXX should outrank UFO
+    assert (scored.loc["THEME|Semiconductors", "composite"]
+            > scored.loc["THEME|Space", "composite"])

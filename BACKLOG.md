@@ -190,6 +190,44 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Sector cohort retired — themes are the only cohort** — completes Sector
+  Momentum 2.0. `scan.py` now runs the theme pipeline as its primary (and
+  fatal-on-failure) track rather than bolting `_run_themes_track` on as a
+  non-fatal extra; FinBERT sentiment moved to the theme GDELT path.
+  `src/cohorts.py` yields one cohort, and `src.state.SECTOR_REGIONS` became
+  `DEFAULT_REGIONS = ("THEME",)`.
+
+  **The historical US/EU rows were deliberately kept** (41 scans, 451 US + 502 EU
+  in `scores`). Retiring the cohort removed the *writer*, not the rows, which is
+  why the readers keep an explicit region filter rather than selecting
+  everything — an unfiltered read would resurrect dead sectors into the
+  leaderboard, charts and movers. The five starred sector positions are left in
+  place, inert.
+
+  Deleted: `src/data/constituents.py`, `src/signals/breadth.py`,
+  `src/backtest/rotations.py`, `src/sector_map.py`, `run_track`/`run_all`/
+  `_track_instruments`, `replay.score_as_of`, `pipeline.build_signals_rows`,
+  `report.build_swedish_overlay`, `news_sentiment.fetch_news_headlines`/
+  `apply_polarity_to_keys`/`build_news_signal_rows`, `config/sector_etfs.yaml`,
+  `config/rotations.yaml`, `config/sector_map.yaml`, `config/swedish_tickers.csv`,
+  and the three `scripts/*_research.py` sector sweeps. `config/universe.yaml`
+  keeps only `price_lookback_days`.
+
+  The **sentiment page was ported** rather than deleted — theme FinBERT scores
+  have been computed and stored since July but never displayed there.
+
+  Deviation from the spec, deliberate: `breadth_above_50dma` stays in
+  `SIGNAL_COLUMNS` as a permanently-NaN column instead of being removed. Dropping
+  it would change `SIGNAL_COLUMNS`, `weights.yaml` and the comparability of
+  stored history; themes have always carried it as NaN, so keeping it is the
+  zero-change option. Only its sector-only *producer* was deleted.
+
+  Verified: no `US|`/`EU|` key appears anywhere in `docs/`; leaderboard renders
+  the theme cohort only; correlation heatmap is 20×20 (was 45×45); page weight
+  1129 KB → 456 KB; historical sector rows confirmed still present in the DB.
+  Spec: `sector_momentum-notes/specs/2026-08-05-retire-sector-cohort-design.md`
+  (PR C of 3).
+
 - **Theme backtest wired into the shared results contract** — `run_theme_track`
   had been computing a full theme track on every backtest run since it was built,
   writing it to `backtests_themes/summary.json` under a *different shape*

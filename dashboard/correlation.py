@@ -164,7 +164,6 @@ def build_correlation_context(shared: dict) -> dict:
         "correlation_date": None,
     }
     try:
-        universe = shared["universe"]
         themes_cfg = shared.get("themes_cfg")
         history_df = shared["history_df"]
         cache_dir = str(shared["project_root"] / "data" / "cache")

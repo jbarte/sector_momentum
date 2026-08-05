@@ -10,7 +10,7 @@ from dashboard.badges import build_badge_scorecard
 def _make_history(n_scans: int = 8) -> pd.DataFrame:
     """Synthetic scan history with controllable ranks.
 
-    Sector layout (region=US):
+    Cohort layout (region=THEME):
       - TechUp: rank improves 4→1 over 8 scans (strong_up trajectory).
         composite > 0 and change > 0 → Entry badge.
       - EnergyDown: rank worsens 1→4 (strong_down).
@@ -32,7 +32,7 @@ def _make_history(n_scans: int = 8) -> pd.DataFrame:
             rows.append({
                 "scan_id": sid,
                 "run_at": run_at,
-                "region": "US",
+                "region": "THEME",
                 "gics_sector": sec,
                 "rank": round(ranks[j]),
                 "composite": composites[j],
@@ -56,12 +56,13 @@ def _make_prices() -> dict[str, pd.DataFrame]:
     return {"XLK": xlk, "XLF": flat, "XLE": flat, "XLV": flat}
 
 
-UNIVERSE = {
-    "us_sectors": {
-        "Technology": "XLK",
-        "Energy": "XLE",
-        "Health Care": "XLV",
-        "Financials": "XLF",
+THEMES_CFG = {
+    "benchmark": "ACWI",
+    "themes": {
+        "Technology": {"ticker": "XLK"},
+        "Energy": {"ticker": "XLE"},
+        "Health Care": {"ticker": "XLV"},
+        "Financials": {"ticker": "XLF"},
     },
 }
 
@@ -71,9 +72,14 @@ def test_scorecard_basic(mock_fetch):
     """With 8 scans, produces 8 rows with correct badge labels in order."""
     mock_fetch.return_value = _make_prices()
     history = _make_history(n_scans=8)
-    result = build_badge_scorecard(history, UNIVERSE)
+    result = build_badge_scorecard(history, THEMES_CFG)
     assert isinstance(result, list)
     assert len(result) == 8
+    # The row shape alone is produced even when the ticker map matches nothing
+    # (count=0, returns None), so assert the price join actually happened —
+    # otherwise a cohort/region mismatch would pass this test silently.
+    assert any(r["count"] > 0 and r["mean_return"] is not None for r in result), \
+        "scorecard produced only empty buckets — ticker map did not match history"
     keys = [r["badge_key"] for r in result]
     assert keys == [
         "entry", "rising_fast", "rising", "flat",
@@ -91,7 +97,7 @@ def test_scorecard_too_few_scans(mock_fetch):
     """Fewer than 6 scans → empty list."""
     mock_fetch.return_value = _make_prices()
     history = _make_history(n_scans=5)
-    result = build_badge_scorecard(history, UNIVERSE)
+    result = build_badge_scorecard(history, THEMES_CFG)
     assert result == []
 
 
@@ -100,7 +106,7 @@ def test_scorecard_min_obs_guard(mock_fetch):
     """Buckets with < 3 observations get None stats."""
     mock_fetch.return_value = _make_prices()
     history = _make_history(n_scans=8)
-    result = build_badge_scorecard(history, UNIVERSE)
+    result = build_badge_scorecard(history, THEMES_CFG)
     for row in result:
         if row["count"] < 3:
             assert row["hit_rate"] is None
@@ -113,7 +119,7 @@ def test_scorecard_entry_has_positive_mean(mock_fetch):
     """XLK (Entry badge) has rising prices → mean_return should be > 0."""
     mock_fetch.return_value = _make_prices()
     history = _make_history(n_scans=8)
-    result = build_badge_scorecard(history, UNIVERSE)
+    result = build_badge_scorecard(history, THEMES_CFG)
     entry_row = next(r for r in result if r["badge_key"] == "entry")
     if entry_row["count"] >= 3:
         assert entry_row["mean_return"] > 0
@@ -124,34 +130,31 @@ def test_scorecard_metadata(mock_fetch):
     """Result is a non-empty list of badge-row dicts."""
     mock_fetch.return_value = _make_prices()
     history = _make_history(n_scans=8)
-    result = build_badge_scorecard(history, UNIVERSE)
+    result = build_badge_scorecard(history, THEMES_CFG)
     assert len(result) > 0
 
 
-def test_scorecard_eu_scalar_ticker():
-    """EU sectors map scalar tickers like US sectors."""
-    from dashboard.badges import _sector_ticker_map
-    universe = {
-        "us_sectors": {"Technology": "XLK"},
-        "eu_sectors": {"Banks": "EXV1.DE", "Chemicals": "EXV7.DE"},
-    }
-    m = _sector_ticker_map(universe)
-    assert m["US|Technology"] == "XLK"
-    assert m["EU|Banks"] == "EXV1.DE"
-    assert m["EU|Chemicals"] == "EXV7.DE"
+def test_ticker_map_reads_the_ticker_field():
+    """themes.yaml entries are dicts keyed by `ticker`; a bare string is also
+    tolerated, matching src/pipeline.py."""
+    from dashboard.badges import _cohort_ticker_map
+    m = _cohort_ticker_map({"themes": {
+        "Space": {"ticker": "UFO"}, "Biotech": "XBI",
+    }})
+    assert m == {"THEME|Space": "UFO", "THEME|Biotech": "XBI"}
 
 
 @patch("dashboard.badges.fetch_prices")
 def test_scorecard_empty_history(mock_fetch):
     """Empty history_df → empty list, no price fetch needed."""
     mock_fetch.return_value = {}
-    result = build_badge_scorecard(pd.DataFrame(), UNIVERSE)
+    result = build_badge_scorecard(pd.DataFrame(), THEMES_CFG)
     assert result == []
 
 
 def test_ticker_map_is_cohort_driven():
-    """_sector_ticker_map must follow config, not a hardcoded region pair."""
-    from dashboard.badges import _sector_ticker_map
-    result = _sector_ticker_map({"us_sectors": {"Energy": "XLE"}})
-    assert result == {"US|Energy": "XLE"}
-    assert _sector_ticker_map({}) == {}
+    """_cohort_ticker_map must follow config, not a hardcoded region pair."""
+    from dashboard.badges import _cohort_ticker_map
+    result = _cohort_ticker_map({"themes": {"Space": {"ticker": "UFO"}}})
+    assert result == {"THEME|Space": "UFO"}
+    assert _cohort_ticker_map({}) == {}

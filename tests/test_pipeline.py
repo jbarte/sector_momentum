@@ -6,7 +6,7 @@ import pytest
 
 from src.pipeline import (
     SIGNAL_COLUMNS,
-    build_signals_rows,
+    build_theme_signals_rows,
     compute_signals_for_sector,
 )
 
@@ -24,27 +24,22 @@ def _price_df(n=260, start=100.0, step=0.5):
     )
 
 
-def _universe_one_sector():
-    return {
-        "us_sectors": {"Technology": "XLK"},
-        "eu_sectors": {},
-        "us_benchmark": "RSP",
-        "eu_benchmark": "EXSA.DE",
-    }
+def _themes_one_member():
+    return {"benchmark": "RSP", "themes": {"Technology": {"ticker": "XLK"}}}
 
 
 # ---------------------------------------------------------------------------
 # Original test — key presence
 # ---------------------------------------------------------------------------
 
-def test_build_signals_rows_produces_expected_keys():
-    universe = _universe_one_sector()
+def test_build_theme_signals_rows_produces_expected_keys():
+    themes_cfg = _themes_one_member()
     prices = {"XLK": _price_df(), "RSP": _price_df(step=0.3)}
-    rows = build_signals_rows(universe, prices)
+    rows = build_theme_signals_rows(themes_cfg, prices)
     assert len(rows) == 1
     row = rows[0]
-    assert row["sector_key"] == "US|Technology"
-    assert row["region"] == "US"
+    assert row["sector_key"] == "THEME|Technology"
+    assert row["region"] == "THEME"
     for col in SIGNAL_COLUMNS:
         assert col in row
 
@@ -55,9 +50,9 @@ def test_build_signals_rows_produces_expected_keys():
 
 def test_signal_values_are_in_reasonable_ranges():
     """Computed signals for a steadily-rising series should be within sane ranges."""
-    universe = _universe_one_sector()
+    themes_cfg = _themes_one_member()
     prices = {"XLK": _price_df(n=260, step=0.5), "RSP": _price_df(n=260, step=0.3)}
-    rows = build_signals_rows(universe, prices)
+    rows = build_theme_signals_rows(themes_cfg, prices)
     assert len(rows) == 1
     row = rows[0]
 
@@ -103,9 +98,9 @@ def test_signal_values_are_in_reasonable_ranges():
 
 def test_return_signals_positive_for_uptrend():
     """A steadily rising price series should produce positive returns."""
-    universe = _universe_one_sector()
+    themes_cfg = _themes_one_member()
     prices = {"XLK": _price_df(n=260, step=1.0), "RSP": _price_df(n=260, step=0.5)}
-    rows = build_signals_rows(universe, prices)
+    rows = build_theme_signals_rows(themes_cfg, prices)
     row = rows[0]
     assert row["return_1m"] > 0, "1m return should be positive for uptrend"
     assert row["return_3m"] > 0, "3m return should be positive for uptrend"
@@ -114,24 +109,24 @@ def test_return_signals_positive_for_uptrend():
 
 def test_rs_ratio_above_100_when_outperforming():
     """Sector rising faster than benchmark should have rs_ratio > 100."""
-    universe = _universe_one_sector()
+    themes_cfg = _themes_one_member()
     # Sector grows faster than benchmark
     prices = {
         "XLK": _price_df(n=260, step=1.0),
         "RSP": _price_df(n=260, step=0.2),
     }
-    rows = build_signals_rows(universe, prices)
+    rows = build_theme_signals_rows(themes_cfg, prices)
     assert rows[0]["rs_ratio"] > 100
 
 
 def test_rs_ratio_below_100_when_underperforming():
     """Sector rising slower than benchmark should have rs_ratio < 100."""
-    universe = _universe_one_sector()
+    themes_cfg = _themes_one_member()
     prices = {
         "XLK": _price_df(n=260, step=0.1),
         "RSP": _price_df(n=260, step=1.0),
     }
-    rows = build_signals_rows(universe, prices)
+    rows = build_theme_signals_rows(themes_cfg, prices)
     assert rows[0]["rs_ratio"] < 100
 
 
@@ -139,22 +134,22 @@ def test_rs_ratio_below_100_when_underperforming():
 # Missing / NaN benchmark handling
 # ---------------------------------------------------------------------------
 
-def test_missing_benchmark_skips_sector_gracefully():
+def test_missing_benchmark_skips_member_gracefully():
     """When the benchmark ticker is absent from prices, the sector is skipped."""
-    universe = _universe_one_sector()
+    themes_cfg = _themes_one_member()
     # No RSP in prices
     prices = {"XLK": _price_df()}
-    rows = build_signals_rows(universe, prices)
+    rows = build_theme_signals_rows(themes_cfg, prices)
     # Should be empty — sector skipped because benchmark is missing
     assert len(rows) == 0
 
 
-def test_missing_sector_ticker_skips_gracefully():
+def test_missing_member_ticker_skips_gracefully():
     """When the sector ticker is absent from prices, the sector is skipped."""
-    universe = _universe_one_sector()
+    themes_cfg = _themes_one_member()
     # No XLK in prices
     prices = {"RSP": _price_df()}
-    rows = build_signals_rows(universe, prices)
+    rows = build_theme_signals_rows(themes_cfg, prices)
     assert len(rows) == 0
 
 
@@ -215,20 +210,17 @@ def test_nan_close_in_sector_produces_nan_signals():
 # Multiple sectors
 # ---------------------------------------------------------------------------
 
-def test_multiple_us_sectors():
-    """Multiple US sectors all produce signal rows."""
-    universe = {
-        "us_sectors": {"Technology": "XLK", "Energy": "XLE"},
-        "eu_sectors": {},
-        "us_benchmark": "RSP",
-        "eu_benchmark": "EXSA.DE",
-    }
+def test_multiple_members_all_produce_rows():
+    """Every cohort member produces a signal row."""
+    themes_cfg = {"benchmark": "RSP", "themes": {
+        "Technology": {"ticker": "XLK"}, "Energy": {"ticker": "XLE"},
+    }}
     prices = {
         "XLK": _price_df(step=0.5),
         "XLE": _price_df(step=0.3),
         "RSP": _price_df(step=0.4),
     }
-    rows = build_signals_rows(universe, prices)
+    rows = build_theme_signals_rows(themes_cfg, prices)
     assert len(rows) == 2
     sectors = {r["gics_sector"] for r in rows}
     assert sectors == {"Technology", "Energy"}

@@ -42,40 +42,6 @@ def test_score_all_weight_override_changes_data_score():
     assert not np.allclose(lvl_heavy["data_score"].values, chg_heavy["data_score"].values)
 
 
-def test_score_as_of_forwards_weights(monkeypatch):
-    import src.backtest.replay as replay
-
-    captured = {}
-
-    def fake_score_all(wide, weights_path="config/weights.yaml", sentiment_score=None,
-                       blend_sentiment=True, level_weight=None, change_weight=None,
-                       level_signals=None, change_signals=None):
-        captured["lw"] = level_weight
-        captured["cw"] = change_weight
-        captured["ls"] = level_signals
-        captured["cs"] = change_signals
-        return pd.DataFrame({"rank": range(len(wide))}, index=wide.index)
-
-    # One US sector row so build_signals_rows yields something; simplest: monkeypatch
-    # build_signals_rows to return a fixed row set.
-    def fake_rows(universe, prices):
-        return [{"sector_key": "US|Tech", "region": "US",
-                 **{c: 1.0 for c in replay.SIGNAL_COLUMNS}}]
-
-    monkeypatch.setattr(replay, "build_signals_rows", fake_rows)
-    monkeypatch.setattr(replay, "score_all", fake_score_all)
-
-    replay.score_as_of({}, {}, pd.Timestamp("2020-01-31"), "US",
-                       level_weight=0.7, change_weight=0.3)
-    assert captured == {"lw": 0.7, "cw": 0.3, "ls": None, "cs": None}
-
-    # Signal-set overrides are forwarded the same way (default stays None).
-    replay.score_as_of({}, {}, pd.Timestamp("2020-01-31"), "US",
-                       level_signals=["rs_ratio"], change_signals=["obv_slope"])
-    assert captured["ls"] == ["rs_ratio"]
-    assert captured["cs"] == ["obv_slope"]
-
-
 def _spy(values, start="2019-01-01"):
     idx = pd.bdate_range(start, periods=len(values))
     return pd.DataFrame({"Close": values}, index=idx)
@@ -131,33 +97,3 @@ def test_regime_stats_counts_switches():
     assert stats["n_switches"] >= 1
 
 
-def test_run_track_passes_weights_fn(monkeypatch):
-    import src.backtest.engine as engine
-
-    seen_weights = []
-
-    def fake_score_as_of(universe, prices, d, region, level_weight=None, change_weight=None,
-                         level_signals=None, change_signals=None):
-        seen_weights.append((level_weight, change_weight))
-        # Return a minimal valid scored frame with >= top_n rows.
-        idx = [f"US|S{i}" for i in range(5)]
-        return pd.DataFrame({"composite": range(5), "rank": range(1, 6)}, index=idx)
-
-    monkeypatch.setattr(engine.replay, "score_as_of", fake_score_as_of)
-    monkeypatch.setattr(engine.replay, "month_end_dates",
-                        lambda idx: [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29"),
-                                     pd.Timestamp("2020-03-31")])
-    # Minimal forward-returns + simulate stubs so run_track reaches the scoring loop.
-    monkeypatch.setattr(engine.strategy, "forward_returns",
-                        lambda prices, tickers, dates: pd.DataFrame(
-                            0.0, index=dates, columns=tickers))
-    monkeypatch.setattr(engine.strategy, "simulate",
-                        lambda *a, **k: {"dates": [], "strategy_returns": [],
-                                         "holdings": [], "turnover": []})
-
-    prices = {"BENCH": pd.DataFrame({"Close": [1.0]},
-                                    index=[pd.Timestamp("2020-01-31")])}
-    engine.run_track({}, prices, "US", "BENCH", {"US|S0": "T0"},
-                     top_n=5, weights_fn=lambda d: (0.2, 0.8))
-    # Every scored date used the regime weights.
-    assert seen_weights and all(w == (0.2, 0.8) for w in seen_weights)

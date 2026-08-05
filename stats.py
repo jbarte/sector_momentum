@@ -23,7 +23,7 @@ except ImportError:
     pass
 
 sys.path.insert(0, str(Path(__file__).parent))
-from src.state import init_db, SECTOR_REGIONS
+from src.state import init_db, DEFAULT_REGIONS
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ def _per_sector_stats(conn) -> None:
             WHERE region = ANY(%s)
             GROUP BY region, gics_sector
             ORDER BY region, n_scans DESC, gics_sector
-        """, (list(SECTOR_REGIONS),))
+        """, (list(DEFAULT_REGIONS),))
         rows = cur.fetchall()
     if not rows:
         print("  No data.")
@@ -167,7 +167,7 @@ def _signal_completeness(conn) -> None:
             WHERE region = ANY(%s)
             GROUP BY signal_name
             ORDER BY signal_name
-        """, (list(SECTOR_REGIONS),))
+        """, (list(DEFAULT_REGIONS),))
         rows = cur.fetchall()
     if not rows:
         print("  No data.")
@@ -195,7 +195,7 @@ def _table_row_counts(conn) -> None:
                 cur.execute(f"SELECT COUNT(*) FROM {tbl}")
             else:
                 cur.execute(f"SELECT COUNT(*) FROM {tbl} WHERE region = ANY(%s)",
-                            (list(SECTOR_REGIONS),))
+                            (list(DEFAULT_REGIONS),))
             n = cur.fetchone()[0]
             print(f"  {tbl:<10s}  {n:>8,d} rows")
 

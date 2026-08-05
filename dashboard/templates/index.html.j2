@@ -58,11 +58,14 @@
 
 <!-- Cohort selector — drives RRG / Drill-down / Movers / History / Backtest.
      rs_ratio/rs_momentum are computed against each cohort's own benchmark
-     (US vs RSP, EU vs EXSA.DE, THEME vs ACWI), so those tabs render one
-     cohort at a time rather than mixing benchmarks on one chart. The
-     Leaderboard (grouped by cohort already) and Correlation (one combined
-     heatmap) tabs are unaffected by this selector. -->
-{% if cohort_list %}
+     (THEME vs ACWI), so those tabs render one cohort at a time rather than
+     mixing benchmarks on one chart. The Leaderboard (grouped by cohort
+     already) and Correlation (one combined heatmap) tabs are unaffected.
+
+     Hidden when only one cohort is configured — a select with a single option
+     is a control that cannot do anything. The markup stays so a second cohort
+     brings it back with no template change. -->
+{% if cohort_list | length > 1 %}
 <div class="cohort-select-row">
   <label for="cohort-select" data-i18n="cohort_label">Cohort:</label>
   <select id="cohort-select" onchange="switchCohort(this.value)">

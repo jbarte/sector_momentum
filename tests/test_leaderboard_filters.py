@@ -129,9 +129,9 @@ def test_row_with_missing_scores_renders_empty_numeric_attrs():
 
 def test_leaderboard_renders_every_cohort_group():
     html = _render_index(grouped_rows=_COHORT_GROUPS)
-    assert "US Sectors" in html
-    assert "EU Sectors" in html
     assert "Themes" in html
+    assert "US Sectors" not in html
+    assert "EU Sectors" not in html
 
 
 def test_theme_rows_carry_filter_data_attributes():
@@ -145,5 +145,6 @@ def test_theme_rows_carry_filter_data_attributes():
 
 def test_cohort_filter_chips_present():
     html = _render_index(grouped_rows=_COHORT_GROUPS)
-    for value in ("US", "EU", "THEME"):
-        assert f'data-filter-value="{value}"' in html
+    assert 'data-filter-value="THEME"' in html
+    for retired in ("US", "EU"):
+        assert f'data-filter-value="{retired}"' not in html

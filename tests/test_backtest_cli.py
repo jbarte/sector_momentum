@@ -1,11 +1,10 @@
 import backtest
 
 
-def test_build_ticker_list_dedups_and_includes_benchmarks():
-    universe = {
-        "us_sectors": {"Technology": "XLK", "Energy": "XLE"},
-        "eu_sectors": {"Technology": "EXV3.DE"},
-        "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE",
+def test_build_theme_ticker_list_includes_benchmark_and_spy_fallback():
+    themes_cfg = {
+        "benchmark": "ACWI",
+        "themes": {"Semiconductors": {"ticker": "SOXX"}, "Space": {"ticker": "UFO"}},
     }
-    tickers = backtest.build_ticker_list(universe)
-    assert tickers == ["XLK", "XLE", "EXV3.DE", "RSP", "EXSA.DE"]
+    tickers = backtest.build_theme_ticker_list(themes_cfg)
+    assert tickers == ["SOXX", "UFO", "ACWI", "SPY"]

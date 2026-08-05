@@ -47,19 +47,6 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def build_ticker_list(universe: dict) -> list[str]:
-    raw = (list(universe.get("us_sectors", {}).values())
-           + list(universe.get("eu_sectors", {}).values())
-           + [universe["us_benchmark"], universe["eu_benchmark"]])
-    seen: set[str] = set()
-    out: list[str] = []
-    for t in raw:
-        if t not in seen:
-            seen.add(t)
-            out.append(t)
-    return out
-
-
 def build_theme_ticker_list(themes_cfg: dict) -> list[str]:
     tickers = [
         (cfg["ticker"] if isinstance(cfg, dict) else cfg)

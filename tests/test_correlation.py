@@ -20,11 +20,10 @@ def _make_prices(n_tickers: int, n_days: int, seed: int = 42) -> dict[str, pd.Da
     return result
 
 
-def _make_universe(n_us: int = 11, n_eu: int = 14) -> dict:
-    """Build a universe config dict matching the ticker count."""
-    us = {f"Sector{i}": f"TICK{i}" for i in range(n_us)}
-    eu = {f"EUSector{i}": f"TICK{n_us + i}" for i in range(n_eu)}
-    return {"us_sectors": us, "eu_sectors": eu}
+def _make_themes_cfg(n: int = 25) -> dict:
+    """Build a themes config dict matching the ticker count."""
+    return {"benchmark": "ACWI",
+            "themes": {f"Theme{i}": {"ticker": f"TICK{i}"} for i in range(n)}}
 
 
 # ---------------------------------------------------------------------------
@@ -85,36 +84,27 @@ class TestComputeCorrelationMatrix:
 
 
 class TestOrderLabels:
-    def test_us_before_eu(self):
+    def test_ordered_by_rank_within_cohort(self):
         from dashboard.correlation import _order_labels
         from src.cohorts import cohorts
 
-        universe = _make_universe(3, 2)
-        ranks = {
-            "US|Sector0": 2, "US|Sector1": 1, "US|Sector2": 3,
-            "EU|EUSector0": 1, "EU|EUSector1": 2,
-        }
-        labels, tickers, _ = _order_labels(cohorts(universe), ranks)
-        # US should come first, ordered by rank
-        assert labels[0] == "Sector1 (US)"   # rank 1
-        assert labels[1] == "Sector0 (US)"   # rank 2
-        assert labels[2] == "Sector2 (US)"   # rank 3
-        assert labels[3] == "EUSector0 (EU)" # rank 1
-        assert labels[4] == "EUSector1 (EU)" # rank 2
+        themes_cfg = _make_themes_cfg(3)
+        ranks = {"THEME|Theme0": 2, "THEME|Theme1": 1, "THEME|Theme2": 3}
+        labels, tickers, _ = _order_labels(cohorts(themes_cfg), ranks)
+        assert labels[0] == "Theme1 (THEME)"   # rank 1
+        assert labels[1] == "Theme0 (THEME)"   # rank 2
+        assert labels[2] == "Theme2 (THEME)"   # rank 3
 
     def test_top5_bold(self):
         from dashboard.correlation import _order_labels
         from src.cohorts import cohorts
 
-        universe = _make_universe(11, 14)
-        ranks = {}
-        for i, name in enumerate(universe["us_sectors"]):
-            ranks[f"US|{name}"] = i + 1
-        for i, name in enumerate(universe["eu_sectors"]):
-            ranks[f"EU|{name}"] = i + 1
-        labels, _, _ = _order_labels(cohorts(universe), ranks)
+        themes_cfg = _make_themes_cfg(25)
+        ranks = {f"THEME|{name}": i + 1
+                 for i, name in enumerate(themes_cfg["themes"])}
+        labels, _, _ = _order_labels(cohorts(themes_cfg), ranks)
         bold_count = sum(1 for l in labels if l.startswith("<b>"))
-        assert bold_count == 10  # top 5 US + top 5 EU
+        assert bold_count == 5  # top 5 of the one cohort
 
 
 class TestBuildCorrelationContext:
@@ -122,9 +112,9 @@ class TestBuildCorrelationContext:
         from dashboard import correlation
 
         prices = _make_prices(25, 80)
-        universe = _make_universe()
-        tickers = list(universe["us_sectors"].values()) + list(universe["eu_sectors"].values())
-        # Map synthetic tickers to match universe
+        themes_cfg = _make_themes_cfg()
+        tickers = [c["ticker"] for c in themes_cfg["themes"].values()]
+        # Map synthetic tickers to match the configured cohort
         mapped_prices = {}
         for i, t in enumerate(tickers):
             mapped_prices[t] = prices[f"TICK{i}"]
@@ -134,15 +124,11 @@ class TestBuildCorrelationContext:
             lambda tickers, start, end, cache_dir: mapped_prices,
         )
 
-        ranks = {}
-        for i, name in enumerate(universe["us_sectors"]):
-            ranks[f"US|{name}"] = i + 1
-        for i, name in enumerate(universe["eu_sectors"]):
-            ranks[f"EU|{name}"] = i + 1
-
+        ranks = {f"THEME|{name}": i + 1
+                 for i, name in enumerate(themes_cfg["themes"])}
         shared = {
             "project_root": __import__("pathlib").Path("."),
-            "universe": universe,
+            "themes_cfg": themes_cfg,
             "history_df": _history_df_with_ranks(ranks),
         }
         ctx = correlation.build_correlation_context(shared)
@@ -161,7 +147,7 @@ class TestBuildCorrelationContext:
 
         shared = {
             "project_root": __import__("pathlib").Path("."),
-            "universe": _make_universe(),
+            "themes_cfg": _make_themes_cfg(),
             "history_df": pd.DataFrame(),
         }
         ctx = correlation.build_correlation_context(shared)
@@ -174,16 +160,14 @@ def test_order_labels_includes_theme_cohort_when_themes_cfg_supplied():
     from dashboard.correlation import _order_labels
     from src.cohorts import cohorts
 
-    universe = {
-        "us_sectors": {"Technology": "XLK"},
-        "eu_sectors": {"Banks": "EXV1.DE"},
-    }
-    themes_cfg = {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}}
-    ranks = {"US|Technology": 1, "EU|Banks": 1, "THEME|Space": 1}
-    labels, tickers, block_sizes = _order_labels(cohorts(universe, themes_cfg), ranks)
+    themes_cfg = {"benchmark": "ACWI", "themes": {
+        "Space": {"ticker": "UFO"}, "Biotech": {"ticker": "XBI"},
+    }}
+    ranks = {"THEME|Space": 1, "THEME|Biotech": 2}
+    labels, tickers, block_sizes = _order_labels(cohorts(themes_cfg), ranks)
 
-    assert tickers == ["XLK", "EXV1.DE", "UFO"]
-    assert block_sizes == [1, 1, 1]
+    assert tickers == ["UFO", "XBI"]
+    assert block_sizes == [2]
     assert labels[-1].endswith("(THEME)")
 
 
@@ -193,14 +177,14 @@ def test_build_correlation_context_raises_on_duplicate_ticker_across_cohorts():
     figure (caught by the function's own try/except, degrading to none_ctx)."""
     from dashboard import correlation
 
-    universe = {"us_sectors": {"Technology": "DUPE"}}
-    themes_cfg = {"benchmark": "ACWI", "themes": {"Space": {"ticker": "DUPE"}}}
+    themes_cfg = {"benchmark": "ACWI", "themes": {
+        "Space": {"ticker": "DUPE"}, "Biotech": {"ticker": "DUPE"},
+    }}
 
     shared = {
         "project_root": __import__("pathlib").Path("."),
-        "universe": universe,
         "themes_cfg": themes_cfg,
-        "history_df": _history_df_with_ranks({"US|Technology": 1, "THEME|Space": 1}),
+        "history_df": _history_df_with_ranks({"THEME|Space": 1, "THEME|Biotech": 2}),
     }
     ctx = correlation.build_correlation_context(shared)
     assert ctx["correlation_fig_json"] is None
@@ -210,17 +194,15 @@ def test_order_labels_follows_cohorts_and_reports_block_sizes():
     from dashboard.correlation import _order_labels
     from src.cohorts import cohorts
 
-    universe = {
-        "us_sectors": {"Technology": "XLK", "Energy": "XLE"},
-        "eu_sectors": {"Banks": "EXV1.DE"},
-    }
-    ranks = {"US|Technology": 1, "US|Energy": 2, "EU|Banks": 1}
-    labels, tickers, block_sizes = _order_labels(cohorts(universe), ranks)
+    themes_cfg = {"benchmark": "ACWI", "themes": {
+        "Semiconductors": {"ticker": "SOXX"}, "Space": {"ticker": "UFO"},
+    }}
+    ranks = {"THEME|Semiconductors": 2, "THEME|Space": 1}
+    labels, tickers, block_sizes = _order_labels(cohorts(themes_cfg), ranks)
 
-    assert tickers == ["XLK", "XLE", "EXV1.DE"], "US must precede EU, ranked within cohort"
-    assert block_sizes == [2, 1]
-    assert labels[0].endswith("(US)")
-    assert labels[-1].endswith("(EU)")
+    assert tickers == ["UFO", "SOXX"], "ranked within cohort"
+    assert block_sizes == [2]
+    assert labels[0].endswith("(THEME)")
 
 
 def test_block_boundaries_match_the_previous_single_divider():
