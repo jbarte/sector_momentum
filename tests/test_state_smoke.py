@@ -129,14 +129,19 @@ def db_conn(monkeypatch):
 
 
 def _make_scan_data(sectors=None):
-    """Return (signals_df, scores_df) for the given sector list."""
+    """Return (signals_df, scores_df) for the given member list.
+
+    Rows are written under THEME, the live cohort that readers default to.
+    Writing "US" here would exercise the retired sector cohort, which the
+    default readers deliberately exclude — every assertion would see 0 rows.
+    """
     if sectors is None:
         sectors = ["Technology", "Financials", "Energy"]
 
     signals_df = pd.DataFrame(
         [
             {
-                "region": "US",
+                "region": "THEME",
                 "gics_sector": s,
                 "signal_name": "rs_ratio",
                 "raw_value": float(i),
@@ -148,7 +153,7 @@ def _make_scan_data(sectors=None):
 
     scores_df = pd.DataFrame(
         {
-            "region": ["US"] * len(sectors),
+            "region": ["THEME"] * len(sectors),
             "gics_sector": sectors,
             "level_score": [0.5, 0.3, -0.2][: len(sectors)],
             "change_score": [0.4, 0.1, -0.3][: len(sectors)],
@@ -421,8 +426,11 @@ def test_same_day_rerun_leaves_one_set_of_theme_rows(db_conn):
 
 
 @skipif_no_db
-def test_sector_readers_exclude_theme_rows(db_conn):
-    """A THEME row in the shared tables must not reach sector readers."""
+def test_readers_exclude_retired_sector_rows(db_conn):
+    """The retired US/EU sector rows were deliberately left in the database, so
+    the default readers must keep filtering them out. Without the filter they
+    would reappear in the leaderboard, charts and movers — retiring the cohort
+    removed the writer, not the rows."""
     from src.state import THEME_REGION
 
     with db_conn:
@@ -443,13 +451,14 @@ def test_sector_readers_exclude_theme_rows(db_conn):
             )
 
     default = get_scan_history(db_conn, n_scans=None)
-    assert set(default["region"]) == {"US"}
+    assert set(default["region"]) == {THEME_REGION}, \
+        "a retired sector row reached the default reader"
 
     every = get_scan_history(db_conn, n_scans=None, regions=None)
     assert set(every["region"]) == {"US", THEME_REGION}
 
-    themes_only = get_scan_history(db_conn, n_scans=None, regions=(THEME_REGION,))
-    assert set(themes_only["region"]) == {THEME_REGION}
+    sectors_only = get_scan_history(db_conn, n_scans=None, regions=("US",))
+    assert set(sectors_only["region"]) == {"US"}
 
 
 @skipif_no_db
@@ -494,10 +503,10 @@ def test_theme_readers_exclude_sector_rows(db_conn):
 
 
 @skipif_no_db
-def test_sentiment_signals_reader_excludes_theme_rows(db_conn):
-    """get_sentiment_signals_for_latest_scan defaults to SECTOR_REGIONS — a
-    missing region filter would put theme rows on the sector pages, and this
-    also exercises the shared _latest_scan_query ORDER BY against
+def test_sentiment_signals_reader_excludes_retired_sector_rows(db_conn):
+    """get_sentiment_signals_for_latest_scan defaults to DEFAULT_REGIONS — a
+    missing region filter would put retired sector rows on the sentiment page,
+    and this also exercises the shared _latest_scan_query ORDER BY against
     sentiment_signals for real."""
     from src.state import get_sentiment_signals_for_latest_scan, THEME_REGION
 
@@ -518,5 +527,5 @@ def test_sentiment_signals_reader_excludes_theme_rows(db_conn):
             )
 
     sigs = get_sentiment_signals_for_latest_scan(db_conn)
-    assert set(sigs["region"]) == {"US"}
-    assert set(sigs["gics_sector"]) == {"Technology"}
+    assert set(sigs["region"]) == {THEME_REGION}
+    assert set(sigs["gics_sector"]) == {"Space"}
