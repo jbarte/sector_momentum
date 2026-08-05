@@ -43,14 +43,11 @@ def _shared_with_span(total_days: int, n_scans: int = 20) -> dict:
         # on total_days so the span is exact.
         offset_days = round(i * total_days / (n_scans - 1)) if n_scans > 1 else 0
         run_at = (base + pd.Timedelta(days=offset_days)).strftime("%Y-%m-%d")
-        rows.append((i + 1, run_at, "US", "Energy", 0.9, 0.1, 2))
+        rows.append((i + 1, run_at, "THEME", "Space", 0.9, 0.1, 2))
     df = _history(rows)
     return {
         "all_scores_df": df,
-        "universe": {
-            "us_sectors": {"Energy": "XLE"}, "eu_sectors": {},
-            "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE",
-        },
+        "themes_cfg": {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}},
         "project_root": Path("/tmp"),
     }
 
@@ -98,13 +95,12 @@ class TestSpanAndConclusive:
         validation_conclusive (False) so the template never reads an
         undefined value, and must not raise."""
         rows = [
-            (i, f"2026-01-{i:02d}", "US", "Energy", 0.9, 0.1, 1)
+            (i, f"2026-01-{i:02d}", "THEME", "Space", 0.9, 0.1, 1)
             for i in range(1, MIN_SCANS)
         ]
         shared = {
             "all_scores_df": _history(rows),
-            "universe": {"us_sectors": {"Energy": "XLE"}, "eu_sectors": {},
-                         "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE"},
+            "themes_cfg": {"benchmark": "ACWI", "themes": {"Space": {"ticker": "UFO"}}},
             "project_root": Path("/tmp"),
         }
         ctx = build_validation_context(shared)
@@ -114,8 +110,7 @@ class TestSpanAndConclusive:
     def test_empty_scores_sets_conclusive_false(self):
         shared = {
             "all_scores_df": _history([]),
-            "universe": {"us_sectors": {}, "eu_sectors": {},
-                         "us_benchmark": "RSP", "eu_benchmark": "EXSA.DE"},
+            "themes_cfg": {"benchmark": "ACWI", "themes": {}},
             "project_root": Path("/tmp"),
         }
         ctx = build_validation_context(shared)
