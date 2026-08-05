@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from src.backtest import engine, replay
-from src.backtest.results import write_theme_results, load_summary
+from src.backtest.results import write_results, load_summary
 
 
 def _ramp(n, start, step):
@@ -94,20 +94,48 @@ def test_run_theme_track_returns_none_without_benchmark():
     assert track is None
 
 
-def test_write_and_load_theme_results(tmp_path):
+def test_theme_track_round_trips_through_the_shared_tracks_dict(tmp_path):
+    """The theme track shares one summary.json with the sector tracks, keyed by
+    region. It used to be written to backtests_themes/ under a different shape
+    ({"track": …} not {"tracks": {…}}), which no reader ever looked at."""
     track = engine.run_theme_track(_themes_cfg(), _prices(), top_n=2)
-    out = str(tmp_path / "bt_themes")
-    path = write_theme_results(track, out_dir=out, generated_at="2026-07-15T00:00:00Z", top_n=2)
+    out = str(tmp_path / "bt")
+    path = write_results({"THEME": track}, out_dir=out,
+                         generated_at="2026-07-15T00:00:00Z", top_n=5)
     assert path.endswith("summary.json")
+
     summary = load_summary(out)
-    assert summary is not None
-    assert summary["top_n"] == 2
-    assert summary["track"]["region"] == "THEME"
-    assert len(summary["track"]["equity_curve"]) > 0
+    assert summary["tracks"]["THEME"]["region"] == "THEME"
+    assert len(summary["tracks"]["THEME"]["equity_curve"]) > 0
+    # Per-track top_n must survive: themes rebalance top 2 here while the
+    # summary-level top_n is the sector default of 5.
+    assert summary["tracks"]["THEME"]["top_n"] == 2
+    assert summary["top_n"] == 5
+    assert (tmp_path / "bt" / "equity_THEME.csv").exists()
+    assert (tmp_path / "bt" / "holdings_THEME.csv").exists()
 
 
-def test_write_theme_results_handles_none(tmp_path):
-    out = str(tmp_path / "bt_empty")
-    path = write_theme_results(None, out_dir=out, generated_at="2026-07-15T00:00:00Z")
+def test_write_results_skips_a_theme_track_that_produced_nothing(tmp_path):
+    """run_theme_track returns None on insufficient data; that must not abort
+    the sector tracks sharing the dict."""
+    out = str(tmp_path / "bt_none")
+    write_results({"THEME": None}, out_dir=out, generated_at="2026-07-15T00:00:00Z")
     summary = load_summary(out)
-    assert summary["track"] is None
+    assert summary["tracks"]["THEME"] is None
+    assert not (tmp_path / "bt_none" / "equity_THEME.csv").exists()
+
+
+def test_dashboard_context_surfaces_the_theme_track(tmp_path):
+    """The wiring this change exists for: a THEME track in summary.json must
+    reach BACKTEST_DATA, which the template keys by region."""
+    import json
+    from dashboard.build import _build_backtest_context
+
+    track = engine.run_theme_track(_themes_cfg(), _prices(), top_n=2)
+    out = str(tmp_path / "bt_ctx")
+    write_results({"THEME": track}, out_dir=out, generated_at="2026-07-15T00:00:00Z")
+
+    ctx = _build_backtest_context(out)
+    assert ctx["has_backtest"] is True
+    assert "THEME" in json.loads(ctx["backtest_json"])
+    assert [r["region"] for r in ctx["backtest_metrics"]] == ["THEME"]

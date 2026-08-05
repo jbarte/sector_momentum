@@ -21,6 +21,45 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Backtest artifact is stale, non-reproducible, and ignores `--start`
+
+Three related defects in `backtests/`, all found while wiring the theme track
+(2026-08-05). None is urgent; all undermine trusting the backtest tab.
+
+**1. The committed artifact is 11 years narrower than a fresh run.**
+`backtests/summary.json` was seeded once (`1c0dd08`, generated 2026-06-26 from a
+`--start 2015-01-01` run) and never refreshed. `DEFAULT_START` is `2003-01-01`,
+so a plain `python3 backtest.py` today produces a materially different picture:
+
+| | committed | fresh run |
+|---|---|---|
+| US window | 2015-01-30 → 2026-06-25 | 2003-05-30 → 2026-08-04 |
+| US CAGR / maxDD | 12.5% / −18.4% | 10.8% / **−45.2%** |
+| EU CAGR / maxDD | 10.3% / −18.5% | 8.5% / **−42.2%** |
+
+The live dashboard therefore shows a backtest that excludes the GFC and
+understates drawdown by more than half. **Decide which window is intended** —
+longer history with a real crash is more honest, but it is a product choice, so
+it was deliberately not slipped into an unrelated PR.
+
+**2. Two identical runs disagree.** Running `backtest.py --no-themes
+--no-rotations` twice back-to-back yields different metrics at ~1e-6 relative
+(US total_return 9.959400625 vs 9.959395970), and occasionally flips the order of
+tied holdings. Almost certainly the price fetch — yfinance recomputes adjusted
+closes per call. Consequence: build-diff verification cannot be used on backtest
+artifacts, and any future "did this change the backtest?" question needs a
+tolerance, not equality. Fix is to pin/snapshot the price inputs.
+
+**3. `--start` does not trim cached data.** `fetch_prices(..., start=...)`
+returns whatever the parquet cache holds, so once `data/backtest_cache/` contains
+2003+ history, `--start 2015-01-01` is silently ignored. The flag only has effect
+on a cold cache. Either filter the cached frame by `start` on load, or key the
+cache by window.
+
+**Sequencing:** the sector tracks disappear when the sector cohort is retired, so
+fix (1) is best resolved at that point — regenerate the artifact once, with only
+the THEME track in it. (2) and (3) are independent.
+
 ## Rebalance-horizon sweep — find the return / churn sweet spot
 
 Find the holding horizon that keeps most of the backtested return while cutting
@@ -150,6 +189,25 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Theme backtest wired into the shared results contract** — `run_theme_track`
+  had been computing a full theme track on every backtest run since it was built,
+  writing it to `backtests_themes/summary.json` under a *different shape*
+  (`{"track": …}` rather than `{"tracks": {region: …}}`), where nothing read it —
+  and `backtests_themes/` was never even committed, so it never reached the
+  deployed site. The track already returns byte-identical structure to
+  `run_track` (region, benchmark, top_n, start, end, metrics, equity_curve,
+  holdings), so the fix was to put it in the same dict: `tracks["THEME"] =
+  run_theme_track(...)` at the call site in `backtest.py`. `_build_backtest_context`
+  keys figures by region and the template already reads `BACKTEST_DATA[rg]`, so no
+  dashboard change was needed. Deleted `write_theme_results`. Merging at the call
+  site rather than inside `run_all` keeps the sector-universe function ignorant of
+  themes, so after the sector retirement it collapses to `{"THEME": …}` unchanged.
+  Per-track `top_n` (3 for themes vs 5 for sectors) survives because each track
+  carries its own. Spec:
+  `sector_momentum-notes/specs/2026-08-05-retire-sector-cohort-design.md` (PR B
+  of 3). *The committed `backtests/` artifact was deliberately not regenerated —
+  see the queued item above.*
 
 - **Theme universe expanded to 20 — correlation diversifiers** — the 13-theme
   cohort averaged 0.52 pairwise correlation, three times the 0.17 of the 25
