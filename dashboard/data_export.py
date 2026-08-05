@@ -48,9 +48,7 @@ def _raw_lookup(df: pd.DataFrame, key_cols: list[str]) -> dict:
 
 
 def build_data_export(
-    sector_rows: list[dict],
     theme_rows: list[dict],
-    latest_scores_df: pd.DataFrame,
     theme_latest_df: pd.DataFrame,
     scan_id,
     scan_date: str,
@@ -58,7 +56,6 @@ def build_data_export(
     generated_at: str,
 ) -> dict:
     """Build the docs/data.json dict from already-assembled rows + raw scores."""
-    sec_raw = _raw_lookup(latest_scores_df, ["region", "gics_sector"])
     thm_raw = _raw_lookup(theme_latest_df, ["gics_sector"])
 
     def _entry(row, raw):
@@ -74,12 +71,6 @@ def build_data_export(
             "setup":      row.get("setup"),
         }
 
-    sectors = []
-    for row in sector_rows:
-        raw = sec_raw.get((row.get("region"), row.get("sector")), {})
-        sectors.append({"region": row.get("region"), "sector": row.get("sector"),
-                        **_entry(row, raw)})
-
     themes = []
     for row in theme_rows:
         raw = thm_raw.get((row.get("theme"),), {})
@@ -91,6 +82,5 @@ def build_data_export(
         "scan_id": int(scan_id) if scan_id is not None else None,
         "scan_date": scan_date,
         "lagged": bool(lagged),
-        "sectors": sectors,
         "themes": themes,
     }

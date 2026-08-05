@@ -524,9 +524,8 @@ def main() -> None:
         )
         (out_dir / "data.json").write_text(
             json.dumps(data_payload, indent=2), encoding="utf-8")
-        logger.info("Data export written to %s (%d sectors, %d themes)",
-                    out_dir / "data.json",
-                    len(data_payload["sectors"]), len(data_payload["themes"]))
+        logger.info("Data export written to %s (%d themes)",
+                    out_dir / "data.json", len(data_payload["themes"]))
     except Exception as exc:  # fail-open
         logger.warning("data.json export failed (%s) — continuing", exc)
 
