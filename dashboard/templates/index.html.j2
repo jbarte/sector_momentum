@@ -82,15 +82,6 @@
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <div class="utility-row">
     <div class="filter-bar" id="leaderboard-filter-bar">
-      <!-- Cohort chip labels come from config (cohort.label), not data-i18n
-           keys — a deliberate departure from the other filter groups below,
-           which are static UI copy. -->
-      <div class="filter-group" role="group" aria-label="Cohort">
-        {% for cohort in cohort_list %}
-        <button type="button" class="filter-chip" data-filter-group="cohort"
-                data-filter-value="{{ cohort.region }}" aria-pressed="false">{{ cohort.label }}</button>
-        {% endfor %}
-      </div>
       <div class="filter-group" role="group" aria-label="Setup">
         <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Entry</button>
         <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false" data-i18n="filter_exit">▼ Exit</button>
@@ -170,24 +161,18 @@
       <thead>
         <tr>
           <th onclick="sortTable(0)" data-col="0" tabindex="0" data-i18n="col_rank">#</th>
-          <th onclick="sortTable(1)" data-col="1" tabindex="0" data-i18n="col_sector">Sector</th>
-          <th onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_region">Region</th>
-          <th onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_composite">Composite</th>
-          <th onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_level">Level</th>
-          <th onclick="sortTable(5)" data-col="5" tabindex="0" data-i18n="col_change">Change</th>
-          <th onclick="sortTable(6)" data-col="6" tabindex="0" data-i18n="col_data">Data</th>
-          <th onclick="sortTable(7)" data-col="7" tabindex="0" data-i18n="col_sentiment">Sentiment</th>
-          <th onclick="sortTable(8)" data-col="8" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
-          <th data-col="9" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
+          <th onclick="sortTable(1)" data-col="1" tabindex="0" data-i18n="col_sector">Theme</th>
+          <th onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_composite">Composite</th>
+          <th onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_level">Level</th>
+          <th onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_change">Change</th>
+          <th onclick="sortTable(5)" data-col="5" tabindex="0" data-i18n="col_data">Data</th>
+          <th onclick="sortTable(6)" data-col="6" tabindex="0" data-i18n="col_sentiment">Sentiment</th>
+          <th onclick="sortTable(7)" data-col="7" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
+          <th data-col="8" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
         </tr>
       </thead>
       <tbody>
-        {% for cohort, region_rows in grouped_rows %}
-        {% if region_rows %}
-        <tr class="region-header-row">
-          <td colspan="10">{{ cohort.label }}</td>
-        </tr>
-        {% for row in region_rows %}
+        {% for row in leaderboard_rows %}
         <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"
             data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
@@ -198,7 +183,6 @@
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
           <td>{{ row.sector }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
-          <td><span class="tag-region">{{ row.region }}</span></td>
           <td class="composite-cell">{{ row.composite }}</td>
           <td>{{ row.level_score }}</td>
           <td>{{ row.change_score }}</td>
@@ -212,16 +196,14 @@
           </td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
-          <td colspan="10">{{ row.breakdown_html | safe }}</td>
+          <td colspan="9">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% endfor %}
-        {% endif %}
-        {% endfor %}
         {% if not has_any_rows %}
-        <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
+        <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
-          <td colspan="10" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No sectors match the filters.</td>
+          <td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No sectors match the filters.</td>
         </tr>
       </tbody>
     </table>
@@ -342,7 +324,7 @@
           <td>#{{ s.scan_id }}</td>
           <td>{{ s.run_at_display }}</td>
           <td>{{ s.sector_count }}</td>
-          <td>{{ s.top_sector }} ({{ s.top_region }})</td>
+          <td>{{ s.top_sector }}</td>
           <td><a href="reports/report_{{ s.scan_id }}.md" data-i18n="si_download">download</a></td>
         </tr>
         {% else %}
@@ -358,25 +340,19 @@
      Tab: Backtest
      ============================================================ -->
 <section id="tab-backtest" class="tab-panel" role="tabpanel">
-  <p class="tab-note" data-i18n="note_backtest">Monthly top-{{ backtest_metrics[0].top_n if backtest_metrics else 5 }} rotation, equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded). Each region scored within its own cohort.</p>
+  <p class="tab-note" data-i18n="note_backtest">Monthly top-{{ backtest_metrics[0].top_n if backtest_metrics else 5 }} rotation, equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded).</p>
   {% if has_backtest %}
   <div class="table-wrap">
     <table>
-      <thead><tr><th data-i18n="bt_track">Track</th><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe (rf=0)</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_hitrate">Hit rate</th><th data-i18n="bt_turnover">Turnover</th></tr></thead>
+      <thead><tr><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe (rf=0)</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_hitrate">Hit rate</th><th data-i18n="bt_turnover">Turnover</th></tr></thead>
       <tbody>
         {% for r in backtest_metrics %}
-        <tr><td>{{ r.region }}</td><td>{{ r.start }} → {{ r.end }}</td><td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td><td>{{ r.max_drawdown }}</td><td>{{ r.hit_rate }}</td><td>{{ r.avg_turnover }}</td></tr>
+        <tr><td>{{ r.start }} → {{ r.end }}</td><td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td><td>{{ r.max_drawdown }}</td><td>{{ r.hit_rate }}</td><td>{{ r.avg_turnover }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <div class="chart-container" id="backtest-chart-US" style="height:420px"></div>
-  <div class="chart-container" id="backtest-chart-EU" style="height:420px"></div>
-  {% if has_rotations %}
-  <h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">Rotation event-study — did rank lead price?</h3>
-  <p class="tab-note">Scanner rank (inverted: up = better) vs the sector ETF's indexed price across each curated rotation.</p>
-  <div id="rotation-charts"></div>
-  {% endif %}
+  <div class="chart-container" id="backtest-chart" style="height:420px"></div>
   {% if badge_scorecard %}
   <h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)" data-i18n="badge_scorecard_title">Badge scorecard</h3>
   <p class="tab-note" data-i18n="badge_scorecard_desc">5-day forward return after each badge appeared.</p>
@@ -420,7 +396,7 @@
      ============================================================ -->
 <section id="tab-correlation" class="tab-panel" role="tabpanel">
   {% if correlation_fig_json %}
-  <p class="tab-note" data-i18n="note_correlation">60-trading-day rolling pairwise return correlations. Top-5 sectors per region in bold. Red = moving together; blue = moving independently.</p>
+  <p class="tab-note" data-i18n="note_correlation">60-trading-day rolling pairwise return correlations. Top-5 themes in bold. Red = moving together; blue = moving independently.</p>
   <div class="chart-container" id="correlation-chart" style="min-height:500px"></div>
   {% else %}
   <p class="leaderboard-empty" data-i18n="correlation_no_data">Not enough price history for a 60-day correlation matrix.</p>
@@ -433,7 +409,7 @@
       <p>When your top-ranked sectors cluster in a red block, the portfolio is less diversified than the ranking suggests. The three EU financial sub-sectors (Banks, Financial Services, Insurance) are a common example — they often move in lockstep.</p>
       <h4>How to use it</h4>
       <ul>
-        <li><strong>Bold labels</strong> mark the current top-5 per region. Focus on the intersections between bold rows and columns.</li>
+        <li><strong>Bold labels</strong> mark the current top-5. Focus on the intersections between bold rows and columns.</li>
         <li>A dark red block among your top picks means you're doubling down on the same move. Consider whether you need all of them.</li>
         <li>Blue or white cells between top picks indicate genuine diversification — different return drivers.</li>
       </ul>
@@ -473,7 +449,6 @@ var activeCohort = COHORT_REGIONS.length ? COHORT_REGIONS[0] : null;
 var RESCORE_DATA = {{ rescore_data_json | js_json }};
 var SCAN_HISTORY = {{ scan_history_json | js_json }};
 var BACKTEST_DATA = {{ backtest_json | js_json }};
-var ROTATION_DATA = {{ rotation_json | js_json }};
 {% if correlation_fig_json %}
 var CORRELATION_DATA = {{ correlation_fig_json | js_json }};
 {% endif %}
@@ -505,37 +480,18 @@ function renderHistory() {
   Plotly.newPlot('history-chart', chart.history.data, chart.history.layout, {responsive: true, displayModeBar: true});
 }
 
-// Backtest stays per-track (sector rotation and theme rotation are genuinely
-// different strategies — see backtest_json's US/EU-only shape). Only the
-// chart matching activeCohort renders; the other track's container (and any
-// cohort with no track, e.g. THEME) is hidden rather than shown stale or
-// showing another cohort's data.
+// One container for the active cohort's track. This used to iterate a
+// hardcoded ['US', 'EU'] against per-cohort container ids, which meant that
+// after the sector cohorts were retired it looked up backtest-chart-US/EU
+// while activeCohort was THEME — and rendered nothing at all.
 function renderBacktest() {
   if (_rendered.backtest) return;
   _rendered.backtest = true;
-  ['US', 'EU'].forEach(function (rg) {
-    var el = document.getElementById('backtest-chart-' + rg);
-    if (!el) return;
-    if (rg === activeCohort && BACKTEST_DATA[rg]) {
-      el.style.display = '';
-      var f = BACKTEST_DATA[rg];
-      Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
-    } else {
-      el.style.display = 'none';
-    }
-  });
-  var rc = document.getElementById('rotation-charts');
-  if (rc && !rc.dataset.rendered && ROTATION_DATA && ROTATION_DATA.length) {
-    rc.dataset.rendered = '1';
-    ROTATION_DATA.forEach(function (r, i) {
-      var d = document.createElement('div');
-      d.className = 'chart-container';
-      d.style.height = '360px';
-      d.style.marginBottom = '16px';
-      d.id = 'rotation-chart-' + i;
-      rc.appendChild(d);
-      Plotly.newPlot(d, r.fig.data, r.fig.layout, {responsive: true, displayModeBar: true});
-    });
+  var el = document.getElementById('backtest-chart');
+  var f = el && BACKTEST_DATA[activeCohort];
+  if (el) {
+    el.style.display = f ? '' : 'none';
+    if (f) Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
   }
 }
 
@@ -618,7 +574,7 @@ var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
 
 // ----- Leaderboard filtering -----
 // Visibility-only: filters decide which rows show, sortTable decides order.
-var _filterState = { cohort: [], setup: [], trend: [], thresholds: [] };
+var _filterState = { setup: [], trend: [], thresholds: [] };
 
 var _TREND_GROUPS = {
   rising:  ['up', 'strong_up'],
@@ -636,13 +592,8 @@ function _filterLang() {
 }
 
 function _filterAnyActive() {
-  return !!(_filterState.cohort.length || _filterState.setup.length
-            || _filterState.trend.length || _filterState.thresholds.length);
-}
-
-function _matchesCohort(r) {
-  if (!_filterState.cohort.length) return true;
-  return _filterState.cohort.indexOf(r.dataset.region || '') !== -1;
+  return !!(_filterState.setup.length || _filterState.trend.length
+            || _filterState.thresholds.length);
 }
 
 function _matchesSetup(r) {
@@ -684,22 +635,6 @@ function _collapseBreakdown(sectorId) {
   if (chev) chev.textContent = '▶';
 }
 
-function _updateRegionHeaders() {
-  var tbody = document.querySelector('#leaderboard-table tbody');
-  if (!tbody) return;
-  var header = null, visible = 0;
-  Array.prototype.forEach.call(tbody.children, function (el) {
-    if (el.classList.contains('region-header-row')) {
-      if (header) header.style.display = visible ? '' : 'none';
-      header = el;
-      visible = 0;
-    } else if (el.classList.contains('leaderboard-row')) {
-      if (el.style.display !== 'none') visible++;
-    }
-  });
-  if (header) header.style.display = visible ? '' : 'none';
-}
-
 function _updateFilterCount(shown, total) {
   var el = document.getElementById('filter-count');
   if (!el) return;
@@ -715,11 +650,10 @@ function applyFilters() {
   var rows = tbody.querySelectorAll('tr.leaderboard-row');
   var shown = 0;
   Array.prototype.forEach.call(rows, function (r) {
-    var ok = _matchesCohort(r) && _matchesSetup(r) && _matchesTrend(r) && _matchesThresholds(r);
+    var ok = _matchesSetup(r) && _matchesTrend(r) && _matchesThresholds(r);
     r.style.display = ok ? '' : 'none';
     if (ok) { shown++; } else { _collapseBreakdown(r.dataset.sectorId); }
   });
-  _updateRegionHeaders();
   _updateFilterCount(shown, rows.length);
   var nm = document.getElementById('filter-no-match');
   if (nm) nm.style.display = (shown === 0 && rows.length > 0) ? '' : 'none';
@@ -728,7 +662,7 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  _filterState = { cohort: [], setup: [], trend: [], thresholds: [] };
+  _filterState = { setup: [], trend: [], thresholds: [] };
   var chips = document.querySelectorAll('#leaderboard-filter-bar .filter-chip');
   Array.prototype.forEach.call(chips, function (c) {
     c.classList.remove('active');
@@ -805,30 +739,15 @@ function sortTable(col) {
     return aText.localeCompare(bText) * _sortDir;
   });
 
-  // Re-append region headers then sorted rows within each region
-  var regionHeaders = Array.from(tbody.querySelectorAll('tr.region-header-row'));
-  var groups = {};
-  COHORT_REGIONS.forEach(function(region) { groups[region] = []; });
+  // Re-append sorted rows, each followed by its own breakdown panel.
   rows.forEach(function(r) {
-    var key = (r.dataset.sectorKey || '').split('|')[0];
-    // No fallback bucket: a row whose region is not a configured cohort is
-    // skipped rather than misfiled under another cohort's header.
-    if (groups[key]) { groups[key].push(r); }
+    tbody.appendChild(r);
+    var sectorId = r.dataset.sectorId;
+    if (sectorId) {
+      var bd = document.getElementById('bd-' + sectorId);
+      if (bd) tbody.appendChild(bd);
+    }
   });
-  COHORT_REGIONS.forEach(function(region, idx) {
-    if (regionHeaders[idx]) { tbody.appendChild(regionHeaders[idx]); }
-    groups[region].forEach(function(r) {
-      tbody.appendChild(r);
-      var sectorId = r.dataset.sectorId;
-      if (sectorId) {
-        var bd = document.getElementById('bd-' + sectorId);
-        if (bd) tbody.appendChild(bd);
-      }
-    });
-  });
-
-  // Re-appending can leave a region header above zero visible rows.
-  if (typeof _updateRegionHeaders === 'function') _updateRegionHeaders();
 }
 
 // Keyboard support for interactive table elements
@@ -916,31 +835,16 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   }
 
   function sortVisibleByRank(rows, scored, tbody) {
-    var regionHeaders = Array.prototype.slice.call(
-      tbody.querySelectorAll('tr.region-header-row'));
-    var groups = {};
-    COHORT_REGIONS.forEach(function (region) { groups[region] = []; });
+    rows.sort(function (a, b) {
+      var ra = scored[a.getAttribute("data-sector-key")];
+      var rb = scored[b.getAttribute("data-sector-key")];
+      return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
+    });
     rows.forEach(function (tr) {
-      var key = tr.getAttribute("data-sector-key") || "";
-      var region = key.split("|")[0];
-      // No fallback bucket — see the note on COHORT_REGIONS.
-      if (groups[region]) { groups[region].push(tr); }
-    });
-    COHORT_REGIONS.forEach(function (region) {
-      groups[region].sort(function (a, b) {
-        var ra = scored[a.getAttribute("data-sector-key")];
-        var rb = scored[b.getAttribute("data-sector-key")];
-        return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
-      });
-    });
-    COHORT_REGIONS.forEach(function (region, idx) {
-      if (regionHeaders[idx]) { tbody.appendChild(regionHeaders[idx]); }
-      groups[region].forEach(function (tr) {
-        tbody.appendChild(tr);
-        var sid = tr.getAttribute("data-sector-id");
-        var bd = sid ? document.getElementById("bd-" + sid) : null;
-        if (bd) { tbody.appendChild(bd); }
-      });
+      tbody.appendChild(tr);
+      var sid = tr.getAttribute("data-sector-id");
+      var bd = sid ? document.getElementById("bd-" + sid) : null;
+      if (bd) { tbody.appendChild(bd); }
     });
   }
 

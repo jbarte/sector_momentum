@@ -258,9 +258,10 @@ class TestBuildValidationContext:
         assert ctx["validation_min_scans_met"] is True
         assert "validation_fwd_returns" in ctx
         assert "validation_holding" in ctx
-        # One cohort + the "All" aggregate, times two horizons.
-        assert len(ctx["validation_fwd_returns"]) == 4
-        assert len(ctx["validation_holding"]) == 2
+        # One cohort, two horizons. The "All" aggregate is skipped with a
+        # single cohort — it would repeat the cohort's own rows verbatim.
+        assert len(ctx["validation_fwd_returns"]) == 2
+        assert len(ctx["validation_holding"]) == 1
 
 
 def test_validation_iterates_configured_cohorts_not_hardcoded_regions():
@@ -288,5 +289,4 @@ def test_validation_iterates_configured_cohorts_not_hardcoded_regions():
         ctx = build_validation_context(shared)
 
     regions = {r["region"] for r in ctx["validation_fwd_returns"]}
-    # "All" is the cross-cohort aggregate row, not a cohort.
-    assert regions == {"THEME", "All"}, f"unexpected cohorts in output: {regions}"
+    assert regions == {"THEME"}, f"unexpected cohorts in output: {regions}"

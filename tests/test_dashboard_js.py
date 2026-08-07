@@ -502,10 +502,10 @@ def test_render_context_keys_finds_all_render_calls():
     # sentiment.html context keys
     assert "sentiment_scatter_json" in keys
     assert "sentiment_signal_rows" in keys
-    # index.html cohort-grouping keys (themes.html.j2 was retired; the
-    # leaderboard now groups every cohort, including THEME, on one page)
-    assert "grouped_rows" in keys
+    # index.html cohort keys. The leaderboard renders one ungrouped cohort,
+    # so there is no grouped_rows any more — just the flat row list above.
     assert "cohort_list" in keys
+    assert "grouped_rows" not in keys
 
 
 # ---------------------------------------------------------------------------

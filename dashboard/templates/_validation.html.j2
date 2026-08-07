@@ -1,7 +1,7 @@
 {# Forward-return validation & holding-period stats panels #}
 {% if validation_min_scans_met %}
 <h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)" data-i18n="val_fwd_title">Do the rankings predict returns?</h3>
-<p class="tab-note" data-i18n="val_fwd_desc">Excess return of top-5 sectors vs region benchmark.</p>
+<p class="tab-note" data-i18n="val_fwd_desc">Excess return of the top-5 themes vs the benchmark.</p>
 {% if not validation_conclusive %}
 <p class="tab-note val-provisional">
   <strong data-i18n="val_provisional_head">Provisional — not yet conclusive.</strong>
@@ -15,7 +15,6 @@
   <table>
     <thead>
       <tr>
-        <th data-i18n="val_region">Region</th>
         <th data-i18n="val_horizon">Horizon</th>
         <th data-i18n="val_obs">Obs</th>
         <th data-i18n="val_hit_rate">Hit rate</th>
@@ -26,7 +25,6 @@
     <tbody>
       {% for row in validation_fwd_returns %}
       <tr>
-        <td>{{ row.region }}</td>
         <td>{{ row.horizon }}</td>
         <td>{{ row.obs }}</td>
         {% if row.hit_rate is not none %}
@@ -48,7 +46,6 @@
   <table>
     <thead>
       <tr>
-        <th data-i18n="val_region">Region</th>
         <th data-i18n="val_hold_runs">Runs</th>
         <th data-i18n="val_hold_median">Median</th>
         <th data-i18n="val_hold_mean">Mean</th>
@@ -59,7 +56,6 @@
     <tbody>
       {% for row in validation_holding %}
       <tr>
-        <td>{{ row.region }}</td>
         <td>{{ row.runs }}{% if row.ongoing %} <span style="color:var(--fg4)">({{ row.ongoing }} <span data-i18n="val_ongoing">ongoing</span>)</span>{% endif %}</td>
         {% if row.median is not none %}
         <td>{{ row.median }}</td>

@@ -58,7 +58,6 @@ from dashboard.figures import (                      # noqa: E402, F401
     _build_history_figure,
     _build_movers_figure,
     _build_rescore_data,
-    _build_rotation_figures,
     _build_rrg_figure,
     _build_scan_history_data,
     _build_sentiment_scatter_figure,
@@ -381,11 +380,6 @@ def main() -> None:
     cohorts_json = _json.dumps(
         [{"region": c.region, "label": c.label} for c in cohort_list]
     )
-    grouped_rows = [
-        (c, [r for r in leaderboard_rows if r["region"] == c.region])
-        for c in cohort_list
-    ]
-
     # data.json's published "themes" array keys entries by "theme" rather
     # than "sector" (see dashboard/data_export.py) — sourced from the same
     # unified leaderboard_rows, filtered to THEME and aliased, not a second
@@ -446,8 +440,7 @@ def main() -> None:
         "leaderboard_rows": leaderboard_rows,
         "cohort_list": cohort_list,
         "cohorts_json": cohorts_json,
-        "grouped_rows": grouped_rows,
-        "has_any_rows": any(rows for _, rows in grouped_rows),
+        "has_any_rows": bool(leaderboard_rows),
         "plotly_bundle": plotly_bundle_rel,
         "lag_banner_date": lag_banner_date,
     }

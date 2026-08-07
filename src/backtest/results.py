@@ -8,11 +8,9 @@ import pandas as pd
 
 
 def write_results(tracks: dict, out_dir: str = "backtests",
-                  generated_at: str = "", top_n: int = 5,
-                  rotations: list | None = None) -> str:
+                  generated_at: str = "", top_n: int = 5) -> str:
     os.makedirs(out_dir, exist_ok=True)
-    summary = {"generated_at": generated_at, "top_n": top_n,
-               "tracks": tracks, "rotations": rotations or []}
+    summary = {"generated_at": generated_at, "top_n": top_n, "tracks": tracks}
 
     summary_path = os.path.join(out_dir, "summary.json")
     with open(summary_path, "w") as fh:

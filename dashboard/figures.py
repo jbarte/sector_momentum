@@ -450,31 +450,6 @@ def _build_backtest_figures(summary) -> dict:
     return figs
 
 
-def _build_rotation_figures(summary) -> list:
-    """Per-rotation dual-axis charts: scanner rank (inverted) vs indexed price."""
-    if not summary or not summary.get("rotations"):
-        return []
-    out = []
-    for rot in summary["rotations"]:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=rot["dates"], y=rot["rank"], mode="lines+markers", name="Scanner rank",
-            yaxis="y", line=dict(color=_WARM_PALETTE[0])))
-        fig.add_trace(go.Scatter(
-            x=rot["dates"], y=rot["price_indexed"], mode="lines", name="Price (indexed=100)",
-            yaxis="y2", line=dict(color=_WARM_PALETTE[3], dash="dash")))
-        fig.update_layout(**_base_layout(
-            title=dict(text=f"{rot['name']} — {rot['sector']} ({rot['region']})",
-                       font=dict(size=13, color="#3E392B")),
-            xaxis=dict(title="Date", gridcolor="#DFD5BE"),
-            yaxis=dict(title="Rank (1 = best)", autorange="reversed", gridcolor="#DFD5BE"),
-            yaxis2=dict(title="Price (indexed)", overlaying="y", side="right", showgrid=False),
-            margin=dict(l=50, r=50, t=50, b=50),
-        ))
-        out.append({"title": rot["name"], "fig_json": pio.to_json(fig)})
-    return out
-
-
 def _build_backtest_context(backtests_dir: str) -> dict:
     """Load summary.json and shape it for the template."""
     import json as _json
@@ -482,7 +457,6 @@ def _build_backtest_context(backtests_dir: str) -> dict:
 
     summary = load_summary(backtests_dir)
     figs = _build_backtest_figures(summary)
-    rot_figs = _build_rotation_figures(summary)
     rows: list[dict] = []
     if summary:
         for region, track in summary["tracks"].items():
@@ -503,9 +477,6 @@ def _build_backtest_context(backtests_dir: str) -> dict:
         "backtest_json": _json.dumps({k: _json.loads(v) for k, v in figs.items()}),
         "backtest_metrics": rows,
         "has_backtest": bool(figs),
-        "rotation_json": _json.dumps([{"title": r["title"], "fig": _json.loads(r["fig_json"])}
-                                      for r in rot_figs]),
-        "has_rotations": bool(rot_figs),
     }
 
 
@@ -617,8 +588,6 @@ def build_sectors_context(shared: dict) -> dict:
         "backtest_json": bt["backtest_json"],
         "backtest_metrics": bt["backtest_metrics"],
         "has_backtest": bt["has_backtest"],
-        "rotation_json": bt["rotation_json"],
-        "has_rotations": bt["has_rotations"],
     }
 
 
