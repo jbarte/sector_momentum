@@ -82,13 +82,11 @@ def run(args: argparse.Namespace) -> int:
                 args.theme_top_n, args.cost_bps)
     tracks = {"THEME": run_theme_track(themes_cfg, prices,
                                        top_n=args.theme_top_n, cost_bps=args.cost_bps)}
-    rotations_data = []
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     path = write_results(tracks, out_dir=args.out,
-                         generated_at=generated_at,
-                         top_n=args.top_n, rotations=rotations_data)
+                         generated_at=generated_at, top_n=args.top_n)
 
     for region, tr in tracks.items():
         if not tr:

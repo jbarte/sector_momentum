@@ -54,13 +54,11 @@
     }
     entries.sort(function (a, b) { return a.scores.rank - b.scores.rank; });
 
-    // COHORTS (injected by build.py from src/cohorts.py) is the single
-    // source of truth for which regions exist and their display labels.
-    // Fall back to the legacy US/EU pair so this file stays safe on a page
-    // that doesn't define window.COHORTS.
-    var cohorts = (typeof COHORTS !== "undefined" && COHORTS.length)
-      ? COHORTS
-      : [{ region: "US", label: "US Sectors" }, { region: "EU", label: "EU Sectors" }];
+    // COHORTS (injected by build.py from src/cohorts.py) decides which regions
+    // may render. No fallback list: historical scans still contain the retired
+    // US/EU sector rows, so a default would replay dead sectors into the
+    // scan-history view. No COHORTS means render nothing.
+    var cohorts = (typeof COHORTS !== "undefined" && COHORTS.length) ? COHORTS : [];
 
     var regionGroups = {};
     cohorts.forEach(function (c) { regionGroups[c.region] = []; });
@@ -76,7 +74,6 @@
       var group = regionGroups[c.region];
       if (!group.length) return;
       group.sort(function (a, b) { return a.scores.rank - b.scores.rank; });
-      html += '<tr class="region-header-row"><td colspan="10">' + c.label + "</td></tr>";
       for (var j = 0; j < group.length; j++) {
         var e = group[j];
         var sc = e.scores;
@@ -91,7 +88,6 @@
         html += '<tr class="leaderboard-row">'
           + '<td class="rank-cell"><span class="rank-badge' + rankClass + '">' + sc.rank + "</span></td>"
           + "<td>" + sector + "</td>"
-          + '<td><span class="tag-region">' + c.region + "</span></td>"
           + '<td class="composite-cell">' + fmtScore(sc.composite) + "</td>"
           + "<td>" + fmtScore(sc.level) + "</td>"
           + "<td>" + fmtScore(sc.change) + "</td>"

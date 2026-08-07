@@ -142,25 +142,17 @@
     Array.prototype.forEach.call(tbody.querySelectorAll(".breakdown-row"),
       function (r) { bdRows[r.id] = r; });
     tbody.innerHTML = "";
-    // window.COHORTS (injected by build.py from src/cohorts.py) is the
-    // single source of truth for which regions exist and their display
-    // labels — v_recent_scores has no region filter, so THEME rows are
-    // already in `rows`/`byRegion` above; this list is what decides
-    // whether they get their own group. Fall back to the legacy US/EU
-    // pair so this file stays safe on a page that doesn't define it
-    // (e.g. sentiment.html).
-    var cohorts = (window.COHORTS && window.COHORTS.length)
-      ? window.COHORTS
-      : [{ region: "US", label: "US Sectors" }, { region: "EU", label: "EU Sectors" }];
+    // window.COHORTS (injected by build.py from src/cohorts.py) decides which
+    // regions may render. There is deliberately NO fallback list: v_recent_scores
+    // has no region filter and the retired US/EU sector rows are still in the
+    // table, so a default would put dead sectors back on the leaderboard for
+    // signed-in users. No COHORTS means render nothing.
+    var cohorts = (window.COHORTS && window.COHORTS.length) ? window.COHORTS : [];
     cohorts.forEach(function (cohort) {
-      var region = cohort.region, label = cohort.label;
+      var region = cohort.region;
       var list = byRegion[region] || [];
       if (!list.length) return;
       list.sort(function (a, b) { return a.rank - b.rank; });
-      var hdr = document.createElement("tr");
-      hdr.className = "region-header-row";
-      hdr.innerHTML = '<td colspan="10">' + label + "</td>";
-      tbody.appendChild(hdr);
       list.forEach(function (r) {
         var tr = document.createElement("tr");
         tr.className = "leaderboard-row";
@@ -193,7 +185,6 @@
         tr.innerHTML =
           '<td class="rank-cell"><span class="rank-badge' + top3 + '">' + rank + "</span></td>" +
           "<td>" + r.gics_sector + badge + "</td>" +
-          '<td><span class="tag-region">' + r.region + "</span></td>" +
           '<td class="composite-cell">' + fmtScore(r.composite) + "</td>" +
           "<td>" + fmtScore(r.level_score) + "</td>" +
           "<td>" + fmtScore(r.change_score) + "</td>" +

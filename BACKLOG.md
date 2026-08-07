@@ -60,6 +60,79 @@ cache by window.
 fix (1) is best resolved at that point — regenerate the artifact once, with only
 the THEME track in it. (2) and (3) are independent.
 
+## Sector-era naming in the data layer (`region`, `gics_sector`)
+
+Cosmetic only, and **not obviously worth doing** — recorded so the question
+isn't re-opened from scratch. The user-visible naming was already fixed when the
+leaderboard was ungrouped (column reads "Theme", copy says themes); what remains
+is internal.
+
+| identifier | refs | what it is |
+|---|---:|---|
+| `region` | ~265 | **DB column** on `signals`, `scores`, `sentiment_signals`, `positions`, and the `v_recent_scores` view |
+| `gics_sector` | ~123 | **DB column** on the same tables |
+| `sector_key` | ~27 | derived `"{region}\|{name}"` string |
+| `sectors_expected` / `sectors_produced` | 16 | `scans` health columns |
+| `sector_id`, `top_sector`, `sector_count` | ~9 | template/DOM ids and report fields |
+
+**Recommendation: leave the two DB columns alone.** Renaming them means a
+migration against a live database that also holds 41 scans of retired sector
+history, plus the Supabase view, its RLS/grants, the backup/restore path, and
+every reader — for zero functional gain. `region` in particular is load-bearing
+*as a name that no longer matches its meaning*: it is the filter that keeps the
+retired US/EU rows out of every read, so touching it is the riskiest cosmetic
+change available.
+
+If it is ever done, `region` → `cohort` and `gics_sector` → `name` are the honest
+names, and the cheap subset (`sector_key`, `sector_id`, `top_sector`,
+`sector_count`, the two `scans` health columns) can be renamed independently of
+the schema at much lower risk.
+
+## Theme redundancy audit — prune overlapping ETFs, keep the interesting ones
+
+The 20-theme universe still contains near-duplicates. Find which themes earn
+their slot and which are the same trade wearing two labels, then prune or merge.
+
+**The redundancy is not where it looks.** Measured on daily returns 2023-01-04 →
+2026-07-31 (896 obs, all 20 themes have data), mean pairwise rho is 0.376. The
+worst offenders are the AI/compute block, not healthcare:
+
+| rho | pair |
+|---:|---|
+| **0.88** | Semiconductors / Quantum Computing |
+| **0.83** | AI & Robotics / Quantum Computing |
+| **0.78** | AI & Robotics / Semiconductors |
+| 0.72 | Quantum Computing / Data Centers |
+| 0.71 | AI & Robotics / Data Centers |
+| 0.70 | Semiconductors / Data Centers |
+
+For comparison, the healthcare names that *look* redundant are not: Biotech /
+Medical Devices is **0.44**, Biotech / Healthcare Providers **0.32**, Medical
+Devices / Healthcare Providers **0.40** — all at or below the cohort mean.
+
+Average correlation to the rest, highest first: AI & Robotics 0.51, Quantum 0.49,
+Data Centers 0.46, Space 0.45, Semiconductors 0.44, Blockchain 0.44 … and at the
+useful end: Insurance 0.22, Healthcare Providers 0.23, Energy Producers 0.25,
+Gold Miners 0.29, Shipping 0.30.
+
+**What the research needs to settle**
+
+- Four names covering one AI/compute trade means momentum's "top 3" can be three
+  slices of it. Is that intended concentration or an accident of the universe?
+- Redundancy is not the only criterion — a theme can be correlated yet still
+  worth holding if it leads or lags the cluster. Check lead/lag and dispersion
+  of returns *within* the cluster before dropping anything on rho alone.
+- Prefer a measure that rewards marginal contribution (e.g. drop-one effect on
+  cohort mean rho, or effective number of bets / diversification ratio) over
+  raw pairwise rho, which punishes a theme for being in a big cluster rather
+  than for being useless.
+- Decide the shape: prune to fewer themes, or keep them and cap how many members
+  of one cluster the strategy may hold at once. The second preserves optionality
+  and may be the better fix — it belongs with the horizon/hysteresis work below.
+
+Reuse the screening approach from the 2026-08-05 universe expansion (greedy
+selection on cohort mean rho); the script pattern is in that PR's description.
+
 ## Rebalance-horizon sweep — find the return / churn sweet spot
 
 Find the holding horizon that keeps most of the backtested return while cutting
@@ -107,6 +180,15 @@ and alerts reflect the chosen horizon instead of firing daily.
 market history, so the best cell will overstate its own edge. Prefer a broad
 plateau of good-and-similar cells over the single best point, and sanity-check
 the winner on a held-out period before adopting it.
+
+**Target holding period (Jonas, 2026-08-05): roughly two weeks to a couple of
+months.** That is the number to design toward — it makes the sweep a search for
+the cadence/buffer combination that lands in that band while keeping most of the
+return, rather than an open-ended grid. Monthly rebalancing already sits inside
+the band, so the work is mostly (a) stopping the *live* signals from prompting
+action daily when the validated cadence is monthly, and (b) the hysteresis
+buffer, so a holding that drifts one rank does not force a trade. Expect those
+two to do more for felt churn than changing the rebalance date itself.
 
 Depends on nothing, but should be sequenced *after* the sectors→themes
 retirement completes — the sweet spot for the 20-theme universe need not match
@@ -189,6 +271,45 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Leaderboard, backtest and validation ungrouped for a single cohort** — with
+  themes the only cohort, every per-cohort grouping affordance was a control that
+  could not do anything. Removed the leaderboard's Region column (9 columns now,
+  sort indices renumbered) and its cohort header rows, the cohort filter-chip
+  group, the Region columns on the validation and sentiment tables, and the
+  Track column on the backtest metrics table. The validation "All" aggregate is
+  now skipped at one cohort, where it repeated that cohort's own rows verbatim
+  under a second label. `grouped_rows` is gone from the build context; the
+  template renders the flat `leaderboard_rows`.
+
+  **Fixed a real bug found while doing it: the backtest equity curve had not
+  rendered at all since the sector cohort was retired.** `renderBacktest()`
+  iterated a hardcoded `['US', 'EU']` looking up `backtest-chart-US`/`-EU`
+  container ids, while `activeCohort` was `THEME` — so it matched nothing and
+  silently drew no chart. The PR-C check confirmed `BACKTEST_DATA` had the THEME
+  key but never confirmed a container existed to draw into. Now one
+  `#backtest-chart` container renders the active cohort's track.
+
+  Also removed the two legacy `[{region:"US"},{region:"EU"}]` fallback lists in
+  `auth.js` and `scan-history.js`. Those were live hazards rather than dead
+  code: both files read sources with no region filter (`v_recent_scores`, and
+  historical scans), so if `window.COHORTS` were ever missing the fallback would
+  have replayed retired sector rows onto the leaderboard for signed-in users.
+  They now render nothing rather than guessing. `auth.js` also drops the region
+  cell so its signed-in rows match the static build's column set.
+
+  Rotation event-study plumbing deleted (`_build_rotation_figures`, the
+  `rotation_json`/`has_rotations` context, `ROTATION_DATA`, the renderer, and
+  `write_results(rotations=...)`) — `config/rotations.yaml` went with the sector
+  cohort, so it had been permanently empty. Plus dead `.tag-region` /
+  `.region-header-row` CSS and five orphaned i18n keys; `cohort_label` is kept
+  because the cohort selector markup is deliberately retained for a future
+  second cohort.
+
+  `rescore.js` keeps its per-region ranking pools: that grouping is the
+  cross-sectional invariant (ranks are computed *within* a cohort, never
+  across), it derives its groups from the data rather than a hardcoded list, and
+  it is not presentation.
 
 - **Sector cohort retired — themes are the only cohort** — completes Sector
   Momentum 2.0. `scan.py` now runs the theme pipeline as its primary (and

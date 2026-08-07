@@ -263,11 +263,12 @@ def build_validation_context(shared: dict) -> dict:
         runs = _top5_runs(all_scores_df, cohort.region)
         all_holding.append(_holding_stats(runs, cohort.region))
 
-    # "All" aggregates
-    all_fwd.extend(_aggregate_fwd_returns(all_obs_combined, "All"))
-
-    all_runs = [r for c in cohort_list for r in _top5_runs(all_scores_df, c.region)]
-    all_holding.append(_holding_stats(all_runs, "All"))
+    # "All" aggregates. Skipped with a single cohort, where they would repeat
+    # that cohort's own rows verbatim under a second label.
+    if len(cohort_list) > 1:
+        all_fwd.extend(_aggregate_fwd_returns(all_obs_combined, "All"))
+        all_runs = [r for c in cohort_list for r in _top5_runs(all_scores_df, c.region)]
+        all_holding.append(_holding_stats(all_runs, "All"))
 
     return {
         "validation_fwd_returns": all_fwd,

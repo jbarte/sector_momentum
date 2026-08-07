@@ -19,7 +19,6 @@
     <thead>
       <tr>
         <th data-i18n="sent_col_sector">Sector</th>
-        <th data-i18n="sent_col_region">Region</th>
         <th data-i18n="sent_col_news_polarity">Polarity</th>
         <th data-i18n="sent_col_news_count">Articles</th>
         <th data-i18n="sent_col_news_pos">Pos%</th>
@@ -30,7 +29,6 @@
       {% for r in rows %}
       <tr>
         <td>{{ r.sector }}</td>
-        <td>{{ r.region }}</td>
         <td class="{% if r.news_polarity != '—' %}{% if r.news_polarity.startswith('+') %}signal-hi{% elif r.news_polarity.startswith('-') %}signal-lo{% endif %}{% endif %}">{{ r.news_polarity }}</td>
         <td>{{ r.news_count }}</td>
         <td>{{ r.news_positive_pct }}</td>
