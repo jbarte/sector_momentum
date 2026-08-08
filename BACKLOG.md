@@ -178,6 +178,28 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Horizon sweep grid widened to bracket the shipped presets** — the sweep
+  explored `BUFFERS = [0,1,2,3]` while the presets, retuned by the 2026-08-08
+  audit, use **buffer 5**. Re-running it would have printed a return/churn
+  frontier that excluded the configuration actually in use, and pointed at cells
+  the audit had already superseded. Grid now runs 0-8, and the table carries a
+  `band` column — `(top_n + buffer) / universe_size` — because that fraction, not
+  the raw buffer, is the number that transfers when the universe changes size.
+
+  With the full grid, none of the three shipped presets is on the frontier.
+  **Deliberately not retuned again**, because the margins are inside the noise of
+  a single market history and the presets were already retuned once this week:
+
+  | preset | shipped | best alternative | note |
+  |---|---|---|---|
+  | Short | W/3/5 — 18.1%, Sharpe 0.84, 33.6/yr | W/3/6 — 18.2%, 0.84, 28.3/yr | real but small |
+  | Medium | M/5/5 — 15.5%, 0.84, 21.3/yr | 2W/3/7 — 15.8%, 0.76, 17.7/yr | worse Sharpe — not a win |
+  | Long | 2M/5/5 — 14.2%, 0.76, 12.5/yr | 2M/4/7 — 15.0%, 0.78, 7.8/yr | better on all three |
+
+  Only Long has a clearly better cell. Chasing the frontier of the same single
+  history is how the presets get overfit to 2008-2026; prefer the broad plateau,
+  which is what buffer 5-6 at band ~50% already is.
+
 - **Niche diversifiers (SIL, OIH) tested and rejected — low correlation is not
   useful diversification** — a negative result, recorded so it is not retried.
 

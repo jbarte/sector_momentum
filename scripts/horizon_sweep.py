@@ -35,7 +35,15 @@ logger = logging.getLogger("horizon_sweep")
 
 CADENCES = ["W", "2W", "M", "2M", "Q"]
 TOP_N = [3, 4, 5]
-BUFFERS = [0, 1, 2, 3]
+# Buffers must BRACKET the shipped presets or the frontier this script prints
+# excludes the configuration actually in use. The 2026-08-08 audit found the
+# optimum at buffer 5 (hold band ~50% of a 20-theme universe); the original
+# 0-3 grid stopped short of it and pointed at the wrong cells.
+#
+# The band is `(top_n + buffer) / universe_size`, so the useful buffer range
+# moves when the universe does — the `band` column below is the number to read,
+# not the raw buffer.
+BUFFERS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 BACKTEST_CACHE = "data/backtest_cache"
 
 
@@ -72,6 +80,7 @@ def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps)
         "top_n": top_n,
         "buffer": buffer,
         "ppy": ppy,
+        "band": None,          # filled by the caller, which knows universe size
         "cagr": metrics.cagr(strat_eq, ppy),
         "bench_cagr": metrics.cagr(bench_eq, ppy),
         "sharpe": metrics.sharpe(strat, ppy),
@@ -122,6 +131,7 @@ def main() -> int:
             cell = _cell(score_by_date, fwd, instrument_of, benchmark,
                          top_n, buffer, args.cost_bps)
             if cell:
+                cell["band"] = (top_n + buffer) / max(1, len(instrument_of))
                 rows.append({"freq": freq, **cell})
 
     if not rows:
@@ -148,12 +158,13 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
         "`median hold` excludes positions still open at the end: their true",
         "duration is unknown and counting them would bias the median short.",
         "",
-        "| cadence | top_n | buffer | CAGR | Sharpe | max DD | turnover | trades/yr | median hold (d) |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| cadence | top_n | buffer | band | CAGR | Sharpe | max DD | turnover | trades/yr | median hold (d) |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for r in rows:
         lines.append(
-            f"| {r['freq']} | {r['top_n']} | {r['buffer']} | {fmt(r['cagr'], pct=True)} | "
+            f"| {r['freq']} | {r['top_n']} | {r['buffer']} | {fmt(r.get('band'), pct=True, nd=0)} | "
+            f"{fmt(r['cagr'], pct=True)} | "
             f"{fmt(r['sharpe'], nd=2)} | {fmt(r['max_dd'], pct=True)} | "
             f"{fmt(r['turnover'], pct=True, nd=0)} | {fmt(r['trades_per_year'])} | "
             f"{fmt(r['median_hold'], nd=0)} |"
