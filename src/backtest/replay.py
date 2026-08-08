@@ -16,13 +16,44 @@ def truncate_prices(prices: dict[str, pd.DataFrame], as_of: pd.Timestamp) -> dic
     return out
 
 
-def month_end_dates(index: pd.DatetimeIndex) -> list[pd.Timestamp]:
+# Rebalance cadences, mapped to the pandas period they group by. The "every
+# n-th" entry is applied after grouping: 2W is every second week-end, 2M every
+# second month-end. There is no pandas period for those, and taking every second
+# element of the finer calendar is exactly what a fortnightly rebalance means.
+REBALANCE_FREQS: dict[str, tuple[str, int]] = {
+    "W":  ("W", 1),
+    "2W": ("W", 2),
+    "M":  ("M", 1),
+    "2M": ("M", 2),
+    "Q":  ("Q", 1),
+}
+
+
+def rebalance_dates(index: pd.DatetimeIndex, freq: str = "M") -> list[pd.Timestamp]:
+    """Last trading day of each period in `index`, for the given cadence.
+
+    freq is one of REBALANCE_FREQS ("W", "2W", "M", "2M", "Q"). The default "M"
+    reproduces month_end_dates exactly, which is the regression gate for adding
+    cadence at all.
+    """
+    if freq not in REBALANCE_FREQS:
+        raise ValueError(
+            f"unknown rebalance freq {freq!r}; expected one of "
+            f"{sorted(REBALANCE_FREQS)}"
+        )
     if len(index) == 0:
         return []
+    period, step = REBALANCE_FREQS[freq]
     s = pd.Series(index, index=index)
-    # group by year-month period, take the max (last) trading day in each
-    last_per_month = s.groupby(index.to_period("M")).max()
-    return [pd.Timestamp(d) for d in last_per_month.tolist()]
+    # group by period, take the max (last) trading day in each
+    last_per_period = s.groupby(index.to_period(period)).max()
+    dates = [pd.Timestamp(d) for d in last_per_period.tolist()]
+    return dates[::step]
+
+
+def month_end_dates(index: pd.DatetimeIndex) -> list[pd.Timestamp]:
+    """Backwards-compatible alias for the monthly cadence."""
+    return rebalance_dates(index, "M")
 
 
 def score_themes_as_of(

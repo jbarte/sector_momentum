@@ -5,6 +5,26 @@ import numpy as np
 import pandas as pd
 
 
+def periods_per_year(dates: list) -> float:
+    """Rebalances per year, measured from the actual calendar.
+
+    Every annualised metric below needs this. They default to 12 (monthly),
+    which was correct while month-end was the only calendar the engine knew —
+    but once cadence is a parameter, leaving the default in place annualises a
+    quarterly track as if it were monthly and overstates its CAGR threefold.
+
+    Measured rather than looked up from a nominal constant, so gaps in the
+    calendar (missing prices, a skipped period) are reflected instead of
+    assumed away.
+    """
+    if len(dates) < 2:
+        return 12.0
+    span_days = (dates[-1] - dates[0]).days
+    if span_days <= 0:
+        return 12.0
+    return (len(dates) - 1) / (span_days / 365.25)
+
+
 def equity_curve(returns: pd.Series, initial: float = 1.0) -> pd.Series:
     growth = initial * (1.0 + returns.fillna(0.0)).cumprod()
     return pd.concat([pd.Series([initial]), growth], ignore_index=True)

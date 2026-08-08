@@ -15,32 +15,58 @@ def _theme_instruments(themes_cfg: dict) -> dict[str, str]:
             for name, cfg in themes_cfg.get("themes", {}).items()}
 
 
+def resolve_benchmark(themes_cfg: dict, prices: dict[str, pd.DataFrame]) -> str | None:
+    """The configured benchmark, or the documented SPY fallback, or None."""
+    benchmark = themes_cfg.get("benchmark") or "ACWI"
+    if benchmark in prices:
+        return benchmark
+    if "SPY" in prices:
+        logger.warning("Theme benchmark %s missing — falling back to SPY", benchmark)
+        return "SPY"
+    logger.warning("Theme track skipped — benchmark %s missing", benchmark)
+    return None
+
+
+def score_calendar(
+    themes_cfg: dict,
+    prices: dict[str, pd.DataFrame],
+    calendar: list[pd.Timestamp],
+    min_members: int = 1,
+) -> dict[pd.Timestamp, pd.DataFrame]:
+    """Score every date in `calendar`.
+
+    Extracted so the horizon sweep can score once per cadence and reuse the
+    result across the whole top_n x buffer grid. Scoring replays the signal
+    pipeline per date and is by far the expensive step; top_n and buffer do not
+    affect scores, so re-scoring per grid cell would be ~12x slower for nothing.
+    """
+    out: dict[pd.Timestamp, pd.DataFrame] = {}
+    for d in calendar:
+        scored = replay.score_themes_as_of(themes_cfg, prices, d)
+        if scored is not None and len(scored) >= min_members:
+            out[d] = scored
+    return out
+
+
 def run_theme_track(
     themes_cfg: dict,
     prices: dict[str, pd.DataFrame],
     top_n: int = 3,
     cost_bps: float = 0.0,
+    rebalance_freq: str = "M",
+    buffer: int = 0,
 ) -> dict | None:
-    benchmark = themes_cfg.get("benchmark") or "ACWI"
-    if benchmark not in prices:
-        if "SPY" in prices:
-            logger.warning("Theme benchmark %s missing — falling back to SPY", benchmark)
-            benchmark = "SPY"
-        else:
-            logger.warning("Theme track skipped — benchmark %s missing", benchmark)
-            return None
+    benchmark = resolve_benchmark(themes_cfg, prices)
+    if benchmark is None:
+        return None
 
-    calendar = replay.month_end_dates(prices[benchmark].index)
+    calendar = replay.rebalance_dates(prices[benchmark].index, rebalance_freq)
     if len(calendar) < 3:
         return None
 
     instrument_of = _theme_instruments(themes_cfg)
 
-    score_by_date: dict[pd.Timestamp, pd.DataFrame] = {}
-    for d in calendar:
-        scored = replay.score_themes_as_of(themes_cfg, prices, d)
-        if scored is not None and len(scored) >= top_n:
-            score_by_date[d] = scored
+    score_by_date = score_calendar(themes_cfg, prices, calendar, min_members=top_n)
     if len(score_by_date) < 2:
         return None
 
@@ -48,7 +74,8 @@ def run_theme_track(
     track_tickers = list(instrument_of.values()) + [benchmark]
     fwd = strategy.forward_returns(prices, track_tickers, dates)
 
-    sim = strategy.simulate(score_by_date, fwd, instrument_of, top_n=top_n, cost_bps=cost_bps)
+    sim = strategy.simulate(score_by_date, fwd, instrument_of, top_n=top_n,
+                            cost_bps=cost_bps, buffer=buffer)
     if not sim["dates"]:
         return None
 
@@ -64,6 +91,10 @@ def run_theme_track(
 
     strat_eq = metrics.equity_curve(strat_rets_s)
     bench_eq = metrics.equity_curve(bench_rets_s)
+
+    # Annualise on THIS track's cadence. Leaving the metrics defaults (12) in
+    # place would annualise a quarterly track as monthly and treble its CAGR.
+    ppy = metrics.periods_per_year(sim["dates"])
 
     if not sim_dates:
         return None
@@ -86,18 +117,29 @@ def run_theme_track(
         "benchmark": benchmark,
         "top_n": top_n,
         "cost_bps": cost_bps,
+        "rebalance_freq": rebalance_freq,
+        "buffer": buffer,
         "start": eq_dates[0].strftime("%Y-%m-%d"),
         "end": eq_dates[n_points - 1].strftime("%Y-%m-%d"),
         "metrics": {
             "total_return": metrics.total_return(strat_eq),
-            "cagr": metrics.cagr(strat_eq),
-            "ann_vol": metrics.annualized_vol(strat_rets_s),
-            "sharpe": metrics.sharpe(strat_rets_s),
+            "cagr": metrics.cagr(strat_eq, ppy),
+            "ann_vol": metrics.annualized_vol(strat_rets_s, ppy),
+            "sharpe": metrics.sharpe(strat_rets_s, ppy),
             "max_drawdown": metrics.max_drawdown(strat_eq),
             "hit_rate": metrics.hit_rate(strat_rets_s, bench_rets_s),
             "avg_turnover": metrics.avg_turnover(sim["turnover"]),
             "benchmark_total_return": metrics.total_return(bench_eq),
-            "benchmark_cagr": metrics.cagr(bench_eq),
+            "benchmark_cagr": metrics.cagr(bench_eq, ppy),
+            # Churn, in the terms a human asks about. avg_turnover says what
+            # fraction of the book moves per rebalance; these say how often you
+            # actually trade and how long a position lasts.
+            "trades_total": sim["trades_total"],
+            "trades_per_year": sim["trades_per_year"],
+            "median_holding_days": sim["median_holding_days"],
+            "mean_holding_days": sim["mean_holding_days"],
+            "open_positions": sim["open_positions"],
+            "periods_per_year": round(ppy, 2),
         },
         "equity_curve": equity_curve,
         "holdings": [
