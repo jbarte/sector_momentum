@@ -7,6 +7,21 @@ import pandas as pd
 import pytest
 
 from src.alerts import detect_badge_events, format_alert_body, send_alerts
+from src.horizons import default_horizon
+
+# Badges are a rank band now, so fixtures are built from the configured horizon
+# rather than magic ranks. IN = inside the buy band, HOLD = inside the hold band
+# but not the buy band (silent), OUT = past the hold band.
+_H = default_horizon()
+IN, HOLD, OUT = 1, _H.exit_rank, _H.exit_rank + 1
+assert IN <= _H.top_n < HOLD <= _H.exit_rank < OUT, "fixture bands are degenerate"
+
+
+def _crossing(region, sector, from_rank, to_rank, n=5):
+    """History where `sector` sits at from_rank then moves to to_rank on the
+    last scan — i.e. a band crossing if the two ranks are in different bands."""
+    return [(i + 1, region, sector, 0.5, 0.1, from_rank if i < n - 1 else to_rank)
+            for i in range(n)]
 
 
 def _history(rows: list[tuple]) -> pd.DataFrame:
@@ -20,13 +35,7 @@ def _history(rows: list[tuple]) -> pd.DataFrame:
 class TestDetectBadgeEvents:
     def test_entry_badge(self):
         """Entry: composite > 0, change > 0, trajectory up (slope <= -0.3)."""
-        df = _history([
-            (1, "US", "Energy", 0.5, 0.3, 5),
-            (2, "US", "Energy", 0.6, 0.4, 4),
-            (3, "US", "Energy", 0.7, 0.5, 3),
-            (4, "US", "Energy", 0.8, 0.6, 2),
-            (5, "US", "Energy", 0.9, 0.7, 1),
-        ])
+        df = _history(_crossing("US", "Energy", OUT, IN))
         events = detect_badge_events(df)
         assert len(events) == 1
         assert events[0]["event"] == "entry"
@@ -34,28 +43,19 @@ class TestDetectBadgeEvents:
 
     def test_exit_badge(self):
         """Exit: trajectory down, change < 0."""
-        df = _history([
-            (1, "US", "Energy", 0.5, 0.3, 1),
-            (2, "US", "Energy", 0.4, 0.1, 3),
-            (3, "US", "Energy", 0.3, -0.1, 5),
-            (4, "US", "Energy", 0.2, -0.2, 7),
-            (5, "US", "Energy", 0.1, -0.3, 9),
-        ])
+        df = _history(_crossing("US", "Energy", IN, OUT))
         events = detect_badge_events(df)
         assert len(events) == 1
         assert events[0]["event"] == "exit"
 
     def test_no_badge(self):
-        """Flat trajectory, no setup badge."""
-        df = _history([
-            (1, "US", "Energy", 0.5, 0.1, 3),
-            (2, "US", "Energy", 0.5, 0.1, 3),
-            (3, "US", "Energy", 0.5, 0.1, 3),
-            (4, "US", "Energy", 0.5, 0.1, 3),
-            (5, "US", "Energy", 0.5, 0.1, 3),
-        ])
-        events = detect_badge_events(df)
-        assert events == []
+        """A position sitting still inside the buy band is not news.
+
+        This is the property that stops the daily nagging: the band rule means
+        every held name reads "entry" on every scan, so alerting on membership
+        would email the same positions forever. Only crossings count."""
+        df = _history(_crossing("US", "Energy", IN, IN))
+        assert detect_badge_events(df) == []
 
     def test_empty_dataframe(self):
         df = pd.DataFrame(
@@ -69,33 +69,15 @@ class TestDetectBadgeEvents:
 
     def test_themes_cohort(self):
         """Themes use region='THEME'."""
-        df = _history([
-            (1, "THEME", "Uranium", 0.5, 0.3, 5),
-            (2, "THEME", "Uranium", 0.6, 0.4, 4),
-            (3, "THEME", "Uranium", 0.7, 0.5, 3),
-            (4, "THEME", "Uranium", 0.8, 0.6, 2),
-            (5, "THEME", "Uranium", 0.9, 0.7, 1),
-        ])
+        df = _history(_crossing("THEME", "Uranium", OUT, IN))
         events = detect_badge_events(df)
         assert len(events) == 1
         assert events[0]["cohort"] == "THEME"
 
     def test_multiple_sectors(self):
         """One entry, one exit in the same scan."""
-        df = _history([
-            # Energy: rising trajectory -> entry
-            (1, "US", "Energy", 0.5, 0.3, 5),
-            (2, "US", "Energy", 0.6, 0.4, 4),
-            (3, "US", "Energy", 0.7, 0.5, 3),
-            (4, "US", "Energy", 0.8, 0.6, 2),
-            (5, "US", "Energy", 0.9, 0.7, 1),
-            # Tech: falling trajectory -> exit
-            (1, "US", "Tech", 0.5, 0.3, 1),
-            (2, "US", "Tech", 0.4, 0.1, 3),
-            (3, "US", "Tech", 0.3, -0.1, 5),
-            (4, "US", "Tech", 0.2, -0.2, 7),
-            (5, "US", "Tech", 0.1, -0.3, 9),
-        ])
+        df = _history(_crossing("US", "Energy", OUT, IN)
+                      + _crossing("US", "Tech", IN, OUT))
         events = detect_badge_events(df)
         event_types = {(e["sector"], e["event"]) for e in events}
         assert ("Energy", "entry") in event_types
@@ -126,13 +108,7 @@ class TestSendAlerts:
     @patch("src.alerts.get_theme_scan_history")
     @patch("src.alerts.get_scan_history")
     def test_sends_on_events(self, mock_sector, mock_theme, mock_post):
-        mock_sector.return_value = _history([
-            (1, "US", "Energy", 0.5, 0.3, 5),
-            (2, "US", "Energy", 0.6, 0.4, 4),
-            (3, "US", "Energy", 0.7, 0.5, 3),
-            (4, "US", "Energy", 0.8, 0.6, 2),
-            (5, "US", "Energy", 0.9, 0.7, 1),
-        ])
+        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN))
         mock_theme.return_value = pd.DataFrame(
             columns=["scan_id", "region", "gics_sector", "composite", "change_score", "rank"]
         )
@@ -148,13 +124,7 @@ class TestSendAlerts:
     @patch("src.alerts.get_theme_scan_history")
     @patch("src.alerts.get_scan_history")
     def test_no_notification_on_no_badges(self, mock_sector, mock_theme, mock_post):
-        mock_sector.return_value = _history([
-            (1, "US", "Energy", 0.5, 0.1, 3),
-            (2, "US", "Energy", 0.5, 0.1, 3),
-            (3, "US", "Energy", 0.5, 0.1, 3),
-            (4, "US", "Energy", 0.5, 0.1, 3),
-            (5, "US", "Energy", 0.5, 0.1, 3),
-        ])
+        mock_sector.return_value = _history(_crossing("US", "Energy", IN, IN))
         mock_theme.return_value = pd.DataFrame(
             columns=["scan_id", "region", "gics_sector", "composite", "change_score", "rank"]
         )
@@ -181,13 +151,7 @@ class TestSendAlerts:
         self, mock_sector, mock_theme, mock_positions, mock_prefs, mock_post
     ):
         """A user with prefs still gets alerted when NTFY_TOPIC is unset."""
-        mock_sector.return_value = _history([
-            (1, "US", "Energy", 0.5, 0.3, 5),
-            (2, "US", "Energy", 0.6, 0.4, 4),
-            (3, "US", "Energy", 0.7, 0.5, 3),
-            (4, "US", "Energy", 0.8, 0.6, 2),
-            (5, "US", "Energy", 0.9, 0.7, 1),
-        ])
+        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN))
         mock_theme.return_value = pd.DataFrame()
         mock_positions.return_value = []
         mock_prefs.return_value = [
@@ -207,13 +171,7 @@ class TestSendAlerts:
         self, mock_sector, mock_theme, mock_positions, mock_prefs, mock_post
     ):
         """Per-user isolation: a bad topic must not stop the remaining users."""
-        mock_sector.return_value = _history([
-            (1, "US", "Energy", 0.5, 0.3, 5),
-            (2, "US", "Energy", 0.6, 0.4, 4),
-            (3, "US", "Energy", 0.7, 0.5, 3),
-            (4, "US", "Energy", 0.8, 0.6, 2),
-            (5, "US", "Energy", 0.9, 0.7, 1),
-        ])
+        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN))
         mock_theme.return_value = pd.DataFrame()
         mock_positions.return_value = []
         mock_prefs.return_value = [

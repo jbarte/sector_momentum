@@ -9,6 +9,12 @@ import numpy as np
 import pytest
 from scipy.stats import rankdata
 
+from src.horizons import default_horizon
+
+# The parity check must drive BOTH sides from the same horizon, or it would be
+# comparing two different strategies and calling the difference a JS bug.
+_H = default_horizon()
+
 _PROJECT_ROOT = Path(__file__).parent.parent
 _RESCORE_JS = _PROJECT_ROOT / "dashboard" / "assets" / "rescore.js"
 
@@ -148,7 +154,7 @@ def _run_js_meta(recent_rows):
     script = f"""
         const R = require({json.dumps(str(_RESCORE_JS))});
         const rows = {json.dumps(recent_rows)};
-        process.stdout.write(JSON.stringify(R.latestRowMeta(rows)));
+        process.stdout.write(JSON.stringify(R.latestRowMeta(rows, {{top_n: {_H.top_n}, buffer: {_H.buffer}}})));
     """
     res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
     return json.loads(res.stdout)
@@ -171,10 +177,13 @@ def _py_latest_meta(recent_rows):
         arrow_class = "up" if delta > 0 else ("down" if delta < 0 else "")
         series = [x["rank"] for x in rows[max(0, n - 5):]]
         label, state = _traj(_ols(series))
-        comp, change = latest["composite"], latest["change_score"]
-        if comp is not None and comp > 0 and state in ("up", "strong_up") and change is not None and change > 0:
+        # Position band, mirroring dashboard/rows.py:_compute_setup.
+        rank = latest["rank"]
+        if rank is None:
+            setup = None
+        elif rank <= _H.top_n:
             setup = "entry"
-        elif state in ("down", "strong_down") and change is not None and change < 0:
+        elif rank > _H.exit_rank:
             setup = "exit"
         else:
             setup = None
@@ -213,26 +222,43 @@ def test_latest_row_meta_parity_random(seed):
 
 
 def test_latest_row_meta_single_scan():
+    """A single scan has no trajectory, but the band still applies: setup now
+    depends on rank alone, not on history."""
     rows = [{"scan_id": 5, "region": "US", "gics_sector": "Energy",
              "rank": 1.0, "composite": 0.9, "change_score": 0.5}]
     js = _run_js_meta(rows)
     assert js["US|Energy"] == {
         "delta_rank": "—", "arrow": "", "arrow_class": "",
-        "trajectory_label": "→", "trajectory_state": "flat", "setup": None,
+        "trajectory_label": "→", "trajectory_state": "flat", "setup": "entry",
     }
 
 
-def test_latest_row_meta_entry_and_exit():
-    # Climbing sector (ranks 5->1 over scans) with positive comp/change -> entry.
-    climb = [{"scan_id": i + 1, "region": "US", "gics_sector": "Up",
-              "rank": float(5 - i), "composite": 0.8, "change_score": 0.6} for i in range(5)]
-    # Falling sector (ranks 1->5) with negative change -> exit.
-    fall = [{"scan_id": i + 1, "region": "US", "gics_sector": "Down",
-             "rank": float(1 + i), "composite": -0.2, "change_score": -0.4} for i in range(5)]
-    js = _run_js_meta(climb + fall)
-    assert js["US|Up"]["setup"] == "entry"
-    assert js["US|Up"]["trajectory_state"] in ("up", "strong_up")
-    assert js["US|Down"]["setup"] == "exit"
-    assert js["US|Down"]["trajectory_state"] in ("down", "strong_down")
+def test_latest_row_meta_spans_the_three_bands():
+    """Entry inside top_n, Exit past top_n + buffer, silence in the hold zone.
+    Ranks are chosen from the configured horizon so this follows config rather
+    than pinning magic numbers."""
+    def series(name, final_rank):
+        return [{"scan_id": i + 1, "region": "US", "gics_sector": name,
+                 "rank": float(final_rank), "composite": 0.1, "change_score": 0.1}
+                for i in range(5)]
+
+    inside = _H.top_n                 # in the buy band
+    holding = _H.exit_rank            # still inside the hold band
+    gone = _H.exit_rank + 1           # past it
+
+    js = _run_js_meta(series("In", inside) + series("Hold", holding) + series("Out", gone))
+    assert js["US|In"]["setup"] == "entry"
+    assert js["US|Hold"]["setup"] is None, "the hold zone must be silent"
+    assert js["US|Out"]["setup"] == "exit"
+
+
+def test_setup_band_is_independent_of_momentum():
+    """The old rule keyed off trajectory + change score. A falling name that is
+    still top-ranked must now read Entry, not Exit — that is the point."""
+    falling_but_top = [{"scan_id": i + 1, "region": "US", "gics_sector": "Down",
+                        "rank": 1.0, "composite": -0.9, "change_score": -0.9}
+                       for i in range(5)]
+    js = _run_js_meta(falling_but_top)
+    assert js["US|Down"]["setup"] == "entry"
 
 

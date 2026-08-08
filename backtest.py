@@ -70,6 +70,7 @@ def run(args: argparse.Namespace) -> int:
     from src.data.prices import fetch_prices
     from src.backtest.engine import run_theme_track
     from src.backtest.results import write_results
+    from src.horizons import horizons
 
     with open("config/themes.yaml") as f:
         themes_cfg = yaml.safe_load(f) or {}
@@ -81,13 +82,26 @@ def run(args: argparse.Namespace) -> int:
     prices = fetch_prices(tickers=tickers, start=args.start, end=end, cache_dir=BACKTEST_CACHE)
     logger.info("Got %d / %d tickers", len(prices), len(tickers))
 
-    # One track, still keyed by region in a dict: write_results and the
-    # dashboard both index by region, and a second cohort would slot in here.
-    logger.info("Running theme track (top_n=%d, cost_bps=%.0f, rebalance=%s, buffer=%d) …",
-                args.theme_top_n, args.cost_bps, args.rebalance, args.buffer)
-    tracks = {"THEME": run_theme_track(themes_cfg, prices,
-                                       top_n=args.theme_top_n, cost_bps=args.cost_bps,
-                                       rebalance_freq=args.rebalance, buffer=args.buffer)}
+    # One track per horizon preset, keyed by preset. The dashboard's Backtest
+    # tab switches on this key, so every preset the reader can select must have
+    # a curve here — a missing key renders an empty chart.
+    #
+    # --rebalance/--buffer/--theme-top-n override the presets entirely and
+    # produce a single ad-hoc track, for one-off "what if" runs.
+    if args.rebalance != "M" or args.buffer != 0 or args.theme_top_n != 3:
+        logger.info("Ad-hoc track (top_n=%d, rebalance=%s, buffer=%d) — presets skipped",
+                    args.theme_top_n, args.rebalance, args.buffer)
+        tracks = {"custom": run_theme_track(
+            themes_cfg, prices, top_n=args.theme_top_n, cost_bps=args.cost_bps,
+            rebalance_freq=args.rebalance, buffer=args.buffer)}
+    else:
+        tracks = {}
+        for h in horizons():
+            logger.info("Running %-6s (rebalance=%-2s top_n=%d buffer=%d) …",
+                        h.key, h.rebalance, h.top_n, h.buffer)
+            tracks[h.key] = run_theme_track(
+                themes_cfg, prices, top_n=h.top_n, cost_bps=args.cost_bps,
+                rebalance_freq=h.rebalance, buffer=h.buffer)
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -99,9 +113,11 @@ def run(args: argparse.Namespace) -> int:
             logger.info("  %s: no result (insufficient data)", region)
             continue
         m = tr["metrics"]
-        logger.info("  %s %s→%s | strat CAGR %.1f%% vs bench %.1f%% | Sharpe %.2f | maxDD %.1f%%",
+        logger.info("  %-6s %s→%s | CAGR %.1f%% vs %.1f%% | Sharpe %.2f | maxDD %.1f%% "
+                    "| %.0f trades/yr | median hold %s d",
                     region, tr["start"], tr["end"], 100 * m["cagr"],
-                    100 * m["benchmark_cagr"], m["sharpe"], 100 * m["max_drawdown"])
+                    100 * m["benchmark_cagr"], m["sharpe"], 100 * m["max_drawdown"],
+                    m.get("trades_per_year") or 0, m.get("median_holding_days"))
     logger.info("Wrote %s", path)
 
     return 0

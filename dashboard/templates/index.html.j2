@@ -80,6 +80,15 @@
      Tab: Leaderboard
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
+  <div class="horizon-row">
+    <label for="horizon-select" data-i18n="horizon_label">Horizon:</label>
+    <select id="horizon-select" onchange="switchHorizon(this.value)">
+      {% for h in horizon_list %}
+      <option value="{{ h.key }}">{{ h.label }} — {{ h.top_n }} held, ~{{ h.median_holding_days | round | int }}d, {{ h.trades_per_year | round | int }} trades/yr</option>
+      {% endfor %}
+    </select>
+    <span class="horizon-note" data-i18n="horizon_note">Sets the Entry/Exit band. Backtested figures, not predictions.</span>
+  </div>
   <div class="utility-row">
     <div class="filter-bar" id="leaderboard-filter-bar">
       <div class="filter-group" role="group" aria-label="Setup">
@@ -340,14 +349,22 @@
      Tab: Backtest
      ============================================================ -->
 <section id="tab-backtest" class="tab-panel" role="tabpanel">
-  <p class="tab-note" data-i18n="note_backtest">Monthly top-{{ backtest_metrics[0].top_n if backtest_metrics else 5 }} rotation, equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded).</p>
+  <p class="tab-note" data-i18n="note_backtest">Equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded). Each horizon is a rebalance cadence plus a hysteresis band: a holding is kept while its rank stays within top-N + buffer, so a one-rank wobble is not a trade.</p>
+  <p class="tab-note" data-i18n="note_backtest_caveat"><strong>These are precomputed operating points from one sweep over one market history (2008–2026), not a live optimiser.</strong> The universe is replayed as it stands today, so themes that launched later are simply absent from the early years. Read the trades/year column next to the return, not instead of it.</p>
   {% if has_backtest %}
   <div class="table-wrap">
     <table>
-      <thead><tr><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe (rf=0)</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_hitrate">Hit rate</th><th data-i18n="bt_turnover">Turnover</th></tr></thead>
+      <thead><tr><th data-i18n="bt_horizon">Horizon</th><th data-i18n="bt_policy">Policy</th><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe (rf=0)</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_trades">Trades/yr</th><th data-i18n="bt_hold">Median hold</th></tr></thead>
       <tbody>
         {% for r in backtest_metrics %}
-        <tr><td>{{ r.start }} → {{ r.end }}</td><td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td><td>{{ r.max_drawdown }}</td><td>{{ r.hit_rate }}</td><td>{{ r.avg_turnover }}</td></tr>
+        <tr class="bt-row" data-horizon="{{ r.region }}">
+          <td>{{ r.label }}</td>
+          <td>top {{ r.top_n }}, buffer {{ r.buffer }}, {{ r.rebalance }}</td>
+          <td>{{ r.start }} → {{ r.end }}</td>
+          <td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td>
+          <td>{{ r.max_drawdown }}</td>
+          <td>{{ r.trades_per_year }}</td><td>{{ r.median_holding_days }} d</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -431,6 +448,91 @@
 // group and strands the Themes header.
 var COHORT_REGIONS = [{% for c in cohort_list %}"{{ c.region }}"{% if not loop.last %}, {% endif %}{% endfor %}];
 
+// Horizon presets, from config/weights.yaml via src/horizons.py. A preset is a
+// (cadence, top_n, buffer) triple; top_n/buffer are pure rank comparisons, so
+// switching preset re-derives the Entry/Exit badges in the browser with no
+// rebuild. Cadence only selects which precomputed backtest curve to show —
+// re-simulating a different cadence needs a replay and cannot happen here.
+var HORIZONS = {{ horizons_json | js_json }};
+var HORIZON_DEFAULT = {{ horizon_default_json | js_json }};
+window.HORIZON_DEFAULT = HORIZON_DEFAULT;
+var activeHorizon = HORIZON_DEFAULT.key;
+
+var _HORIZON_LS = "sm_horizon";
+try {
+  var _saved = localStorage.getItem(_HORIZON_LS);
+  if (_saved && HORIZONS.some(function (h) { return h.key === _saved; })) {
+    activeHorizon = _saved;
+  }
+} catch (e) { /* private mode: fall back to the default */ }
+
+function currentHorizon() {
+  for (var i = 0; i < HORIZONS.length; i++) {
+    if (HORIZONS[i].key === activeHorizon) { return HORIZONS[i]; }
+  }
+  return HORIZON_DEFAULT;
+}
+
+// Re-tag every leaderboard row's Entry/Exit badge for the active band. The
+// badge is `rank <= top_n` / `rank > top_n + buffer`, both of which the row
+// already carries in data-rank — no server round-trip.
+function applyHorizonBadges() {
+  var h = currentHorizon();
+  var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row');
+  Array.prototype.forEach.call(rows, function (tr) {
+    var rank = parseFloat(tr.dataset.rank);
+    var setup = (window.Rescore && window.Rescore.setupForRank)
+      ? window.Rescore.setupForRank(rank, h)
+      : null;
+    tr.dataset.setup = setup || "";
+
+    var nameCell = tr.cells[1];
+    if (!nameCell) return;
+    var badge = nameCell.querySelector('.setup-badge');
+    if (!setup) { if (badge) badge.remove(); return; }
+    if (!badge) {
+      badge = document.createElement('span');
+      nameCell.appendChild(badge);
+    }
+    badge.className = 'setup-badge ' + setup;
+    badge.setAttribute('data-i18n', setup === 'entry' ? 'badge_entry' : 'badge_exit');
+    badge.textContent = setup === 'entry' ? '▲ Entry' : '▼ Exit';
+  });
+  if (typeof applyFilters === 'function') applyFilters();
+}
+
+// Sync the <select> to the restored state. Without this the control shows the
+// first option while activeHorizon is whatever localStorage (or the config
+// default) says — the page would render one band and label it another.
+function initHorizonSelect() {
+  var sel = document.getElementById('horizon-select');
+  if (sel) { sel.value = activeHorizon; }
+  Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
+    tr.classList.toggle('active', tr.dataset.horizon === activeHorizon);
+  });
+  // Re-derive badges only if the restored horizon differs from the one the
+  // page was baked with; otherwise the server-rendered badges already match.
+  if (activeHorizon !== HORIZON_DEFAULT.key) { applyHorizonBadges(); }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initHorizonSelect);
+} else {
+  initHorizonSelect();
+}
+
+function switchHorizon(key) {
+  activeHorizon = key;
+  try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
+  applyHorizonBadges();
+  // Highlight the matching backtest row and redraw its curve.
+  Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
+    tr.classList.toggle('active', tr.dataset.horizon === key);
+  });
+  _rendered.backtest = false;
+  renderBacktest();
+}
+
 // {region, label} pairs — a companion to COHORT_REGIONS rather than a
 // widened version of it. COHORT_REGIONS is consumed in many places above
 // as a plain array of region strings (`.forEach(function(region) {...})`);
@@ -488,7 +590,7 @@ function renderBacktest() {
   if (_rendered.backtest) return;
   _rendered.backtest = true;
   var el = document.getElementById('backtest-chart');
-  var f = el && BACKTEST_DATA[activeCohort];
+  var f = el && BACKTEST_DATA[activeHorizon];
   if (el) {
     el.style.display = f ? '' : 'none';
     if (f) Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});

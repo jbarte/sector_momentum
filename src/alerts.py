@@ -39,8 +39,10 @@ def detect_badge_events(history_df: pd.DataFrame) -> list[dict]:
 
     trajectories = _compute_rank_trajectories(history_df)
 
-    latest_id = scan_ids[-1]
+    latest_id, prev_id = scan_ids[-1], scan_ids[-2]
     latest = history_df[history_df["scan_id"] == latest_id]
+    prev_rank = (history_df[history_df["scan_id"] == prev_id]
+                 .set_index(["region", "gics_sector"])["rank"].to_dict())
 
     events: list[dict] = []
     for _, row_data in latest.iterrows():
@@ -50,15 +52,27 @@ def detect_badge_events(history_df: pd.DataFrame) -> list[dict]:
 
         traj = trajectories.get(sk, {"state": "flat"})
 
-        row_dict = {
-            "_raw_composite": _safe_float(row_data.get("composite")),
-            "_raw_change": _safe_float(row_data.get("change_score")),
-            "trajectory_state": traj["state"],
-        }
-        _compute_setup(row_dict)
-        setup = row_dict["setup"]
+        def _setup(rank):
+            row_dict = {
+                "_raw_composite": _safe_float(row_data.get("composite")),
+                "_raw_change": _safe_float(row_data.get("change_score")),
+                "trajectory_state": traj["state"],
+                # _compute_setup is a rank band now — without this it silently
+                # returns None for every row and no alert is ever sent.
+                "rank": rank,
+            }
+            _compute_setup(row_dict)
+            return row_dict["setup"]
 
-        if setup in ("entry", "exit"):
+        setup = _setup(_safe_float(row_data.get("rank")))
+        was = _setup(_safe_float(prev_rank.get((region, sector))))
+
+        # Alert on CROSSINGS, not on membership. The band rule means every
+        # held name reads "entry" every single scan; emitting that would be a
+        # daily email listing the same positions, which is the churn this
+        # whole change exists to remove. A name that was already in the band
+        # last scan is not news.
+        if setup in ("entry", "exit") and setup != was:
             events.append({
                 "cohort": region,
                 "sector": sector,

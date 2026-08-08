@@ -21,6 +21,21 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Per-user horizon for alerts (level 3)
+
+The Short/Medium/Long selector drives the backtest curves and the leaderboard
+badges, but **alerts stay on the configured default** (`horizons.default` in
+`config/weights.yaml`). Making them per-user needs:
+
+- a horizon column on the alert-prefs table (`dashboard/assets/alert-prefs.js`,
+  `src/personal_alerts.py` already carry per-user rows)
+- band-crossing evaluated per user in the scan rather than once globally —
+  `src/alerts.py:detect_badge_events` currently computes one set of crossings
+  from the default horizon
+
+Deferred because it touches the path that reaches Jonas's inbox, and because
+one shared default is defensible until more than one person uses the dashboard.
+
 ## Backtest artifact is stale, non-reproducible, and ignores `--start`
 
 Three related defects in `backtests/`, all found while wiring the theme track
@@ -133,30 +148,6 @@ Gold Miners 0.29, Shipping 0.30.
 Reuse the screening approach from the 2026-08-05 universe expansion (greedy
 selection on cohort mean rho); the script pattern is in that PR's description.
 
-## Rebalance horizon — apply the chosen policy live (phase 2)
-
-The engine and the sweep shipped 2026-08-08; **what remains is the live half**.
-Results: `sector_momentum-notes/specs/2026-08-08-horizon-sweep-results-0bps.md`
-(and the 10 bps variant). Spec:
-`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`.
-
-Ship Short / Medium / Long presets, each a `(cadence, top_n, buffer)` triple:
-
-- **Rank-band badges.** Replace `_compute_setup`'s trajectory heuristic
-  (`dashboard/rows.py:93`) with the band rule the backtest actually validates:
-  Entry at `rank <= top_n`, Exit at `rank > top_n + buffer`, silence in between.
-  `dashboard/assets/rescore.js:149-159` already re-derives badges client-side, so
-  the selector rides that path with the choice in `localStorage`.
-- **Persist all three presets** as named tracks in `backtests/summary.json` so
-  the Backtest tab can switch curves without a rebuild.
-- **Show trades/year next to CAGR** for each preset. A preset picked on return
-  alone puts Jonas back in the daily churn this work exists to remove.
-- **Alerts stay on one default horizon.** Per-user horizon needs a prefs column
-  and per-user band-crossing in the scan (`src/personal_alerts.py`) — deferred.
-
-Copy must not imply the system adapts: these are precomputed operating points
-from one sweep over one market history.
-
 ## Deferred UI/code polish (small, grouped sweep)
 
 Minor findings deliberately deferred during code review — none affect
@@ -231,6 +222,39 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Horizon presets live — Short / Medium / Long** — phase 2, completing the
+  rebalance-horizon work. `config/weights.yaml` gains a `horizons:` block read
+  through the new `src/horizons.py`, so the backtest, the server-rendered badges
+  and the client-side re-derivation share one definition instead of drifting.
+
+  **The Entry/Exit badge is now a position band, not a momentum reading.** Entry
+  at `rank <= top_n`, Exit at `rank > top_n + buffer`, silence in between —
+  the same rule `strategy.simulate` validates, so the dashboard and the backtest
+  finally describe one strategy. The old rule keyed off trajectory + change
+  score and recomputed every scan, which is why badges churned daily no matter
+  what cadence was validated. The Trend column keeps the trajectory reading.
+
+  Switching preset re-derives badges **client-side** via the existing
+  `rescore.js` path (top_n/buffer are pure rank comparisons against `data-rank`),
+  persisted in `localStorage`. Cadence can't be re-simulated in the browser, so
+  it selects one of three precomputed curves — `backtest.py` now replays all
+  three presets into `backtests/summary.json`, keyed by preset.
+
+  **Two real bugs found while building it.** `_compute_setup`'s callers in
+  `src/alerts.py` and `dashboard/badges.py` build row dicts without a `rank`
+  key, so the band rule would have returned None forever and **alerts would have
+  silently stopped**. And `detect_badge_events` reported band *membership*, not
+  transitions — under the band rule every held name reads "entry" on every scan,
+  so it would have emailed the same positions daily, the exact churn this work
+  exists to remove. Alerts now fire only on band crossings.
+
+  Alerts stay on the default preset; per-user horizon would need a prefs column
+  and per-user crossing evaluation (see the queued follow-up).
+
+  Copy states plainly that these are precomputed operating points from one sweep
+  over one market history, and every preset shows its trades/year beside its
+  return so it can't be picked on CAGR alone.
 
 - **Rebalance cadence + hysteresis buffer in the backtest engine** — phase 1 of
   the horizon work. `replay.rebalance_dates(index, freq)` generalises the

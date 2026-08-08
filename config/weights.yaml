@@ -27,3 +27,50 @@ change_signals:
 # Signal computation parameters
 signal_params:
   rs_momentum_fast: 5     # RRG RS-Momentum lookback (was 1; standard RRG ~10)
+
+# ---------------------------------------------------------------------------
+# Horizon presets — how long to hold, and how much churn that costs.
+#
+# Each preset is a (rebalance cadence, top_n, hysteresis buffer) triple, chosen
+# from the 2026-08-08 sweep over 2008-2026 (see the results in
+# sector_momentum-notes/specs/2026-08-08-horizon-sweep-results-*.md).
+#
+# `buffer` is the hysteresis band IN RANKS: a holding is kept while its rank
+# stays within top_n + buffer, so a one-rank wobble no longer forces a trade.
+# It is the single biggest churn lever — far more than the cadence.
+#
+# These are PRECOMPUTED OPERATING POINTS from one sweep over one market
+# history, not a live optimiser. The recorded cagr/trades_per_year are the
+# backtested figures for that cell and exist so the UI can show the churn cost
+# next to the return; they are not predictions.
+#
+# `default` is what the baked page renders and what alerts use. Signed-in users
+# can switch preset client-side; alerts stay on the default (per-user horizon
+# would need a prefs column — see BACKLOG).
+horizons:
+  default: medium
+  presets:
+    short:
+      label: Short
+      rebalance: W
+      top_n: 3
+      buffer: 2
+      cagr: 0.152
+      trades_per_year: 65.9
+      median_holding_days: 21
+    medium:
+      label: Medium
+      rebalance: M
+      top_n: 5
+      buffer: 3
+      cagr: 0.137
+      trades_per_year: 35.2
+      median_holding_days: 62
+    long:
+      label: Long
+      rebalance: 2M
+      top_n: 5
+      buffer: 3
+      cagr: 0.133
+      trades_per_year: 19.7
+      median_holding_days: 119
