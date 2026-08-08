@@ -44,6 +44,11 @@ def _parse_args() -> argparse.Namespace:
                    help="Skip the theme backtest.")
     p.add_argument("--theme-top-n", type=int, default=3,
                    help="Number of themes to hold (default 3).")
+    p.add_argument("--rebalance", default="M", choices=["W", "2W", "M", "2M", "Q"],
+                   help="Rebalance cadence (default M = month-end).")
+    p.add_argument("--buffer", type=int, default=0,
+                   help="Hysteresis band in ranks: hold while rank <= top_n + buffer "
+                        "(default 0 = sell as soon as a name leaves the top N).")
     return p.parse_args()
 
 
@@ -78,10 +83,11 @@ def run(args: argparse.Namespace) -> int:
 
     # One track, still keyed by region in a dict: write_results and the
     # dashboard both index by region, and a second cohort would slot in here.
-    logger.info("Running theme track (top_n=%d, cost_bps=%.0f) …",
-                args.theme_top_n, args.cost_bps)
+    logger.info("Running theme track (top_n=%d, cost_bps=%.0f, rebalance=%s, buffer=%d) …",
+                args.theme_top_n, args.cost_bps, args.rebalance, args.buffer)
     tracks = {"THEME": run_theme_track(themes_cfg, prices,
-                                       top_n=args.theme_top_n, cost_bps=args.cost_bps)}
+                                       top_n=args.theme_top_n, cost_bps=args.cost_bps,
+                                       rebalance_freq=args.rebalance, buffer=args.buffer)}
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 

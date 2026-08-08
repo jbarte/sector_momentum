@@ -133,69 +133,29 @@ Gold Miners 0.29, Shipping 0.30.
 Reuse the screening approach from the 2026-08-05 universe expansion (greedy
 selection on cohort mean rho); the script pattern is in that PR's description.
 
-## Rebalance-horizon sweep — find the return / churn sweet spot
+## Rebalance horizon — apply the chosen policy live (phase 2)
 
-Find the holding horizon that keeps most of the backtested return while cutting
-how often the dashboard tells Jonas to trade. Today the two are mismatched:
+The engine and the sweep shipped 2026-08-08; **what remains is the live half**.
+Results: `sector_momentum-notes/specs/2026-08-08-horizon-sweep-results-0bps.md`
+(and the 10 bps variant). Spec:
+`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`.
 
-- **The backtest is hardcoded to monthly.** `replay.month_end_dates()` is the
-  only calendar the engine knows (`src/backtest/engine.py:34` and `:153`).
-  There is no rebalance-frequency argument anywhere — not in `simulate()`,
-  not on the `backtest.py` CLI.
-- **The live signals fire daily.** Entry/Exit badges, the ops broadcast, and
-  personalized alerts all recompute on every scan, so a strategy validated at
-  monthly cadence emits buy/sell prompts every day. This mismatch — not the
-  strategy itself — is what makes the dashboard feel like it demands constant
-  action.
-- **There is no hysteresis.** `simulate()` takes a hard `ranked.index[:top_n]`
-  slice (`src/backtest/strategy.py:59`), so a holding that slips from rank 5 to
-  rank 6 is sold and replaced in full. A buffer band (enter at rank ≤ N, only
-  exit once rank > N + buffer) is the standard fix and is likely the single
-  biggest turnover reduction available.
+Ship Short / Medium / Long presets, each a `(cadence, top_n, buffer)` triple:
 
-**What to build:** a sweep over the parameter grid — rebalance cadence
-(weekly / biweekly / monthly / quarterly) × `top_n` × buffer band × minimum
-holding period — reporting CAGR, Sharpe, max drawdown *and* churn side by side,
-so the trade-off is visible rather than assumed. Churn should be expressed in
-terms Jonas actually feels: **trades per year** and **median holding duration in
-days**, not just the existing `avg_turnover` fraction.
+- **Rank-band badges.** Replace `_compute_setup`'s trajectory heuristic
+  (`dashboard/rows.py:93`) with the band rule the backtest actually validates:
+  Entry at `rank <= top_n`, Exit at `rank > top_n + buffer`, silence in between.
+  `dashboard/assets/rescore.js:149-159` already re-derives badges client-side, so
+  the selector rides that path with the choice in `localStorage`.
+- **Persist all three presets** as named tracks in `backtests/summary.json` so
+  the Backtest tab can switch curves without a rebuild.
+- **Show trades/year next to CAGR** for each preset. A preset picked on return
+  alone puts Jonas back in the daily churn this work exists to remove.
+- **Alerts stay on one default horizon.** Per-user horizon needs a prefs column
+  and per-user band-crossing in the scan (`src/personal_alerts.py`) — deferred.
 
-Then pick the operating point and make the live dashboard honour it, so badges
-and alerts reflect the chosen horizon instead of firing daily.
-
-**Existing material to build on, not rebuild:**
-
-- Turnover is already computed per rebalance and surfaced as `avg_turnover` in
-  the backtest table (`src/backtest/strategy.py:74`).
-- `--top-n`, `--theme-top-n` and `--cost-bps` already exist on `backtest.py`;
-  cadence and buffer are the missing knobs.
-- `src/backtest/walkforward.py` already has `count_switches()` and a
-  scheme-selection harness — precedent for grid-sweeping and counting churn.
-- The validation panel's conclusiveness caveat applies here too: with scan
-  history starting 2026-06-25, any *live-scan* comparison is far too short. This
-  sweep must run on the **price-replay backtest** (multi-year), not on stored
-  scan history.
-
-**Caveat to carry into the design:** the grid is small and the sample is one
-market history, so the best cell will overstate its own edge. Prefer a broad
-plateau of good-and-similar cells over the single best point, and sanity-check
-the winner on a held-out period before adopting it.
-
-**Target holding period (Jonas, 2026-08-05): roughly two weeks to a couple of
-months.** That is the number to design toward — it makes the sweep a search for
-the cadence/buffer combination that lands in that band while keeping most of the
-return, rather than an open-ended grid. Monthly rebalancing already sits inside
-the band, so the work is mostly (a) stopping the *live* signals from prompting
-action daily when the validated cadence is monthly, and (b) the hysteresis
-buffer, so a holding that drifts one rank does not force a trade. Expect those
-two to do more for felt churn than changing the rebalance date itself.
-
-Depends on nothing, but should be sequenced *after* the sectors→themes
-retirement completes — the sweet spot for the 20-theme universe need not match
-an 11+14-sector one. Note the universe expanded from 13 to 20 on 2026-08-05 and
-cohort mean pairwise correlation fell 0.52 → 0.375, which changes how much
-diversification a given `top_n` actually buys; re-derive, don't reuse old
-intuitions.
+Copy must not imply the system adapts: these are precomputed operating points
+from one sweep over one market history.
 
 ## Deferred UI/code polish (small, grouped sweep)
 
@@ -271,6 +231,37 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Rebalance cadence + hysteresis buffer in the backtest engine** — phase 1 of
+  the horizon work. `replay.rebalance_dates(index, freq)` generalises the
+  month-end-only calendar to W/2W/M/2M/Q; `strategy.simulate(..., buffer=N)`
+  replaces the hard `ranked[:top_n]` slice with a hysteresis band (hold while
+  `rank <= top_n + buffer`, fill free slots from the best unheld). New
+  `scripts/horizon_sweep.py` sweeps cadence x top_n x buffer, scoring **once per
+  cadence** and reusing it across the grid (top_n/buffer don't affect scores, so
+  per-cell scoring would be ~12x slower for identical numbers).
+
+  Churn is now reported in human terms — `trades_per_year`, `median_holding_days`
+  — alongside `avg_turnover`. Positions still open at the end are treated as
+  censored and excluded from the median, which would otherwise be biased toward
+  the sample length.
+
+  **Found and fixed a real bug while sweeping:** `metrics.cagr`, `sharpe` and
+  `annualized_vol` hardcode `periods_per_year=12`. That was correct while
+  month-end was the only calendar, but the moment cadence became a parameter it
+  annualised a quarterly track as monthly — the first sweep reported 32-40% CAGR
+  for quarterly cells against 11-13% for monthly, and would have recommended
+  quarterly on a threefold arithmetic error. New `metrics.periods_per_year()`
+  measures cadence from the actual calendar; engine and sweep both pass it.
+
+  Regression gate: old vs new code, same day, same cache — **identical holdings
+  across all 221 rebalance dates**, worst metric delta 5e-6 (the known
+  price-fetch noise floor). Defaults (`M`, `buffer=0`) are inert.
+
+  **Headline result: the current live default is dominated.** `M, top_n=3,
+  buffer=0` gives 11.5% CAGR at 46.5 trades/yr; `2M, top_n=5, buffer=3` gives
+  13.3% at 19.7 trades/yr — better return *and* 58% fewer trades. Holds at 10 bps
+  costs, where the low-churn cells drag 0.2-0.3pp against 0.8-1.2pp for weekly.
 
 - **Leaderboard, backtest and validation ungrouped for a single cohort** — with
   themes the only cohort, every per-cohort grouping affordance was a control that

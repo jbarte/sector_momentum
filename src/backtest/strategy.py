@@ -37,12 +37,34 @@ def forward_returns(
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
+def _select(ranked_index, prev: set[str], top_n: int, buffer: int) -> list[str]:
+    """Pick this period's holdings, with a hysteresis band.
+
+    Hold anything already held while its rank stays within `top_n + buffer`,
+    then fill whatever slots remain from the best names not already held. With
+    `buffer=0` this reduces exactly to `ranked_index[:top_n]`, which is the
+    behaviour every existing backtest number was produced with.
+
+    A previously-held name that has no score this period (its prices went
+    missing) is absent from `rank_of` and is therefore dropped — a position we
+    can no longer rank is a position we cannot claim to still hold.
+    """
+    rank_of = {sk: i for i, sk in enumerate(ranked_index)}   # 0-based
+    keep = {sk for sk in prev if rank_of.get(sk, 10 ** 9) < top_n + buffer}
+    free = top_n - len(keep)
+    if free > 0:
+        keep.update([sk for sk in ranked_index if sk not in keep][:free])
+    # Rank order, so `holdings` and turnover are stable run to run.
+    return sorted(keep, key=lambda sk: rank_of[sk])
+
+
 def simulate(
     score_by_date: dict[pd.Timestamp, pd.DataFrame],
     fwd_returns: pd.DataFrame,
     instrument_of: dict[str, str],
     top_n: int = 5,
     cost_bps: float = 0.0,
+    buffer: int = 0,
 ) -> dict:
     dates = sorted(score_by_date.keys())
     out_dates: list[pd.Timestamp] = []
@@ -56,7 +78,7 @@ def simulate(
             continue  # last date / no forward window
         scored = score_by_date[d]
         ranked = scored.sort_values("composite", ascending=False)
-        picks = list(ranked.index[:top_n])
+        picks = _select(list(ranked.index), prev, top_n, buffer)
         if not picks:
             continue
 
@@ -83,4 +105,53 @@ def simulate(
         "strategy_returns": strat_rets,
         "holdings": holdings,
         "turnover": turnover,
+        **churn_stats(out_dates, holdings),
+    }
+
+
+def churn_stats(dates: list[pd.Timestamp], holdings: list[list[str]]) -> dict:
+    """How often the strategy trades, and for how long it holds.
+
+    `avg_turnover` already says what fraction of the book changes per rebalance;
+    these answer the question a human actually asks — how many trades a year, and
+    how long does a position last in days.
+
+    Positions still open at the end are **censored**: their true holding period is
+    unknown and at least as long as observed, so including them would bias the
+    median short. They are excluded from the duration stats and reported
+    separately as `open_positions`.
+    """
+    if not dates:
+        return {"trades_total": 0, "trades_per_year": None,
+                "median_holding_days": None, "mean_holding_days": None,
+                "open_positions": 0}
+
+    entered: dict[str, pd.Timestamp] = {}
+    closed_durations: list[float] = []
+    trades = 0
+    prev: set[str] = set()
+
+    for d, picks in zip(dates, holdings):
+        cur = set(picks)
+        for sk in cur - prev:                     # opened
+            entered[sk] = d
+            trades += 1
+        for sk in prev - cur:                     # closed
+            trades += 1
+            start = entered.pop(sk, None)
+            if start is not None:
+                closed_durations.append((d - start).days)
+        prev = cur
+
+    span_days = (dates[-1] - dates[0]).days
+    per_year = round(trades / (span_days / 365.25), 1) if span_days > 0 else None
+
+    return {
+        "trades_total": trades,
+        "trades_per_year": per_year,
+        "median_holding_days": (round(float(np.median(closed_durations)), 1)
+                                if closed_durations else None),
+        "mean_holding_days": (round(float(np.mean(closed_durations)), 1)
+                              if closed_durations else None),
+        "open_positions": len(entered),
     }
