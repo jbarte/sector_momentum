@@ -103,51 +103,6 @@ names, and the cheap subset (`sector_key`, `sector_id`, `top_sector`,
 `sector_count`, the two `scans` health columns) can be renamed independently of
 the schema at much lower risk.
 
-## Theme redundancy audit — prune overlapping ETFs, keep the interesting ones
-
-The 20-theme universe still contains near-duplicates. Find which themes earn
-their slot and which are the same trade wearing two labels, then prune or merge.
-
-**The redundancy is not where it looks.** Measured on daily returns 2023-01-04 →
-2026-07-31 (896 obs, all 20 themes have data), mean pairwise rho is 0.376. The
-worst offenders are the AI/compute block, not healthcare:
-
-| rho | pair |
-|---:|---|
-| **0.88** | Semiconductors / Quantum Computing |
-| **0.83** | AI & Robotics / Quantum Computing |
-| **0.78** | AI & Robotics / Semiconductors |
-| 0.72 | Quantum Computing / Data Centers |
-| 0.71 | AI & Robotics / Data Centers |
-| 0.70 | Semiconductors / Data Centers |
-
-For comparison, the healthcare names that *look* redundant are not: Biotech /
-Medical Devices is **0.44**, Biotech / Healthcare Providers **0.32**, Medical
-Devices / Healthcare Providers **0.40** — all at or below the cohort mean.
-
-Average correlation to the rest, highest first: AI & Robotics 0.51, Quantum 0.49,
-Data Centers 0.46, Space 0.45, Semiconductors 0.44, Blockchain 0.44 … and at the
-useful end: Insurance 0.22, Healthcare Providers 0.23, Energy Producers 0.25,
-Gold Miners 0.29, Shipping 0.30.
-
-**What the research needs to settle**
-
-- Four names covering one AI/compute trade means momentum's "top 3" can be three
-  slices of it. Is that intended concentration or an accident of the universe?
-- Redundancy is not the only criterion — a theme can be correlated yet still
-  worth holding if it leads or lags the cluster. Check lead/lag and dispersion
-  of returns *within* the cluster before dropping anything on rho alone.
-- Prefer a measure that rewards marginal contribution (e.g. drop-one effect on
-  cohort mean rho, or effective number of bets / diversification ratio) over
-  raw pairwise rho, which punishes a theme for being in a big cluster rather
-  than for being useless.
-- Decide the shape: prune to fewer themes, or keep them and cap how many members
-  of one cluster the strategy may hold at once. The second preserves optionality
-  and may be the better fix — it belongs with the horizon/hysteresis work below.
-
-Reuse the screening approach from the 2026-08-05 universe expansion (greedy
-selection on cohort mean rho); the script pattern is in that PR's description.
-
 ## Deferred UI/code polish (small, grouped sweep)
 
 Minor findings deliberately deferred during code review — none affect
@@ -222,6 +177,52 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Theme redundancy audit — and the buffer bug it uncovered** — the audit's own
+  premise turned out to be wrong, and the real finding was elsewhere.
+
+  **What the audit disproved.** Clustering (correlation distance, average
+  linkage) says the structure is not "four AI names" but **12 of 20 themes in
+  one growth block** at within-rho 0.53. Drop-one analysis confirms the growth
+  names are the ones adding correlation and the seven 2026-08-05 diversifiers
+  are the ones removing it. Effective number of bets: **9.4 of 20**, one factor
+  explaining 43% of variance.
+
+  But the feared failure mode does not occur. Over 221 rebalances the strategy
+  held **2.43 of 5 from the growth block on average against 3.00 expected at
+  random** — less concentrated than chance, with all-five-from-growth in only
+  3.2% of rebalances. A cluster cap was tested at 4/3/2 and does essentially
+  nothing: **max drawdown is identical (-42.8%) at every cap**, which is the one
+  thing it would be added for. Pruning the most concentrating themes also lost
+  return. **Neither pruning nor capping is worth doing.**
+
+  **What it actually found: the hysteresis band is measured in absolute ranks,
+  so expanding the universe silently tightened it.** 13 themes at exit_rank 8 is
+  62% of the universe; 20 themes at exit_rank 8 is 40%. The 2026-08-05 expansion
+  therefore tripled churn without anyone intending it — on a common window
+  (2010-08 onward, both universes alive) the 20-theme universe traded 39.5
+  times/yr against the 13-theme universe's 13.8.
+
+  Retuning `buffer` 3 → 5 (band ≈ 50% of universe) improves **every preset on
+  every axis** — return, Sharpe, drawdown, churn and holding period:
+
+  | preset | before | after |
+  |---|---|---|
+  | Short | 15.2%, 0.71, -45.4%, 66/yr, 21d | 18.1%, 0.84, -39.3%, 34/yr, 42d |
+  | Medium | 13.7%, 0.77, -42.8%, 35/yr, 62d | 15.5%, 0.84, -38.3%, 21/yr, 91d |
+  | Long | 13.3%, 0.71, -39.0%, 20/yr, 119d | 14.2%, 0.76, -36.5%, 12/yr, 181d |
+
+  One buffer across all three presets rather than three separately fitted
+  numbers, which is less overfit and states the actual rule: hold band ≈ half
+  the universe. **The band does not scale itself — revisit it if the universe
+  size changes again**, noted in `config/weights.yaml`.
+
+  **A comparison trap worth recording.** The 13-theme universe first appeared to
+  beat the 20 on every axis (17.4% vs 13.7% CAGR, -30.1% vs -42.8% drawdown).
+  That was invalid: its track starts 2010-07-30 versus 2008-03-31, because most
+  of the original 13 ETFs did not exist in 2008 — it simply missed the GFC. On a
+  common window the drawdown ordering **reverses** (-25.0% for the 20 vs -30.1%
+  for the 13). Always check track windows before comparing universes.
 
 - **Horizon presets live — Short / Medium / Long** — phase 2, completing the
   rebalance-horizon work. `config/weights.yaml` gains a `horizons:` block read

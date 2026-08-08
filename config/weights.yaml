@@ -39,6 +39,14 @@ signal_params:
 # stays within top_n + buffer, so a one-rank wobble no longer forces a trade.
 # It is the single biggest churn lever — far more than the cadence.
 #
+# Buffer 5 across all three presets is deliberate, not three separately fitted
+# numbers: it puts the hold band at ~50% of a 20-theme universe. Because the
+# band is measured in ABSOLUTE ranks, expanding the universe from 13 to 20
+# themes on 2026-08-05 silently tightened it from 62% to 40% and tripled churn.
+# Retuning it recovered more return at less churn on all three presets (see the
+# 2026-08-08 redundancy audit). If the universe size changes again, revisit
+# this — the band does not scale itself.
+#
 # These are PRECOMPUTED OPERATING POINTS from one sweep over one market
 # history, not a live optimiser. The recorded cagr/trades_per_year are the
 # backtested figures for that cell and exist so the UI can show the churn cost
@@ -54,23 +62,23 @@ horizons:
       label: Short
       rebalance: W
       top_n: 3
-      buffer: 2
-      cagr: 0.152
-      trades_per_year: 65.9
-      median_holding_days: 21
+      buffer: 5
+      cagr: 0.181
+      trades_per_year: 33.6
+      median_holding_days: 42
     medium:
       label: Medium
       rebalance: M
       top_n: 5
-      buffer: 3
-      cagr: 0.137
-      trades_per_year: 35.2
-      median_holding_days: 62
+      buffer: 5
+      cagr: 0.155
+      trades_per_year: 21.3
+      median_holding_days: 91
     long:
       label: Long
       rebalance: 2M
       top_n: 5
-      buffer: 3
-      cagr: 0.133
-      trades_per_year: 19.7
-      median_holding_days: 119
+      buffer: 5
+      cagr: 0.142
+      trades_per_year: 12.5
+      median_holding_days: 181
