@@ -178,6 +178,41 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Niche diversifiers (SIL, OIH) tested and rejected — low correlation is not
+  useful diversification** — a negative result, recorded so it is not retried.
+
+  The question was whether the universe could get its diversification from more
+  *niche* themes rather than from the sector-ish ETFs added on 2026-08-05
+  (Insurance, Healthcare Providers, Food & Beverage et al., which are industry
+  slices wearing theme labels). Screening 20 niche thematic candidates found
+  only two that are both genuinely niche and genuinely low-correlation: Silver
+  Miners (SIL, rho 0.38) and Oil & Gas Services (OIH, 0.43). Most niche themes
+  sit at 0.50-0.70 against the growth block, because they *are* the growth
+  block — Cloud 0.64, FinTech 0.65, Autonomous & EV 0.70.
+
+  Adding both was tested end to end, with the buffer bumped 5 -> 6 to hold the
+  band at ~50% of the widened 22-name universe. **It made the strategy worse at
+  every buffer level**, on the same track window:
+
+  | universe | best cell | CAGR | Sharpe | maxDD |
+  |---|---|---:|---:|---:|
+  | 20 themes | buffer 5 | **15.5%** | **0.84** | **-38.3%** |
+  | 22 themes | buffer 6 | 13.7% | 0.72 | -42.1% |
+
+  Meanwhile the diversification gain was negligible: mean rho 0.376 -> 0.373,
+  effective bets 9.4 -> 9.6.
+
+  **The lesson: a low-correlation name is only a diversifier if it is not
+  reliably worse.** SIL and OIH are volatile and, over this history, poor
+  performers that momentum periodically selects and is punished for. They lower
+  pairwise correlation while diluting return — the correlation screen used to
+  build the universe on 2026-08-05 cannot see that, because it measures
+  co-movement and says nothing about level.
+
+  Any future universe change should be judged on the **backtest**, not on
+  correlation alone; and universe and buffer must be varied **one at a time**,
+  since the band is measured in absolute ranks and moves with universe size.
+
 - **Theme redundancy audit — and the buffer bug it uncovered** — the audit's own
   premise turned out to be wrong, and the real finding was elsewhere.
 
