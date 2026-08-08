@@ -178,6 +178,29 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Long preset retuned to 2M / top_n 4 / buffer 7** — the only preset the
+  widened sweep grid showed a strictly better cell for. Better on every axis:
+
+  | | before (2M/5/5) | after (2M/4/7) |
+  |---|---|---|
+  | CAGR | 14.2% | **15.0%** |
+  | Sharpe | 0.76 | **0.78** |
+  | max drawdown | −36.5% | **−35.8%** |
+  | trades/year | 12.5 | **7.8** |
+  | median hold | 181 d | 183 d |
+
+  Short and Medium were deliberately left alone — their alternatives were inside
+  the noise of a single history, and Medium's "better" cell was worse
+  risk-adjusted (Sharpe 0.76 vs 0.84).
+
+  **Side effect worth having: the presets now tag rows distinctly.** Medium and
+  Long previously shared a band (both top_n=5, buffer=5), so switching between
+  them changed the backtest curve but not a single Entry/Exit badge — flagged as
+  a known wrinkle when presets shipped. Long holding 4 names with a wider band
+  separates them: entry ≤3/≤5/≤4 and exit >8/>10/>11 across short/medium/long.
+  `test_medium_and_long_share_a_band` was written to fail loudly if this ever
+  changed; it did, and is replaced by `test_every_preset_has_a_distinct_band`.
+
 - **Horizon sweep grid widened to bracket the shipped presets** — the sweep
   explored `BUFFERS = [0,1,2,3]` while the presets, retuned by the 2026-08-08
   audit, use **buffer 5**. Re-running it would have printed a return/churn

@@ -77,8 +77,8 @@ horizons:
     long:
       label: Long
       rebalance: 2M
-      top_n: 5
-      buffer: 5
-      cagr: 0.142
-      trades_per_year: 12.5
-      median_holding_days: 181
+      top_n: 4
+      buffer: 7
+      cagr: 0.150
+      trades_per_year: 7.8
+      median_holding_days: 183

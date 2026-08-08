@@ -103,17 +103,27 @@ def test_setup_ignores_momentum(h):
     assert row["setup"] == "entry"
 
 
-def test_medium_and_long_share_a_band():
-    """Documented, not accidental: Medium and Long differ only in rebalance
-    cadence, so they produce identical Entry/Exit badges and differ only in the
-    backtest curve and the holding period. Picking a Long preset with a
-    different top_n/buffer purely to make the badges differ would cost real
-    return (the alternatives on the frontier give up ~3pp of CAGR).
+def test_every_preset_has_a_distinct_band():
+    """Each preset must tag rows differently, or the selector offers choices
+    that look identical on the leaderboard.
 
-    If this ever fails because the presets were retuned, that is fine — update
-    the test. It exists so the shared band is never mistaken for a bug.
+    Medium and Long shared a band (both top_n=5, buffer=3) when presets first
+    shipped, so switching between them changed the backtest curve but not a
+    single Entry/Exit badge. Retuning Long to 2M/4/7 on 2026-08-08 separated
+    them. This pins the property so it is not lost by accident — if a future
+    retune makes two presets coincide again that is a legitimate trade-off, but
+    it should be a decision, not a surprise.
     """
+    bands = {(h.top_n, h.exit_rank) for h in horizons()}
+    assert len(bands) == len(horizons()), (
+        f"presets share a band, so they tag rows identically: "
+        f"{[(h.key, h.top_n, h.exit_rank) for h in horizons()]}"
+    )
+
+
+def test_long_holds_fewer_names_than_medium():
+    """Long concentrates into fewer positions held for longer — that is what
+    makes it 'long', not just a slower rebalance."""
     by_key = {h.key: h for h in horizons()}
-    m, l = by_key["medium"], by_key["long"]
-    assert (m.top_n, m.buffer) == (l.top_n, l.buffer)
-    assert m.rebalance != l.rebalance
+    assert by_key["long"].top_n <= by_key["medium"].top_n
+    assert by_key["long"].exit_rank > by_key["medium"].exit_rank
