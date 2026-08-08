@@ -122,27 +122,83 @@
     <details class="tab-guide">
       <summary data-i18n="guide_summary">How to read this tab</summary>
       <div class="tab-guide-body" data-i18n-html="guide_body_leaderboard">
-        <p>Every sector is ranked by <strong>composite score</strong> — a cross-sectional z-score blending level momentum (how strong the sector is now) and change momentum (whether it's accelerating or decelerating). A score of <strong>0</strong> means average across all sectors; <strong>+1.0</strong> means one standard deviation above average.</p>
-        <h4>Trend badge — the most actionable signal</h4>
-        <p>Computed as the linear slope of rank over the last 3–5 scans. A falling rank number means the sector is climbing the leaderboard.</p>
+        <p>Themes are ranked strongest to weakest. Everything is measured
+           <strong>against the other themes today</strong>, not against zero — so
+           rank 1 means &ldquo;best of these 20 right now&rdquo;, which in a bad week
+           can still mean losing money.</p>
+
+        <h4>Reading the Composite column</h4>
+        <p>The composite blends how strong a theme is now with whether it is getting
+           stronger. It is a <strong>z-score</strong>, which just measures
+           unusualness:</p>
         <ul>
-          <li><span class="signal-hi">↑↑ Rising fast</span> — rank improving 1.5+ places per scan. Strong entry signal.</li>
-          <li><span class="signal-hi">↑ Rising</span> — rank improving 0.3–1.5 places per scan. Emerging momentum.</li>
-          <li>→ Flat — rank stable. Momentum is neither building nor unwinding.</li>
-          <li><span class="signal-lo">↓ Falling</span> — rank deteriorating even if it is still high. Momentum is fading.</li>
-          <li><span class="signal-lo">↓↓ Falling fast</span> — avoid or consider exiting.</li>
+          <li><strong>0</strong> — dead average for the group.</li>
+          <li><strong>+1.0</strong> — a standard deviation above average; roughly
+              better than 5 of 6 themes.</li>
+          <li><strong>−1.0</strong> — the same distance below.</li>
         </ul>
-        <h4>Macro regime chips</h4>
-        <p>The SPY and VIX chips in the header show two broad-market indicators refreshed each build:</p>
+        <p>Level and Change are the two halves. High Level with negative Change is a
+           theme that has run and is now tiring. Low Level with positive Change is one
+           that is still weak but turning up.</p>
+
+        <h4>Horizon — start here</h4>
+        <p>The <strong>Horizon</strong> selector at the top decides how patient the
+           dashboard is. It changes which themes get flagged; it never changes the
+           scores or the order.</p>
+        <p>Each option shows what it historically cost in trading: pick
+           <strong>Short</strong> and you react faster but trade several times a
+           month; pick <strong>Long</strong> and you may go months without doing
+           anything. If you are unsure, leave it on Medium.</p>
+
+        <h4>Entry, Exit, and no badge at all</h4>
+        <p>These say where a theme sits relative to your horizon, and nothing else:</p>
         <ul>
-          <li><strong>SPY vs 200-DMA</strong> — The S&amp;P 500 ETF's distance from its 200-day simple moving average. <span class="signal-hi">Green / positive</span> = price above the 200-DMA (long-term uptrend, risk-on); <span class="signal-lo">red / negative</span> = below (risk-off). The percentage tells you how stretched the market is from the trend line.</li>
-          <li><strong>VIX band</strong> — The CBOE Volatility Index bucketed into three regimes: <strong>Calm</strong> (&lt;&nbsp;15), <strong>Elevated</strong> (15–25), and <strong>Stressed</strong> (&gt;&nbsp;25). Higher VIX = more fear and uncertainty.</li>
+          <li><span class="signal-hi">▲ Entry</span> — inside the buy band for your
+              horizon.</li>
+          <li><strong>No badge</strong> — the hold band. <strong>This is the most
+              common state and it means do nothing.</strong> A theme drifting a rank
+              or two in here is normal noise, not a signal.</li>
+          <li><span class="signal-lo">▼ Exit</span> — it has dropped clearly out of
+              the hold band. Not a wobble.</li>
         </ul>
-        <p>The chips are <strong>info-only</strong> — they do not affect sector scores or rankings. Use them as context: the same sector ranking can mean different things depending on whether the broad market is in a healthy uptrend with low volatility or a stressed, risk-off environment. If both indicators flash caution (below 200-DMA + Stressed VIX), even top-ranked sectors carry higher absolute risk.</p>
-        <h4>Entry setup</h4>
-        <p>Composite &gt; 0 with <span class="signal-hi">↑</span> or <span class="signal-hi">↑↑</span> trajectory and a positive Change score. Click any row to see the full signal breakdown.</p>
-        <h4>Exit / avoid signal</h4>
-        <p><span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span> trajectory even when rank is still high — the sector is topping. Rank Δ turning negative confirms the reversal.</p>
+        <p>The gap between Entry and Exit is deliberate. Without it, a theme bouncing
+           between 5th and 6th place would have you buying and selling the same fund
+           for no reason. Silence is the point.</p>
+        <p><strong>An important quirk:</strong> the badge describes position, not
+           health. A theme falling hard but still ranked first shows
+           <span class="signal-hi">▲ Entry</span>, because it is still the strongest
+           thing on the board. That is what the Trend column is for.</p>
+
+        <h4>Trend — the health check</h4>
+        <p>The slope of a theme's rank over the last few scans. A falling rank
+           <em>number</em> means it is climbing.</p>
+        <ul>
+          <li><span class="signal-hi">↑↑ Rising fast</span> / <span class="signal-hi">↑ Rising</span> — climbing the board.</li>
+          <li>→ Flat — going nowhere in particular.</li>
+          <li><span class="signal-lo">↓ Falling</span> / <span class="signal-lo">↓↓ Falling fast</span> — losing ground, even if the rank is still high.</li>
+        </ul>
+        <p>Read Trend <em>with</em> the badge. Entry plus ↑ is a theme arriving.
+           Entry plus ↓↓ is one on its way out that has not fallen far enough to
+           trigger an Exit yet.</p>
+
+        <h4>Market context chips</h4>
+        <p>The SPY and VIX chips in the header describe the whole market, not any
+           theme:</p>
+        <ul>
+          <li><strong>SPY vs 200-DMA</strong> — the US market's distance from its
+              200-day average. <span class="signal-hi">Positive</span> = long-term
+              uptrend; <span class="signal-lo">negative</span> = downtrend.</li>
+          <li><strong>VIX</strong> — how much volatility traders expect. Calm
+              (&lt; 15), Elevated (15–25), Stressed (&gt; 25).</li>
+        </ul>
+        <p>They change no scores. They tell you how much to trust the board: the same
+           top-ranked theme means something different in a calm uptrend than in a
+           stressed, falling market, where even the strongest theme is likely falling
+           too.</p>
+
+        <h4>Getting more detail</h4>
+        <p>Click any row to expand it — you get every underlying signal, and the
+           European (UCITS) fund that corresponds to the US ETF being scored.</p>
       </div>
     </details>
   </div>
@@ -212,7 +268,7 @@
         <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
-          <td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No sectors match the filters.</td>
+          <td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
         </tr>
       </tbody>
     </table>
@@ -370,6 +426,60 @@
     </table>
   </div>
   <div class="chart-container" id="backtest-chart" style="height:420px"></div>
+  <details class="tab-guide">
+    <summary data-i18n="guide_summary">How to read this tab</summary>
+    <div class="tab-guide-body" data-i18n-html="guide_body_backtest">
+      <p>This asks a &ldquo;what if&rdquo; question: <em>had you followed these rules
+         since 2008, what would have happened?</em> At each rebalance date the
+         simulation buys the top-ranked themes, holds them under the band rule, and
+         compares the result against the benchmark.</p>
+      <p>It only ever uses information that existed on the day &mdash; no peeking at
+         what came next.</p>
+
+      <h4>The three rows</h4>
+      <p>Each row is one horizon. Read the <strong>Trades/yr</strong> and
+         <strong>Median hold</strong> columns next to the return, never on their own
+         &mdash; a higher return that requires trading three times as often is not
+         obviously better, and every trade costs something.</p>
+      <ul>
+        <li><strong>Strategy CAGR</strong> &mdash; the annual growth rate the rules
+            produced. Compare it to <strong>Bench CAGR</strong> beside it; beating the
+            benchmark is the whole point.</li>
+        <li><strong>Sharpe</strong> &mdash; return earned per unit of bumpiness.
+            Higher is better. It is the fairest single column for comparing rows,
+            because it does not reward taking wild risks.</li>
+        <li><strong>Max DD</strong> &mdash; the worst peak-to-trough fall along the
+            way. A number like &minus;38% means that at some point this strategy was
+            down 38% from its high. Ask yourself honestly whether you would have kept
+            going.</li>
+        <li><strong>Trades/yr</strong> and <strong>Median hold</strong> &mdash; how
+            much work it is, and how long a position typically lasted.</li>
+      </ul>
+
+      <h4>What the chart shows</h4>
+      <p>Growth of 1.0 &mdash; a single unit of money, tracked over time. The solid
+         line is the strategy, the dashed line the benchmark. It follows whichever
+         horizon you have selected. What matters is the <em>shape</em>: where the
+         lines separate, and how deep the dips get.</p>
+
+      <h4>Three reasons to discount these numbers</h4>
+      <p>All three make the past look better than the future is likely to be:</p>
+      <ul>
+        <li><strong>The universe was chosen with hindsight.</strong> The simulation
+            replays today&rsquo;s 20 themes backwards. Several of these ETFs did not
+            exist in 2008, so the early years rest on fewer themes &mdash; and the
+            list was picked knowing which ideas turned out to matter.</li>
+        <li><strong>The settings were tuned on this same history.</strong> Many
+            combinations were tested and good ones kept. Some of that edge is fitted
+            to the past and will not repeat.</li>
+        <li><strong>It assumes a perfect investor.</strong> Rules followed exactly,
+            rebalances never missed, no second-guessing during a 38% drawdown.</li>
+      </ul>
+      <p>The honest use of this tab is <strong>comparing the horizons to each
+         other</strong> &mdash; that comparison is fair, because all three ran on the
+         same data with the same biases. Treat the absolute returns as optimistic.</p>
+    </div>
+  </details>
   {% if badge_scorecard %}
   <h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)" data-i18n="badge_scorecard_title">Badge scorecard</h3>
   <p class="tab-note" data-i18n="badge_scorecard_desc">5-day forward return after each badge appeared.</p>
@@ -421,16 +531,42 @@
   <details class="tab-guide">
     <summary data-i18n="guide_summary">How to read this tab</summary>
     <div class="tab-guide-body" data-i18n-html="guide_body_correlation">
-      <p>The heatmap shows 60-trading-day rolling return correlations between all 25 sector ETFs. <span class="signal-lo">Red cells</span> indicate high positive correlation (sectors moving together); <span class="signal-hi">blue cells</span> indicate low or negative correlation (sectors moving independently).</p>
-      <h4>Diversification check</h4>
-      <p>When your top-ranked sectors cluster in a red block, the portfolio is less diversified than the ranking suggests. The three EU financial sub-sectors (Banks, Financial Services, Insurance) are a common example — they often move in lockstep.</p>
+      <p>This grid answers one question: <strong>when one theme moves, do the others
+         move with it?</strong> Every theme is compared against every other over the
+         last 60 trading days.</p>
+      <ul>
+        <li><span class="signal-lo">Red</span> — these two move together. Owning both
+            is close to owning one twice.</li>
+        <li><span class="signal-hi">Blue / pale</span> — these two move independently.
+            Owning both spreads your risk.</li>
+      </ul>
+      <p>The diagonal is always deep red: every theme is perfectly correlated with
+         itself.</p>
+
+      <h4>Why it matters</h4>
+      <p>Holding five different-sounding themes feels diversified. If those five all
+         glow red against each other, you effectively hold one position at five times
+         the size — and a bad week for that trade hits all of it at once.</p>
+      <p>This universe has a known cluster: the AI, semiconductor, quantum-computing
+         and data-centre themes are largely the same trade under four names. They
+         often appear near the top together, which is exactly when this tab is worth
+         a look.</p>
+
       <h4>How to use it</h4>
       <ul>
-        <li><strong>Bold labels</strong> mark the current top-5. Focus on the intersections between bold rows and columns.</li>
-        <li>A dark red block among your top picks means you're doubling down on the same move. Consider whether you need all of them.</li>
-        <li>Blue or white cells between top picks indicate genuine diversification — different return drivers.</li>
+        <li><strong>Bold labels</strong> mark the current top 5. Look at where bold
+            rows and bold columns cross — that is your actual concentration.</li>
+        <li>A red block among your top picks means the ranking is offering you the
+            same bet several times.</li>
+        <li>Pale cells between top picks mean genuinely different drivers.</li>
       </ul>
-      <p>The vertical and horizontal lines separate US sectors (top/left) from EU sectors (bottom/right).</p>
+      <p>Correlation is backward-looking and <strong>rises in a crisis</strong> —
+         when markets fall hard, most things fall together and the blue cells go red.
+         Treat this as a normal-conditions guide, not a guarantee of protection when
+         you most want it.</p>
+      <p>One more limit: two themes can be uncorrelated and <em>both</em> be poor. Low
+         correlation tells you they move differently, not that either is worth
+         holding.</p>
     </div>
   </details>
 </section>

@@ -7,70 +7,147 @@
     {% include "_rotation_illo.html.j2" %}
     <h2 id="methodology-title">How the scanner works</h2>
     <div class="methodology-body">
-      <p>Sector Momentum ranks US and European stock-market sectors — and a set of
-         thematic ETFs — by price-momentum strength, refreshed daily. It is
-         analytical tooling, not investment advice.</p>
+      <p><strong>In one sentence:</strong> this tool ranks 20 investment themes by
+         how strongly they have been outperforming the world stock market lately,
+         and refreshes that ranking every day.</p>
+      <p>It is analytical tooling, not investment advice. It tells you what has
+         been strong. It cannot tell you what will be.</p>
 
-      <h3>Universe</h3>
-      <p>The US cohort is the 11 SPDR Select Sector ETFs (GICS sectors). The European
-         cohort is 14 STOXX Europe 600 sector ETFs, including the standalone Banks,
-         Financial Services and Insurance funds and the Basic Resources and Chemicals
-         funds (split from their old GICS composites in July 2026). Benchmarks are RSP
-         (equal-weight S&amp;P 500) for the US and EXSA.DE (STOXX Europe 600) for Europe.
-         A separate thematic-ETF cohort is scored against ACWI.</p>
+      <h3>Start here: what is a &ldquo;theme&rdquo;?</h3>
+      <p>A theme is a group of companies that share one idea &mdash; robotics,
+         uranium mining, cybersecurity, gold miners. Each theme here is represented
+         by a single <strong>ETF</strong> (exchange-traded fund): one fund you can
+         buy that holds all the companies in that theme at once. So instead of
+         picking individual stocks, the scanner compares 20 baskets against each
+         other.</p>
+      <p>The scanner scores US-listed ETFs, because they have the longest price
+         history and the most trading activity. For each theme it also lists the
+         closest <strong>UCITS</strong> equivalent &mdash; a European-domiciled fund
+         that a European investor can actually buy. Open any row to see it. Those
+         are reference only; the scoring always uses the US fund.</p>
 
-      <h3>Data sources</h3>
-      <p>Daily OHLCV prices come from stooq, falling back to yfinance, cached locally
-         with weekend/holiday-aware freshness so the latest close is pulled each
-         trading day. News sentiment is computed from GDELT DOC 2.0 English headlines
-         scored with the ProsusAI/FinBERT model. Macro context shows SPY versus its
-         200-day moving average and the VIX volatility band.</p>
+      <h3>The idea it is built on: momentum</h3>
+      <p><strong>Momentum</strong> is the observation that things which have been
+         going up relative to the market often keep going up for a while &mdash; and
+         things that have been lagging often keep lagging. It is one of the
+         longest-studied patterns in markets. It is a tendency, not a law: momentum
+         fails, sometimes sharply and for long stretches.</p>
+      <p>Everything here is <strong>relative</strong>. A theme scores well by beating
+         the benchmark, not by going up. In a falling market the top-ranked theme may
+         still be losing money &mdash; just less than everything else.</p>
 
-      <h3>Signals</h3>
-      <p>Each sector is measured on two pillars:</p>
+      <h3>What gets measured</h3>
+      <p>Each theme is measured on two questions, using price data only:</p>
       <ul>
-        <li><strong>Level</strong> — where the sector stands now: <code>rs_ratio</code>
-            (RRG relative strength vs the benchmark), 3-month return, 6-month return,
-            and whether price is above its 50-day moving average.</li>
-        <li><strong>Change</strong> — how that is evolving: <code>rs_momentum</code>
-            (RRG relative-strength momentum, 5-day lookback), acceleration, 50-DMA
-            slope, and on-balance-volume (OBV) slope.</li>
+        <li><strong>Level &mdash; how strong is it right now?</strong> Its relative
+            strength against the benchmark, its 3-month and 6-month returns, and
+            whether its price sits above its own 50-day average.</li>
+        <li><strong>Change &mdash; which way is that heading?</strong> Whether the
+            relative strength is itself rising, whether the move is accelerating,
+            the slope of that 50-day average, and whether trading volume supports
+            the move.</li>
       </ul>
-      <p>Constituent breadth — the share of a US sector's S&amp;P 500 members trading
-         above their own 50-DMA — is shown for context only (European sectors show
-         &ldquo;&mdash;&rdquo;). FinBERT news sentiment is shown per sector. The 200-day
-         moving-average level was dropped from scoring in July 2026 after a correlation
-         audit found it highly collinear with the 50-DMA; it remains visible for
-         reference.</p>
+      <p>Level without Change is a theme that is strong but possibly peaking. Change
+         without Level is one that is still weak but waking up. The scanner cares
+         about both, which is why they are weighted equally.</p>
 
-      <h3>Scoring</h3>
-      <p>Every signal is standardized (z-scored) <em>across sectors within its own
-         region</em> — US sectors are ranked against US sectors, European against
-         European. The signals form two equal-weighted pillars, and the composite is
-         <strong>50% Level + 50% Change</strong>. Sectors are then ranked within each
-         region by composite. Sentiment is <strong>informational only</strong> and does
-         not move the ranking; the leaderboard offers an optional toggle to blend it in
-         client-side at a weight you choose, but the canonical ranking is pure price
-         data.</p>
+      <h3>Turning that into one number</h3>
+      <p>The eight measurements are on completely different scales &mdash; a
+         percentage return and a slope cannot be added together. So each one is
+         converted to a <strong>z-score</strong>, which simply asks: <em>how unusual
+         is this value compared to the other themes today?</em></p>
+      <ul>
+        <li><strong>0</strong> = exactly average for the group.</li>
+        <li><strong>+1</strong> = one standard deviation above average, roughly
+            better than 5 out of 6 themes.</li>
+        <li><strong>&minus;1</strong> = the same distance below average.</li>
+      </ul>
+      <p>Because the comparison is always <em>against the other themes on the same
+         day</em>, a composite of +1.5 in a strong market and in a weak one mean the
+         same thing: this theme is well ahead of its peers. It says nothing about
+         whether the group as a whole is doing well.</p>
+      <p>The <strong>composite score</strong> is 50% Level + 50% Change, and the
+         ranking is simply the composite sorted best to worst.</p>
 
-      <h3>Trajectory &amp; setup badges</h3>
-      <p>A sector's trajectory is the slope of its rank over the last five scans
-         (&uarr;&uarr; / &uarr; / &rarr; / &darr; / &darr;&darr;). An <strong>Entry</strong>
-         badge appears when a sector has a positive composite, a positive Change score,
-         and a rising trajectory; an <strong>Exit</strong> badge appears when it is
-         falling with a negative Change score.</p>
+      <h3>Horizon: how long you intend to hold</h3>
+      <p>This is the setting that changes what the dashboard tells you to do.</p>
+      <p>Ranks move around every day, often by a place or two, mostly for no
+         meaningful reason. If you buy the top 5 and sell the moment something slips
+         to 6th, you will trade constantly and pay for the privilege. So the scanner
+         uses two thresholds instead of one:</p>
+      <ul>
+        <li>A theme becomes a <strong>buy</strong> candidate when it reaches the top
+            few ranks.</li>
+        <li>It only becomes a <strong>sell</strong> when it falls well past that
+            &mdash; not on the first slip.</li>
+      </ul>
+      <p>The gap between those two thresholds is the <strong>hold band</strong>, and
+         it is deliberately silent. A theme drifting inside it is not news. This one
+         idea &mdash; keeping what you own until it has clearly fallen out, rather
+         than the instant it stops being best &mdash; cuts trading roughly in half
+         in testing without giving up return.</p>
+      <p>Three horizons are offered. Each shows its historical trading frequency
+         next to its return, so the cost of the faster ones is visible:</p>
+      <ul>
+        <li><strong>Short</strong> &mdash; reacts quickest, trades most.</li>
+        <li><strong>Medium</strong> &mdash; the default.</li>
+        <li><strong>Long</strong> &mdash; holds fewest names longest, trades least.</li>
+      </ul>
+      <p>Switching horizon re-labels the leaderboard instantly. It changes which
+         themes are flagged, never the underlying scores or the ranking.</p>
 
-      <h3>Backtest</h3>
-      <p>The Backtest tab replays a simple monthly rotation into the top-N sectors
-         versus the region benchmark, point-in-time (no look-ahead), using the price
-         pillars only, with optional transaction costs.</p>
+      <h3>Entry, Exit, and the silence between</h3>
+      <p>The badges follow directly from the horizon:</p>
+      <ul>
+        <li><strong>&#9650; Entry</strong> &mdash; inside the buy band.</li>
+        <li><strong>no badge</strong> &mdash; inside the hold band. Nothing to do.</li>
+        <li><strong>&#9660; Exit</strong> &mdash; it has fallen out of the hold band.</li>
+      </ul>
+      <p>These describe <em>position</em>, not excitement. A theme collapsing fast
+         but still ranked first will read Entry, because by this rule it is still
+         one of the strongest things available. The separate <strong>Trend</strong>
+         column is what tells you it is deteriorating &mdash; the two are meant to be
+         read together.</p>
 
-      <h3>Research basis</h3>
-      <p>Design changes are validated before adoption. The European composites were
-         split into their true STOXX sub-sectors after the blends were found to average
-         away real momentum differences; the 200-DMA signal was dropped after the
-         correlation audit; and FinBERT news polarity replaced Google Trends as the
-         sentiment source in July 2026.</p>
+      <h3>News sentiment (and why it does not count)</h3>
+      <p>Each day the scanner collects English news headlines about each theme and
+         scores their tone with <strong>FinBERT</strong>, a language model trained on
+         financial text. This is shown for interest and is <strong>excluded from the
+         ranking</strong>, because headline tone is noisy and often lags the price.
+         The leaderboard has an optional toggle to blend it in at a weight you
+         choose, but the canonical ranking is pure price data.</p>
+
+      <h3>The backtest, and how much to trust it</h3>
+      <p>The Backtest tab replays the strategy over history: at each rebalance date
+         it buys the top-ranked themes using only information available on that day,
+         holds them under the band rule, and compares the result to the benchmark.</p>
+      <p>Read it with three caveats, all of which flatter the strategy:</p>
+      <ul>
+        <li>It replays <em>today&rsquo;s</em> 20 themes backwards. Several of these
+            ETFs did not exist in 2008, so the early years are thinner than they
+            look &mdash; and the list was chosen knowing which ideas turned out to
+            matter.</li>
+        <li>The settings were chosen by testing many combinations on this same
+            history. Some of that advantage is fitted to the past and will not
+            repeat.</li>
+        <li>It assumes you follow the rules exactly, rebalance on schedule, and
+            never change your mind.</li>
+      </ul>
+      <p>Use it to compare horizons against each other, which is what it is good at.
+         Treat the absolute returns as optimistic.</p>
+
+      <h3>Where the data comes from</h3>
+      <p>Daily prices come from stooq, falling back to yfinance, cached locally so
+         each trading day&rsquo;s close is picked up once. News comes from GDELT.
+         Macro context in the header shows the S&amp;P 500 versus its 200-day average
+         and the VIX volatility index &mdash; both for context only; neither affects
+         any score.</p>
+
+      <h3>What this deliberately does not do</h3>
+      <p>It does not size positions, account for tax or trading costs in the live
+         view, know what you already own, or have any opinion about whether now is a
+         good time to invest. It ranks 20 themes by recent relative strength. Every
+         decision after that is yours.</p>
     </div>
   </div>
 </div>
