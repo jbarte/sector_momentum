@@ -118,6 +118,9 @@ def build_badge_scorecard(
                 "_raw_composite": _safe_float(row_data.get("composite")),
                 "_raw_change": _safe_float(row_data.get("change_score")),
                 "trajectory_state": traj_state,
+                # _compute_setup is a rank band now — without this it silently
+                # returns None for every row.
+                "rank": _safe_float(row_data.get("rank")),
             }
             _compute_setup(row_dict)
             setup = row_dict["setup"]

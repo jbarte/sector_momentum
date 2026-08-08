@@ -124,10 +124,23 @@
     return out;
   }
 
+  // Position-band setup, mirroring dashboard/rows.py:_compute_setup. Entry
+  // inside the buy band, Exit once past the hold band, silence in between.
+  // `horizon` is {top_n, buffer}; omitted, it falls back to the page's
+  // window.HORIZON_DEFAULT so this file stays usable on pages that have no
+  // horizon selector.
+  function setupForRank(rank, horizon) {
+    var h = horizon || (typeof window !== "undefined" && window.HORIZON_DEFAULT) || null;
+    if (!h || rank == null || isNaN(rank)) { return null; }
+    if (rank <= h.top_n) { return "entry"; }
+    if (rank > h.top_n + h.buffer) { return "exit"; }
+    return null;
+  }
+
   // recentRows: array of {scan_id, region, gics_sector, change_score, composite, rank}.
   // Returns per-"REGION|Sector" meta for the LATEST scan: formatted delta, arrow,
   // trajectory, and entry/exit setup — mirroring dashboard/rows.py.
-  function latestRowMeta(recentRows) {
+  function latestRowMeta(recentRows, horizon) {
     var groups = {};
     recentRows.forEach(function (r) {
       var key = r.region + "|" + r.gics_sector;
@@ -145,15 +158,7 @@
       var series = [];
       for (var i = Math.max(0, n - 5); i < n; i++) { series.push(rows[i].rank); }
       var traj = trajectoryLabel(olsSlope(series));
-      var comp = latest.composite, change = latest.change_score;
-      var setup = null;
-      if (comp != null && comp > 0 && (traj.state === "up" || traj.state === "strong_up")
-          && change != null && change > 0) {
-        setup = "entry";
-      } else if ((traj.state === "down" || traj.state === "strong_down")
-                 && change != null && change < 0) {
-        setup = "exit";
-      }
+      var setup = setupForRank(latest.rank, horizon);
       out[key] = {
         delta_rank: deltaStr, arrow: arrow, arrow_class: arrowClass,
         trajectory_label: traj.label, trajectory_state: traj.state, setup: setup
@@ -162,7 +167,7 @@
     return out;
   }
 
-  var api = { rankAverage: rankAverage, olsSlope: olsSlope,
+  var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               latestRowMeta: latestRowMeta };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }

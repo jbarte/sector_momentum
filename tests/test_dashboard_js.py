@@ -15,6 +15,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from src.horizons import horizons as _horizons, default_horizon as _default_horizon
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dashboard.build import (
@@ -30,6 +32,24 @@ from dashboard.build import (
     _render,
 )
 from src.cohorts import Cohort
+
+
+def _horizon_ctx(dumps=json.dumps):
+    """Horizon context vars, sourced from the real config so these fixtures
+    can't drift from what build.py actually passes."""
+    hs = _horizons()
+    d = _default_horizon()
+    return dict(
+        horizon_list=hs,
+        horizons_json=dumps([
+            {"key": h.key, "label": h.label, "rebalance": h.rebalance,
+             "top_n": h.top_n, "buffer": h.buffer,
+             "trades_per_year": h.trades_per_year,
+             "median_holding_days": h.median_holding_days} for h in hs
+        ]),
+        horizon_default_json=dumps({
+            "key": d.key, "label": d.label, "top_n": d.top_n, "buffer": d.buffer}),
+    )
 
 
 def _grouped_rows_for(rows):
@@ -208,7 +228,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
+            cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
@@ -267,7 +287,7 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
         context=dict(
             scan_date="2026-06-23",
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
+            cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
@@ -307,7 +327,7 @@ def test_history_tab_has_scan_index(tmp_path):
     _render(_TEMPLATE, out, dict(
         scan_date="2026-06-02 06:00 UTC", active_scan_id=2, scan_index=scan_index,
         leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-        cohort_list=[], cohorts_json=_json.dumps([]), cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
+        cohort_list=[], cohorts_json=_json.dumps([]), **_horizon_ctx(_json.dumps), cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
@@ -344,7 +364,7 @@ def test_built_html_has_no_composite_toggle(tmp_path):
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
         cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
         has_any_rows=any(rs for _, rs in grouped_rows),
-        cohorts_json=_json.dumps([]),
+        cohorts_json=_json.dumps([]), **_horizon_ctx(_json.dumps),
         cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
@@ -399,7 +419,7 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
         eu_leaderboard_rows=[r for r in lb_rows if r["region"] == "EU"],
         cohort_list=[c for c, _ in grouped_rows], grouped_rows=grouped_rows,
         has_any_rows=any(rs for _, rs in grouped_rows),
-        cohorts_json=_json.dumps([]),
+        cohorts_json=_json.dumps([]), **_horizon_ctx(_json.dumps),
         cohort_charts_json=_json.dumps({}),
         sentiment_scatter_json=_make_mock_plotly_json(),
         rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
@@ -626,7 +646,7 @@ def test_scan_history_json_in_rendered_output(tmp_path):
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
+            cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),
@@ -669,7 +689,7 @@ def test_scan_digest_markup_in_rendered_output(tmp_path):
                          "top_sector": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
+            cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
             rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),

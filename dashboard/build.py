@@ -306,6 +306,10 @@ def main() -> None:
 
     cohort_list = cohorts(_themes_cfg)
 
+    from src.horizons import horizons, default_horizon
+    horizon_list = horizons()
+    _default_horizon = default_horizon()
+
     # The scan index, per-scan reports and Atom feed used to need a sector-only
     # slice of all_scores_df, because that frame was widened to carry THEME
     # alongside US/EU and those surfaces were sector-only. Both halves of that
@@ -352,7 +356,7 @@ def main() -> None:
         traj = trajectories.get(key, {"label": "→", "state": "flat"})
         row["trajectory_label"] = traj["label"]
         row["trajectory_state"] = traj["state"]
-        _compute_setup(row)
+        _compute_setup(row, _default_horizon)
         mask = (
             (latest_scores["region"]      == row["region"]) &
             (latest_scores["gics_sector"] == row["sector"])
@@ -439,6 +443,18 @@ def main() -> None:
         "active_scan_id": active_scan_id,
         "leaderboard_rows": leaderboard_rows,
         "cohort_list": cohort_list,
+        "horizon_list": horizon_list,
+        "horizons_json": _json.dumps([
+            {"key": h.key, "label": h.label, "rebalance": h.rebalance,
+             "top_n": h.top_n, "buffer": h.buffer,
+             "trades_per_year": h.trades_per_year,
+             "median_holding_days": h.median_holding_days}
+            for h in horizon_list
+        ]),
+        "horizon_default_json": _json.dumps({
+            "key": _default_horizon.key, "label": _default_horizon.label,
+            "top_n": _default_horizon.top_n, "buffer": _default_horizon.buffer,
+        }),
         "cohorts_json": cohorts_json,
         "has_any_rows": bool(leaderboard_rows),
         "plotly_bundle": plotly_bundle_rel,

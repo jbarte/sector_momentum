@@ -423,6 +423,14 @@ def _build_history_figure(history_df) -> str:
     return pio.to_json(fig)
 
 
+def _track_label(track: dict, key: str) -> str:
+    """Human name for a track, with its policy spelled out — the chart title is
+    where a reader learns what "Long" actually means."""
+    freq = track.get("rebalance_freq", "M")
+    return (f"{key.title()} — top {track.get('top_n')}, "
+            f"buffer {track.get('buffer', 0)}, {freq} rebalance")
+
+
 def _build_backtest_figures(summary) -> dict:
     """Per-track equity curves (strategy vs benchmark). Returns {region: fig_json}."""
     if not summary or not summary.get("tracks"):
@@ -442,7 +450,8 @@ def _build_backtest_figures(summary) -> dict:
                                  name=f"Benchmark ({track['benchmark']})",
                                  line=dict(color=_WARM_PALETTE[3], dash="dash")))
         fig.update_layout(**_base_layout(
-            title=dict(text=f"{region} — growth of 1.0", font=dict(size=13, color="#3E392B")),
+            title=dict(text=f"{_track_label(track, region)} — growth of 1.0",
+                       font=dict(size=13, color="#3E392B")),
             xaxis=dict(title="Date", gridcolor="#DFD5BE"),
             yaxis=dict(title="Equity (×)", gridcolor="#DFD5BE"),
         ))
@@ -455,6 +464,9 @@ def _build_backtest_context(backtests_dir: str) -> dict:
     import json as _json
     from src.backtest.results import load_summary
 
+    from src.horizons import horizons
+    labels = {h.key: h.label for h in horizons()}
+
     summary = load_summary(backtests_dir)
     figs = _build_backtest_figures(summary)
     rows: list[dict] = []
@@ -466,12 +478,21 @@ def _build_backtest_context(backtests_dir: str) -> dict:
             rows.append({
                 "region": region, "start": track["start"], "end": track["end"],
                 "benchmark": track["benchmark"], "top_n": track["top_n"],
+                "label": labels.get(region, region.title()),
+                "rebalance": track.get("rebalance_freq", "M"),
+                "buffer": track.get("buffer", 0),
                 "cagr": f"{100 * m['cagr']:.1f}%",
                 "benchmark_cagr": f"{100 * m['benchmark_cagr']:.1f}%",
                 "sharpe": f"{m['sharpe']:.2f}",
                 "max_drawdown": f"{100 * m['max_drawdown']:.1f}%",
                 "hit_rate": f"{100 * m['hit_rate']:.0f}%",
                 "avg_turnover": f"{100 * m['avg_turnover']:.0f}%",
+                # The churn cost, shown beside the return so a preset can never
+                # be chosen on CAGR alone.
+                "trades_per_year": (f"{m['trades_per_year']:.0f}"
+                                    if m.get("trades_per_year") else "—"),
+                "median_holding_days": (f"{m['median_holding_days']:.0f}"
+                                        if m.get("median_holding_days") else "—"),
             })
     return {
         "backtest_json": _json.dumps({k: _json.loads(v) for k, v in figs.items()}),
