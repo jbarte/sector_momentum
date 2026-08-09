@@ -126,6 +126,58 @@ correctness, all are small. Recorded so they aren't rediscovered from scratch.
   gated on the baseline scheme having succeeded. Reviewed and accepted as
   harmless; remove if that file is touched again.
 
+## Rebrand — the product is no longer called what it is
+
+`sector_momentum` names a thing that was retired on 2026-08-05. Nothing in the
+scoring universe is a sector any more; the cohort is `THEME` and the leaderboard
+column reads "Theme". The name survives in ~57 places, including the page
+`<title>`, the `<h1>`, the Atom feed, and the daily alert email subject.
+
+**Naming — the choice encodes a scope decision, so make that decision first.**
+
+| candidate | commits to | honest today? |
+|---|---|---|
+| **ETF Momentum** | the instrument | yes, and stays true if the universe widens |
+| Thematic Momentum | the strategy | *over-tight* — see below |
+| ThemeRank / Momentum Rank | the product (a ranked board) | yes, but re-narrows to "theme" |
+| RS Scanner / Relative Strength Scanner | the method | most precise, most jargon |
+
+**Recommendation: `ETF Momentum` (repo `etf_momentum`).** The tempting answer is
+"Thematic Momentum", but it does not survive contact with the actual universe:
+of the 18 names, Insurance, Healthcare Providers, Food & Beverage, Shipping and
+Gold Miners are industry ETFs kept as diversifiers, not themes. "ETF" is the
+only word that is true of all 18 — and it stays true if factor or bond ETFs are
+ever added, which "Thematic" would not. It is generic, and that is the price.
+
+**Migration surface — larger than a find-and-replace.** Do it as one PR, and
+check each of these:
+
+- **GitHub repo rename** → Pages URL moves to `jbarte.github.io/etf_momentum/`.
+  GitHub redirects the old paths, but the **Supabase Auth redirect allowlist and
+  Site URL must be updated first** or magic-link sign-in breaks for everyone.
+- **Companion repo** `sector_momentum-notes` renames alongside it, plus the
+  ~10 spec paths quoting it in this file and in `CLAUDE.md`.
+- **Alert email subject** (`src/personal_alerts.py:98`, `src/alerts.py:191`)
+  is `"Sector Momentum — {date}"` — changing it may break existing mail filters.
+- **Atom feed** (`dashboard/templates/feed.xml.j2`) — a changed feed title/id can
+  register as a *new* feed in readers rather than a rename.
+- **Local clone path.** `~/AI Projects/sector_momentum` is what keys this
+  project's Claude memory and session history
+  (`~/.claude/projects/-Users-jonasbarte-AI-Projects-sector-momentum/`).
+  Renaming the folder orphans both. Rename the remote and leave the local
+  directory alone, or move the memory directory deliberately.
+- `sector_momentum_test` DB name in `tests/test_state_wipe_guard.py:70` and the
+  CI workflow.
+
+**Out of scope:** the DB columns `region` / `gics_sector` — see *Sector-era
+naming in the data layer* above, which recommends leaving them alone. A rebrand
+is a rename of the *product*, not a schema migration; conflating the two is how
+a cosmetic PR turns into a live-database risk.
+
+**Also sweep while in there:** user-visible sector-era copy survives in the tab
+guide, e.g. `dashboard/templates/index.html.j2:370` ("The sector has been
+outperforming for multiple scans").
+
 ---
 
 # Parked
