@@ -21,6 +21,46 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Gate the ▲ Entry / ▼ Exit badge behind sign-in
+
+Product decision (2026-08-09): the Entry/Exit badge is the actionable layer, so
+it becomes a signed-in feature. Guests keep everything else on the lagged
+leaderboard — rank, composite, pillar scores, Trend.
+
+**Scope is the badge itself only.** The Trend badge, the Backtest tab's badge
+scorecard, and alerts are all out of scope and unchanged.
+
+**Two render paths, both need gating or it leaks:**
+
+| path | where | fires |
+|---|---|---|
+| server-rendered | `dashboard/build.py:360` → `_compute_setup()`, emitted at `index.html.j2:250` | baked into the page |
+| client re-derived | `index.html.j2:620` (`applyHorizonBadges`), `auth.js` `renderLatestRows()` — both via `Rescore.setupForRank()` | horizon switch / after sign-in |
+
+Gating only the template puts the badge straight back the moment a guest touches
+the horizon selector. Cleanest cut: stop computing `setup` at build time when
+`auth_ctx["auth"]` is on (the same flag that already drives `lag_active` at
+`build.py:282`), and have `setupForRank()` return null without a session.
+
+**Two things that break as a direct result and must ship in the same change,**
+or the page is visibly broken rather than merely gated:
+
+- The **Entry/Exit filter chips** (`index.html.j2:95-96`) filter on
+  `data-setup`, which becomes empty for every guest row — hide them for guests.
+- The **leaderboard guide** has an Entry/Exit section describing something a
+  guest cannot see. One sentence noting it is a signed-in feature is enough;
+  needs the EN template and the SV `guide_body_leaderboard` string.
+
+**Open question, not a blocker:** the horizon selector's only visible effect for
+a guest is which rows get badged, so it becomes a no-op. Leaving it is
+defensible (it still labels holdings/hold-time/churn per preset); hiding it is
+also defensible. Decide when building.
+
+**Worth knowing:** this is a product signal, not access control. "Entry" is just
+`rank <= top_n` and `top_n` is printed in the horizon selector label, so a guest
+looking at the ranking can reconstruct the badge by eye. Fine if the goal is to
+make the actionable layer feel like the signed-in tier.
+
 ## Ongoing fund costs (TER) are not modelled anywhere
 
 `costs.round_trip_bps` covers per-trade cost only. The backtest has no concept
