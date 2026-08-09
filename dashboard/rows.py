@@ -35,9 +35,86 @@ def _format_raw_value(name: str, value) -> str:
     return f"{v * 100:+.1f}%"
 
 
+# A run of duplicate scans longer than this means the pipeline is stuck, not
+# that the market was closed — a long weekend is 3. Past it, comparing against
+# the last distinct scan would silently present week-old data as "yesterday",
+# so callers fall back to showing no change at all, which is the honest answer.
+MAX_DUPLICATE_RUN = 7
+
+_TRAJECTORY_SCANS = 5
+
+
+def _scan_fingerprint(scan_df, key_cols: list[str]) -> tuple:
+    """A hashable snapshot of one scan's scores, for spotting duplicate scans.
+
+    Covers rank *and* composite, not composite alone. Declaring two scans
+    identical when they are not is the dangerous direction — it would skip a
+    real observation — so the fingerprint is deliberately the wider one.
+
+    NaN is mapped to a sentinel because NaN != NaN would make a scan differ
+    from itself, defeating the check exactly when scores are missing.
+    """
+    cols = [c for c in ("rank", "composite") if c in scan_df.columns]
+    sub = scan_df[key_cols + cols].copy()
+    for c in cols:
+        sub[c] = pd.to_numeric(sub[c], errors="coerce").round(10)
+    sub = sub.sort_values(key_cols)
+
+    def _clean(v):
+        return "nan" if (v is None or (isinstance(v, float) and math.isnan(v))) else v
+
+    return tuple(
+        tuple(_clean(v) for v in row)
+        for row in sub.itertuples(index=False, name=None)
+    )
+
+
+def distinct_scan_ids(
+    history_df,
+    key_cols: list[str] | None = None,
+) -> list[int]:
+    """Scan ids in ascending order with consecutive duplicates collapsed.
+
+    The daily cron runs seven days a week against a five-day market, so a
+    Saturday and Sunday scan are byte-identical replays of Friday's close —
+    correctly so, nothing moved. Anything that reads "the previous scan" or
+    "the last N scans" therefore sees repeats, not observations:
+
+    - the rank delta compared against the previous `scan_id`, so it read `—`
+      for every row on Saturday, Sunday *and* Monday (Monday's predecessor is
+      Sunday, which is still Friday's data)
+    - the Trend slope averaged over the last 5 scan ids, of which only 3 were
+      distinct on 2026-08-09 — diluting the slope toward flat, in the column
+      the guide tells the reader to trust for exits
+
+    Market holidays produce the identical duplicate on a weekday, which is why
+    this keys off the data rather than the calendar.
+
+    The representative of a duplicate run is its **last** id, so the newest
+    scan is always the one rendered.
+    """
+    if history_df is None or history_df.empty:
+        return []
+    keys = key_cols or ["region", "gics_sector"]
+    if "scan_id" not in history_df.columns or any(c not in history_df.columns for c in keys):
+        # Not enough to fingerprint — degrade to every scan rather than raise.
+        return sorted(history_df["scan_id"].unique()) if "scan_id" in history_df else []
+
+    out: list[int] = []
+    prev_fp = None
+    for sid in sorted(history_df["scan_id"].unique()):
+        fp = _scan_fingerprint(history_df[history_df["scan_id"] == sid], keys)
+        if prev_fp is not None and fp == prev_fp:
+            out[-1] = sid          # same data — the run's representative moves forward
+        else:
+            out.append(sid)
+        prev_fp = fp
+    return out
+
+
 def _compute_rank_trajectories(history_df) -> dict:
     """
-    Compute rank slope over last 5 scans per sector.
+    Compute rank slope over the last 5 *distinct* scans per sector.
 
     Returns dict keyed by "{region}|{gics_sector}" with:
         label: "↑↑" | "↑" | "→" | "↓" | "↓↓"
@@ -50,8 +127,11 @@ def _compute_rank_trajectories(history_df) -> dict:
     df = history_df.copy()
     df["_sk"] = df["region"] + "|" + df["gics_sector"]
 
-    scan_ids = sorted(df["scan_id"].unique())
-    recent_ids = set(scan_ids[-5:])
+    # Distinct scans, not raw scan ids: a weekend contributes two byte-identical
+    # replays of Friday, which would flatten the slope toward "→" rather than
+    # leave it unchanged.
+    scan_ids = distinct_scan_ids(df)
+    recent_ids = set(scan_ids[-_TRAJECTORY_SCANS:])
     recent = df[df["scan_id"].isin(recent_ids)]
 
     result = {}
@@ -156,9 +236,21 @@ def _build_rows_common(
 
     scan_date = pd.to_datetime(latest["run_at"].iloc[0]).strftime("%Y-%m-%d %H:%M UTC")
 
-    scan_ids = sorted(history_df["scan_id"].unique())
-    if len(scan_ids) >= 2:
-        prev_id = scan_ids[-2]
+    # Compare against the last scan whose *data* differs, not simply the
+    # previous scan_id. Weekend and holiday scans replay the prior close
+    # unchanged, so `scan_ids[-2]` is routinely a duplicate of the scan being
+    # rendered and every delta collapses to "—".
+    distinct_ids = distinct_scan_ids(history_df, merge_key_cols)
+    raw_ids = sorted(history_df["scan_id"].unique())
+    duplicate_run = len(raw_ids) - len(distinct_ids)
+
+    prev_id = distinct_ids[-2] if len(distinct_ids) >= 2 else None
+    if prev_id is not None and duplicate_run > MAX_DUPLICATE_RUN:
+        # The pipeline looks stuck rather than merely idle over a weekend.
+        # Showing a delta here would present stale data as a fresh move.
+        prev_id = None
+
+    if prev_id is not None:
         prev = history_df[history_df["scan_id"] == prev_id][
             merge_key_cols + ["rank", "composite"]
         ].rename(columns={"rank": "rank_prev", "composite": "comp_prev"})
