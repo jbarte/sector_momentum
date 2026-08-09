@@ -263,10 +263,31 @@
     sb.auth.signOut().catch(function () {});
   });
 
-  /* Fires INITIAL_SESSION on load (restores a persisted session, or picks the
-   * magic-link token out of the redirect URL via detectSessionInUrl) and
-   * SIGNED_IN / SIGNED_OUT afterwards — the single source of UI state. */
-  sb.auth.onAuthStateChange(function (_event, session) {
+  /* upgradeLeaderboard() has no inverse: it replaces the baked (lagged) rows
+   * with live ones, hides the rank-settings gear, disables sorting and sets
+   * window._leaderboardUpgraded, which the template's sort/rescore paths also
+   * read. Unwinding that by hand means restoring six pieces of state plus
+   * whatever listened to sm:leaderboard-upgraded — so instead, sign-out reloads
+   * the baked page, which IS the gated state. positions.js and alert-prefs.js
+   * clear themselves on SIGNED_OUT; the leaderboard was the only leak.
+   *
+   * Reload rules, both load-bearing:
+   *   - only on SIGNED_OUT with a session seen earlier in this page's life.
+   *     A guest load fires INITIAL_SESSION(null), and older supabase-js builds
+   *     could emit SIGNED_OUT there too — reloading on a null session alone
+   *     would be an infinite reload loop for every guest.
+   *   - navigate to pathname+search, dropping any hash. A magic-link redirect
+   *     arrives as #access_token=…; reloading with that hash intact would let
+   *     detectSessionInUrl re-consume it and sign the user straight back in.
+   *     replace() also keeps the signed-in view out of the back button. */
+  var _hadSession = false;
+
+  sb.auth.onAuthStateChange(function (event, session) {
+    if (session && session.user) _hadSession = true;
+    if (event === "SIGNED_OUT" && _hadSession) {
+      window.location.replace(window.location.pathname + window.location.search);
+      return;
+    }
     render(session);
     if (session && session.user) upgradeLeaderboard();
   });
