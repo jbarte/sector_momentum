@@ -269,9 +269,12 @@ def test_coverage_guard_aborts_on_partial_scan(monkeypatch):
         for i in range(3)
     ]
 
+    # Prices must be non-empty or run() aborts at the as-of alignment step
+    # before it ever reaches the coverage guard this test is about.
+    prices = _make_minimal_prices()
     monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run", "--no-finbert"])
-    monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: {})
-    monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: {})
+    monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: prices)
+    monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: prices)
     monkeypatch.setattr("scan._load_config", lambda path: (
         themes_cfg if "themes" in path
         else {"price_lookback_days": 252} if "universe" in path else {}))
@@ -300,9 +303,12 @@ def test_coverage_guard_passes_at_80_percent(monkeypatch):
         for i in range(8)
     ]
 
+    # Non-empty prices: run() aborts at the as-of alignment step otherwise,
+    # short-circuiting the coverage boundary this test exercises.
+    prices = _make_minimal_prices()
     monkeypatch.setattr(sys, "argv", ["scan.py", "--dry-run", "--no-finbert"])
-    monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: {})
-    monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: {})
+    monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: prices)
+    monkeypatch.setattr(scan, "fetch_prices", lambda *a, **k: prices)
     monkeypatch.setattr("scan._load_config", lambda path: (
         themes_cfg if "themes" in path
         else {"price_lookback_days": 252} if "universe" in path else {}))

@@ -11,6 +11,13 @@ Cache validity: the cache must reach the most recent expected trading day
 holidays). On a normal weekday this means yesterday's or today's close is
 required; over weekends, Friday's close bridges to Monday.
 See `_cache_is_fresh`.
+
+`start`/`end` are **inclusive** on both ends — that is this module's contract,
+and both source adapters honour it (`_fetch_yfinance` converts to yfinance's
+exclusive `end` internally). Callers that score a cohort cross-sectionally
+should still run the result through `align_cohort_asof`: per-ticker cache
+freshness is evaluated independently, so a dict returned by `fetch_prices` can
+mix as-of dates even when both sources agree on semantics.
 """
 
 import io
@@ -130,19 +137,26 @@ def _fetch_stooq(ticker: str, start: str, end: str) -> pd.DataFrame:
 def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
     import yfinance as yf  # type: ignore
 
+    # yfinance's `end` is EXCLUSIVE; this module's `end` (and stooq's `d2`) is
+    # inclusive. Without the +1 day the two adapters silently disagree by one
+    # bar, which puts yfinance-sourced tickers a trading day behind
+    # stooq-sourced ones inside the same cohort. Requesting a future/non-trading
+    # end date is harmless — yfinance just returns through the last real bar.
+    yf_end = (pd.Timestamp(end) + timedelta(days=1)).strftime("%Y-%m-%d")
+
     # multi_level_index=False avoids MultiIndex columns (yfinance >= 0.2.31).
     # Fall back to the old call signature on older versions.
     try:
         df = yf.download(
             ticker,
             start=start,
-            end=end,
+            end=yf_end,
             auto_adjust=True,
             progress=False,
             multi_level_index=False,
         )
     except TypeError:
-        df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False)
+        df = yf.download(ticker, start=start, end=yf_end, auto_adjust=True, progress=False)
     return df
 
 
@@ -243,6 +257,119 @@ def fetch_prices(
         stats_out.update(source_counts)
 
     return result
+
+
+# Calendar days a ticker may lag the cohort's modal last date before it is
+# dropped rather than allowed to drag everyone back to its date. Four days
+# tolerates roughly two trading days across a weekend (mode=Monday,
+# laggard=Thursday) — enough for a single foreign market holiday, not enough
+# for a delisted ticker frozen in the cache.
+MAX_ASOF_LAG_DAYS = 4
+
+
+def align_cohort_asof(
+    prices: dict[str, pd.DataFrame],
+    max_lag_days: int = MAX_ASOF_LAG_DAYS,
+    stats_out: dict | None = None,
+) -> tuple[dict[str, pd.DataFrame], pd.Timestamp | None]:
+    """Slice every series to one shared as-of date. Returns (prices, as_of).
+
+    Signals read the last row of whatever series they are handed
+    (`src/pipeline.py`), so a dict whose members end on different dates scores
+    a cohort at mixed as-of dates — and the composite z-scores each signal
+    *across* that cohort, which is precisely where mixed dates distort a
+    ranking. Nothing upstream guarantees a common end date: per-ticker cache
+    freshness is decided independently (`_cache_is_fresh`), so one refetched
+    ticker alongside 19 cache hits is enough to stagger them.
+
+    The as-of date is the newest date every *kept* ticker has a bar for, i.e.
+    the minimum of the per-ticker last dates. A ticker lagging the cohort's
+    modal last date by more than ``max_lag_days`` calendar days is dropped
+    instead of counted in that minimum — otherwise a single stale series would
+    pull the whole cohort back to its date. Dropping a theme's ETF makes that
+    theme vanish from the run, which the caller's coverage guard is there to
+    catch; silently rescoring everything a month late would not be caught at
+    all.
+
+    Tickers with no rows at or before the as-of date are dropped. Returns
+    ``({}, None)`` when there is nothing usable to align.
+
+    ``stats_out``, if given, is updated with ``asof`` (ISO date string or
+    None), ``asof_spread_days`` (max−min lag in calendar days, before drops)
+    and ``asof_dropped`` (sorted list of dropped tickers).
+    """
+    last_dates = {
+        ticker: pd.Timestamp(df.index.max())
+        for ticker, df in prices.items()
+        if df is not None and not df.empty
+    }
+
+    if not last_dates:
+        if stats_out is not None:
+            stats_out.update({"asof": None, "asof_spread_days": 0, "asof_dropped": []})
+        logger.warning("align_cohort_asof: no non-empty price frames to align")
+        return {}, None
+
+    newest = max(last_dates.values())
+    oldest = min(last_dates.values())
+    spread_days = (newest - oldest).days
+
+    # Modal last date; ties break toward the later date so the cohort anchors
+    # on the fresher of two equally-sized groups.
+    counts: dict[pd.Timestamp, int] = {}
+    for d in last_dates.values():
+        counts[d] = counts.get(d, 0) + 1
+    modal = max(counts, key=lambda d: (counts[d], d))
+
+    kept, dropped = {}, []
+    for ticker, d in last_dates.items():
+        if (modal - d).days > max_lag_days:
+            dropped.append(ticker)
+        else:
+            kept[ticker] = d
+
+    if dropped:
+        logger.warning(
+            "align_cohort_asof: dropping %d stale ticker(s) lagging the cohort "
+            "(modal last bar %s) by more than %d days: %s",
+            len(dropped), modal.date(), max_lag_days,
+            ", ".join(f"{t}@{last_dates[t].date()}" for t in sorted(dropped)),
+        )
+
+    as_of = min(kept.values())
+
+    out: dict[str, pd.DataFrame] = {}
+    for ticker in kept:
+        sliced = prices[ticker][prices[ticker].index <= as_of]
+        if sliced.empty:
+            logger.warning(
+                "align_cohort_asof: %s has no bars at or before %s — dropping",
+                ticker, as_of.date(),
+            )
+            dropped.append(ticker)
+            continue
+        out[ticker] = sliced
+
+    if spread_days:
+        logger.info(
+            "align_cohort_asof: cohort last bars spanned %d day(s) (%s → %s); "
+            "scoring all %d ticker(s) as-of %s",
+            spread_days, oldest.date(), newest.date(), len(out), as_of.date(),
+        )
+    else:
+        logger.info(
+            "align_cohort_asof: all %d ticker(s) already as-of %s",
+            len(out), as_of.date(),
+        )
+
+    if stats_out is not None:
+        stats_out.update({
+            "asof": as_of.date().isoformat(),
+            "asof_spread_days": spread_days,
+            "asof_dropped": sorted(dropped),
+        })
+
+    return out, as_of
 
 
 def load_universe(config_path: str = "config/universe.yaml") -> dict:
