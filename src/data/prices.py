@@ -1,9 +1,16 @@
 """
 Price data loader.
 
-Fetches daily OHLCV price data for a list of tickers. Tries stooq first
-(direct CSV endpoint), falls back to yfinance. Both are fragile free
-sources — aggressive caching minimises live fetches.
+Fetches daily OHLCV price data for a list of tickers via yfinance — a fragile
+free source, so aggressive caching minimises live fetches.
+
+stooq was the second leg of a two-source fallback until 2026-08-09, when it
+was retired: stooq's CSV endpoint has required solving a JavaScript
+proof-of-work challenge since at least 2026-07-21 (confirmed by direct probe —
+every request returns either an HTTP 404 for the plain `requests` user-agent
+or a `noscript` challenge page for any other, never CSV data). No header or
+URL fix gets past that; see BACKLOG.md Done for the investigation. yfinance
+had already been carrying 100% of live fetches in practice.
 
 Cache location: data/cache/<ticker>_prices.parquet
 Cache validity: the cache must reach the most recent expected trading day
@@ -16,22 +23,19 @@ See `_cache_is_fresh`.
 strictly before `end`. Callers pass `end=today`, so this is what keeps an
 in-progress session out of the data — Yahoo returns a partial candle for the
 current day during market hours, and `_cache_is_fresh` would then treat that
-half-formed close as a real one and never refetch it. Both adapters honour the
-exclusive contract (`_fetch_stooq` converts, since stooq's `d2` is inclusive).
+half-formed close as a real one and never refetch it.
 
 Callers that score a cohort cross-sectionally should still run the result
 through `align_cohort_asof`: per-ticker cache freshness is evaluated
 independently, so a dict returned by `fetch_prices` can mix as-of dates even
-though both sources agree on semantics.
+when every ticker came from the same source.
 """
 
-import io
 import logging
 import os
 from datetime import date, timedelta
 
 import pandas as pd
-import requests as _requests
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -114,35 +118,6 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[present].copy()
 
 
-def _stooq_symbol(ticker: str) -> str:
-    """Convert a yfinance-style ticker to a stooq symbol."""
-    if "." in ticker:
-        return ticker.lower()
-    return f"{ticker.lower()}.us"
-
-
-def _fetch_stooq(ticker: str, start: str, end: str) -> pd.DataFrame:
-    symbol = _stooq_symbol(ticker)
-    d1 = pd.Timestamp(start).strftime("%Y%m%d")
-    # stooq's d2 is INCLUSIVE, yfinance's end is exclusive, and this module's
-    # contract is the exclusive one — so d2 is end-1. Without this the two
-    # adapters disagree by one bar, which puts stooq-sourced tickers a session
-    # ahead of yfinance-sourced ones inside the same cohort.
-    d2 = (pd.Timestamp(end) - timedelta(days=1)).strftime("%Y%m%d")
-    resp = _requests.get(
-        "https://stooq.com/q/d/l/",
-        params={"s": symbol, "d1": d1, "d2": d2, "i": "d"},
-        timeout=15,
-    )
-    resp.raise_for_status()
-    lines = resp.text.strip().splitlines()
-    if len(lines) < 2:
-        raise ValueError(f"stooq returned no data for {symbol}")
-    df = pd.read_csv(io.StringIO(resp.text), parse_dates=["Date"], index_col="Date")
-    df = df.sort_index(ascending=True)
-    return df
-
-
 def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
     import yfinance as yf  # type: ignore
 
@@ -169,25 +144,30 @@ def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
 
 
 def _fetch_single(ticker: str, start: str, end: str) -> tuple[str | None, pd.DataFrame | None]:
-    """Try stooq then yfinance. Returns (source_name, DataFrame) or (None, None)."""
-    for source, fetch_fn in [("stooq", _fetch_stooq), ("yfinance", _fetch_yfinance)]:
-        try:
-            df = fetch_fn(ticker, start, end)
-            if df is None or df.empty:
-                logger.warning("Empty response from %s for ticker %s", source, ticker)
-                continue
-            df = _normalize_columns(df)
-            if df.empty or "Close" not in df.columns:
-                logger.warning("No usable columns from %s for ticker %s", source, ticker)
-                continue
-            if df["Close"].isna().all():
-                logger.warning("All-NaN Close column from %s for ticker %s", source, ticker)
-                continue
-            df.index = pd.to_datetime(df.index)
-            df = df.sort_index(ascending=True)
-            return source, df
-        except Exception as exc:
-            logger.warning("Failed to fetch %s via %s: %s", ticker, source, exc)
+    """Fetch one ticker via yfinance. Returns ("yfinance", DataFrame) or (None, None).
+
+    yfinance is the only source — see the module docstring for why stooq was
+    retired. The (source, df) return shape is kept, rather than collapsing to
+    just a DataFrame, so a second source can be reintroduced without touching
+    every caller.
+    """
+    try:
+        df = _fetch_yfinance(ticker, start, end)
+        if df is None or df.empty:
+            logger.warning("Empty response from yfinance for ticker %s", ticker)
+            return None, None
+        df = _normalize_columns(df)
+        if df.empty or "Close" not in df.columns:
+            logger.warning("No usable columns from yfinance for ticker %s", ticker)
+            return None, None
+        if df["Close"].isna().all():
+            logger.warning("All-NaN Close column from yfinance for ticker %s", ticker)
+            return None, None
+        df.index = pd.to_datetime(df.index)
+        df = df.sort_index(ascending=True)
+        return "yfinance", df
+    except Exception as exc:
+        logger.warning("Failed to fetch %s via yfinance: %s", ticker, exc)
     return None, None
 
 
@@ -203,13 +183,13 @@ def fetch_prices(
         Close, Open, High, Low, Volume
     All indexed by date (DatetimeIndex, ascending).
 
-    Tickers that fail both stooq and yfinance are logged and omitted
-    from the returned dict (soft failure — never raises).
+    Tickers that fail to fetch are logged and omitted from the returned dict
+    (soft failure — never raises).
     """
     os.makedirs(cache_dir, exist_ok=True)
     result: dict[str, pd.DataFrame] = {}
-    source_counts: dict[str, int] = {"cache": 0, "stooq": 0, "yfinance": 0}
-    live_attempted: dict[str, int] = {"stooq": 0, "yfinance": 0}
+    source_counts: dict[str, int] = {"cache": 0, "yfinance": 0}
+    live_attempted = 0
 
     for ticker in tickers:
         path = _cache_path(ticker, cache_dir)
@@ -225,11 +205,10 @@ def fetch_prices(
             except Exception as exc:
                 logger.warning("Cache read failed for %s: %s — re-fetching", ticker, exc)
 
-        for src in live_attempted:
-            live_attempted[src] += 1
+        live_attempted += 1
         source, df = _fetch_single(ticker, start, end)
         if df is None:
-            logger.warning("Skipping %s — all fetch attempts failed", ticker)
+            logger.warning("Skipping %s — fetch failed", ticker)
             continue
 
         source_counts[source] += 1
@@ -251,15 +230,13 @@ def fetch_prices(
 
     total = len(tickers)
     logger.info(
-        "Price sources: stooq %d/%d, yfinance %d/%d, cache %d/%d",
-        source_counts["stooq"], total, source_counts["yfinance"], total,
-        source_counts["cache"], total,
+        "Price sources: yfinance %d/%d, cache %d/%d",
+        source_counts["yfinance"], total, source_counts["cache"], total,
     )
-    for src in ("stooq", "yfinance"):
-        if live_attempted[src] > 0 and source_counts[src] == 0:
-            logger.warning(
-                "%s: 0/%d succeeded — source may be down", src, live_attempted[src],
-            )
+    if live_attempted > 0 and source_counts["yfinance"] == 0:
+        logger.warning(
+            "yfinance: 0/%d succeeded — source may be down", live_attempted,
+        )
 
     if stats_out is not None:
         stats_out.update(source_counts)
