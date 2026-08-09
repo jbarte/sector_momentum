@@ -1,0 +1,80 @@
+{# Shared modal behaviour: focus trap, Escape, backdrop close, focus restore.
+
+   Extracted from _methodology.html.j2 on 2026-08-09 so the tab guides could
+   reuse it rather than carry a second copy. The gate modal still has its own
+   (incomplete) handling — it declares aria-modal="true" and implements none of
+   this — and is queued to move onto this helper too; that one touches auth, so
+   it is deliberately a separate change.
+
+   Usage:
+     window.SMModal.bind(overlayEl, {closeBtn, onOpen})  -> {open, close}
+
+   `overlayEl` is the full-screen backdrop; clicking it (but not its children)
+   closes. The element with role="dialog" inside it is the focus scope. #}
+{# Short-circuit rather than reassign: both the tab-guide script and
+   _methodology.html.j2 include this partial, and which runs first depends on
+   template order. Defining it twice would work (bind() is itself idempotent)
+   but would silently swap the object identity under any modal already bound. #}
+window.SMModal = window.SMModal || (function () {
+  var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+  function bind(overlay, opts) {
+    opts = opts || {};
+    // Idempotent: templates may include this partial more than once per page.
+    if (!overlay || overlay.dataset.smModalBound) {
+      return overlay && overlay._smModal;
+    }
+    overlay.dataset.smModalBound = "1";
+
+    var panel = overlay.querySelector('[role="dialog"]') || overlay;
+    var closeBtn = opts.closeBtn || null;
+    var lastFocus = null;
+
+    function focusables() {
+      return panel.querySelectorAll(FOCUSABLE);
+    }
+
+    function onKey(e) {
+      if (e.key === "Escape") { close(); return; }
+      if (e.key !== "Tab") { return; }
+      var f = focusables();
+      if (!f.length) { return; }
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    }
+
+    function open() {
+      // Capture the trigger *before* showing, so focus returns to whatever the
+      // reader was on rather than to the top of the page.
+      lastFocus = document.activeElement;
+      if (opts.onOpen) { opts.onOpen(); }
+      overlay.hidden = false;
+      // Scroll the panel back to the top: a reused modal otherwise opens
+      // wherever the previous reader left it.
+      if (panel.scrollTop) { panel.scrollTop = 0; }
+      (closeBtn || panel).focus();
+      document.addEventListener("keydown", onKey);
+    }
+
+    function close() {
+      overlay.hidden = true;
+      document.removeEventListener("keydown", onKey);
+      if (lastFocus && lastFocus.focus) { lastFocus.focus(); }
+    }
+
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) { close(); }
+    });
+    if (closeBtn) { closeBtn.addEventListener("click", close); }
+
+    var api = {open: open, close: close};
+    overlay._smModal = api;
+    return api;
+  }
+
+  return {bind: bind};
+})();

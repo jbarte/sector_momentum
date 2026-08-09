@@ -59,39 +59,7 @@
   <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
 
   <div class="utility-row">
-  <details class="tab-guide">
-    <summary data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</summary>
-    <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
-      <h4>Source — FinBERT news sentiment</h4>
-      <p>The <strong>sentiment score</strong> is built from recent financial
-         news. For each theme we fetch the latest 24&nbsp;hours of
-         English-language headlines from the <strong>GDELT</strong> global news
-         index (up to 250 per theme, matched on that theme&rsquo;s own keyword
-         set). Each headline is scored by <strong>ProsusAI/finbert</strong>, a
-         finance-tuned BERT model that classifies text as positive, negative or
-         neutral with a confidence score. The per-theme <em>mean signed
-         polarity</em> (positive&nbsp;=&nbsp;+score,
-         negative&nbsp;=&nbsp;&minus;score, neutral&nbsp;=&nbsp;0) is then
-         z-scored across the themes:
-         <span class="signal-hi">positive = more bullish news vs peers</span>,
-         <span class="signal-lo">negative = more bearish</span>.
-         If FinBERT or GDELT is unavailable, the score is left blank for that
-         scan.</p>
-      <h4>Table columns</h4>
-      <ul>
-        <li><strong>Polarity</strong> — mean signed sentiment from recent news
-            headlines. Green = bullish, red = bearish.</li>
-        <li><strong>Articles</strong> — number of headlines scored.</li>
-        <li><strong>Pos%</strong> — fraction classified as positive.</li>
-        <li><strong>Neg%</strong> — fraction classified as negative.</li>
-      </ul>
-      <h4>It does not drive the ranking by default</h4>
-      <p>The leaderboard composite is built from price/momentum signals only.
-         Sentiment changes the ranking <em>only</em> when you enable the
-         <strong>Sentiment toggle</strong>, at the weight you choose. Treat it as
-         a confirmer, not a driver — news sentiment is noisy and can lag price.</p>
-    </div>
-  </details>
+  <button type="button" class="tab-guide-btn" data-guide="guide_body_sentiment" data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</button>
   </div>
 
   {% if sentiment_available %}
@@ -122,6 +90,85 @@ var SENTIMENT_DATA = {{ sentiment_scatter_json | js_json }};
 })();
 
 {% include "_i18n.html.j2" %}
+</script>
+
+
+<!-- Tab guides. One modal, one body per tab, shown by data-guide key.
+     Bodies live inside the modal (not cloned in on demand) so the i18n pass
+     still finds every [data-i18n-html] node in the DOM at load and can swap
+     EN/SV on all of them. -->
+<div class="guide-overlay" id="guide-modal" hidden>
+  <div class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+    <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
+    <h2 id="guide-modal-title" data-i18n="guide_summary">How to read this tab</h2>
+    <div class="tab-guide-body" data-guide-body="guide_body_sentiment" hidden data-i18n-html="guide_body_sentiment">
+          <h4>Source — FinBERT news sentiment</h4>
+          <p>The <strong>sentiment score</strong> is built from recent financial
+             news. For each theme we fetch the latest 24&nbsp;hours of
+             English-language headlines from the <strong>GDELT</strong> global news
+             index (up to 250 per theme, matched on that theme&rsquo;s own keyword
+             set). Each headline is scored by <strong>ProsusAI/finbert</strong>, a
+             finance-tuned BERT model that classifies text as positive, negative or
+             neutral with a confidence score. The per-theme <em>mean signed
+             polarity</em> (positive&nbsp;=&nbsp;+score,
+             negative&nbsp;=&nbsp;&minus;score, neutral&nbsp;=&nbsp;0) is then
+             z-scored across the themes:
+             <span class="signal-hi">positive = more bullish news vs peers</span>,
+             <span class="signal-lo">negative = more bearish</span>.
+             If FinBERT or GDELT is unavailable, the score is left blank for that
+             scan.</p>
+          <h4>Table columns</h4>
+          <ul>
+            <li><strong>Polarity</strong> — mean signed sentiment from recent news
+                headlines. Green = bullish, red = bearish.</li>
+            <li><strong>Articles</strong> — number of headlines scored.</li>
+            <li><strong>Pos%</strong> — fraction classified as positive.</li>
+            <li><strong>Neg%</strong> — fraction classified as negative.</li>
+          </ul>
+          <h4>It does not drive the ranking by default</h4>
+          <p>The leaderboard composite is built from price/momentum signals only.
+             Sentiment changes the ranking <em>only</em> when you enable the
+             <strong>Sentiment toggle</strong>, at the weight you choose. Treat it as
+             a confirmer, not a driver — news sentiment is noisy and can lag price.</p>
+        </div>
+  </div>
+</div>
+
+<script>
+{% include "_modal.js.j2" %}
+/* Tab guides: one modal, bodies pre-rendered inside it and toggled by key.
+   The bodies stay in the DOM (rather than being cloned in on open) so the i18n
+   pass still sees every [data-i18n-html] node and can swap EN/SV on all of
+   them, including guides for tabs the reader has not opened. */
+(function () {
+  var overlay = document.getElementById("guide-modal");
+  if (!overlay) { return; }
+  var modal = window.SMModal.bind(overlay, {
+    closeBtn: document.getElementById("guide-close"),
+  });
+  if (!modal) { return; }
+
+  var bodies = overlay.querySelectorAll("[data-guide-body]");
+  var title = document.getElementById("guide-modal-title");
+
+  function show(key, label) {
+    Array.prototype.forEach.call(bodies, function (b) {
+      b.hidden = b.getAttribute("data-guide-body") !== key;
+    });
+    // Mirror the trigger's own wording, so the sentiment page's "How is the
+    // sentiment score calculated?" does not open a dialog titled "How to read
+    // this tab". Falls back to the baked heading when a trigger has no label.
+    if (title && label) { title.textContent = label; }
+    modal.open();
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest(".tab-guide-btn") : null;
+    if (!btn) { return; }
+    e.preventDefault();
+    show(btn.getAttribute("data-guide"), (btn.textContent || "").trim());
+  });
+})();
 </script>
 
 {% include '_footer.html.j2' %}

@@ -1,4 +1,11 @@
-/* Tab interpretation guides (compact ⓘ variant) */
+/* Tab interpretation guides.
+   These were inline <details> inside .utility-row until 2026-08-09. Because the
+   guide was a flex sibling of the filter bar, opening one inflated the row to
+   ~700px: align-items:center stranded the ⚙ mid-column and pushed the eight
+   filter chips into a floating block detached from the table they filter, with
+   the leaderboard shoved below the fold. At 375px the summary was squeezed to
+   44x90px and rendered as a five-line vertical word-stack. They are modals now,
+   on the same shared machinery as the methodology modal. */
 .utility-row {
   display: flex;
   justify-content: flex-end;
@@ -6,40 +13,81 @@
   gap: 12px;
   padding: 6px 0 0;
 }
-.tab-guide {
+.tab-guide-btn {
   border: none;
   background: none;
   margin: 0;
-  padding: 0;
-  font-size: 0.8rem;
-}
-.tab-guide summary {
-  padding: 0;
+  padding: 6px 4px;          /* a real hit area, not a 12px text run */
   cursor: pointer;
   color: var(--fg4);
+  font-family: inherit;
   font-weight: 500;
   font-size: 12px;
-  list-style: none;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;       /* never re-wrap into a vertical word-stack */
   user-select: none;
 }
-.tab-guide summary::before {
-  content: "ⓘ";
-  font-size: 1em;
+.tab-guide-btn::before { content: "ⓘ"; font-size: 1em; }
+.tab-guide-btn:hover { color: var(--fg2); }
+/* Touch pointers get a full-size target. Kept off mouse pointers so the row
+   height, which the filter chips align against, is unchanged on desktop. */
+@media (pointer: coarse) {
+  .tab-guide-btn { min-height: 44px; padding: 10px 6px; }
 }
-.tab-guide summary:hover { color: var(--fg2); }
-.tab-guide[open] summary { color: var(--fg2); }
-.tab-guide[open] summary::before {
-  content: "ⓘ";
+.tab-guide-btn:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
+
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+}
+.guide-overlay[hidden] { display: none; }
+.guide-modal {
+  position: relative;
+  max-width: 640px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 28px 30px;
+  text-align: left;
+}
+.guide-modal h2 { margin: 0 0 14px; font-size: 1.3rem; color: var(--fg1); }
+.guide-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  border: none;
+  background: transparent;
+  color: var(--fg4);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.guide-close:hover { color: var(--fg1); }
+
 .tab-guide-body {
-  padding: 12px 0 8px;
   color: var(--fg2);
   line-height: 1.65;
   font-size: 0.875rem;
 }
+.tab-guide-body[hidden] { display: none; }
 .tab-guide-body h4 {
   margin: 12px 0 4px;
   font-size: 0.8rem;
