@@ -149,18 +149,34 @@ Gold Miners are industry ETFs kept as diversifiers, not themes. "ETF" is the
 only word that is true of all 18 — and it stays true if factor or bond ETFs are
 ever added, which "Thematic" would not. It is generic, and that is the price.
 
-**Migration surface — larger than a find-and-replace.** Do it as one PR, and
-check each of these:
+**Do it in two phases — they are independent, and welding them together turns a
+safe change into a risky one.** Phase 1 alone leaves no half-finished state; it
+is a repo whose directory name is legacy trivia.
 
-- **GitHub repo rename** → Pages URL moves to `jbarte.github.io/etf_momentum/`.
-  GitHub redirects the old paths, but the **Supabase Auth redirect allowlist and
-  Site URL must be updated first** or magic-link sign-in breaks for everyone.
-- **Companion repo** `sector_momentum-notes` renames alongside it, plus the
-  ~10 spec paths quoting it in this file and in `CLAUDE.md`.
+**Phase 1 — display name only.** No URL change, nothing that can break sign-in.
+This is where all the actual irritation lives: the dashboard says "Sector
+momentum" above a table whose column header reads "Theme".
+
+- `<h1>` (`dashboard/templates/_header.html.j2:2`), page `<title>`
+  (`index.html.j2:6`, `sentiment.html.j2:6`), gate-modal heading
+  (`index.html.j2:34`), `README.md`, `ARCHITECTURE.md`, `stats.py`, `scan.py`
+  banner strings.
 - **Alert email subject** (`src/personal_alerts.py:98`, `src/alerts.py:191`)
   is `"Sector Momentum — {date}"` — changing it may break existing mail filters.
-- **Atom feed** (`dashboard/templates/feed.xml.j2`) — a changed feed title/id can
-  register as a *new* feed in readers rather than a rename.
+- **Atom feed title** (`dashboard/templates/feed.xml.j2:3`) — a changed feed
+  title/id can register as a *new* feed in readers rather than a rename.
+- Sweep the surviving sector-era copy while in there, e.g.
+  `dashboard/templates/index.html.j2:370` ("The sector has been outperforming
+  for multiple scans").
+
+**Phase 2 — repo rename. Optional, arguably forever.** It buys a tidier URL and
+nothing else; nobody reads the repo path, everybody reads the `<h1>`.
+
+- Pages URL moves to `jbarte.github.io/etf_momentum/`. GitHub redirects the old
+  paths, but the **Supabase Auth Site URL and redirect allowlist must be updated
+  first** or magic-link sign-in breaks for everyone, including you.
+- **Companion repo** `sector_momentum-notes` renames alongside it, plus the
+  ~10 spec paths quoting it in this file and in `CLAUDE.md`.
 - **Local clone path.** `~/AI Projects/sector_momentum` is what keys this
   project's Claude memory and session history
   (`~/.claude/projects/-Users-jonasbarte-AI-Projects-sector-momentum/`).
@@ -169,14 +185,13 @@ check each of these:
 - `sector_momentum_test` DB name in `tests/test_state_wipe_guard.py:70` and the
   CI workflow.
 
+**Timing:** not while the universe and alert wiring are still settling — the
+rename touches the thing that sends the emails. One clean scan cycle first.
+
 **Out of scope:** the DB columns `region` / `gics_sector` — see *Sector-era
 naming in the data layer* above, which recommends leaving them alone. A rebrand
 is a rename of the *product*, not a schema migration; conflating the two is how
 a cosmetic PR turns into a live-database risk.
-
-**Also sweep while in there:** user-visible sector-era copy survives in the tab
-guide, e.g. `dashboard/templates/index.html.j2:370` ("The sector has been
-outperforming for multiple scans").
 
 ---
 
