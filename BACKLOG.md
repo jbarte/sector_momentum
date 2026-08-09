@@ -438,6 +438,17 @@ source-only and tight:
   queued; it touches auth, so it stays a separate change — but the helper it
   needs now exists.
 
+  It also gets its **own header illustration** (`_guide_illo.html.j2`), not the
+  rotation arcs the methodology and gate modals share. Those depict rotation;
+  this depicts the ranked board and its bands — a descending composite profile
+  with the buy band, the deliberately quiet hold band (drawn with explicit
+  dashed edges, because a soft fill alone did not read as a *band*), and the
+  exit tail. Zone boundaries match the shipped Medium preset (top_n 5,
+  exit_rank 9), and the ▲/▼ marks are the leaderboard's own, so the picture
+  speaks the product's vocabulary rather than inventing a second one. Bars rise
+  from the baseline rather than arcs drawing, sharing the `--illo-soft` easing
+  so the two read as one family. Full `prefers-reduced-motion` fallback.
+
   Verified in-browser: all 7 triggers open their own guide and only that one;
   Escape and backdrop close while a click inside the panel does not; focus
   moves to the close button and returns to the trigger; EN→SV→EN round-trips

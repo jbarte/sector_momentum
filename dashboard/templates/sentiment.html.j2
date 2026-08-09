@@ -100,6 +100,7 @@ var SENTIMENT_DATA = {{ sentiment_scatter_json | js_json }};
 <div class="guide-overlay" id="guide-modal" hidden>
   <div class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
     <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
+    {% include "_guide_illo.html.j2" %}
     <h2 id="guide-modal-title" data-i18n="guide_summary">How to read this tab</h2>
     <div class="tab-guide-body" data-guide-body="guide_body_sentiment" hidden data-i18n-html="guide_body_sentiment">
           <h4>Source — FinBERT news sentiment</h4>

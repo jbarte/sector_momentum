@@ -67,6 +67,73 @@
   padding: 28px 30px;
   text-align: left;
 }
+/* Header banner. Same band treatment as the methodology modal so the two read
+   as one family, but a different illustration and a different reveal verb:
+   bars rise from the baseline rather than arcs drawing. */
+.guide-illo-band {
+  overflow: hidden;
+  background: linear-gradient(160deg, #F5F0E6 0%, #EDE6D6 100%);
+  margin: -28px -30px 18px;
+  border-radius: 14px 14px 0 0;
+}
+.guide-illo { display: block; width: 100%; height: 112px; }
+.guide-close { z-index: 1; }   /* above the band */
+
+/* Bars grow from the baseline. transform-box: fill-box makes the SVG rect obey
+   transform-origin the way a DOM box would; without it the origin resolves
+   against the whole viewBox and the bars slide instead of rising. */
+.guide-illo .bar {
+  transform: scaleY(0.04);
+  transform-origin: center bottom;
+  transform-box: fill-box;
+  animation: guide-rise 0.72s var(--illo-soft) forwards;
+}
+.guide-illo .b1  { animation-delay: .04s; }
+.guide-illo .b2  { animation-delay: .09s; }
+.guide-illo .b3  { animation-delay: .14s; }
+.guide-illo .b4  { animation-delay: .19s; }
+.guide-illo .b5  { animation-delay: .24s; }
+.guide-illo .b6  { animation-delay: .29s; }
+.guide-illo .b7  { animation-delay: .33s; }
+.guide-illo .b8  { animation-delay: .37s; }
+.guide-illo .b9  { animation-delay: .41s; }
+.guide-illo .b10 { animation-delay: .45s; }
+.guide-illo .b11 { animation-delay: .49s; }
+.guide-illo .b12 { animation-delay: .53s; }
+/* The hold band arrives last and stays faint — it is the quiet zone, so it
+   should not out-shout the bars it sits behind. */
+.guide-illo .hold-band {
+  animation: guide-band-in 0.9s ease-out .62s forwards;
+}
+.guide-illo .band-edges {
+  animation: guide-edges-in 0.8s ease-out .70s forwards;
+}
+.guide-illo .baseline {
+  animation: guide-baseline-in 0.7s ease-out .30s forwards;
+}
+/* The two badges land last — they are the conclusion the picture builds to. */
+.guide-illo .mark {
+  transform: translateY(3px);
+  transform-box: fill-box;
+  animation: guide-mark-in 0.6s var(--illo-soft) forwards;
+}
+.guide-illo .m-entry { animation-delay: .86s; }
+.guide-illo .m-exit  { animation-delay: .98s; }
+
+@keyframes guide-rise        { to { transform: scaleY(1); } }
+@keyframes guide-band-in     { to { opacity: 0.26; } }
+@keyframes guide-baseline-in { to { opacity: 0.55; } }
+@keyframes guide-edges-in    { to { opacity: 0.5; } }
+@keyframes guide-mark-in     { to { opacity: 0.9; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-illo .bar { transform: none; animation: none; }
+  .guide-illo .hold-band  { opacity: 0.26; animation: none; }
+  .guide-illo .baseline   { opacity: 0.55; animation: none; }
+  .guide-illo .band-edges { opacity: 0.5;  animation: none; }
+  .guide-illo .mark { opacity: 0.9; transform: none; animation: none; }
+}
+
 .guide-modal h2 { margin: 0 0 14px; font-size: 1.3rem; color: var(--fg1); }
 .guide-close {
   position: absolute;

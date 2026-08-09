@@ -1,0 +1,53 @@
+{# Header banner for the tab-guide modal.
+
+   Deliberately NOT the rotation-arcs illustration used by the methodology and
+   gate modals: that one depicts rotation (concentric arcs, migrating dots).
+   This depicts the *ranked board and its bands*, which is what a guide is
+   explaining — the descending composite profile, the buy band at the top, the
+   deliberately quiet hold band in the middle, and the exit zone at the tail.
+
+   The bands match the shipped Medium preset (top_n 5, exit_rank 9), so the
+   picture is the strategy rather than an arbitrary gradient.
+
+   Decorative but labelled for AT; animated via CSS in css/_guides.css.j2. #}
+<div class="guide-illo-band">
+  <svg class="guide-illo" viewBox="0 0 640 128" preserveAspectRatio="xMidYMax slice"
+       role="img" aria-label="A ranked leaderboard: the strongest themes at the buy band, a quiet hold band in the middle, and the exit zone at the tail">
+    <!-- hold band: the silent middle, drawn behind the bars. Its two edges are
+         the thresholds the guide is about, so they are drawn explicitly —
+         a soft fill alone did not read as a *band* with boundaries. -->
+    <rect class="hold-band" x="290" y="18" width="120" height="98" rx="7"
+          fill="#C4B89A" opacity="0"/>
+    <g class="band-edges" opacity="0">
+      <line x1="290" y1="20" x2="290" y2="114" stroke="#A9977A" stroke-width="1"
+            stroke-dasharray="3 4" stroke-linecap="round"/>
+      <line x1="410" y1="20" x2="410" y2="114" stroke="#A9977A" stroke-width="1"
+            stroke-dasharray="3 4" stroke-linecap="round"/>
+    </g>
+
+    <g class="bars">
+      <rect class="bar b1"  x="146" y="30"  width="18" height="82" rx="3" fill="#5A6F49"/>
+      <rect class="bar b2"  x="176" y="38"  width="18" height="74" rx="3" fill="#5A6F49" opacity="0.92"/>
+      <rect class="bar b3"  x="206" y="45"  width="18" height="67" rx="3" fill="#8FA77A"/>
+      <rect class="bar b4"  x="236" y="52"  width="18" height="60" rx="3" fill="#8FA77A" opacity="0.92"/>
+      <rect class="bar b5"  x="266" y="59"  width="18" height="53" rx="3" fill="#8FA77A" opacity="0.84"/>
+      <rect class="bar b6"  x="296" y="66"  width="18" height="46" rx="3" fill="#C4B89A"/>
+      <rect class="bar b7"  x="326" y="72"  width="18" height="40" rx="3" fill="#C4B89A" opacity="0.9"/>
+      <rect class="bar b8"  x="356" y="78"  width="18" height="34" rx="3" fill="#C4B89A" opacity="0.8"/>
+      <rect class="bar b9"  x="386" y="84"  width="18" height="28" rx="3" fill="#C4B89A" opacity="0.7"/>
+      <rect class="bar b10" x="416" y="90"  width="18" height="22" rx="3" fill="#BF6F50" opacity="0.75"/>
+      <rect class="bar b11" x="446" y="96"  width="18" height="16" rx="3" fill="#A55A3C" opacity="0.7"/>
+      <rect class="bar b12" x="476" y="101" width="18" height="11" rx="3" fill="#A55A3C" opacity="0.6"/>
+    </g>
+
+    <!-- The same ▲/▼ marks the leaderboard uses, so the picture speaks the
+         product's own vocabulary rather than inventing a second one. -->
+    <path class="mark m-entry" d="M155 16 L161.5 27 L148.5 27 Z" fill="#5A6F49" opacity="0"/>
+    <path class="mark m-exit"  d="M425 88 L431.5 77 L418.5 77 Z" fill="#A55A3C" opacity="0"/>
+
+    <!-- baseline: the cross-sectional zero every composite is measured against -->
+    <line class="baseline" x1="120" y1="112.5" x2="512" y2="112.5"
+          stroke="#A9977A" stroke-width="1" stroke-dasharray="2 5"
+          stroke-linecap="round" opacity="0"/>
+  </svg>
+</div>
