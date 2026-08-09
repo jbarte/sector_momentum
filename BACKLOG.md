@@ -21,6 +21,30 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Ongoing fund costs (TER) are not modelled anywhere
+
+`costs.round_trip_bps` covers per-trade cost only. The backtest has no concept
+of an **annual** drag, and two real ones exist:
+
+- **The fund's TER.** Avanza's disclosure for L&G ROBO Global Robotics shows
+  *Löpande avgifter 0.8%/yr* plus *Transaktionsavgifter 0.03%/yr*. Against a
+  13.9% modelled CAGR that is not a rounding error.
+- **The US-vs-UCITS TER gap.** The backtest runs on US-listed ETF price series,
+  which are already net of the *US* fund's TER. The instrument actually bought
+  is the UCITS equivalent with its own, usually higher, TER. So the modelled
+  return silently assumes the cheaper wrapper.
+
+Recorded UCITS TERs in `config/themes.yaml` average 0.46% (max 0.65%), so a
+first cut is a flat annual haircut of roughly 0.5% applied to strategy returns —
+but note it should apply to the **benchmark** too, or the comparison tilts the
+wrong way (ACWI trackers are cheap, ~0.12–0.20%).
+
+Worth checking while doing this: the fund in that Avanza screenshot (L&G ROBO)
+is **not** the one `themes.yaml` lists for AI & Robotics — the config records
+XAIX (Xtrackers AI & Big Data, 0.35%). If the position actually held differs
+from the recorded UCITS equivalent, the recorded TERs are not the ones being
+paid, and the `match` quality field is describing the wrong instrument.
+
 ## Re-pick the horizon presets at realistic cost
 
 The cost assumption was fixed on 2026-08-09 (see Done), but the presets
@@ -420,21 +444,34 @@ source-only and tight:
 
   | cost | Short | Medium | Long |
   |---|---|---|---|
-  | 0 bps | **17.4%** | 16.1% | 14.2% |
+  | 0 bps (what picked the presets) | **17.4%** | 16.1% | 14.2% |
   | 50 bps | 14.8% | **15.0%** | 13.7% |
-  | 100 bps | 12.2% | **13.9%** | 13.2% |
+  | **100 bps (the rate actually paid)** | 12.2% | **13.9%** | 13.2% |
 
   Sharpe told the same story at every level including zero (Medium 0.88 vs
   Short 0.80), so Medium was always the right default — but the Backtest tab
   presented Short's 17.4% as the top line.
 
-  New `costs.round_trip_bps` in `config/weights.yaml` (default 50, documented
-  as a conservative placeholder to be replaced with the real broker number),
-  read via `src.horizons.round_trip_bps()` so the backtest, the sweep and the
-  dashboard share one assumption. Both CLIs now default from it; `--cost-bps 0`
-  still reproduces the old figures. Recorded preset CAGRs regenerated net
-  (0.148 / 0.150 / 0.137) and `backtests/summary.json` rebuilt. Tab copy now
-  reads "net of 50 bps round-trip trading costs" instead of "no costs".
+  New `costs.round_trip_bps` in `config/weights.yaml`, read via
+  `src.horizons.round_trip_bps()` so the backtest, the sweep and the dashboard
+  share one assumption. Both CLIs now default from it; `--cost-bps 0` still
+  reproduces the old figures.
+
+  Set to **100 bps**, from Avanza's own fee disclosure for L&G ROBO Global
+  Robotics (the UCITS equivalent of BOTZ) on a 10 000 SEK position: *"Avgifter
+  för köp och sälj — Avanzas avgifter: 100 SEK / 1%"*. That heading covers both
+  legs, so it is already round-trip. **At that rate Short is the worst of the
+  three presets, not the best** — the ranking the 0 bps sweep produced is
+  exactly inverted.
+
+  Deliberately excluded from the number: the fund's 0.8% TER and 0.03% internal
+  dealing costs, both of which are annual drags rather than per-trade costs and
+  would be billed per turnover if they lived in this field. Neither is modelled
+  anywhere in the backtest — recorded as its own queued item.
+
+  Recorded preset CAGRs regenerated net (0.122 / 0.139 / 0.132) and
+  `backtests/summary.json` rebuilt. Tab copy now reads "net of 100 bps
+  round-trip trading costs" instead of "no costs".
 
   Fixed in passing, both found while editing: `note_backtest_caveat` carried
   `<strong>` markup in the **`SV`** dictionary, which is applied via

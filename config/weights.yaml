@@ -39,15 +39,32 @@ signal_params:
 # This defaulted to 0 until 2026-08-09, which mattered more than it sounds:
 # the horizon presets below were *selected* by a sweep that assumed free
 # trading, and free trading systematically favours the cadence that trades
-# most. Measured on this universe, the preset ranking by CAGR inverts at
-# roughly 50 bps — Short leads below it, Medium leads above.
+# most. Measured on this universe the ranking inverts at roughly 50 bps, and at
+# the 100 bps actually paid the Short preset is the WORST of the three:
 #
-# 50 is a deliberately conservative placeholder, not a quote. Thematic UCITS
-# ETFs are thin, so the spread is usually the larger half. **Set this to your
-# own broker's real number** — it changes which preset is actually best, and
-# the whole point of recording it here is that the assumption is visible.
+#   cost |  Short | Medium |  Long
+#      0 |  17.4% |  16.1% | 14.2%
+#     50 |  14.8% |  15.0% | 13.7%
+#    100 |  12.2% |  13.9% | 13.2%
+#
+# 100 bps is Jonas's real Avanza cost, read off their own fee disclosure for
+# L&G ROBO Global Robotics (the UCITS equivalent of BOTZ) on a 10 000 SEK
+# position: "Avgifter för köp och sälj — Avanzas avgifter: 100 SEK / 1%". That
+# heading covers both legs, so it is already round-trip.
+#
+# Deliberately EXCLUDED from this number, because they are annual drags rather
+# than per-trade costs and would be billed per turnover if they lived here:
+#   - Löpande avgifter 0.8%  — the fund's TER
+#   - Transaktionsavgifter 0.03% — the fund's own internal dealing costs
+# Neither is modelled anywhere in the backtest. See BACKLOG.
+#
+# CAVEAT: if Avanza's 100 SEK is a per-trade *minimum* rather than a true
+# percentage, this rate falls as position size rises — roughly 40 bps at
+# 25 000 SEK, 20 bps at 50 000 SEK. Below ~45 bps the Short preset starts
+# winning again. Recheck against a real trade confirmation if position sizing
+# changes materially.
 costs:
-  round_trip_bps: 50
+  round_trip_bps: 100
 
 # ---------------------------------------------------------------------------
 # Horizon presets — how long to hold, and how much churn that costs.
@@ -81,15 +98,16 @@ costs:
 # median_holding_days are unchanged by cost — the cost model is applied to
 # returns, never to selection, so the same names are picked either way.
 #
-# KNOWN, NOT YET ACTED ON: re-running the sweep at 50 bps puts all three cells
-# below off the frontier, because they were originally picked at 0 bps and free
-# trading flatters whichever cadence trades most. `W/3/6` beats this `short`
-# (W/3/5) on return, Sharpe AND churn simultaneously — 16.3% / 0.76 / 19.8
-# trades vs 14.8% / 0.70 / 26.9. Deliberately NOT re-picked here: that is a
-# change to what the dashboard tells you to hold, it rests on one sweep over one
-# history, and this repo has twice this month had a single-cell result reverse
-# under a subperiod check. Re-pick as its own change, with the multi-window
-# discipline, not as a side effect of fixing the cost assumption.
+# KNOWN, NOT YET ACTED ON: re-running the sweep at 50 bps already put all three
+# cells below off the frontier, because they were picked at 0 bps and free
+# trading flatters whichever cadence trades most. `W/3/6` beat this `short`
+# (W/3/5) on return, Sharpe AND churn at once. At the 100 bps actually paid the
+# gap is wider still, and the sweep has NOT been re-run at 100 — so treat these
+# three cells as inherited, not as chosen for this cost. Deliberately not
+# re-picked here: that changes what the dashboard tells you to hold, on one
+# sweep over one history, and this repo has twice this month had a single-cell
+# result reverse under a subperiod check. Re-pick as its own change, with the
+# multi-window discipline.
 #
 # `default` is what the baked page renders and what alerts use. Signed-in users
 # can switch preset client-side; alerts stay on the default (per-user horizon
@@ -102,7 +120,7 @@ horizons:
       rebalance: W
       top_n: 3
       buffer: 5
-      cagr: 0.148
+      cagr: 0.122
       trades_per_year: 26.9
       median_holding_days: 42
     medium:
@@ -110,7 +128,7 @@ horizons:
       rebalance: M
       top_n: 5
       buffer: 4
-      cagr: 0.150
+      cagr: 0.139
       trades_per_year: 19.5
       median_holding_days: 92
     long:
@@ -118,6 +136,6 @@ horizons:
       rebalance: 2M
       top_n: 4
       buffer: 6
-      cagr: 0.137
+      cagr: 0.132
       trades_per_year: 7.2
       median_holding_days: 182
