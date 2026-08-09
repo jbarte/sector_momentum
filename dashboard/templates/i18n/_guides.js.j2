@@ -1,26 +1,49 @@
 Object.assign(SV_HTML, {
   guide_body_leaderboard: `
-      <p>Varje sektor rankas efter <strong>kompositpoäng</strong> — ett tvärsnitts-z-värde som väger samman nivåmomentum (hur stark sektorn är just nu) och förändringsmomentum (om den accelererar eller bromsar in). Poängen <strong>0</strong> betyder genomsnitt över alla sektorer; <strong>+1,0</strong> betyder en standardavvikelse över genomsnittet.</p>
-      <h4>Trend-märke — den mest handlingsbara signalen</h4>
-      <p>Beräknas som den linjära lutningen av rangen över de senaste 3–5 skanningarna. Ett sjunkande rangnummer betyder att sektorn klättrar på topplistan.</p>
+      <p>Teman rankas från starkast till svagast. Allt mäts <strong>mot de andra temana idag</strong>, inte mot noll — så rang 1 betyder ”bäst av dessa 20 just nu”, vilket en dålig vecka fortfarande kan innebära förlust.</p>
+
+      <h4>Läsa kompositkolumnen</h4>
+      <p>Kompositen väger samman hur starkt ett tema är nu med om det blir starkare. Det är ett <strong>z-värde</strong>, som helt enkelt mäter ovanlighet:</p>
       <ul>
-        <li><span class="signal-hi">↑↑ Stiger snabbt</span> — rangen förbättras 1,5+ platser per skanning. Stark insteg-signal.</li>
-        <li><span class="signal-hi">↑ Stiger</span> — rangen förbättras 0,3–1,5 platser per skanning. Framväxande momentum.</li>
-        <li>→ Platt — rangen stabil. Momentum varken byggs upp eller avvecklas.</li>
-        <li><span class="signal-lo">↓ Faller</span> — rangen försämras även om den fortfarande är hög. Momentum mattas av.</li>
-        <li><span class="signal-lo">↓↓ Faller snabbt</span> — undvik eller överväg att gå ur.</li>
+        <li><strong>0</strong> — precis genomsnittligt för gruppen.</li>
+        <li><strong>+1,0</strong> — en standardavvikelse över genomsnittet; ungefär bättre än 5 av 6 teman.</li>
+        <li><strong>−1,0</strong> — lika långt under.</li>
       </ul>
-      <h4>Makroregim-chips</h4>
-      <p>SPY- och VIX-chipsen i rubriken visar två breda marknadsindikatorer som uppdateras vid varje bygge:</p>
+      <p>Nivå och Förändring är de två halvorna. Hög Nivå med negativ Förändring är ett tema som har sprungit och nu tröttnar. Låg Nivå med positiv Förändring är ett som fortfarande är svagt men vänder upp.</p>
+
+      <h4>Horisont — börja här</h4>
+      <p><strong>Horisont</strong>-väljaren högst upp avgör hur tålmodig instrumentpanelen är. Den ändrar vilka teman som flaggas; den ändrar aldrig poängen eller ordningen.</p>
+      <p>Varje alternativ visar vad det historiskt kostade i handel: väljer du <strong>Kort</strong> reagerar du snabbare men handlar flera gånger i månaden; väljer du <strong>Lång</strong> kan du gå månader utan att göra något. Är du osäker, låt den stå på Medel.</p>
+
+      <h4>Insteg, Ur, och inget märke alls</h4>
+      <p>Dessa säger var ett tema ligger i förhållande till din horisont, inget annat:</p>
       <ul>
-        <li><strong>SPY mot 200-DMA</strong> — S&amp;P 500 ETF:ens avstånd från sitt 200-dagars glidande medelvärde. <span class="signal-hi">Grönt / positivt</span> = pris över 200-DMA (långsiktig upptrend, risk-on); <span class="signal-lo">rött / negativt</span> = under (risk-off). Procentsatsen visar hur långt marknaden sträckt sig från trendlinjen.</li>
-        <li><strong>VIX-band</strong> — CBOE Volatilitetsindex indelat i tre regimer: <strong>Lugnt</strong> (&lt;&nbsp;15), <strong>Förhöjt</strong> (15–25) och <strong>Stressat</strong> (&gt;&nbsp;25). Högre VIX = mer rädsla och osäkerhet.</li>
+        <li><span class="signal-hi">▲ Insteg</span> — inom köpbandet för din horisont.</li>
+        <li><strong>Inget märke</strong> — hållbandet. <strong>Detta är det vanligaste läget och betyder gör ingenting.</strong> Ett tema som driver en rang eller två här är normalt brus, inte en signal.</li>
+        <li><span class="signal-lo">▼ Ur</span> — det har tydligt fallit ur hållbandet. Inte en tillfällig svaj.</li>
       </ul>
-      <p>Chipsen är <strong>enbart information</strong> — de påverkar inte sektorpoäng eller rankning. Använd dem som kontext: samma sektorsrankning kan betyda olika saker beroende på om den breda marknaden är i en hälsosam upptrend med låg volatilitet eller i en stressad risk-off-miljö. Om båda indikatorerna blinkar varning (under 200-DMA + Stressat VIX) bär även topprankade sektorer högre absolut risk.</p>
-      <h4>Insteg-läge</h4>
-      <p>Komposit &gt; 0 med <span class="signal-hi">↑</span>- eller <span class="signal-hi">↑↑</span>-bana och positiv förändringspoäng. Klicka på en rad för att se hela signaluppdelningen.</p>
-      <h4>Ur-/undvik-signal</h4>
-      <p><span class="signal-lo">↓</span>- eller <span class="signal-lo">↓↓</span>-bana även när rangen fortfarande är hög — sektorn toppar. Rang-Δ som vänder negativt bekräftar vändningen.</p>`,
+      <p>Gapet mellan Insteg och Ur är avsiktligt. Utan det skulle ett tema som studsar mellan 5:e och 6:e plats få dig att köpa och sälja samma fond helt i onödan. Tystnaden är poängen.</p>
+      <p><strong>En viktig egenhet:</strong> märket beskriver position, inte hälsa. Ett tema som faller hårt men fortfarande ligger etta visar <span class="signal-hi">▲ Insteg</span>, eftersom det ändå är det starkaste på tavlan. Det är vad Trend-kolumnen är till för.</p>
+
+      <h4>Trend — hälsokontrollen</h4>
+      <p>Lutningen på temats rang över de senaste skanningarna. Ett sjunkande rang<em>nummer</em> betyder att det klättrar.</p>
+      <ul>
+        <li><span class="signal-hi">↑↑ Stiger snabbt</span> / <span class="signal-hi">↑ Stiger</span> — klättrar på tavlan.</li>
+        <li>→ Platt — går ingenstans särskilt.</li>
+        <li><span class="signal-lo">↓ Faller</span> / <span class="signal-lo">↓↓ Faller snabbt</span> — tappar mark, även om rangen fortfarande är hög.</li>
+      </ul>
+      <p>Läs Trend <em>tillsammans med</em> märket. Insteg plus ↑ är ett tema som anländer. Insteg plus ↓↓ är ett på väg ut som ännu inte fallit tillräckligt för att utlösa Ur.</p>
+
+      <h4>Marknadskontext-chips</h4>
+      <p>SPY- och VIX-chipsen i rubriken beskriver hela marknaden, inte något enskilt tema:</p>
+      <ul>
+        <li><strong>SPY mot 200-DMA</strong> — den amerikanska marknadens avstånd från sitt 200-dagars medelvärde. <span class="signal-hi">Positivt</span> = långsiktig upptrend; <span class="signal-lo">negativt</span> = nedtrend.</li>
+        <li><strong>VIX</strong> — hur mycket volatilitet handlare förväntar sig. Lugnt (&lt; 15), Förhöjt (15–25), Stressat (&gt; 25).</li>
+      </ul>
+      <p>De ändrar inga poäng. De säger hur mycket du bör lita på tavlan: samma topprankade tema betyder olika saker i en lugn upptrend jämfört med en stressad, fallande marknad, där även det starkaste temat sannolikt också faller.</p>
+
+      <h4>Mer detaljer</h4>
+      <p>Klicka på en rad för att fälla ut den — du får varje underliggande signal, och den europeiska (UCITS) fond som motsvarar den amerikanska ETF:en som poängsätts.</p>`,
   guide_body_rrg: `
       <p>Sektorer plottas efter <strong>relativ styrka mot jämförelseindex</strong> (x-axel) och om den relativa styrkan <strong>accelererar eller bromsar in</strong> (y-axel). Båda axlarna är centrerade kring 100.</p>
       <h4>Fyra kvadranter</h4>
@@ -114,15 +137,48 @@ Object.assign(SV_HTML, {
       </ul>
       <h4>Den styr inte rankningen som standard</h4>
       <p>Topplistans komposit byggs enbart från pris-/momentumsignaler. Sentiment ändrar rankningen <em>endast</em> när du aktiverar <strong>Sentiment-växeln</strong>, med den vikt du väljer. Behandla det som en bekräftare, inte en drivkraft.</p>`,
+  guide_body_backtest: `
+      <p>Detta ställer en ”tänk om”-fråga: <em>om du hade följt dessa regler sedan 2008, vad hade hänt?</em> Vid varje ombalanseringsdatum köper simuleringen de topprankade temana, håller dem enligt bandregeln och jämför resultatet mot jämförelseindex.</p>
+      <p>Den använder bara information som fanns den dagen — ingen tjuvkik på vad som kom sedan.</p>
+
+      <h4>De tre raderna</h4>
+      <p>Varje rad är en horisont. Läs kolumnerna <strong>Affärer/år</strong> och <strong>Median­innehav</strong> tillsammans med avkastningen, aldrig var för sig — en högre avkastning som kräver tre gånger så mycket handel är inte självklart bättre, och varje affär kostar något.</p>
+      <ul>
+        <li><strong>Strategi-CAGR</strong> — den årliga tillväxttakt reglerna gav. Jämför med <strong>Index-CAGR</strong> bredvid; att slå index är hela poängen.</li>
+        <li><strong>Sharpe</strong> — avkastning per enhet skakighet. Högre är bättre. Det är den ärligaste enskilda kolumnen för att jämföra rader, eftersom den inte belönar vilt risktagande.</li>
+        <li><strong>Max DD</strong> — det värsta fallet från topp till botten. Ett tal som −38% betyder att strategin vid något tillfälle låg 38% under sin topp. Fråga dig ärligt om du hade hållit ut.</li>
+        <li><strong>Affärer/år</strong> och <strong>Medianinnehav</strong> — hur mycket arbete det är, och hur länge en position typiskt varade.</li>
+      </ul>
+
+      <h4>Vad diagrammet visar</h4>
+      <p>Tillväxt av 1,0 — en enda enhet pengar, följd över tid. Den heldragna linjen är strategin, den streckade jämförelseindex. Den följer den horisont du valt. Det som betyder något är <em>formen</em>: var linjerna separerar, och hur djupa dipparna blir.</p>
+
+      <h4>Tre skäl att räkna ner dessa siffror</h4>
+      <p>Alla tre får det förflutna att se bättre ut än framtiden sannolikt blir:</p>
+      <ul>
+        <li><strong>Universumet valdes med facit i hand.</strong> Simuleringen spelar upp dagens 20 teman baklänges. Flera av dessa ETF:er fanns inte 2008, så de tidiga åren vilar på färre teman — och listan valdes med vetskap om vilka idéer som visade sig spela roll.</li>
+        <li><strong>Inställningarna trimmades på samma historik.</strong> Många kombinationer testades och bra behölls. En del av det försprånget är anpassat till det förflutna och kommer inte att upprepas.</li>
+        <li><strong>Den förutsätter en perfekt investerare.</strong> Regler följda exakt, ombalanseringar aldrig missade, inget tvivel under ett 38-procentigt fall.</li>
+      </ul>
+      <p>Den ärliga användningen av denna flik är att <strong>jämföra horisonterna med varandra</strong> — den jämförelsen är rättvis, eftersom alla tre kördes på samma data med samma snedvridningar. Betrakta de absoluta avkastningarna som optimistiska.</p>`,
   guide_body_correlation: `
-      <p>Värmekarta som visar 60-dagars rullande avkastningskorrelationer mellan alla 25 sektor-ETF:er. <span class="signal-lo">Röda celler</span> indikerar hög positiv korrelation (sektorer som rör sig tillsammans); <span class="signal-hi">blå celler</span> indikerar låg eller negativ korrelation (oberoende rörelser).</p>
-      <h4>Diversifieringskontroll</h4>
-      <p>När dina topprankade sektorer klumpar ihop sig i ett rött block är portföljen mindre diversifierad än rankingen antyder. De tre finansiella EU-undersektorerna (Banker, Finanstjänster, Försäkring) är ett vanligt exempel — de rör sig ofta i tandem.</p>
+      <p>Detta rutnät svarar på en fråga: <strong>när ett tema rör sig, rör sig de andra med?</strong> Varje tema jämförs mot varje annat över de senaste 60 handelsdagarna.</p>
+      <ul>
+        <li><span class="signal-lo">Rött</span> — dessa två rör sig tillsammans. Att äga båda är nära att äga ett dubbelt.</li>
+        <li><span class="signal-hi">Blått / blekt</span> — dessa två rör sig oberoende. Att äga båda sprider risken.</li>
+      </ul>
+      <p>Diagonalen är alltid djupröd: varje tema är perfekt korrelerat med sig självt.</p>
+
+      <h4>Varför det spelar roll</h4>
+      <p>Att hålla fem olika-klingande teman känns diversifierat. Om de fem lyser rött mot varandra håller du i praktiken en position i femdubbel storlek — och en dålig vecka för den affären träffar allt på en gång.</p>
+      <p>Det här universumet har ett känt kluster: temana AI, halvledare, kvantdatorer och datacenter är i stor utsträckning samma affär under fyra namn. De hamnar ofta i toppen samtidigt, vilket är precis när den här fliken är värd en titt.</p>
+
       <h4>Så använder du den</h4>
       <ul>
-        <li><strong>Fetstilta etiketter</strong> markerar nuvarande topp-5. Fokusera på skärningspunkterna mellan fetstilta rader och kolumner.</li>
-        <li>Ett mörkrött block bland dina toppval betyder att du dubblerar på samma rörelse. Överväg om du behöver alla.</li>
-        <li>Blå eller vita celler mellan toppval indikerar genuin diversifiering — olika avkastningsdrivare.</li>
+        <li><strong>Fetstilta etiketter</strong> markerar nuvarande topp-5. Titta där fetstilta rader och kolumner korsas — det är din faktiska koncentration.</li>
+        <li>Ett rött block bland dina toppval betyder att rankningen erbjuder dig samma vad flera gånger.</li>
+        <li>Bleka celler mellan toppval betyder genuint olika drivkrafter.</li>
       </ul>
-      <p>De vertikala och horisontella linjerna separerar US-sektorer (topp/vänster) från EU-sektorer (botten/höger).</p>`
+      <p>Korrelation är bakåtblickande och <strong>stiger i en kris</strong> — när marknader faller hårt faller det mesta tillsammans och de blå cellerna blir röda. Betrakta detta som en vägledning för normala förhållanden, inte en garanti för skydd när du behöver den som mest.</p>
+      <p>En begränsning till: två teman kan vara okorrelerade och <em>båda</em> vara dåliga. Låg korrelation säger att de rör sig olika, inte att något av dem är värt att äga.</p>`
 });

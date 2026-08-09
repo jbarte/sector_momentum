@@ -1,5 +1,6 @@
 Object.assign(SV, {
-  note_backtest: "Månatlig rotation av topprankade teman, likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade).",
+  note_backtest: "Likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje horisont är en ombalanseringstakt plus ett hysteresband: ett innehav behålls så länge dess rang håller sig inom topp-N + buffert, så en enstaka rangförändring är ingen affär.",
+  note_backtest_caveat: "<strong>Detta är förberäknade driftpunkter från en svepning över en marknadshistorik (2008–2026), inte en live-optimerare.</strong> Universumet spelas upp som det ser ut idag, så teman som lanserades senare saknas helt i de tidiga åren. Läs kolumnen affärer/år bredvid avkastningen, inte i stället för den.",
   note_backtest_themes: "Månatlig rotation av topprankade teman, likaviktad, endast lång. Endast prisbaserade signaler (sentiment exkluderat). Teman poängsätts inom sin egen kohort mot ACWI.",
   bt_themes_empty: "Ingen temabacktest ännu. Kör <code>python backtest.py</code>.",
   bt_window: "Period",

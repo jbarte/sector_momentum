@@ -48,9 +48,13 @@
   color: var(--fg4);
 }
 .tab-guide-body ul {
-  margin: 4px 0 0 0;
+  margin: 4px 0 10px 0;
   padding-left: 18px;
 }
 .tab-guide-body li { margin-bottom: 3px; }
+/* Same reason as the methodology modal: the rewritten guides run several
+   paragraphs per heading, which merge into a block without this. */
+.tab-guide-body p { margin: 0 0 9px; }
+.tab-guide-body p:last-child { margin-bottom: 0; }
 .signal-hi { color: var(--up); font-weight: 600; }
 .signal-lo { color: var(--down); font-weight: 600; }

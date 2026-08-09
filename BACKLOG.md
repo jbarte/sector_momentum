@@ -178,6 +178,39 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Methodology and tab guides rewritten for a novice reader** — the docs still
+  described US/EU sectors, a monthly-only rotation, and the *old* trajectory-based
+  Entry/Exit rule, all of which the 2.0 and horizon work replaced. Worse than
+  stale: the badge section actively described behaviour the code no longer has.
+
+  The methodology modal is now built to teach rather than specify — it opens with
+  a one-sentence summary, defines "theme" and "ETF" before using them, explains
+  momentum as a tendency rather than a law, explains z-scores in plain terms
+  ("0 = average, +1 = better than about 5 of 6"), and devotes a section each to
+  the horizon presets and the hold band, since those are the settings that decide
+  what the dashboard tells the reader to do.
+
+  Two things it now states that it previously did not: that Entry/Exit describe
+  *position, not health* (a collapsing theme ranked first still reads Entry), and
+  the three ways the backtest flatters the strategy — hindsight universe,
+  settings fitted to the same history, and an assumed perfect investor.
+
+  Rewritten: the methodology modal, the Leaderboard guide, and the Correlation
+  guide (which still referenced "25 sector ETFs", the US/EU dividers and the EU
+  financial sub-sectors). **Added: a Backtest guide**, which did not exist — the
+  tab with the most numbers and the most caveats had no explanation at all.
+  Swedish translations updated to match; the two languages were describing
+  different strategies.
+
+  Also fixed a readability regression the rewrite caused: `.methodology-body p`
+  and `.tab-guide-body p` had zero margin, which was fine when sections were a
+  single paragraph and produced a wall of text once they were not.
+
+  `tests/test_methodology.py` now pins *topics and factual anchors* rather than
+  exact headings, so prose can be rewritten without breaking it, and asserts the
+  stated universe size matches `config/themes.yaml`. Assertions run on
+  tag-stripped, whitespace-collapsed text so they survive re-wrapping.
+
 - **Long preset retuned to 2M / top_n 4 / buffer 7** — the only preset the
   widened sweep grid showed a strictly better cell for. Better on every axis:
 

@@ -31,15 +31,61 @@ def test_methodology_modal_markup_and_a11y():
     assert "methodology-modal" in html and "hidden" in html
 
 
-def test_methodology_content_sections_present():
-    html = _render("_methodology.html.j2")
-    for heading in ["Universe", "Data sources", "Signals", "Scoring",
-                    "Trajectory", "Backtest", "Research basis"]:
-        assert heading in html, heading
-    # Key factual anchors that must stay accurate
-    assert "rs_ratio" in html
-    assert "50% Level" in html and "50% Change" in html
-    assert "informational only" in html.lower() or "info-only" in html.lower()
+def _prose(name: str) -> str:
+    """Rendered text with tags stripped and whitespace collapsed.
+
+    Assertions must survive re-wrapping and inline markup — a phrase like
+    "excluded from the <strong>ranking</strong>" split over two source lines
+    should still match, or these tests fail on formatting rather than meaning.
+    """
+    import re
+    html = _render(name)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html)).lower()
+
+
+def test_methodology_covers_every_concept_a_reader_needs():
+    """Pins topics, not exact headings — the prose is rewritten periodically for
+    readability, but a reader must never lose one of these."""
+    html = _prose("_methodology.html.j2")
+    for topic, needle in [
+        ("what a theme is",      "theme is a group of companies"),
+        ("what an ETF is",       "exchange-traded fund"),
+        ("momentum",             "momentum"),
+        ("relative, not absolute", "relative"),
+        ("the two pillars",      "level"),
+        ("z-scores explained",   "z-score"),
+        ("horizon",              "horizon"),
+        ("the hold band",        "hold band"),
+        ("badges",               "entry"),
+        ("sentiment",            "finbert"),
+        ("backtest",             "backtest"),
+        ("data sources",         "stooq"),
+    ]:
+        assert needle in html, f"methodology no longer explains {topic}"
+
+
+def test_methodology_keeps_its_factual_anchors():
+    """These are claims the code actually implements. If the code changes, this
+    test should fail and force the prose to follow."""
+    low = _prose("_methodology.html.j2")
+    assert "50% level" in low and "50% change" in low
+    # Sentiment must stay described as excluded from the ranking.
+    assert "excluded from the ranking" in low or "informational only" in low
+    # The universe size must match the shipped config.
+    import yaml
+    from pathlib import Path
+    cfg = yaml.safe_load(
+        (Path(__file__).resolve().parent.parent / "config/themes.yaml").read_text())
+    assert str(len(cfg["themes"])) in low, "stated universe size is out of date"
+
+
+def test_methodology_states_the_backtest_caveats():
+    """The backtest flatters the strategy in three known ways. A reader who
+    misses that will over-trust the numbers, so the modal must say so."""
+    low = _prose("_methodology.html.j2")
+    assert "did not exist" in low, "survivorship/selection caveat missing"
+    assert "fitted to the past" in low, "overfitting caveat missing"
+    assert "not investment advice" in low
 
 
 def test_methodology_script_binds_trigger():
