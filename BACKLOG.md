@@ -21,51 +21,45 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Gate the Entry/Exit badges behind sign-in
+## Gate the ▲ Entry / ▼ Exit badge behind sign-in
 
-Product decision (2026-08-09): the badges are the actionable layer, so they
-become a signed-in feature. Guests keep the lagged leaderboard — ranks,
-composites, pillar scores, Trend — but see no ▲ Entry / ▼ Exit.
+Product decision (2026-08-09): the Entry/Exit badge is the actionable layer, so
+it becomes a signed-in feature. Guests keep everything else on the lagged
+leaderboard — rank, composite, pillar scores, Trend.
 
-**Where badges are produced.** Two independent paths, both need gating or the
-feature leaks:
+**Scope is the badge itself only.** The Trend badge, the Backtest tab's badge
+scorecard, and alerts are all out of scope and unchanged.
 
-| path | file | when |
+**Two render paths, both need gating or it leaks:**
+
+| path | where | fires |
 |---|---|---|
-| server-rendered | `dashboard/build.py:360` → `_compute_setup(row, _default_horizon)`, emitted at `index.html.j2:250` | baked into the page |
-| client re-derived | `index.html.j2:620` (`applyHorizonBadges`) and `auth.js` `renderLatestRows()` via `Rescore.setupForRank()` | on horizon switch / after sign-in |
+| server-rendered | `dashboard/build.py:360` → `_compute_setup()`, emitted at `index.html.j2:250` | baked into the page |
+| client re-derived | `index.html.j2:620` (`applyHorizonBadges`), `auth.js` `renderLatestRows()` — both via `Rescore.setupForRank()` | horizon switch / after sign-in |
 
-Gating only the template leaves the client path re-adding badges the moment a
-guest touches the horizon selector. The clean cut is to **stop computing
-`setup` at build time when `auth` is on** (the same `auth_ctx["auth"]` flag that
-already drives `lag_active` at `build.py:282`), and have the client path refuse
-to derive a badge without a session.
+Gating only the template puts the badge straight back the moment a guest touches
+the horizon selector. Cleanest cut: stop computing `setup` at build time when
+`auth_ctx["auth"]` is on (the same flag that already drives `lag_active` at
+`build.py:282`), and have `setupForRank()` return null without a session.
 
-**Knock-on decisions this forces — these are the real work, not the gating:**
+**Two things that break as a direct result and must ship in the same change,**
+or the page is visibly broken rather than merely gated:
 
-1. **The horizon selector becomes a no-op for guests.** Its only *visible*
-   effect is which rows get badged (`horizon_note`: "Sets the Entry/Exit band").
-   Gate the badges and a guest is left with a control that changes nothing.
-   Either hide the selector for guests too, or give it a second visible effect.
-2. **The Entry/Exit filter chips stop working** (`index.html.j2:95-96`). They
-   filter on `data-setup`, which will be empty for every row. Hide them for
-   guests or they read as broken.
-3. **The leaderboard guide explains a feature guests cannot see.** Its Entry/Exit
-   section is the longest part. Needs a signed-out variant, in **both**
-   languages (`guide_body_leaderboard` in EN template + SV_HTML).
-4. **The badge scorecard on the Backtest tab** (`dashboard/badges.py`) shows the
-   historical hit-rate of Entry/Exit. Decide whether that is also gated — it is
-   evidence *about* the feature rather than the feature itself, so it is
-   arguably the best advertisement for signing in.
-5. **Alerts are unaffected** — they run server-side off the default horizon and
-   already require an account.
+- The **Entry/Exit filter chips** (`index.html.j2:95-96`) filter on
+  `data-setup`, which becomes empty for every guest row — hide them for guests.
+- The **leaderboard guide** has an Entry/Exit section describing something a
+  guest cannot see. One sentence noting it is a signed-in feature is enough;
+  needs the EN template and the SV `guide_body_leaderboard` string.
 
-**Worth knowing before building it:** this is a product signal, not access
-control. A guest still sees the full ranking, and the badge rule is public —
-"Entry" is just `rank <= top_n`, with `top_n` shown in the horizon selector
-label. Anyone who reads the methodology can reconstruct the badges by eye. That
-is fine if the goal is to make the actionable layer feel like the paid tier; it
-is not fine if the goal is to withhold information.
+**Open question, not a blocker:** the horizon selector's only visible effect for
+a guest is which rows get badged, so it becomes a no-op. Leaving it is
+defensible (it still labels holdings/hold-time/churn per preset); hiding it is
+also defensible. Decide when building.
+
+**Worth knowing:** this is a product signal, not access control. "Entry" is just
+`rank <= top_n` and `top_n` is printed in the horizon selector label, so a guest
+looking at the ranking can reconstruct the badge by eye. Fine if the goal is to
+make the actionable layer feel like the signed-in tier.
 
 ## Ongoing fund costs (TER) are not modelled anywhere
 
