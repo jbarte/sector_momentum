@@ -317,9 +317,13 @@ def test_scan_aborts_when_nothing_survives_alignment(monkeypatch):
 # Source semantics — the upstream cause of a staggered cohort
 # ---------------------------------------------------------------------------
 
-def test_yfinance_end_is_translated_to_inclusive():
-    """`end` is inclusive in this module (stooq's `d2` is); yfinance's is not,
-    so the adapter must add a day or its tickers land one bar short."""
+def test_yfinance_end_is_passed_through_exclusive():
+    """`end` is exclusive in this module, which is yfinance's own semantics.
+
+    Adding a day to make it inclusive would pull in Yahoo's partial candle for
+    an in-progress session, and _cache_is_fresh would then keep that half-formed
+    close forever — so the adapter must pass `end` straight through.
+    """
     from src.data.prices import _fetch_yfinance
 
     fake_yf = MagicMock()
@@ -327,21 +331,44 @@ def test_yfinance_end_is_translated_to_inclusive():
     with patch.dict(sys.modules, {"yfinance": fake_yf}):
         _fetch_yfinance("SPY", "2026-01-01", "2026-08-07")
 
-    assert fake_yf.download.call_args.kwargs["end"] == "2026-08-08"
+    assert fake_yf.download.call_args.kwargs["end"] == "2026-08-07"
     assert fake_yf.download.call_args.kwargs["start"] == "2026-01-01"
 
 
-def test_both_sources_are_asked_for_the_same_inclusive_end():
-    """stooq's d2 and yfinance's end must denote the same final bar."""
-    from src.data.prices import _fetch_stooq, _fetch_yfinance
-
-    fake_yf = MagicMock()
-    fake_yf.download.return_value = _series("2026-08-07", n=5)
+def test_stooq_d2_is_converted_to_the_exclusive_contract():
+    """stooq's d2 is inclusive, so it must be end-1 to denote the same bar."""
+    from src.data.prices import _fetch_stooq
 
     captured: dict = {}
 
     class _Resp:
-        text = "Date,Open,High,Low,Close,Volume\n2026-08-07,1,1,1,1,10\n"
+        text = "Date,Open,High,Low,Close,Volume\n2026-08-06,1,1,1,1,10\n"
+
+        def raise_for_status(self):
+            pass
+
+    def _fake_get(url, params=None, timeout=None):
+        captured.update(params)
+        return _Resp()
+
+    with patch("src.data.prices._requests.get", _fake_get):
+        _fetch_stooq("SPY", "2026-01-01", "2026-08-07")
+
+    assert captured["d2"] == "20260806"
+
+
+def test_both_sources_denote_the_same_final_bar():
+    """The skew this whole change is about: stooq's d2 and yfinance's end must
+    resolve to the same last session, or the two sources stagger the cohort."""
+    from src.data.prices import _fetch_stooq, _fetch_yfinance
+
+    fake_yf = MagicMock()
+    fake_yf.download.return_value = _series("2026-08-06", n=5)
+
+    captured: dict = {}
+
+    class _Resp:
+        text = "Date,Open,High,Low,Close,Volume\n2026-08-06,1,1,1,1,10\n"
 
         def raise_for_status(self):
             pass
@@ -355,6 +382,6 @@ def test_both_sources_are_asked_for_the_same_inclusive_end():
     with patch("src.data.prices._requests.get", _fake_get):
         _fetch_stooq("SPY", "2026-01-01", "2026-08-07")
 
-    stooq_last = pd.Timestamp(captured["d2"])
+    stooq_last = pd.Timestamp(captured["d2"])                       # inclusive
     yf_last = pd.Timestamp(fake_yf.download.call_args.kwargs["end"]) - pd.Timedelta(days=1)
-    assert stooq_last == yf_last
+    assert stooq_last == yf_last == pd.Timestamp("2026-08-06")

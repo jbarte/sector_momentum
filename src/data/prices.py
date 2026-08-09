@@ -12,12 +12,17 @@ holidays). On a normal weekday this means yesterday's or today's close is
 required; over weekends, Friday's close bridges to Monday.
 See `_cache_is_fresh`.
 
-`start`/`end` are **inclusive** on both ends — that is this module's contract,
-and both source adapters honour it (`_fetch_yfinance` converts to yfinance's
-exclusive `end` internally). Callers that score a cohort cross-sectionally
-should still run the result through `align_cohort_asof`: per-ticker cache
-freshness is evaluated independently, so a dict returned by `fetch_prices` can
-mix as-of dates even when both sources agree on semantics.
+`end` is **EXCLUSIVE**: the last bar returned is the last completed session
+strictly before `end`. Callers pass `end=today`, so this is what keeps an
+in-progress session out of the data — Yahoo returns a partial candle for the
+current day during market hours, and `_cache_is_fresh` would then treat that
+half-formed close as a real one and never refetch it. Both adapters honour the
+exclusive contract (`_fetch_stooq` converts, since stooq's `d2` is inclusive).
+
+Callers that score a cohort cross-sectionally should still run the result
+through `align_cohort_asof`: per-ticker cache freshness is evaluated
+independently, so a dict returned by `fetch_prices` can mix as-of dates even
+though both sources agree on semantics.
 """
 
 import io
@@ -119,7 +124,11 @@ def _stooq_symbol(ticker: str) -> str:
 def _fetch_stooq(ticker: str, start: str, end: str) -> pd.DataFrame:
     symbol = _stooq_symbol(ticker)
     d1 = pd.Timestamp(start).strftime("%Y%m%d")
-    d2 = pd.Timestamp(end).strftime("%Y%m%d")
+    # stooq's d2 is INCLUSIVE, yfinance's end is exclusive, and this module's
+    # contract is the exclusive one — so d2 is end-1. Without this the two
+    # adapters disagree by one bar, which puts stooq-sourced tickers a session
+    # ahead of yfinance-sourced ones inside the same cohort.
+    d2 = (pd.Timestamp(end) - timedelta(days=1)).strftime("%Y%m%d")
     resp = _requests.get(
         "https://stooq.com/q/d/l/",
         params={"s": symbol, "d1": d1, "d2": d2, "i": "d"},
@@ -137,12 +146,11 @@ def _fetch_stooq(ticker: str, start: str, end: str) -> pd.DataFrame:
 def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
     import yfinance as yf  # type: ignore
 
-    # yfinance's `end` is EXCLUSIVE; this module's `end` (and stooq's `d2`) is
-    # inclusive. Without the +1 day the two adapters silently disagree by one
-    # bar, which puts yfinance-sourced tickers a trading day behind
-    # stooq-sourced ones inside the same cohort. Requesting a future/non-trading
-    # end date is harmless — yfinance just returns through the last real bar.
-    yf_end = (pd.Timestamp(end) + timedelta(days=1)).strftime("%Y-%m-%d")
+    # yfinance's `end` is already exclusive, which is this module's contract —
+    # pass it straight through. Do NOT "helpfully" add a day to make it
+    # inclusive: that pulls in Yahoo's partial candle for the current session
+    # when a run happens during market hours, and _cache_is_fresh would then
+    # accept that half-formed close and never refetch the real one.
 
     # multi_level_index=False avoids MultiIndex columns (yfinance >= 0.2.31).
     # Fall back to the old call signature on older versions.
@@ -150,13 +158,13 @@ def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
         df = yf.download(
             ticker,
             start=start,
-            end=yf_end,
+            end=end,
             auto_adjust=True,
             progress=False,
             multi_level_index=False,
         )
     except TypeError:
-        df = yf.download(ticker, start=start, end=yf_end, auto_adjust=True, progress=False)
+        df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False)
     return df
 
 

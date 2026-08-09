@@ -251,12 +251,19 @@ source-only and tight:
   between fetch and scoring. As-of = the newest date every kept ticker has a
   bar for; a ticker lagging the cohort's modal last date by more than 4 calendar
   days is dropped instead of dragging everyone back to its date (the existing
-  80% coverage guard catches it if that becomes widespread). Also fixed
-  `_fetch_yfinance` to translate this module's inclusive `end` into yfinance's
-  exclusive one, so the two adapters stop meaning different things by the same
-  argument. `tests/test_price_asof_alignment.py` pins the invariant end-to-end:
-  whatever `fetch_prices` returns, the frames handed to the signal builder all
-  end on the same date.
+  80% coverage guard catches it if that becomes widespread).
+  `tests/test_price_asof_alignment.py` pins the invariant end-to-end: whatever
+  `fetch_prices` returns, the frames handed to the signal builder all end on
+  the same date.
+
+  The source mismatch was also settled, in the *safe* direction: `end` is now
+  documented as EXCLUSIVE and `_fetch_stooq` converts (`d2 = end - 1`), rather
+  than making yfinance inclusive. Code review caught why that matters — an
+  inclusive `end` pulls in Yahoo's partial candle for an in-progress session on
+  any run during market hours (manual `workflow_dispatch`, local dev), and
+  `_cache_is_fresh` only checks the *date*, so that half-formed close would be
+  cached and never refetched. Excluding the current session is the property
+  worth keeping; the first draft of this fix threw it away.
 
   Left queued rather than folded in: the dead stooq source, the weekend cache
   staleness the grace window causes, and persisting the as-of date to `scans`.
