@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Sector Momentum — Sentiment</title>
-<link rel="alternate" type="application/atom+xml" title="Sector Momentum Feed" href="feed.xml"/>
+<title>ETF Momentum — Sentiment</title>
+<link rel="alternate" type="application/atom+xml" title="ETF Momentum Feed" href="feed.xml"/>
 <script src="{{ plotly_bundle }}"></script>
 <style>
 {% include "_style.html.j2" %}
@@ -18,7 +18,7 @@
   <table>
     <thead>
       <tr>
-        <th data-i18n="sent_col_sector">Sector</th>
+        <th data-i18n="sent_col_sector">Theme</th>
         <th data-i18n="sent_col_news_polarity">Polarity</th>
         <th data-i18n="sent_col_news_count">Articles</th>
         <th data-i18n="sent_col_news_pos">Pos%</th>
@@ -64,20 +64,19 @@
     <div class="tab-guide-body" data-i18n-html="guide_body_sentiment">
       <h4>Source — FinBERT news sentiment</h4>
       <p>The <strong>sentiment score</strong> is built from recent financial
-         news. For each of the 11 GICS sectors we fetch the latest 24&nbsp;hours
-         of English-language headlines from the <strong>GDELT</strong> global
-         news index (up to 250 per sector, matched via sector-specific topic
-         codes). Each headline is scored by <strong>ProsusAI/finbert</strong>, a
+         news. For each theme we fetch the latest 24&nbsp;hours of
+         English-language headlines from the <strong>GDELT</strong> global news
+         index (up to 250 per theme, matched on that theme&rsquo;s own keyword
+         set). Each headline is scored by <strong>ProsusAI/finbert</strong>, a
          finance-tuned BERT model that classifies text as positive, negative or
-         neutral with a confidence score. The per-sector <em>mean signed
+         neutral with a confidence score. The per-theme <em>mean signed
          polarity</em> (positive&nbsp;=&nbsp;+score,
          negative&nbsp;=&nbsp;&minus;score, neutral&nbsp;=&nbsp;0) is then
-         z-scored across the 11 sectors:
+         z-scored across the themes:
          <span class="signal-hi">positive = more bullish news vs peers</span>,
          <span class="signal-lo">negative = more bearish</span>.
-         Both US and EU rows for the same GICS sector share the same score —
-         financial news sentiment is global. If FinBERT or GDELT is unavailable,
-         the score is left blank for that scan.</p>
+         If FinBERT or GDELT is unavailable, the score is left blank for that
+         scan.</p>
       <h4>Table columns</h4>
       <ul>
         <li><strong>Polarity</strong> — mean signed sentiment from recent news
@@ -101,7 +100,7 @@
   {% else %}
   <div class="chart-container" style="padding:48px 32px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
     <p style="font-weight:600;color:var(--fg2);margin:0 0 8px" data-i18n="sentiment_empty_title">No news sentiment for this snapshot</p>
-    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto" data-i18n="sentiment_empty_body">The news source (GDELT / FinBERT) recorded no sentiment for any sector in this scan — usually a temporary source outage or rate limit. Sentiment returns automatically once the source is reachable again; the leaderboard and other tabs are unaffected.</p>
+    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto" data-i18n="sentiment_empty_body">The news source (GDELT / FinBERT) recorded no sentiment for any theme in this scan — usually a temporary source outage or rate limit. Sentiment returns automatically once the source is reachable again; the leaderboard and other tabs are unaffected.</p>
   </div>
   {% endif %}
   {% if sentiment_signal_rows %}

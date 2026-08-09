@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scan.py — Sector Momentum Scanner entrypoint.
+scan.py — ETF Momentum scanner entrypoint.
 
 Run this to execute a full scan:
     python scan.py
@@ -53,7 +53,7 @@ from src.pipeline import SIGNAL_COLUMNS, build_theme_signals_rows
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Sector Momentum Scanner — runs the full scoring pipeline."
+        description="ETF Momentum — runs the full scoring pipeline."
     )
     parser.add_argument(
         "--dry-run",
@@ -142,7 +142,7 @@ def _print_summary(scan_date: str, scored_df_for_db: pd.DataFrame) -> None:
     """Print a human-readable summary to stdout."""
     n_sectors = len(scored_df_for_db)
     print(f"\n{'='*60}")
-    print(f"  Sector Momentum Scan — {scan_date}")
+    print(f"  ETF Momentum Scan — {scan_date}")
     print(f"  Sectors scanned: {n_sectors}")
     print(f"{'='*60}")
 

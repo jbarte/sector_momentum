@@ -123,7 +123,7 @@ class TestPerUserIsolation:
 class TestPayload:
     def test_title_uses_scan_date(self):
         out = build_personal_alerts([_entry("US", "Energy")], [], [_pref("u1")], DATE)
-        assert out[0]["title"] == f"Sector Momentum — {DATE}"
+        assert out[0]["title"] == f"ETF Momentum — {DATE}"
 
 
 class TestFormatting:

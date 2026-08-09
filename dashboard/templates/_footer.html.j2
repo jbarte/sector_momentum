@@ -14,7 +14,7 @@
       </span>
     </div>
     <div class="health-row">
-      <span class="health-label">Sectors</span>
+      <span class="health-label">Themes</span>
       <span class="health-values">
         <span class="badge-{{ health_badges.coverage or 'green' }}">{{ health.sectors_produced or '?' }}/{{ health.sectors_expected or '?' }}</span> signals produced
       </span>
@@ -44,7 +44,7 @@
 {% if auth %}
 <section id="alert-prefs" class="alert-prefs" hidden>
   <h3 data-i18n="alerts_title">Alerts</h3>
-  <p class="alert-prefs-intro" data-i18n="alerts_intro">Get a push notification after each scan: Exit signals for sectors you hold, plus new Entry signals.</p>
+  <p class="alert-prefs-intro" data-i18n="alerts_intro">Get a push notification after each scan: Exit signals for themes you hold, plus new Entry signals.</p>
   <div id="alert-prefs-off" hidden>
     <button type="button" id="alert-prefs-enable" class="lang-toggle" data-i18n="alerts_enable">Enable alerts</button>
   </div>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-stats.py — Data inventory and coverage statistics for the Sector Momentum Scanner.
+stats.py — Data inventory and coverage statistics for ETF Momentum.
 
 Connects to Supabase and prints a summary of what data exists in the DB:
 scan counts, date range, cadence, per-sector coverage, signal completeness,
@@ -206,7 +206,7 @@ def _table_row_counts(conn) -> None:
 
 def main() -> None:
     print(_hr("═"))
-    print("  Sector Momentum Scanner — Data Inventory")
+    print("  ETF Momentum — Data Inventory")
     print(_hr("═"))
 
     conn = init_db()

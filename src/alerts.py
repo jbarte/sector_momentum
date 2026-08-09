@@ -188,7 +188,7 @@ def send_alerts(conn, scan_date: str) -> None:
 
     if topic:
         if events:
-            title = f"Sector Momentum — {scan_date}"
+            title = f"ETF Momentum — {scan_date}"
             body = format_alert_body(events)
             post_ntfy(topic, title, body)
             logger.info(
