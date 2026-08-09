@@ -242,6 +242,8 @@ def _persist_scan(conn, run_at, long_signals_df, scored_with_deltas,
         "duration_s": round(time.time() - t0, 1),
         "prices_total": prices_total,
         "prices_cache": price_stats.get("cache", 0),
+        # stooq retired 2026-08-09 (src/data/prices.py) — column kept for
+        # schema stability with 41+ scans of history; always 0 going forward.
         "prices_stooq": price_stats.get("stooq", 0),
         "prices_yfinance": price_stats.get("yfinance", 0),
         "prices_failed": prices_failed,

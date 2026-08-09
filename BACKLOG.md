@@ -205,27 +205,19 @@ Phase 1 design + plan: `design/{specs,plans}/2026-06-26-symbol-trends-*`.
 Optional interactive drill-down UI. Carried from early planning; the static
 dashboard's drill-down tab covers most of the need.
 
-## stooq has been dead since at least 2026-07-21 — the fallback is single-source
+## Price fetch is a single point of failure (yfinance-only)
 
-Found while quantifying the as-of alignment work (2026-08-09). `prices_stooq`
-is **0 on every one of the 20 instrumented scans** (scan_id 137–156) while
-`prices_yfinance` carried 22–27 tickers on each of the 13 non-cache runs.
-A direct probe confirms why: `https://stooq.com/q/d/l/?s=spy.us&…` returns
-**HTTP 404**, so `_fetch_stooq` raises for every ticker and `_fetch_single`
-always falls through.
+Decided 2026-08-09, when stooq was removed (see Done): yfinance had already
+been carrying 100% of live fetches for weeks, so removing the dead stooq path
+changed nothing in practice — but it did remove the *fallback*. A yfinance
+outage or breaking API change now fails every ticker on that run instead of
+falling through to a second source.
 
-The two-source design in `src/data/prices.py` is therefore fiction in practice
-— yfinance is a single point of failure, and the "stooq: 0/N succeeded — source
-may be down" warning has been firing daily into logs nobody reads. Decide:
-
-- fix the symbol/endpoint if stooq merely changed its URL scheme or now blocks
-  the default user-agent (worth 20 minutes of probing before anything else), or
-- replace the fallback with a source that works, or
-- delete the stooq path and say plainly that the scanner is yfinance-only, so
-  the health panel stops implying redundancy that does not exist.
-
-Not urgent — yfinance has not failed — but the redundancy story should either
-be true or be removed.
+Not acted on now — replacing it means picking a provider (Alpha Vantage,
+Twelve Data, IEX, Polygon, etc.), most of which need an API key and carry
+their own rate limits, so it is its own integration + test surface, not a
+same-day fix. Reopen this if yfinance actually fails a scan, rather than
+speculatively — the caching layer already absorbs most single-day hiccups.
 
 ## Weekend scans score Thursday's close, not Friday's
 
@@ -260,6 +252,34 @@ source-only and tight:
 ---
 
 # Done
+
+- **stooq retired — the scanner is honestly yfinance-only now** (2026-08-09).
+  `prices_stooq` had been 0 on all 20 instrumented scans; a probe confirmed why
+  before touching anything, ruling out the "fix the endpoint" option the
+  backlog had left open. `curl` (with or without a spoofed browser user-agent)
+  gets an HTTP 200 whose body is a JavaScript proof-of-work anti-bot challenge,
+  never CSV. Python `requests`' default user-agent gets a flat HTTP 404
+  instead — a different rejection path, not a flakier version of the same one.
+  Neither is a URL or header fix; solving a SHA-256 proof-of-work server-side
+  to fetch a CSV was ruled out as circumventing anti-bot protection, not
+  "fixing an endpoint" — so replacing stooq with a different fallback source
+  was deliberately left as a separate, larger item (provider choice, most need
+  an API key, own rate limits) rather than folded in here.
+
+  Removed `_fetch_stooq`, `_stooq_symbol`, and the two-source loop in
+  `_fetch_single` (`src/data/prices.py`); `fetch_prices` now reports
+  `{cache, yfinance}` only. Left alone, deliberately: the `prices_stooq` DB
+  column (`src/state.py`) and its historical values — a schema change against
+  a live database for a column that just reads 0 going forward isn't worth the
+  risk, matching the standing decision on `region`/`gics_sector` naming. The
+  health panel (`_footer.html.j2`) and methodology copy no longer mention
+  stooq, so they stop implying a redundancy that has not existed since at
+  least 2026-07-21. Verified in the browser: health panel reads
+  `yfinance N · cache N · failed N`; a live dry-run scan completed end-to-end
+  (`Price sources: yfinance 0/20, cache 20/20`) with no stooq references left
+  in the source tree outside the DB column and its tests. 580 passed
+  (was 588; net of tests deleted for dead code, one added for the
+  now-reachable "0 succeeded" warning path).
 
 - **Rebrand Phase 1 — the product is now "ETF Momentum"** (2026-08-09). Display
   name only: `<h1>`, both page `<title>`s, the gate modal, the Atom feed title

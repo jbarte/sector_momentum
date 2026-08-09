@@ -49,8 +49,8 @@ def _last_dates(prices: dict[str, pd.DataFrame]) -> set[pd.Timestamp]:
 def test_staggered_cohort_ends_on_one_date():
     """The headline invariant: mixed last bars in, one shared last bar out."""
     prices = {
-        "AAA": _series("2026-08-07"),   # fresh (e.g. stooq, inclusive end)
-        "BBB": _series("2026-08-06"),   # one day behind (e.g. yfinance)
+        "AAA": _series("2026-08-07"),   # fresh (just refetched)
+        "BBB": _series("2026-08-06"),   # one day behind (still on cache)
         "CCC": _series("2026-08-07"),
         "DDD": _series("2026-08-06"),
     }
@@ -314,8 +314,14 @@ def test_scan_aborts_when_nothing_survives_alignment(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Source semantics — the upstream cause of a staggered cohort
+# Source semantics
 # ---------------------------------------------------------------------------
+#
+# stooq was retired 2026-08-09 (src/data/prices.py module docstring): its CSV
+# endpoint now requires solving a JavaScript proof-of-work challenge, which no
+# HTTP client can pass. The two tests that lived here pinned stooq's inclusive
+# `d2` against yfinance's exclusive `end` resolving to the same final bar —
+# moot with one source. What remains is the still-live half of that contract.
 
 def test_yfinance_end_is_passed_through_exclusive():
     """`end` is exclusive in this module, which is yfinance's own semantics.
@@ -333,55 +339,3 @@ def test_yfinance_end_is_passed_through_exclusive():
 
     assert fake_yf.download.call_args.kwargs["end"] == "2026-08-07"
     assert fake_yf.download.call_args.kwargs["start"] == "2026-01-01"
-
-
-def test_stooq_d2_is_converted_to_the_exclusive_contract():
-    """stooq's d2 is inclusive, so it must be end-1 to denote the same bar."""
-    from src.data.prices import _fetch_stooq
-
-    captured: dict = {}
-
-    class _Resp:
-        text = "Date,Open,High,Low,Close,Volume\n2026-08-06,1,1,1,1,10\n"
-
-        def raise_for_status(self):
-            pass
-
-    def _fake_get(url, params=None, timeout=None):
-        captured.update(params)
-        return _Resp()
-
-    with patch("src.data.prices._requests.get", _fake_get):
-        _fetch_stooq("SPY", "2026-01-01", "2026-08-07")
-
-    assert captured["d2"] == "20260806"
-
-
-def test_both_sources_denote_the_same_final_bar():
-    """The skew this whole change is about: stooq's d2 and yfinance's end must
-    resolve to the same last session, or the two sources stagger the cohort."""
-    from src.data.prices import _fetch_stooq, _fetch_yfinance
-
-    fake_yf = MagicMock()
-    fake_yf.download.return_value = _series("2026-08-06", n=5)
-
-    captured: dict = {}
-
-    class _Resp:
-        text = "Date,Open,High,Low,Close,Volume\n2026-08-06,1,1,1,1,10\n"
-
-        def raise_for_status(self):
-            pass
-
-    def _fake_get(url, params=None, timeout=None):
-        captured.update(params)
-        return _Resp()
-
-    with patch.dict(sys.modules, {"yfinance": fake_yf}):
-        _fetch_yfinance("SPY", "2026-01-01", "2026-08-07")
-    with patch("src.data.prices._requests.get", _fake_get):
-        _fetch_stooq("SPY", "2026-01-01", "2026-08-07")
-
-    stooq_last = pd.Timestamp(captured["d2"])                       # inclusive
-    yf_last = pd.Timestamp(fake_yf.download.call_args.kwargs["end"]) - pd.Timedelta(days=1)
-    assert stooq_last == yf_last == pd.Timestamp("2026-08-06")

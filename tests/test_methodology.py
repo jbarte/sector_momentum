@@ -59,7 +59,7 @@ def test_methodology_covers_every_concept_a_reader_needs():
         ("badges",               "entry"),
         ("sentiment",            "finbert"),
         ("backtest",             "backtest"),
-        ("data sources",         "stooq"),
+        ("data sources",         "yfinance"),
     ]:
         assert needle in html, f"methodology no longer explains {topic}"
 

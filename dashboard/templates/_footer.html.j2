@@ -7,8 +7,7 @@
     <div class="health-row">
       <span class="health-label">Prices</span>
       <span class="health-values">
-        stooq {{ health.prices_stooq or 0 }}
-        &middot; yfinance {{ health.prices_yfinance or 0 }}
+        yfinance {{ health.prices_yfinance or 0 }}
         &middot; cache {{ health.prices_cache or 0 }}
         &middot; failed <span class="badge-{{ health_badges.prices or 'green' }}">{{ health.prices_failed or 0 }}</span>
       </span>
