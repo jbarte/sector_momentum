@@ -109,29 +109,6 @@ multi-window discipline: confirm each candidate on 2008– *and* 2015– before
 adopting, and check the band fraction `(top_n + buffer) / n_themes` rather than
 the absolute buffer, since the universe size keeps moving.
 
-## `Rank Δ` is meaningless 3 days in 7
-
-`dashboard/rows.py:161` computes the delta against the previous **`scan_id`**.
-The cron runs daily on a five-day market, so Saturday and Sunday scans are exact
-duplicates of Friday's — correctly so, nothing moved. Verified against the DB:
-
-| scans | dates | ranks changed |
-|---|---|---|
-| 153 → 154 | Thu → Fri | 12 of 20 |
-| 154 → 155 | Fri → **Sat** | **0** |
-| 155 → 156 | Sat → **Sun** | **0** |
-
-So the column renders `—` for every row on Saturday, Sunday **and Monday**
-(Monday compares against Sunday, which still carries Friday's close) — i.e.
-Monday morning, when you are most likely to look.
-
-**Fix:** compare against the most recent scan whose **as-of date** differs, not
-`scan_ids[-2]`. Chosen over skipping weekend cron runs because market holidays
-produce the identical duplicate on a weekday, so a cron rule would need a
-holiday calendar to be correct while the as-of comparison is right by
-construction — and the daily run is also the heartbeat that proves the pipeline
-still works.
-
 ## Composite structure — 4.2 effective signals of 8
 
 Same measurement run. Worth recording so the question is not re-opened from
@@ -437,6 +414,49 @@ source-only and tight:
 ---
 
 # Done
+
+- **Duplicate weekend/holiday scans no longer counted as observations**
+  (2026-08-09). The cron runs seven days a week against a five-day market, so
+  Saturday and Sunday scans replay Friday's close unchanged — correctly so,
+  nothing moved. Two consumers read raw `scan_id`s and therefore counted
+  replays as data:
+
+  - **`Rank Δ` compared against `scan_ids[-2]`**, so it rendered `—` for every
+    row on Saturday, Sunday **and Monday** (Monday's predecessor is Sunday,
+    which still carries Friday's close). Verified against the live DB:
+    153→154 (Thu→Fri) changed 12 of 20 ranks; 154→155 and 155→156 changed
+    **zero**.
+  - **The Trend slope averaged the last 5 `scan_id`s**, of which only **3 were
+    distinct** on 2026-08-09 — diluting the slope toward flat by roughly 2.5×
+    in the column the guide explicitly tells the reader to trust for exits.
+    Semiconductors read `[14, 13, 13, 13, 13]` where the true sequence was
+    `[14, 13, 13]`.
+
+  New `dashboard/rows.distinct_scan_ids()` collapses *consecutive* duplicate
+  scans, keeping each run's newest id so the rendered scan is always the latest.
+  It fingerprints on **rank and composite together**, not composite alone —
+  declaring two scans identical when they are not would skip a real
+  observation, so the wider fingerprint is the safe direction. NaN maps to a
+  sentinel, since `NaN != NaN` would otherwise make a scan differ from itself
+  exactly when scores are missing.
+
+  Keyed off the *data*, not the calendar, so market holidays — which produce the
+  identical duplicate on a weekday — are handled by the same code without a
+  holiday calendar. Past `MAX_DUPLICATE_RUN` (7) consecutive replays the delta
+  falls back to showing no change: that many means the pipeline is stuck, not
+  that the market was quiet, and showing a delta would present week-old data as
+  a fresh move.
+
+  Effect on the live build: 6 of 13 rows now show real movement where
+  previously all 13 read `—`.
+
+  13 new tests, **sabotage-verified** — the two that matter fail when the fix is
+  reverted. They also pin the inverse: genuinely unchanged ranks must still read
+  `—`, so skipping replays cannot manufacture movement.
+
+  Chose the data-driven fix over skipping weekend cron runs: a cron rule would
+  need a holiday calendar to be correct, and the daily run is also the heartbeat
+  that proves the pipeline still works.
 
 - **`acceleration` removed from scoring, replaced by `return_1m`** (2026-08-09).
   `acceleration = return_1m - return_3m`, and `return_3m` is simultaneously a
