@@ -226,9 +226,99 @@ Phase 1 design + plan: `design/{specs,plans}/2026-06-26-symbol-trends-*`.
 Optional interactive drill-down UI. Carried from early planning; the static
 dashboard's drill-down tab covers most of the need.
 
+## stooq has been dead since at least 2026-07-21 — the fallback is single-source
+
+Found while quantifying the as-of alignment work (2026-08-09). `prices_stooq`
+is **0 on every one of the 20 instrumented scans** (scan_id 137–156) while
+`prices_yfinance` carried 22–27 tickers on each of the 13 non-cache runs.
+A direct probe confirms why: `https://stooq.com/q/d/l/?s=spy.us&…` returns
+**HTTP 404**, so `_fetch_stooq` raises for every ticker and `_fetch_single`
+always falls through.
+
+The two-source design in `src/data/prices.py` is therefore fiction in practice
+— yfinance is a single point of failure, and the "stooq: 0/N succeeded — source
+may be down" warning has been firing daily into logs nobody reads. Decide:
+
+- fix the symbol/endpoint if stooq merely changed its URL scheme or now blocks
+  the default user-agent (worth 20 minutes of probing before anything else), or
+- replace the fallback with a source that works, or
+- delete the stooq path and say plainly that the scanner is yfinance-only, so
+  the health panel stops implying redundancy that does not exist.
+
+Not urgent — yfinance has not failed — but the redundancy story should either
+be true or be removed.
+
+## Weekend scans score Thursday's close, not Friday's
+
+The `_cache_is_fresh` 1-day grace (`src/data/prices.py`) exists so a weekday
+morning run does not refetch every ticker just because today's US close has not
+happened yet. That same grace makes a Saturday or Sunday run accept a cache
+written Friday morning — whose last bar is **Thursday** — so weekend scans miss
+Friday's close entirely. Confirmed against the live cache on 2026-08-09: every
+cohort ticker's last bar was 2026-08-06 while 2026-08-07 was a completed
+session.
+
+The cohort stays internally consistent (the 2026-08-09 alignment fix guarantees
+that), so this is staleness, not skew — scans 155 and 156 simply re-scored
+Thursday's data twice. A correct rule has to be market-hours aware ("has the US
+close happened yet?"), which is why it was not slipped into the alignment PR.
+
+## As-of alignment — remaining consumers and observability
+
+Follow-ups deliberately left out of the 2026-08-09 alignment fix to keep it
+source-only and tight:
+
+- **Other cross-sectional consumers don't align.** `dashboard/correlation.py`,
+  `dashboard/badges.py` and `dashboard/validation.py` all call `fetch_prices`
+  and compare tickers against each other without calling `align_cohort_asof`.
+  Same defect, lower stakes (none of them feed the composite).
+- **The as-of date isn't persisted.** `align_cohort_asof` reports it via
+  `stats_out` and the scan logs it, but nothing writes it to `scans`. A
+  `prices_asof` column (plus `asof_spread_days`) would make "which date was
+  this snapshot actually scored on?" answerable after the fact, and would show
+  the weekend-staleness item above directly in the health panel.
+
 ---
 
 # Done
+
+- **Cohort as-of alignment — every ticker is now scored on the same last bar**
+  (2026-08-09). Signals read `iloc[-1]` of whatever series they are handed
+  (`src/signals/*.py`), and alignment only ever happened *within* a ticker
+  (ticker vs benchmark, close vs volume) — never across the cohort. Since the
+  composite z-scores each signal *across* the cohort, a theme ending on Tuesday
+  could be ranked against a peer ending on Wednesday.
+
+  **Quantified before fixing, and the premise turned out to be half wrong.**
+  `prices_yfinance` is emphatically non-zero — 22–27 tickers on 13 of the 20
+  instrumented scans — but `prices_stooq` is **0 on all 20**, and stooq now
+  returns HTTP 404 for every symbol. So the cross-source skew (stooq inclusive
+  `d2` vs yfinance exclusive `end`) has never actually fired: there is only one
+  working source. What remains live is the per-ticker path — cache freshness is
+  decided independently per ticker (`_cache_is_fresh`), so one refetched ticker
+  beside 19 cache hits staggers the cohort, which is reachable every time the
+  universe changes (it changed twice in the first week of August).
+
+  Shipped: `align_cohort_asof()` in `src/data/prices.py`, called by `scan.py`
+  between fetch and scoring. As-of = the newest date every kept ticker has a
+  bar for; a ticker lagging the cohort's modal last date by more than 4 calendar
+  days is dropped instead of dragging everyone back to its date (the existing
+  80% coverage guard catches it if that becomes widespread).
+  `tests/test_price_asof_alignment.py` pins the invariant end-to-end: whatever
+  `fetch_prices` returns, the frames handed to the signal builder all end on
+  the same date.
+
+  The source mismatch was also settled, in the *safe* direction: `end` is now
+  documented as EXCLUSIVE and `_fetch_stooq` converts (`d2 = end - 1`), rather
+  than making yfinance inclusive. Code review caught why that matters — an
+  inclusive `end` pulls in Yahoo's partial candle for an in-progress session on
+  any run during market hours (manual `workflow_dispatch`, local dev), and
+  `_cache_is_fresh` only checks the *date*, so that half-formed close would be
+  cached and never refetched. Excluding the current session is the property
+  worth keeping; the first draft of this fix threw it away.
+
+  Left queued rather than folded in: the dead stooq source, the weekend cache
+  staleness the grace window causes, and persisting the as-of date to `scans`.
 
 - **Diversifier audit — the diversification thesis mostly failed; universe
   trimmed 20 → 18** — the open thread from the 2026-08-08 audit. The seven names

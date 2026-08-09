@@ -295,7 +295,7 @@ def _send_threshold_alerts(conn, scan_date):
 def run(args: argparse.Namespace) -> int:
     """Execute the full scan pipeline. Returns exit code."""
     _t0 = time.time()
-    from src.data.prices import fetch_prices
+    from src.data.prices import align_cohort_asof, fetch_prices
     from src.scoring import score_all, zscore_cross_section
     from src.state import init_db, load_last_scan, compute_deltas
     from src.report import build_ranked_table, build_movers, write_report
@@ -328,7 +328,7 @@ def run(args: argparse.Namespace) -> int:
         benchmark, "SPY",   # SPY is the documented benchmark fallback
     })
     logger.info("Fetching prices for %d tickers \u2026", len(unique_tickers))
-    _price_stats: dict[str, int] = {}
+    _price_stats: dict[str, object] = {}
     prices = fetch_prices(
         tickers=unique_tickers,
         start=str(start_date),
@@ -336,6 +336,20 @@ def run(args: argparse.Namespace) -> int:
         stats_out=_price_stats,
     )
     logger.info("Received price data for %d / %d tickers", len(prices), len(unique_tickers))
+    # prices_failed counts fetch failures only; the alignment step below can
+    # also drop tickers, and that is a different condition.
+    _prices_fetched = len(prices)
+
+    # 3b. Pin every ticker to one as-of date before scoring. The composite
+    #     z-scores each signal across the theme cohort, so a cohort whose
+    #     members end on different dates ranks Tuesday's reading against
+    #     Wednesday's. Nothing upstream guarantees a common end date — cache
+    #     freshness is decided per ticker.
+    prices, as_of = align_cohort_asof(prices, stats_out=_price_stats)
+    if as_of is None:
+        logger.error("No usable price data after as-of alignment — aborting.")
+        return 1
+    logger.info("Scoring as-of %s (%d tickers)", as_of.date(), len(prices))
 
     # 4. Compute per-theme signals + coverage guard
     logger.info("Computing signals \u2026")
@@ -421,7 +435,7 @@ def run(args: argparse.Namespace) -> int:
                 conn, run_at, long_signals_df, scored_with_deltas,
                 sentiment_signals_df, _finbert_health, t0=_t0,
                 price_stats=_price_stats, prices_total=len(unique_tickers),
-                prices_failed=len(unique_tickers) - len(prices),
+                prices_failed=len(unique_tickers) - _prices_fetched,
                 sectors_expected=expected_sectors, sectors_produced=len(rows),
             )
 
