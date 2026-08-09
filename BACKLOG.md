@@ -269,23 +269,6 @@ landmark, leaving `<footer>` as the page's sole landmark.
 **P2 — 13 icon-only `↗` links have no accessible name**; 474 elements render
 under 12px.
 
-## Rewrite README and ARCHITECTURE for the system that exists
-
-Both still describe the retired sector architecture. `README.md` opens *"a
-daily momentum scanner for **US SPDR** and **STOXX Europe 600** sector ETFs,
-mapped to the 11 GICS sectors… a parallel thematic ETF track"* — the sector
-cohort was retired 2026-08-05 and themes are the only cohort. `ARCHITECTURE.md`
-lists seven modules in its index that **do not exist** (`constituents.py`,
-`breadth.py`, `sector_map.py`, `rotations.py`, `sector_etfs.yaml`,
-`rotations.yaml`, `sector_map.yaml`) and still documents stooq as the primary
-price source.
-
-Caused by the Phase 1 rebrand changing the README *title* and not its body.
-Also worth folding in: `breadth_above_50dma` is written as NaN to the DB on
-every scan for every theme (no constituent list exists for themes), and
-`config/universe.yaml` is now a single setting whose filename no longer
-describes it.
-
 ## Deferred UI/code polish (small, grouped sweep)
 
 Minor findings deliberately deferred during code review — none affect
@@ -435,6 +418,39 @@ source-only and tight:
 ---
 
 # Done
+
+- **README and ARCHITECTURE rewritten for the system that exists** (2026-08-09).
+  Both still described the retired sector architecture: `README.md` opened *"a
+  daily momentum scanner for US SPDR and STOXX Europe 600 sector ETFs, mapped to
+  the 11 GICS sectors… a parallel thematic ETF track"*, four days after the
+  sector cohort was retired and themes became the only cohort. `ARCHITECTURE.md`
+  listed **seven modules in its index that do not exist** (`constituents.py`,
+  `breadth.py`, `sector_map.py`, `rotations.py`, `sector_etfs.yaml`,
+  `rotations.yaml`, `sector_map.yaml`) and still named stooq the primary price
+  source. Root cause: the Phase 1 rebrand changed the README *title* and left
+  the body.
+
+  Both rewritten from the code rather than edited in place. ARCHITECTURE now
+  carries the things that were undocumented and are easy to get wrong:
+  the exclusive-`end` price contract and why it exists; `align_cohort_asof` and
+  the per-ticker-freshness problem it solves; that the pillar lists are
+  hardcoded in `scoring.py` while `weights.yaml`'s `level_signals:` keys only
+  control dashboard column order; that `region` reads as legacy but is
+  load-bearing as the filter keeping retired sector rows out of every read;
+  that `positions` / `alert_prefs` / `v_recent_scores` are managed Supabase-side
+  and not by this repo's DDL; the `SV` vs `SV_HTML` i18n rule; that alerts fire
+  on band *crossings* not membership; and that the hysteresis band is stored in
+  absolute ranks so it does not scale with universe size.
+
+  Also recorded rather than quietly left: yfinance is now a single point of
+  failure, `breadth_above_50dma` is a permanently-NaN leftover column, and the
+  daily cron runs seven days a week against a five-day market.
+
+  Verified mechanically, since listing non-existent modules was the original
+  defect: every backticked file reference in both documents resolves to a real
+  git-tracked file, and every constant quoted in the prose (18 themes, ACWI,
+  `LAG_DAYS=7`, `MAX_ASOF_LAG_DAYS=4`, 50 bps, both pillar signal lists, the
+  five rebalance cadences) was read back out of the code and matched.
 
 - **Backtest costs are no longer assumed to be zero** (2026-08-09). `--cost-bps`
   defaulted to `0.0` in `backtest.py` **and** in `scripts/horizon_sweep.py` —
