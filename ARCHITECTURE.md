@@ -101,7 +101,7 @@ date by truncating prices.
 | `return_3m`, `return_6m` | `momentum.py` | Level |
 | `above_50dma` | `technical.py` | Level |
 | `rs_momentum` | `relative_strength.py` | Change |
-| `acceleration` | `momentum.py` | Change |
+| `return_1m` | `momentum.py` | Change |
 | `ma50_slope` | `technical.py` | Change |
 | `obv_slope` | `technical.py` | Change |
 
@@ -112,8 +112,14 @@ order in the dashboard only*; their values are ignored.
 
 ### Computed but not scored
 
-`return_1m`, `above_200dma`, `max_dd_1y`, `rar_3m`, `rar_6m`, `calmar_6m` are
-computed, stored and surfaced in the drill-down as context.
+`acceleration`, `above_200dma`, `max_dd_1y`, `rar_3m`, `rar_6m`, `calmar_6m`
+are computed, stored and surfaced in the drill-down as context.
+`acceleration` (= `return_1m - return_3m`) was a *scored* Change signal until
+2026-08-09; because `return_3m` is simultaneously a Level input, it carried
+that return with opposite signs in the two pillars and correlated **-0.31 with
+the composite it belonged to**. `return_1m` replaced it — which removes only
+the `- return_3m` term, since `return_1m` already entered positively inside
+`acceleration`.
 `breadth_above_50dma` is always NaN (no constituent list for a thematic ETF)
 and is a leftover column.
 

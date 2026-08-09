@@ -44,14 +44,33 @@ def test_bad_cost_config_falls_back_rather_than_raising(tmp_path, bad):
     assert round_trip_bps(cfg) == _FALLBACK_ROUND_TRIP_BPS
 
 
-def test_recorded_cagr_is_net_of_cost():
-    """Each preset's recorded cagr must be the net figure. The gross numbers
-    were 0.174 / 0.161 / 0.142; if any of those reappear, someone regenerated
-    the figures with --cost-bps 0 and the UI is over-promising again."""
-    gross = {0.174, 0.161, 0.142}
-    for h in horizons():
-        assert h.cagr not in gross, (
-            f"{h.key}: cagr {h.cagr} is a known gross (zero-cost) figure"
+def test_backtest_artifact_was_generated_at_the_configured_cost():
+    """The figures shipped in `backtests/summary.json` must have been produced
+    at the cost the config declares.
+
+    An earlier version of this test blocklisted the known gross CAGRs
+    (0.174 / 0.161 / 0.142). That was fragile and produced a false positive
+    within a day: the 2026-08-09 acceleration fix legitimately moved Medium's
+    net CAGR to 0.142, colliding with a number on the list. Checking the cost
+    the artifact records is the real invariant — it catches a regeneration at
+    `--cost-bps 0` without caring what the resulting returns happen to be.
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "backtests" / "summary.json"
+    if not path.exists():
+        pytest.skip("no backtest artifact committed")
+    data = json.loads(path.read_text())
+    tracks = data.get("tracks", data)
+    recorded = {k: v.get("cost_bps") for k, v in tracks.items()
+                if isinstance(v, dict) and "metrics" in v}
+    assert recorded, "artifact carries no per-track cost_bps"
+    expected = round_trip_bps()
+    for key, got in recorded.items():
+        assert got == pytest.approx(expected), (
+            f"{key}: figures generated at {got} bps but config says {expected}. "
+            f"Re-run `python3 backtest.py` after changing costs.round_trip_bps."
         )
 
 

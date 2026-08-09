@@ -30,7 +30,16 @@ logger = logging.getLogger(__name__)
 
 # Signals used for each sub-score (equal-weight within group)
 _LEVEL_SIGNALS = ["rs_ratio", "return_3m", "return_6m", "above_50dma"]
-_CHANGE_SIGNALS = ["rs_momentum", "acceleration", "ma50_slope", "obv_slope"]
+# `acceleration` (= return_1m - return_3m) sat here until 2026-08-09. Because
+# return_3m is simultaneously a positive Level input, the composite carried it
+# with one sign in Level and the opposite sign embedded in Change — measured
+# correlation of acceleration with its own composite was -0.31, and with
+# return_3m -0.82. Swapping in return_1m removes only the `- return_3m` term;
+# return_1m already entered positively *inside* acceleration, so this is not a
+# new bet on one-month momentum. Tested across 3 presets x 2 windows at 100bps:
+# Sharpe improved or held in 5 of 6 cells. Dropping it outright was worse in 4
+# of 6 and was rejected.
+_CHANGE_SIGNALS = ["rs_momentum", "return_1m", "ma50_slope", "obv_slope"]
 
 
 def zscore_cross_section(df: pd.DataFrame) -> pd.DataFrame:

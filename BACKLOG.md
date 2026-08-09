@@ -132,27 +132,6 @@ holiday calendar to be correct while the as-of comparison is right by
 construction — and the daily run is also the heartbeat that proves the pipeline
 still works.
 
-## `acceleration` fights the composite it belongs to
-
-Measured over 2,399 theme-date observations across 176 month-end dates
-(2012–2026): every scoring signal correlates positively with the final
-composite **except** `acceleration`, at **−0.31**.
-
-That is structural, not noise. `acceleration = return_1m − return_3m`, and
-`return_3m` is simultaneously a positive Level input — so the composite carries
-`return_3m` with one sign in Level and, embedded inside `acceleration`, the
-opposite sign in Change. Its measured correlation with `return_3m` is **−0.82**.
-
-Removing `acceleration` entirely changes only **9% of top-5 picks**, so the
-practical effect is small — but the Change pillar is not measuring what the
-methodology says it measures, and the 50/50 Level/Change split is nominal
-rather than effective.
-
-**Options:** drop it, or reformulate as `return_1m` z-scored on its own so it
-stops embedding `−return_3m`. Either way, run it through the backtest at
-multiple buffers before adopting, and update the methodology copy to match
-whatever survives.
-
 ## Composite structure — 4.2 effective signals of 8
 
 Same measurement run. Worth recording so the question is not re-opened from
@@ -458,6 +437,47 @@ source-only and tight:
 ---
 
 # Done
+
+- **`acceleration` removed from scoring, replaced by `return_1m`** (2026-08-09).
+  `acceleration = return_1m - return_3m`, and `return_3m` is simultaneously a
+  positive Level input — so the composite carried the same return with one sign
+  in Level and the opposite sign embedded in Change. Measured over 176
+  month-ends it correlated **-0.31 with the composite it belonged to** and
+  **-0.82 with return_3m**: the only scored signal pulling against its own score.
+
+  Two candidate fixes, both tested across **3 presets x 2 windows at 100 bps**
+  rather than in one cell:
+
+  | variant | Sharpe deltas across the 6 cells | verdict |
+  |---|---|---|
+  | drop it entirely | -0.05, -0.09, -0.03, -0.05, -0.02, +0.05 | worse in 4 of 6 — rejected |
+  | swap for `return_1m` | +0.06, +0.03, +0.06, +0.03, 0.00, -0.01 | improves or holds in 5 of 6 — adopted |
+
+  The swap removes *only* the `- return_3m` term: `return_1m` already entered
+  positively inside `acceleration`, so this is not a new bet on one-month
+  momentum and carries no new short-term-reversal exposure.
+
+  Regenerated figures at 100 bps (previous in brackets): short 13.9% CAGR /
+  0.67 Sharpe / 22.1 trades-yr [12.2% / 0.61 / 26.9], medium 14.2% / 0.81 /
+  17.6 [13.9% / 0.78 / 19.5], long 13.1% / 0.70 / 7.7 [13.2% / 0.70 / 7.2].
+  Short gains 1.7pp of CAGR *and* trades five fewer times a year; long is
+  roughly neutral.
+
+  `acceleration` stays computed and stored, and now appears in the drill-down's
+  "Not scored" line instead of the Change block. Methodology copy and
+  ARCHITECTURE updated to match.
+
+  Three new tests pin the pillar composition, which nothing had been guarding:
+  `acceleration` must stay out of the scored lists, the two pillars must be
+  disjoint and every scored name must exist in `SIGNAL_COLUMNS` (a typo there
+  scores a column of zeros silently, since z-scoring fills missing with 0.0),
+  and `weights.yaml`'s display-order keys must match the real lists.
+
+  Also replaced a fragile test written the same day: it blocklisted the known
+  gross CAGRs to catch a zero-cost regeneration, and produced a false positive
+  within hours when this change legitimately moved Medium's net CAGR onto a
+  blocklisted number. It now asserts `backtests/summary.json`'s recorded
+  `cost_bps` matches the configured cost — the actual invariant.
 
 - **README and ARCHITECTURE rewritten for the system that exists** (2026-08-09).
   Both still described the retired sector architecture: `README.md` opened *"a

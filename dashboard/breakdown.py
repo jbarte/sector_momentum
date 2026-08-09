@@ -16,10 +16,10 @@ _SIGNAL_META: dict[str, dict] = {
     "above_50dma":         {"label": "Dist. from 50-DMA",   "group": "level"},
     "above_200dma":        {"label": "Dist. from 200-DMA",  "group": "info"},
     "rs_momentum":         {"label": "RS Momentum",         "group": "change"},
-    "acceleration":        {"label": "Momentum Accel.",     "group": "change"},
+    "acceleration":        {"label": "Momentum Accel.",     "group": "info"},
     "ma50_slope":          {"label": "50-DMA Slope",        "group": "change"},
     "obv_slope":           {"label": "OBV Trend",           "group": "change"},
-    "return_1m":           {"label": "1M Return",           "group": "info"},
+    "return_1m":           {"label": "1M Return",           "group": "change"},
     "breadth_above_50dma": {"label": "Breadth >50-DMA",     "group": "info"},
     "max_dd_1y":           {"label": "Max Drawdown (1y)",   "group": "info"},
 }
@@ -31,10 +31,10 @@ _SIGNAL_DESCRIPTIONS: dict[str, str] = {
     "above_50dma":         "How far the ETF price sits above its 50-day moving average. Positive = price above MA (bullish structure).",
     "above_200dma":        "Distance from the 200-day moving average. Positive = sector is in a long-term uptrend.",
     "rs_momentum":         "Rate of change of relative strength — whether the sector is outperforming faster or slower than last week. Above 100 = accelerating.",
-    "acceleration":        "1-month return minus 3-month return. Positive = recent price action outpacing the medium-term trend (momentum re-accelerating).",
+    "acceleration":        "1-month return minus 3-month return. Stored for reference but no longer scored: because it subtracts the 3-month return, which is itself a Level signal, it partly cancelled the composite it belonged to.",
     "ma50_slope":          "Slope of the 50-day moving average. Positive = MA rising (uptrend intact); negative = MA rolling over.",
     "obv_slope":           "Slope of On-Balance Volume. Rising OBV means volume is flowing into the sector, confirming price strength with buying pressure.",
-    "return_1m":           "1-month price return. Short-term reference; stored but not included in scoring.",
+    "return_1m":           "Price return over the last month — the fastest-moving strength measure, and the Change pillar's read on whether the most recent stretch is stronger than the trailing window.",
     "breadth_above_50dma": "Percentage of stocks in the sector trading above their own 50-DMA. High breadth = broad-based rally, not just a few large caps.",
     "max_dd_1y":           "Largest peak-to-trough decline of the sector ETF over the last year. Closer to 0% = a shallower worst-case loss (steadier); more negative = a deeper historical drawdown. Info-only — not part of the score.",
 }
@@ -229,7 +229,7 @@ def _build_breakdown_html(
 
     # Info-only signals (not scored)
     info_parts = []
-    for n in ("above_200dma", "return_1m", "breadth_above_50dma", "max_dd_1y"):
+    for n in ("above_200dma", "acceleration", "breadth_above_50dma", "max_dd_1y"):
         sig = sig_by_name.get(n, {})
         if sig.get("raw_value") is not None:
             lbl = _SIGNAL_META[n]["label"]

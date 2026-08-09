@@ -273,6 +273,52 @@ def test_risk_adjusted_signals_present_but_not_scored():
         assert name not in _CHANGE_SIGNALS
 
 
+# ---------------------------------------------------------------------------
+# pillar composition
+# ---------------------------------------------------------------------------
+
+def test_acceleration_is_computed_but_not_scored():
+    """`acceleration` is `return_1m - return_3m`, and `return_3m` is a Level
+    signal — so scoring it put the same return in the composite with opposite
+    signs in the two pillars. Measured over 176 month-ends it correlated -0.31
+    with the composite it belonged to and -0.82 with return_3m. It was removed
+    from scoring on 2026-08-09 and replaced by `return_1m`, which is the same
+    term minus the cancellation.
+
+    It stays computed and stored: it is still shown in the drill-down as
+    context. This pins that it does not creep back into scoring.
+    """
+    from src.pipeline import SIGNAL_COLUMNS
+    from src.scoring import _LEVEL_SIGNALS, _CHANGE_SIGNALS
+    assert "acceleration" in SIGNAL_COLUMNS
+    assert "acceleration" not in _LEVEL_SIGNALS
+    assert "acceleration" not in _CHANGE_SIGNALS
+    assert "return_1m" in _CHANGE_SIGNALS
+
+
+def test_scored_pillars_are_disjoint_and_real():
+    """No signal may sit in both pillars (it would get double weight), and every
+    scored name must actually be produced by the pipeline — a typo here scores a
+    column of zeros silently, since z-scoring fills missing values with 0.0."""
+    from src.pipeline import SIGNAL_COLUMNS
+    from src.scoring import _LEVEL_SIGNALS, _CHANGE_SIGNALS
+    overlap = set(_LEVEL_SIGNALS) & set(_CHANGE_SIGNALS)
+    assert not overlap, f"signal in both pillars, double-weighted: {overlap}"
+    for name in (*_LEVEL_SIGNALS, *_CHANGE_SIGNALS):
+        assert name in SIGNAL_COLUMNS, f"{name} is scored but never computed"
+
+
+def test_weights_display_order_matches_scored_signals():
+    """`weights.yaml`'s level_signals/change_signals keys only drive dashboard
+    column order, but if they drift from the real lists the drill-down shows a
+    signal in the wrong pillar — or silently omits one."""
+    import yaml
+    from src.scoring import _LEVEL_SIGNALS, _CHANGE_SIGNALS
+    cfg = yaml.safe_load(open("config/weights.yaml"))
+    assert set(cfg["level_signals"]) == set(_LEVEL_SIGNALS)
+    assert set(cfg["change_signals"]) == set(_CHANGE_SIGNALS)
+
+
 def _flat_price_frame(n=200, price=100.0):
     idx = pd.date_range("2020-01-01", periods=n, freq="B")
     return pd.DataFrame({"Close": [price] * n, "Volume": [1_000] * n}, index=idx)
