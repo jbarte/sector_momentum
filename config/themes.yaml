@@ -48,25 +48,33 @@ themes:
     ticker: KROP
     gdelt_keywords: ["agtech", "precision agriculture", "food technology", "vertical farming"]
 
-  # --- Diversifiers (added 2026-08-05) -------------------------------------
-  # Selected by their effect on cohort pairwise correlation, not by narrative:
-  # the growth-thematic block above averages rho 0.52 against itself, which is
-  # three times the US sector cohort it replaces. These seven bring the 20-name
-  # cohort to rho 0.375. Several are industries rather than themes — that is
-  # exactly why they diversify. See the retire-sector-cohort design doc.
+  # --- Diversifiers (added 2026-08-05, trimmed 2026-08-09) -----------------
+  # Originally seven names chosen purely to lower cohort pairwise correlation,
+  # which they did (rho 0.52 -> 0.375). The 2026-08-09 audit then asked whether
+  # that bought anything, and mostly it did not: correlation fell, but drawdown
+  # did not, because in the crashes that matter everything falls together.
+  #
+  # Removed: Energy Producers (IXC) and Medical Devices (IHI). Both hurt the
+  # backtest at EVERY buffer setting tested (5/5), and drawdown was 5.8pp and
+  # 3.5pp *better* without them.
+  #
+  # Kept, but note WHY, because it is not the original reason:
+  #   Insurance, Healthcare Providers — earn their place on RETURN, not on
+  #     diversification (dropping either costs CAGR).
+  #   Gold & Precious Metals Miners — the only one that genuinely cuts drawdown,
+  #     and it charges ~1.4pp of CAGR for ~1.1pp of relief.
+  #   Shipping, Food & Beverage — ambiguous; left alone rather than trimmed
+  #     further on thin evidence.
+  #
+  # Lesson for any future universe change: a correlation screen cannot see
+  # whether a name is simply worse. Judge on the backtest, at matched window and
+  # matched band.
   Insurance:
     ticker: IAK
     gdelt_keywords: ["insurance industry", "insurer earnings", "reinsurance", "property casualty insurance"]
   Healthcare Providers:
     ticker: IHF
     gdelt_keywords: ["health insurer", "hospital operator", "managed care", "healthcare costs"]
-  Energy Producers:
-    # IXC, not XLE: XLE is already the US Energy sector instrument, and a ticker
-    # shared across cohorts breaks the correlation heatmap. IXC is global energy
-    # equity, correlates 0.25 against the rest (XLE was 0.24), and matches the
-    # global UCITS equivalent below more closely than XLE did.
-    ticker: IXC
-    gdelt_keywords: ["oil producer", "oil prices", "natural gas prices", "energy company earnings"]
   Gold & Precious Metals Miners:
     ticker: GDX
     gdelt_keywords: ["gold mining", "gold price", "precious metals", "gold miner"]
@@ -76,9 +84,6 @@ themes:
   Food & Beverage:
     ticker: PBJ
     gdelt_keywords: ["food company", "beverage industry", "food prices", "packaged food"]
-  Medical Devices:
-    ticker: IHI
-    gdelt_keywords: ["medical device", "medical equipment", "surgical device", "FDA device approval"]
 
 ucits:
   Artificial Intelligence & Robotics:
@@ -221,14 +226,6 @@ ucits:
       match: partial
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00B3WMTH43
 
-  Energy Producers:
-    - ticker: 5MVW
-      name: iShares MSCI World Energy Sector UCITS ETF USD (Dist)
-      isin: IE00BJ5JP105
-      ter: "0.18%"
-      issuer: iShares
-      match: close
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BJ5JP105
 
   Gold & Precious Metals Miners:
     - ticker: G2X
@@ -248,12 +245,4 @@ ucits:
       match: partial
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00B5MTYL84
 
-  Medical Devices:
-    - ticker: U5MD
-      name: iShares US Medical Devices UCITS ETF USD (Acc)
-      isin: IE00BMX0DF60
-      ter: "0.25%"
-      issuer: iShares
-      match: close
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE00BMX0DF60
 
