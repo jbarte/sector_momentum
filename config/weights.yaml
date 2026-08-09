@@ -29,6 +29,44 @@ signal_params:
   rs_momentum_fast: 5     # RRG RS-Momentum lookback (was 1; standard RRG ~10)
 
 # ---------------------------------------------------------------------------
+# Trading costs.
+#
+# `round_trip_bps` is the all-in cost of replacing one position: commission on
+# the sell AND the buy, plus the bid/ask spread you cross on both sides. It is
+# applied to the fraction of the book that turns over each rebalance
+# (src/backtest/strategy.py), so it is a ROUND-TRIP rate, not one-way.
+#
+# This defaulted to 0 until 2026-08-09, which mattered more than it sounds:
+# the horizon presets below were *selected* by a sweep that assumed free
+# trading, and free trading systematically favours the cadence that trades
+# most. Measured on this universe the ranking inverts at roughly 50 bps, and at
+# the 100 bps actually paid the Short preset is the WORST of the three:
+#
+#   cost |  Short | Medium |  Long
+#      0 |  17.4% |  16.1% | 14.2%
+#     50 |  14.8% |  15.0% | 13.7%
+#    100 |  12.2% |  13.9% | 13.2%
+#
+# 100 bps is Jonas's real Avanza cost, read off their own fee disclosure for
+# L&G ROBO Global Robotics (the UCITS equivalent of BOTZ) on a 10 000 SEK
+# position: "Avgifter för köp och sälj — Avanzas avgifter: 100 SEK / 1%". That
+# heading covers both legs, so it is already round-trip.
+#
+# Deliberately EXCLUDED from this number, because they are annual drags rather
+# than per-trade costs and would be billed per turnover if they lived here:
+#   - Löpande avgifter 0.8%  — the fund's TER
+#   - Transaktionsavgifter 0.03% — the fund's own internal dealing costs
+# Neither is modelled anywhere in the backtest. See BACKLOG.
+#
+# CAVEAT: if Avanza's 100 SEK is a per-trade *minimum* rather than a true
+# percentage, this rate falls as position size rises — roughly 40 bps at
+# 25 000 SEK, 20 bps at 50 000 SEK. Below ~45 bps the Short preset starts
+# winning again. Recheck against a real trade confirmation if position sizing
+# changes materially.
+costs:
+  round_trip_bps: 100
+
+# ---------------------------------------------------------------------------
 # Horizon presets — how long to hold, and how much churn that costs.
 #
 # Each preset is a (rebalance cadence, top_n, hysteresis buffer) triple, chosen
@@ -39,21 +77,37 @@ signal_params:
 # stays within top_n + buffer, so a one-rank wobble no longer forces a trade.
 # It is the single biggest churn lever — far more than the cadence.
 #
-# Buffer 5 across all three presets is deliberate, not three separately fitted
-# numbers: it puts the hold band at ~50% of a 20-theme universe. Because the
-# band is measured in ABSOLUTE ranks, expanding the universe from 13 to 20
-# themes on 2026-08-05 silently tightened it from 62% to 40% and tripled churn.
-# Retuned again on 2026-08-09 when the audit trimmed the universe 20 -> 18: the
-# buffers below are re-picked per preset on the new universe, not band-scaled
-# mechanically. Medium lands at band 50% again, which keeps being the plateau.
-# Retuning it recovered more return at less churn on all three presets (see the
-# 2026-08-08 redundancy audit). If the universe size changes again, revisit
-# this — the band does not scale itself.
+# The buffers are 5 / 4 / 6 — re-picked per preset on 2026-08-09 when the
+# redundancy audit trimmed the universe 20 -> 18, not band-scaled mechanically.
+# (An earlier revision of this comment claimed a uniform buffer of 5 across all
+# three; that stopped being true at that retune and is corrected here.)
+#
+# What DOES generalise is the band as a FRACTION of the universe:
+# (top_n + buffer) / n_themes. Medium sits at ~50%, which keeps coming out as
+# the plateau. Because the band is stored in ABSOLUTE ranks, growing the
+# universe from 13 to 20 themes on 2026-08-05 silently tightened it from 62% to
+# 40% and tripled churn. If the universe size changes again, revisit these —
+# the band does not scale itself.
 #
 # These are PRECOMPUTED OPERATING POINTS from one sweep over one market
 # history, not a live optimiser. The recorded cagr/trades_per_year are the
 # backtested figures for that cell and exist so the UI can show the churn cost
 # next to the return; they are not predictions.
+#
+# `cagr` is NET of costs.round_trip_bps (below). trades_per_year and
+# median_holding_days are unchanged by cost — the cost model is applied to
+# returns, never to selection, so the same names are picked either way.
+#
+# KNOWN, NOT YET ACTED ON: re-running the sweep at 50 bps already put all three
+# cells below off the frontier, because they were picked at 0 bps and free
+# trading flatters whichever cadence trades most. `W/3/6` beat this `short`
+# (W/3/5) on return, Sharpe AND churn at once. At the 100 bps actually paid the
+# gap is wider still, and the sweep has NOT been re-run at 100 — so treat these
+# three cells as inherited, not as chosen for this cost. Deliberately not
+# re-picked here: that changes what the dashboard tells you to hold, on one
+# sweep over one history, and this repo has twice this month had a single-cell
+# result reverse under a subperiod check. Re-pick as its own change, with the
+# multi-window discipline.
 #
 # `default` is what the baked page renders and what alerts use. Signed-in users
 # can switch preset client-side; alerts stay on the default (per-user horizon
@@ -66,7 +120,7 @@ horizons:
       rebalance: W
       top_n: 3
       buffer: 5
-      cagr: 0.174
+      cagr: 0.122
       trades_per_year: 26.9
       median_holding_days: 42
     medium:
@@ -74,7 +128,7 @@ horizons:
       rebalance: M
       top_n: 5
       buffer: 4
-      cagr: 0.161
+      cagr: 0.139
       trades_per_year: 19.5
       median_holding_days: 92
     long:
@@ -82,6 +136,6 @@ horizons:
       rebalance: 2M
       top_n: 4
       buffer: 6
-      cagr: 0.142
+      cagr: 0.132
       trades_per_year: 7.2
       median_holding_days: 182

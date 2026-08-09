@@ -45,8 +45,10 @@ def _render_index(leaderboard_rows, cohort_list=None):
     ungrouped cohort. `has_any_rows` is derived the same way build.py derives
     it, so tests don't have to keep it in sync by hand."""
     from src.cohorts import cohorts
+    from src.horizons import round_trip_bps
     return _jinja_env().get_template("index.html.j2").render(
         leaderboard_rows=leaderboard_rows,
+        round_trip_bps=round_trip_bps(),
         cohort_list=cohort_list if cohort_list is not None else cohorts(_TEST_THEMES_CFG),
         has_any_rows=bool(leaderboard_rows),
         sector_keys=[], scan_index=[], backtest_metrics=[], badge_scorecard=[],

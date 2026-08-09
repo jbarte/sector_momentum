@@ -11,7 +11,48 @@ import pytest
 
 from dashboard.rows import _compute_setup
 from src.backtest.replay import REBALANCE_FREQS
-from src.horizons import Horizon, default_horizon, horizons
+from src.horizons import (
+    _FALLBACK_ROUND_TRIP_BPS, Horizon, default_horizon, horizons, round_trip_bps,
+)
+
+
+# ---------------------------------------------------------------------------
+# trading costs
+# ---------------------------------------------------------------------------
+
+def test_shipped_cost_is_not_zero():
+    """The presets were originally selected by a sweep that defaulted to 0 bps,
+    which systematically favours whichever cadence trades most — measured on
+    this universe the preset CAGR ranking inverts at roughly 50 bps. A zero
+    here would silently restore that bias, so it is pinned."""
+    assert round_trip_bps() > 0
+
+
+def test_missing_costs_block_falls_back_non_zero(tmp_path):
+    cfg = tmp_path / "w.yaml"
+    cfg.write_text("horizons:\n  default: medium\n")
+    assert round_trip_bps(cfg) == _FALLBACK_ROUND_TRIP_BPS
+
+
+@pytest.mark.parametrize("bad", ["", "costs: {}\n", "costs:\n  round_trip_bps: nope\n",
+                                 "costs:\n  round_trip_bps: -10\n"])
+def test_bad_cost_config_falls_back_rather_than_raising(tmp_path, bad):
+    """A typo must not take the dashboard down, and a negative cost must not
+    produce a strategy that is paid to trade."""
+    cfg = tmp_path / "w.yaml"
+    cfg.write_text(bad)
+    assert round_trip_bps(cfg) == _FALLBACK_ROUND_TRIP_BPS
+
+
+def test_recorded_cagr_is_net_of_cost():
+    """Each preset's recorded cagr must be the net figure. The gross numbers
+    were 0.174 / 0.161 / 0.142; if any of those reappear, someone regenerated
+    the figures with --cost-bps 0 and the UI is over-promising again."""
+    gross = {0.174, 0.161, 0.142}
+    for h in horizons():
+        assert h.cagr not in gross, (
+            f"{h.key}: cagr {h.cagr} is a known gross (zero-cost) figure"
+        )
 
 
 def test_shipped_config_defines_presets():

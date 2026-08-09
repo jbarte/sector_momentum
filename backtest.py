@@ -34,8 +34,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--top-n", type=int, default=5, help="Number of sectors to hold (default 5).")
     p.add_argument("--start", default=DEFAULT_START, help="History start date (YYYY-MM-DD).")
     p.add_argument("--out", default="backtests", help="Output directory.")
-    p.add_argument("--cost-bps", type=float, default=0.0,
-                   help="One-way transaction cost in basis points, applied on turnover (default 0).")
+    p.add_argument("--cost-bps", type=float, default=None,
+                   help="Round-trip transaction cost in basis points, applied on turnover. "
+                        "Defaults to costs.round_trip_bps in config/weights.yaml. "
+                        "Pass 0 to reproduce the pre-2026-08-09 cost-free figures.")
     p.add_argument("--no-rotations", action="store_true",
                    help="Skip the rotation event-study.")
     p.add_argument("--themes", action="store_true", default=True,
@@ -70,7 +72,13 @@ def run(args: argparse.Namespace) -> int:
     from src.data.prices import fetch_prices
     from src.backtest.engine import run_theme_track
     from src.backtest.results import write_results
-    from src.horizons import horizons
+    from src.horizons import horizons, round_trip_bps
+
+    # None (not 0) means "unset" so an explicit `--cost-bps 0` still works for
+    # reproducing the historical cost-free figures.
+    if args.cost_bps is None:
+        args.cost_bps = round_trip_bps()
+    logger.info("Transaction cost: %.0f bps round-trip", args.cost_bps)
 
     with open("config/themes.yaml") as f:
         themes_cfg = yaml.safe_load(f) or {}
