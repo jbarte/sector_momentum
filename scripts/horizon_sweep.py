@@ -50,9 +50,11 @@ BACKTEST_CACHE = "data/backtest_cache"
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--start", default="2003-01-01")
-    p.add_argument("--cost-bps", type=float, default=0.0,
-                   help="One-way cost in bps applied on turnover. Worth running "
-                        "non-zero: churn is only free at 0 bps.")
+    p.add_argument("--cost-bps", type=float, default=None,
+                   help="Round-trip cost in bps applied on turnover. Defaults to "
+                        "costs.round_trip_bps in config/weights.yaml. Sweeping at 0 "
+                        "systematically favours the cadence that trades most, which "
+                        "is how the pre-2026-08-09 presets were picked.")
     p.add_argument("--out", default="horizon_sweep.md")
     return p.parse_args()
 
@@ -94,6 +96,10 @@ def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps)
 
 def main() -> int:
     args = _parse_args()
+
+    if args.cost_bps is None:
+        from src.horizons import round_trip_bps
+        args.cost_bps = round_trip_bps()
 
     with open("config/themes.yaml") as fh:
         themes_cfg = yaml.safe_load(fh) or {}

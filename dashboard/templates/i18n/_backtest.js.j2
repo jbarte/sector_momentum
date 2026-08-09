@@ -1,8 +1,9 @@
+{# Strings carrying markup MUST live in SV_HTML (applied via innerHTML), never
+   in SV (applied via textContent, which would render the tags as visible
+   angle brackets). note_backtest / note_backtest_caveat moved for that reason
+   on 2026-08-09 — the caveat had been showing literal <strong> in Swedish. #}
 Object.assign(SV, {
-  note_backtest: "Likaviktad, endast lång, utan kostnader. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje horisont är en ombalanseringstakt plus ett hysteresband: ett innehav behålls så länge dess rang håller sig inom topp-N + buffert, så en enstaka rangförändring är ingen affär.",
-  note_backtest_caveat: "<strong>Detta är förberäknade driftpunkter från en svepning över en marknadshistorik (2008–2026), inte en live-optimerare.</strong> Universumet spelas upp som det ser ut idag, så teman som lanserades senare saknas helt i de tidiga åren. Läs kolumnen affärer/år bredvid avkastningen, inte i stället för den.",
   note_backtest_themes: "Månatlig rotation av topprankade teman, likaviktad, endast lång. Endast prisbaserade signaler (sentiment exkluderat). Teman poängsätts inom sin egen kohort mot ACWI.",
-  bt_themes_empty: "Ingen temabacktest ännu. Kör <code>python backtest.py</code>.",
   bt_window: "Period",
   bt_stratcagr: "Strategi CAGR",
   bt_benchcagr: "Index CAGR",
@@ -10,4 +11,9 @@ Object.assign(SV, {
   bt_maxdd: "Max nedgång",
   bt_hitrate: "Träffsäkerhet",
   bt_turnover: "Omsättning"
+});
+
+Object.assign(SV_HTML, {
+  note_backtest: "Likaviktad, endast lång, <strong>efter {{ round_trip_bps | round | int }} punkters transaktionskostnad tur och retur</strong>. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje horisont är en ombalanseringstakt plus ett hysteresband: ett innehav behålls så länge dess rang håller sig inom topp-N + buffert, så en enstaka rangförändring är ingen affär.",
+  note_backtest_caveat: "<strong>Detta är förberäknade driftpunkter från en svepning över en marknadshistorik (2008–2026), inte en live-optimerare.</strong> Universumet spelas upp som det ser ut idag, så teman som lanserades senare saknas helt i de tidiga åren. Läs kolumnen affärer/år bredvid avkastningen, inte i stället för den."
 });

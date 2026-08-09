@@ -21,6 +21,95 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Re-pick the horizon presets at realistic cost
+
+The cost assumption was fixed on 2026-08-09 (see Done), but the presets
+themselves were **selected** by a sweep that defaulted to 0 bps, and free
+trading systematically flatters whichever cadence trades most. Re-running the
+sweep at 50 bps puts **all three current cells off the frontier**:
+
+| preset | current cell | @50bps | a frontier cell that beats it |
+|---|---|---|---|
+| short | W/3/5 | 14.8% / 0.70 / 26.9 tr | **W/3/6 — 16.3% / 0.76 / 19.8 tr** |
+| medium | M/5/4 | 15.0% / 0.83 / 19.5 tr | M/4/5 — 15.7% / 0.84 / 14.7 tr |
+| long | 2M/4/6 | 13.7% / 0.72 / 7.2 tr | 2M/5/8 — 14.1% / 0.75 / 4.4 tr |
+
+`W/3/6` beats the current `short` on return, Sharpe **and** churn at once —
+one wider buffer.
+
+**Deliberately not done as part of the cost fix.** This changes what the
+dashboard tells you to hold, and it rests on one sweep over one market history.
+This repo has twice in one month had a single-cell result reverse under a
+subperiod check (SIL/OIH, and the 12m trend filter). Re-pick with the
+multi-window discipline: confirm each candidate on 2008– *and* 2015– before
+adopting, and check the band fraction `(top_n + buffer) / n_themes` rather than
+the absolute buffer, since the universe size keeps moving.
+
+## `Rank Δ` is meaningless 3 days in 7
+
+`dashboard/rows.py:161` computes the delta against the previous **`scan_id`**.
+The cron runs daily on a five-day market, so Saturday and Sunday scans are exact
+duplicates of Friday's — correctly so, nothing moved. Verified against the DB:
+
+| scans | dates | ranks changed |
+|---|---|---|
+| 153 → 154 | Thu → Fri | 12 of 20 |
+| 154 → 155 | Fri → **Sat** | **0** |
+| 155 → 156 | Sat → **Sun** | **0** |
+
+So the column renders `—` for every row on Saturday, Sunday **and Monday**
+(Monday compares against Sunday, which still carries Friday's close) — i.e.
+Monday morning, when you are most likely to look.
+
+**Fix:** compare against the most recent scan whose **as-of date** differs, not
+`scan_ids[-2]`. Chosen over skipping weekend cron runs because market holidays
+produce the identical duplicate on a weekday, so a cron rule would need a
+holiday calendar to be correct while the as-of comparison is right by
+construction — and the daily run is also the heartbeat that proves the pipeline
+still works.
+
+## `acceleration` fights the composite it belongs to
+
+Measured over 2,399 theme-date observations across 176 month-end dates
+(2012–2026): every scoring signal correlates positively with the final
+composite **except** `acceleration`, at **−0.31**.
+
+That is structural, not noise. `acceleration = return_1m − return_3m`, and
+`return_3m` is simultaneously a positive Level input — so the composite carries
+`return_3m` with one sign in Level and, embedded inside `acceleration`, the
+opposite sign in Change. Its measured correlation with `return_3m` is **−0.82**.
+
+Removing `acceleration` entirely changes only **9% of top-5 picks**, so the
+practical effect is small — but the Change pillar is not measuring what the
+methodology says it measures, and the 50/50 Level/Change split is nominal
+rather than effective.
+
+**Options:** drop it, or reformulate as `return_1m` z-scored on its own so it
+stops embedding `−return_3m`. Either way, run it through the backtest at
+multiple buffers before adopting, and update the methodology copy to match
+whatever survives.
+
+## Composite structure — 4.2 effective signals of 8
+
+Same measurement run. Worth recording so the question is not re-opened from
+scratch, and **not** obviously worth acting on.
+
+- Effective independent signals (PCA entropy on the correlation matrix):
+  **4.21 of 8**; PC1 alone explains 51% of variance.
+- LEVEL is the concentrated pillar: **2.42 effective of 4**, mean pairwise
+  ρ = 0.59. `rs_ratio` ↔ `above_50dma` = 0.79.
+- The pillars leak into each other: `return_3m` (Level) ↔ `ma50_slope`
+  (Change) = **0.90**.
+- `mean(z(above_50dma), z(rs_ratio))` alone reproduces the full ranking at
+  **0.896 Spearman**, 84% identical top-5 holdings.
+
+So the ranking is dominated by two trailing-strength signals. It is not that
+the other six are useless — 16% of picks differ, which compounds — but the
+"eight signals across two balanced pillars" model oversells what is happening.
+Any future signal added to Level should be checked for correlation against
+`above_50dma` and `rs_ratio` first; adding a ninth correlated signal buys
+almost nothing.
+
 ## Per-user horizon for alerts (level 3)
 
 The Short/Medium/Long selector drives the backtest curves and the leaderboard
@@ -102,6 +191,76 @@ If it is ever done, `region` → `cohort` and `gics_sector` → `name` are the h
 names, and the cheap subset (`sector_key`, `sector_id`, `top_sector`,
 `sector_count`, the two `scans` health columns) can be renamed independently of
 the schema at much lower risk.
+
+## Design review findings (2026-08-09 audit)
+
+From a dual-agent design review + mechanical browser measurement. Nielsen
+score **23/40**; cognitive-load checklist fails 6 of 8. Full detail is in the
+review thread; the actionable set:
+
+**P0 — three of nine leaderboard columns carry no information.** `DATA` is a
+verbatim duplicate of `COMPOSITE` in every row (sentiment weighs 0, so
+`composite = data_score` by construction). `RANK Δ` is empty (see the weekend
+item above). `SENTIMENT` affects nothing at the default weight. Meanwhile the
+composite — the entire thesis — is rendered as bare 3-decimal monospace with no
+bar, no zero reference, no scale.
+
+**P0 — `.z-bar` encodes signed values as unsigned.** It fills from the *left*
+with width ∝ |z| and uses near-invisible `#C4B89A` for negative, so −2.5 and
++2.5 render identically in the same direction, and the worst signals appear as
+the faintest marks. Should be a centre-origin diverging bar.
+
+**P0 — meaning-bearing text fails contrast at sub-10px.** 54 elements below
+4.5:1. Column headers 2.95:1 at 10px. `.traj-badge` — the Trend column the
+guide explicitly says to trust for exits — is **3.80:1 at 9.84px**.
+
+**P0 — no focus indicators.** 43 of 43 visible interactive elements show no
+ring; the stylesheet has only three `:focus-visible` rules, none covering tabs,
+chips, rows or headers.
+
+**P1 — the gate modal declares `aria-modal="true"` and implements none of it.**
+No focus move, no trap, no Escape, no backdrop close; first Tab lands *behind*
+the overlay. `_methodology.html.j2` implements all of it correctly and its
+comment claims it mirrors the gate modal — it is the other way round. Lift the
+working `open/close/onKey` block into a shared helper.
+
+**P1 — opening the help destroys the filter layout.** `.utility-row` makes
+`.tab-guide` a flex sibling of `.filter-bar`, so `[open]` inflates the row and
+strands the chips in a floating block.
+
+**P1 — mobile shows ~35% of the table.** At 375px the wrap is 269px against a
+769px table with no sticky first column, so scrolling right loses rank and
+theme name and `TREND` is unreachable blind. 32 touch targets under 44px; the
+⚙ that changes ranking weights is 7×18px.
+
+**P1 — badge/trend hierarchy is inverted against the copy.** `▲ Entry` is a
+tinted pill beside the theme name; `Trend` is a 9.84px arrow in the last
+column — but the guide says badges describe *position only* and Trend is the
+health check. A theme can show a loud green Entry next to a red ↓.
+
+**P2 — heading outline is broken** (`h2` → `h4`, no `h3`); no `<main>` and no
+skip link, and `role="tablist"` on the only `<nav>` suppresses the navigation
+landmark, leaving `<footer>` as the page's sole landmark.
+
+**P2 — 13 icon-only `↗` links have no accessible name**; 474 elements render
+under 12px.
+
+## Rewrite README and ARCHITECTURE for the system that exists
+
+Both still describe the retired sector architecture. `README.md` opens *"a
+daily momentum scanner for **US SPDR** and **STOXX Europe 600** sector ETFs,
+mapped to the 11 GICS sectors… a parallel thematic ETF track"* — the sector
+cohort was retired 2026-08-05 and themes are the only cohort. `ARCHITECTURE.md`
+lists seven modules in its index that **do not exist** (`constituents.py`,
+`breadth.py`, `sector_map.py`, `rotations.py`, `sector_etfs.yaml`,
+`rotations.yaml`, `sector_map.yaml`) and still documents stooq as the primary
+price source.
+
+Caused by the Phase 1 rebrand changing the README *title* and not its body.
+Also worth folding in: `breadth_above_50dma` is written as NaN to the DB on
+every scan for every theme (no constituent list exists for themes), and
+`config/universe.yaml` is now a single setting whose filename no longer
+describes it.
 
 ## Deferred UI/code polish (small, grouped sweep)
 
@@ -252,6 +411,46 @@ source-only and tight:
 ---
 
 # Done
+
+- **Backtest costs are no longer assumed to be zero** (2026-08-09). `--cost-bps`
+  defaulted to `0.0` in `backtest.py` **and** in `scripts/horizon_sweep.py` —
+  the sweep that picks the presets. Free trading systematically flatters
+  whichever cadence trades most, and measured on this universe the preset CAGR
+  ranking **inverts at roughly 50 bps**:
+
+  | cost | Short | Medium | Long |
+  |---|---|---|---|
+  | 0 bps | **17.4%** | 16.1% | 14.2% |
+  | 50 bps | 14.8% | **15.0%** | 13.7% |
+  | 100 bps | 12.2% | **13.9%** | 13.2% |
+
+  Sharpe told the same story at every level including zero (Medium 0.88 vs
+  Short 0.80), so Medium was always the right default — but the Backtest tab
+  presented Short's 17.4% as the top line.
+
+  New `costs.round_trip_bps` in `config/weights.yaml` (default 50, documented
+  as a conservative placeholder to be replaced with the real broker number),
+  read via `src.horizons.round_trip_bps()` so the backtest, the sweep and the
+  dashboard share one assumption. Both CLIs now default from it; `--cost-bps 0`
+  still reproduces the old figures. Recorded preset CAGRs regenerated net
+  (0.148 / 0.150 / 0.137) and `backtests/summary.json` rebuilt. Tab copy now
+  reads "net of 50 bps round-trip trading costs" instead of "no costs".
+
+  Fixed in passing, both found while editing: `note_backtest_caveat` carried
+  `<strong>` markup in the **`SV`** dictionary, which is applied via
+  `textContent` — so switching to Swedish rendered literal `<strong>` tags on
+  the page, and switching back left the English permanently unbolded. Moved it
+  and `note_backtest` to `SV_HTML`/`data-i18n-html` and verified the bold
+  survives an EN→SV→EN round-trip. The leaderboard guide still said "best of
+  these **20**" after the 20→18 trim while the Swedish said 18; both now derive
+  from the rendered row count. (`bt_themes_empty` also carries `<code>` but is
+  referenced nowhere — dead key, left alone.)
+
+  Not done here, queued instead: re-picking the presets themselves. At 50 bps
+  all three current cells are off the frontier, and `W/3/6` beats the current
+  `short` on return, Sharpe and churn simultaneously — but that changes what
+  the dashboard tells you to hold, on one sweep over one history, and this repo
+  has twice this month had a single-cell result reverse under a subperiod check.
 
 - **stooq retired — the scanner is honestly yfinance-only now** (2026-08-09).
   `prices_stooq` had been 0 on all 20 instrumented scans; a probe confirmed why

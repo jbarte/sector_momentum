@@ -306,9 +306,10 @@ def main() -> None:
 
     cohort_list = cohorts(_themes_cfg)
 
-    from src.horizons import horizons, default_horizon
+    from src.horizons import horizons, default_horizon, round_trip_bps
     horizon_list = horizons()
     _default_horizon = default_horizon()
+    _round_trip_bps = round_trip_bps()
 
     # The scan index, per-scan reports and Atom feed used to need a sector-only
     # slice of all_scores_df, because that frame was widened to carry THEME
@@ -444,6 +445,7 @@ def main() -> None:
         "leaderboard_rows": leaderboard_rows,
         "cohort_list": cohort_list,
         "horizon_list": horizon_list,
+        "round_trip_bps": _round_trip_bps,
         "horizons_json": _json.dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
              "top_n": h.top_n, "buffer": h.buffer,
@@ -483,6 +485,10 @@ def main() -> None:
         "scan_date": scan_date,
         "active_scan_id": active_scan_id,
         "plotly_bundle": plotly_bundle_rel,
+        # Both pages include the shared i18n bundle, and the backtest strings in
+        # it interpolate the cost. Omit this and the sentiment page fails to
+        # render on an Undefined, even though it shows no backtest itself.
+        "round_trip_bps": _round_trip_bps,
     }
     sentiment_ctx.update(_sentiment_ctx(shared))
     sentiment_ctx.update(macro_page_ctx)

@@ -15,7 +15,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.horizons import horizons as _horizons, default_horizon as _default_horizon
+from src.horizons import (horizons as _horizons, default_horizon as _default_horizon,
+                          round_trip_bps as _round_trip_bps)
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -41,6 +42,7 @@ def _horizon_ctx(dumps=json.dumps):
     d = _default_horizon()
     return dict(
         horizon_list=hs,
+        round_trip_bps=_round_trip_bps(),
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
              "top_n": h.top_n, "buffer": h.buffer,

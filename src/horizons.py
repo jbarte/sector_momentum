@@ -54,11 +54,39 @@ class Horizon:
         return self.top_n + self.buffer
 
 
-def _load(path: str | Path | None = None) -> dict:
+#: Used when config carries no `costs:` block. Non-zero on purpose: a zero
+#: default is what let the presets be selected under free-trading assumptions,
+#: and a silently-absent config should not quietly restore that.
+_FALLBACK_ROUND_TRIP_BPS = 50.0
+
+
+def _cfg(path: str | Path | None = None) -> dict:
     p = Path(path) if path else _DEFAULT_PATH
     if not p.exists():
         return {}
-    return (yaml.safe_load(p.read_text()) or {}).get("horizons") or {}
+    return yaml.safe_load(p.read_text()) or {}
+
+
+def _load(path: str | Path | None = None) -> dict:
+    return _cfg(path).get("horizons") or {}
+
+
+def round_trip_bps(path: str | Path | None = None) -> float:
+    """All-in cost of replacing one position, in basis points.
+
+    Read by `backtest.py` and `scripts/horizon_sweep.py` so the figures shown
+    beside each preset, and the sweep that picks the presets in the first
+    place, share one assumption. A negative or non-numeric value falls back
+    rather than raising: a config typo should not silently produce a strategy
+    that is paid to trade.
+    """
+    raw = (_cfg(path).get("costs") or {}).get("round_trip_bps",
+                                              _FALLBACK_ROUND_TRIP_BPS)
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return _FALLBACK_ROUND_TRIP_BPS
+    return val if val >= 0 else _FALLBACK_ROUND_TRIP_BPS
 
 
 def horizons(path: str | Path | None = None) -> list[Horizon]:

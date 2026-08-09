@@ -124,7 +124,7 @@
       <div class="tab-guide-body" data-i18n-html="guide_body_leaderboard">
         <p>Themes are ranked strongest to weakest. Everything is measured
            <strong>against the other themes today</strong>, not against zero — so
-           rank 1 means &ldquo;best of these 20 right now&rdquo;, which in a bad week
+           rank 1 means &ldquo;best of these {{ leaderboard_rows | length }} right now&rdquo;, which in a bad week
            can still mean losing money.</p>
 
         <h4>Reading the Composite column</h4>
@@ -405,8 +405,8 @@
      Tab: Backtest
      ============================================================ -->
 <section id="tab-backtest" class="tab-panel" role="tabpanel">
-  <p class="tab-note" data-i18n="note_backtest">Equal-weight, long-only, no costs. Price-based signals only (breadth &amp; sentiment excluded). Each horizon is a rebalance cadence plus a hysteresis band: a holding is kept while its rank stays within top-N + buffer, so a one-rank wobble is not a trade.</p>
-  <p class="tab-note" data-i18n="note_backtest_caveat"><strong>These are precomputed operating points from one sweep over one market history (2008–2026), not a live optimiser.</strong> The universe is replayed as it stands today, so themes that launched later are simply absent from the early years. Read the trades/year column next to the return, not instead of it.</p>
+  <p class="tab-note" data-i18n-html="note_backtest">Equal-weight, long-only, <strong>net of {{ round_trip_bps | round | int }} bps round-trip trading costs</strong>. Price-based signals only (breadth &amp; sentiment excluded). Each horizon is a rebalance cadence plus a hysteresis band: a holding is kept while its rank stays within top-N + buffer, so a one-rank wobble is not a trade.</p>
+  <p class="tab-note" data-i18n-html="note_backtest_caveat"><strong>These are precomputed operating points from one sweep over one market history (2008–2026), not a live optimiser.</strong> The universe is replayed as it stands today, so themes that launched later are simply absent from the early years. Read the trades/year column next to the return, not instead of it.</p>
   {% if has_backtest %}
   <div class="table-wrap">
     <table>
