@@ -178,6 +178,51 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Diversifier audit — the diversification thesis mostly failed; universe
+  trimmed 20 → 18** — the open thread from the 2026-08-08 audit. The seven names
+  added on 2026-08-05 were selected on correlation alone, which is blind to
+  whether a name is simply worse. Checked properly this time: drop-one on the
+  **backtest**, at matched window and matched band.
+
+  **First attempt was invalid and is worth recording.** Drop-one at a single
+  buffer flipped sign for 6 of 9 themes between buffer 4 and 5 — Gold Miners read
+  −2.4% CAGR ("essential") at one and +1.4% ("dead weight") at the other. The
+  measurement was dominated by the band interaction, not by the theme. Repeating
+  it across five buffer settings and counting how often removal helps is what
+  made it stable.
+
+  **The finding.** Correlation did fall as designed (0.52 → 0.375) but bought
+  almost no drawdown protection, because in the crashes that matter everything
+  falls together. Of the seven:
+
+  | name | verdict |
+  |---|---|
+  | Energy Producers (IXC) | **removed** — hurts at 5/5 buffers; drawdown 5.8pp better without |
+  | Medical Devices (IHI) | **removed** — hurts at 5/5; drawdown 3.5pp better without |
+  | Insurance, Healthcare Providers | kept — earn their place on **return**, not diversification |
+  | Gold & Precious Metals Miners | kept — the only genuine risk diversifier, at ~1.4pp CAGR for ~1.1pp drawdown |
+  | Shipping, Food & Beverage | kept — ambiguous; not trimmed further on thin evidence |
+
+  Presets re-picked on the 18-theme universe (short W/3/5, medium M/5/4, long
+  2M/4/6) rather than band-scaled mechanically. Medium lands at band 50% again.
+
+  **Honest scorecard — this is not a clean win on every preset:**
+
+  | preset | before (20) | after (18) |
+  |---|---|---|
+  | Short | 18.1%, 0.84, −39.3%, 34/yr | 17.4%, 0.80, **−44.3%**, 27/yr |
+  | **Medium (default)** | 15.5%, 0.84, −38.3%, 21/yr | **16.1%, 0.88, −35.4%, 20/yr** |
+  | Long | 15.0%, 0.78, −35.8%, 8/yr | 14.2%, 0.74, **−31.4%**, 7/yr |
+
+  Medium improves on everything. Long trades less and drops less but earns less.
+  Short is genuinely worse on drawdown. The default is what most matters, and the
+  two removed names were harmful at every setting, so the change stands — but it
+  is a trade, not a free win.
+
+  `test_methodology_keeps_its_factual_anchors` caught the docs still claiming
+  "20 themes" the moment the config changed, which is exactly what it was
+  written for.
+
 - **Methodology and tab guides rewritten for a novice reader** — the docs still
   described US/EU sectors, a monthly-only rotation, and the *old* trajectory-based
   Entry/Exit rule, all of which the 2.0 and horizon work replaced. Worse than

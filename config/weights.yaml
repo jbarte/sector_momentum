@@ -43,6 +43,9 @@ signal_params:
 # numbers: it puts the hold band at ~50% of a 20-theme universe. Because the
 # band is measured in ABSOLUTE ranks, expanding the universe from 13 to 20
 # themes on 2026-08-05 silently tightened it from 62% to 40% and tripled churn.
+# Retuned again on 2026-08-09 when the audit trimmed the universe 20 -> 18: the
+# buffers below are re-picked per preset on the new universe, not band-scaled
+# mechanically. Medium lands at band 50% again, which keeps being the plateau.
 # Retuning it recovered more return at less churn on all three presets (see the
 # 2026-08-08 redundancy audit). If the universe size changes again, revisit
 # this — the band does not scale itself.
@@ -63,22 +66,22 @@ horizons:
       rebalance: W
       top_n: 3
       buffer: 5
-      cagr: 0.181
-      trades_per_year: 33.6
+      cagr: 0.174
+      trades_per_year: 26.9
       median_holding_days: 42
     medium:
       label: Medium
       rebalance: M
       top_n: 5
-      buffer: 5
-      cagr: 0.155
-      trades_per_year: 21.3
-      median_holding_days: 91
+      buffer: 4
+      cagr: 0.161
+      trades_per_year: 19.5
+      median_holding_days: 92
     long:
       label: Long
       rebalance: 2M
       top_n: 4
-      buffer: 7
-      cagr: 0.150
-      trades_per_year: 7.8
-      median_holding_days: 183
+      buffer: 6
+      cagr: 0.142
+      trades_per_year: 7.2
+      median_holding_days: 182
