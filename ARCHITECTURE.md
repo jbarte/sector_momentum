@@ -1,4 +1,4 @@
-# Sector Momentum Scanner -- Architecture
+# ETF Momentum -- Architecture
 
 > Last updated: 2026-07-11. This document describes the system as it is
 > actually built, not the original v1 plan.

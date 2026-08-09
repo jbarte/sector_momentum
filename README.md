@@ -1,4 +1,4 @@
-# Sector Momentum Scanner
+# ETF Momentum
 
 A daily momentum scanner for **US SPDR** and **STOXX Europe 600** sector ETFs, mapped to the 11 GICS sectors. The pipeline computes data-pillar signals (relative strength, returns, moving-average structure, breadth, volume), scores and ranks every sector cross-sectionally, persists snapshots to Supabase/Postgres, and publishes a static dashboard to GitHub Pages. A parallel **thematic ETF** track (AI, defence, clean energy, etc.) runs the same scoring engine over a separate universe.
 

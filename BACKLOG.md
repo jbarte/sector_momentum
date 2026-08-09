@@ -126,51 +126,14 @@ correctness, all are small. Recorded so they aren't rediscovered from scratch.
   gated on the baseline scheme having succeeded. Reviewed and accepted as
   harmless; remove if that file is touched again.
 
-## Rebrand — the product is no longer called what it is
+## Rebrand Phase 2 — rename the repo (optional, arguably forever)
 
-`sector_momentum` names a thing that was retired on 2026-08-05. Nothing in the
-scoring universe is a sector any more; the cohort is `THEME` and the leaderboard
-column reads "Theme". The name survives in ~57 places, including the page
-`<title>`, the `<h1>`, the Atom feed, and the daily alert email subject.
+Phase 1 shipped 2026-08-09: the product is called **ETF Momentum** everywhere a
+reader can see it. What remains is only the repo/URL rename, which is a
+different risk class — it touches sign-in.
 
-**Naming — the choice encodes a scope decision, so make that decision first.**
-
-| candidate | commits to | honest today? |
-|---|---|---|
-| **ETF Momentum** | the instrument | yes, and stays true if the universe widens |
-| Thematic Momentum | the strategy | *over-tight* — see below |
-| ThemeRank / Momentum Rank | the product (a ranked board) | yes, but re-narrows to "theme" |
-| RS Scanner / Relative Strength Scanner | the method | most precise, most jargon |
-
-**Recommendation: `ETF Momentum` (repo `etf_momentum`).** The tempting answer is
-"Thematic Momentum", but it does not survive contact with the actual universe:
-of the 18 names, Insurance, Healthcare Providers, Food & Beverage, Shipping and
-Gold Miners are industry ETFs kept as diversifiers, not themes. "ETF" is the
-only word that is true of all 18 — and it stays true if factor or bond ETFs are
-ever added, which "Thematic" would not. It is generic, and that is the price.
-
-**Do it in two phases — they are independent, and welding them together turns a
-safe change into a risky one.** Phase 1 alone leaves no half-finished state; it
-is a repo whose directory name is legacy trivia.
-
-**Phase 1 — display name only.** No URL change, nothing that can break sign-in.
-This is where all the actual irritation lives: the dashboard says "Sector
-momentum" above a table whose column header reads "Theme".
-
-- `<h1>` (`dashboard/templates/_header.html.j2:2`), page `<title>`
-  (`index.html.j2:6`, `sentiment.html.j2:6`), gate-modal heading
-  (`index.html.j2:34`), `README.md`, `ARCHITECTURE.md`, `stats.py`, `scan.py`
-  banner strings.
-- **Alert email subject** (`src/personal_alerts.py:98`, `src/alerts.py:191`)
-  is `"Sector Momentum — {date}"` — changing it may break existing mail filters.
-- **Atom feed title** (`dashboard/templates/feed.xml.j2:3`) — a changed feed
-  title/id can register as a *new* feed in readers rather than a rename.
-- Sweep the surviving sector-era copy while in there, e.g.
-  `dashboard/templates/index.html.j2:370` ("The sector has been outperforming
-  for multiple scans").
-
-**Phase 2 — repo rename. Optional, arguably forever.** It buys a tidier URL and
-nothing else; nobody reads the repo path, everybody reads the `<h1>`.
+It buys a tidier URL and nothing else; nobody reads the repo path, everybody
+reads the `<h1>` — which now already says the right thing.
 
 - Pages URL moves to `jbarte.github.io/etf_momentum/`. GitHub redirects the old
   paths, but the **Supabase Auth Site URL and redirect allowlist must be updated
@@ -185,8 +148,9 @@ nothing else; nobody reads the repo path, everybody reads the `<h1>`.
 - `sector_momentum_test` DB name in `tests/test_state_wipe_guard.py:70` and the
   CI workflow.
 
-**Timing:** not while the universe and alert wiring are still settling — the
-rename touches the thing that sends the emails. One clean scan cycle first.
+**Timing:** the only forcing function would be wanting the URL to match the
+name. There is no deadline, and the Supabase step means a botched attempt locks
+everyone out of sign-in — so do it deliberately or not at all.
 
 **Out of scope:** the DB columns `region` / `gics_sector` — see *Sector-era
 naming in the data layer* above, which recommends leaving them alone. A rebrand
@@ -296,6 +260,29 @@ source-only and tight:
 ---
 
 # Done
+
+- **Rebrand Phase 1 — the product is now "ETF Momentum"** (2026-08-09). Display
+  name only: `<h1>`, both page `<title>`s, the gate modal, the Atom feed title
+  and subtitle, the alert email subject, and the `scan.py` / `stats.py` CLI
+  banners, plus `README.md` and `ARCHITECTURE.md`. No URL moved and no Supabase
+  config was touched, so sign-in was never at risk — that is Phase 2, still
+  queued and still optional.
+
+  The sweep turned out to be the larger half. Surviving sector-era copy was
+  rewritten in **both languages**: the RRG, drill-down, momentum-shift and
+  history tab guides, the nav segment ("Sectors" → "Themes"), the scan-history
+  headers, the filter empty state, and the footer health label. The sentiment
+  guide was the worst of it — it still described "the 11 GICS sectors", topic
+  codes, and "Both US and EU rows for the same GICS sector share the same
+  score", none of which has been true since the sector cohort was retired on
+  2026-08-05; it now describes the per-theme keyword queries the code actually
+  runs (`src/data/news_sentiment.py`). A Swedish mistranslation was fixed in
+  passing: "vs peers" had been rendered *jämnåriga* (people of the same age)
+  rather than *jämförbara*.
+
+  Deliberately untouched: `sector_key`, `data-sector`, `sector_count`,
+  `#sector-select` and the `region` / `gics_sector` DB columns — that is the
+  separate data-layer item, which recommends leaving them alone.
 
 - **Cohort as-of alignment — every ticker is now scored on the same last bar**
   (2026-08-09). Signals read `iloc[-1]` of whatever series they are handed

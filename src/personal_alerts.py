@@ -95,7 +95,7 @@ def build_personal_alerts(
         out.append({
             "user_id": uid,
             "topic": topic,
-            "title": f"Sector Momentum — {scan_date}",
+            "title": f"ETF Momentum — {scan_date}",
             "body": format_personal_body(held_exits, entries),
         })
     return out
