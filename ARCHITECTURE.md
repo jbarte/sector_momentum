@@ -1,7 +1,11 @@
 # ETF Momentum -- Architecture
 
-> Last updated: 2026-07-11. This document describes the system as it is
-> actually built, not the original v1 plan.
+> Last updated: 2026-08-09. Describes the system as it is actually built.
+>
+> The US SPDR / STOXX Europe 600 **sector** cohorts this project started as were
+> retired on 2026-08-05. Themes are now the only scoring cohort. If you are
+> reading a document that mentions GICS sectors, breadth, or a "parallel
+> thematic track", it predates that change.
 
 ---
 
@@ -9,41 +13,37 @@
 
 A daily automated pipeline that:
 
-1. Fetches price data for 11 US SPDR sector ETFs and 11 STOXX Europe 600
-   sector ETF proxies (some multi-component composites), plus benchmarks.
-2. Computes a set of momentum/technical signals per sector.
-3. Z-scores all signals cross-sectionally, then rolls them into a composite
-   score (level + change sub-scores).
-4. Compares against the prior scan to produce rank deltas, composite deltas,
-   and an "emerging" flag.
-5. Persists everything to Supabase (Postgres).
-6. Builds a static HTML dashboard and publishes it to GitHub Pages.
-
-A parallel **thematic ETF** track (`config/themes.yaml`) runs the same scoring
-engine over a universe of genre/theme ETFs (AI, defence, clean energy, etc.)
-with its own z-score cohort and leaderboard.
+1. Fetches daily price data for every theme ETF plus the benchmark.
+2. Pins every ticker to one shared **as-of date** before scoring.
+3. Computes eight price-based signals per theme.
+4. Z-scores all signals **cross-sectionally** (across themes, same day), then
+   rolls them into Level / Change sub-scores and a composite.
+5. Ranks 1..N, and diffs against the prior scan for rank/composite deltas.
+6. Persists everything to Supabase (Postgres).
+7. Builds a static dashboard and publishes it to GitHub Pages.
+8. Emits band-crossing alerts.
 
 ---
 
 ## 2. Universe
 
-Defined in `config/universe.yaml`.
+Defined in `config/universe.yaml` (scan-wide settings only) and
+**`config/themes.yaml`** (the universe itself).
 
-**US sectors** -- one SPDR Select Sector ETF per GICS sector (XLK, XLF, XLE,
-XLV, XLI, XLY, XLP, XLU, XLB, XLRE, XLC). Benchmark: **RSP** (equal-weight
-S&P 500).
+One US-listed ETF per theme, scored against **ACWI** as a single global
+benchmark (falls back to SPY if ACWI is missing from the price dict). 18 themes
+as of 2026-08-09.
 
-**EU sectors** -- iShares STOXX Europe 600 sector UCITS ETFs (`.DE` tickers on
-XETRA; Real Estate via `IPRP.L`). Financials and Materials are **equal-weight
-composites** of multiple sub-sector ETFs (Banks + Financial Services + Insurance;
-Basic Resources + Chemicals). Benchmark: **EXSA.DE** (iShares STOXX Europe 600).
+`themes.yaml` also records, per theme, the closest **UCITS** equivalent —
+ticker, ISIN, TER, issuer, and a `match` quality of `exact` / `close` /
+`partial`. These are reference only and never scored: the pipeline uses the US
+listing for history and liquidity, while a European investor actually buys the
+UCITS one. The `match` field exists because that gap is real — several themes
+have only a `partial` equivalent, and one (Shipping) has none.
 
-**Themes** -- defined in `config/themes.yaml`, one US-listed ETF per theme
-(e.g. ITA, UFO, ICLN, ARKK), scored against ACWI (SPY fallback) as a single
-global benchmark.
-
-Both universes map to the 11 GICS sectors. EU and US sectors are scored within
-their own region cohort; themes form a third independent cohort.
+There is exactly **one cohort**, `THEME` (`src/cohorts.py`). This matters more
+than it looks: composites are z-scored *within* a cohort and are meaningless
+across cohorts, so anything that pools two cohorts into one ranking is a bug.
 
 ---
 
@@ -51,246 +51,291 @@ their own region cohort; themes form a third independent cohort.
 
 | Need | Source | Notes |
 |---|---|---|
-| Daily price/volume | **stooq** (primary, no key), **yfinance** (fallback) | `src/data/prices.py`; cache-aggressive |
-| US constituent breadth | Wikipedia S&P 500 list + price data | `src/data/constituents.py` + `src/signals/breadth.py`; % above 50-DMA per US sector; EU = N/A |
-| News sentiment | **GDELT** headlines + **ProsusAI/finbert** | `src/data/news_sentiment.py`; per-GICS-sector signed polarity, z-scored across sectors; sub-sectors inherit their GICS parent's score |
-| Macro context | **FRED** | `src/data/macro.py`; rates, yield curve (not currently wired into scoring) |
+| Daily price/volume | **yfinance** | `src/data/prices.py`; parquet cache per ticker, aggressive freshness rules |
+| News sentiment | **GDELT** headlines + **ProsusAI/finbert** | `src/data/news_sentiment.py`; per-theme keyword queries, signed polarity z-scored across themes. **Info-only** |
+| Macro context | **FRED** | `src/data/macro.py`; header chips only, affects no score |
 
-**Removed sources:** Reddit/PRAW, Finnhub, StockTwits, and Google Trends (all
-removed; StockTwits blocked by Cloudflare, Reddit never shipped past stub,
-Finnhub US-only free tier, Google Trends 429-blocked from CI and superseded by
-FinBERT 2026-07-19).
+**Single source of price truth.** stooq was the second leg of a two-source
+fallback until 2026-08-09, when it was retired: its CSV endpoint now requires
+solving a JavaScript proof-of-work challenge that no HTTP client can pass. That
+makes yfinance a single point of failure — see BACKLOG.
+
+**Removed sources:** Reddit/PRAW, Finnhub, StockTwits, Google Trends,
+S&P 500 constituent breadth (all removed; the breadth signal has no constituent
+list for thematic ETFs and is now always NaN).
+
+### `end` is EXCLUSIVE
+
+`fetch_prices(start, end)` returns bars strictly *before* `end`. Callers pass
+`end=today`, which is what keeps an in-progress session out of the data —
+Yahoo returns a partial candle during market hours, and the cache freshness
+check only looks at the *date*, so a half-formed close would be cached and
+never refetched.
+
+### Cohort as-of alignment
+
+Cache freshness is decided **per ticker**, so a dict returned by `fetch_prices`
+can legitimately mix as-of dates — one refetched ticker beside 19 cache hits is
+enough. Since the composite z-scores *across* the cohort, that would rank one
+theme's Tuesday reading against another's Wednesday.
+
+`align_cohort_asof()` pins every ticker to one date: the newest date every kept
+ticker has a bar for. A ticker lagging the cohort's modal date by more than
+`MAX_ASOF_LAG_DAYS` (4) is **dropped** rather than dragging the whole cohort
+back to its date; the coverage guard in `scan.py` catches it if that spreads.
 
 ---
 
 ## 4. Signal layer
 
-All signals are computed in `src/pipeline.py` (`build_signals_rows` /
-`build_theme_signals_rows`) using calculators in `src/signals/`.
+Computed in `src/pipeline.py` (`build_theme_signals_rows`) using calculators in
+`src/signals/`. All are pure functions over a `{ticker -> OHLCV DataFrame}`
+dict with no notion of "now", so the backtest drives them as-of any historical
+date by truncating prices.
 
-### Per-sector signals (`SIGNAL_COLUMNS`)
+### Scored signals
 
-| Signal | Module | Role |
+| Signal | Module | Pillar |
 |---|---|---|
-| `rs_ratio` | `signals/relative_strength.py` | RRG RS-Ratio (level of relative strength vs benchmark) |
-| `rs_momentum` | `signals/relative_strength.py` | RRG RS-Momentum (rate of change of RS; configurable fast period, default 5) |
-| `return_1m`, `return_3m`, `return_6m` | `signals/momentum.py` | Multi-horizon absolute returns |
-| `acceleration` | `signals/momentum.py` | 1M return minus 3M return (second derivative) |
-| `above_50dma`, `above_200dma` | `signals/technical.py` | Price distance from 50/200-day moving averages |
-| `ma50_slope` | `signals/technical.py` | Slope of the 50-DMA |
-| `obv_slope` | `signals/technical.py` | Slope of on-balance volume |
-| `breadth_above_50dma` | `signals/breadth.py` | True constituent breadth (US only; EU = NaN) |
+| `rs_ratio` | `relative_strength.py` | Level |
+| `return_3m`, `return_6m` | `momentum.py` | Level |
+| `above_50dma` | `technical.py` | Level |
+| `rs_momentum` | `relative_strength.py` | Change |
+| `acceleration` | `momentum.py` | Change |
+| `ma50_slope` | `technical.py` | Change |
+| `obv_slope` | `technical.py` | Change |
 
-EU STOXX sub-sectors (Banks, Financial Services, Insurance, Basic Resources,
-Chemicals) are scored as standalone sectors; each maps to its GICS-11 parent
-via `stoxx_to_gics` (`src/sector_map.py`) for consumers that key by GICS name
-(FinBERT sentiment, Swedish-ticker matching).
+The two pillar lists are **hardcoded** in `src/scoring.py`
+(`_LEVEL_SIGNALS` / `_CHANGE_SIGNALS`), equal-weighted within each pillar. The
+`level_signals:` / `change_signals:` keys in `weights.yaml` control *column
+order in the dashboard only*; their values are ignored.
 
-### Sentiment signal (info-only)
+### Computed but not scored
 
-`src/data/news_sentiment.py` fetches the last 24h of English headlines per
-GICS-11 sector from GDELT, scores each with ProsusAI/finbert, and reduces to a
-per-sector mean signed polarity z-scored across sectors. The z-score is stored
-as `sentiment_score`; the per-sector `news_polarity`/`news_count`/
-`news_positive_pct`/`news_negative_pct` rows go to `sentiment_signals` and are
-shown on `docs/sentiment.html`. Sentiment does **not** affect the canonical
-composite score (the dashboard offers a client-side toggle to blend it in). If
-GDELT or FinBERT is unavailable, `sentiment_score` is left NULL for that scan.
+`return_1m`, `above_200dma`, `max_dd_1y`, `rar_3m`, `rar_6m`, `calmar_6m` are
+computed, stored and surfaced in the drill-down as context.
+`breadth_above_50dma` is always NaN (no constituent list for a thematic ETF)
+and is a leftover column.
+
+### Sentiment (info-only)
+
+GDELT headlines for each theme's own keyword set (up to 250, last 24h), scored
+by FinBERT, reduced to a per-theme mean signed polarity, z-scored across themes.
+Stored as `sentiment_score`, rendered on `docs/sentiment.html`, and **excluded
+from the canonical composite** (`blend_sentiment=False`) — the dashboard offers
+a client-side toggle to blend it at a chosen weight. Unavailable source leaves
+it NULL for that scan.
 
 ---
 
 ## 5. Scoring (`src/scoring.py`)
 
-1. **Cross-sectional z-score** each signal across all sectors in the cohort
-   (NaN-safe: stats computed on non-NaN values, missing z-scores filled with 0.0).
-2. **Level score** = mean z of `rs_ratio`, `return_3m`, `return_6m`,
-   `above_50dma`, `above_200dma`.
-3. **Change score** = mean z of `rs_momentum`, `acceleration`, `ma50_slope`,
-   `obv_slope`.
-4. **Data score** = 0.50 * level + 0.50 * change (configurable in
-   `config/weights.yaml`).
-5. **Composite** = data score (sentiment blending is off by default;
-   `blend_sentiment=False`).
-6. **Rank** 1..N by composite (1 = best).
-
-Weights live in `config/weights.yaml`. Signal parameters (e.g.
-`rs_momentum_fast`) are also configured there.
+1. **Cross-sectional z-score** each signal across the cohort. NaN-safe: stats
+   are computed on non-NaN values, and the resulting z for a NaN input is 0.0
+   (neutral). Filling raw NaN with 0.0 *before* standardising would turn a
+   signal centred far from zero, like `rs_ratio` ~100, into a fake outlier.
+2. **Level** = mean z of the four Level signals.
+3. **Change** = mean z of the four Change signals.
+4. **Data score** = `0.50 * level + 0.50 * change` (`data_pillar` in weights).
+5. **Composite** = data score (sentiment weight 0 by default).
+6. **Rank** 1..N, ties by average rank.
 
 ---
 
-## 6. State & persistence (`src/state.py`)
+## 6. Horizons and trading cost (`src/horizons.py`)
 
-**Storage: Supabase (Postgres)** via `psycopg2`. Connection string from
-`DATABASE_URL` env var.
+A horizon preset is a `(rebalance cadence, top_n, buffer)` triple. `buffer` is
+a hysteresis band **in ranks**: a holding is kept while `rank <= top_n + buffer`.
 
-### Tables
+This module is the single source read by three places that must agree, or the
+dashboard would describe a strategy the backtest never ran:
+
+- `backtest.py` — replays every preset into `backtests/`
+- `dashboard/rows.py` — derives the server-rendered Entry/Exit badge
+- `dashboard/assets/rescore.js` — re-derives that badge client-side on switch
+
+`round_trip_bps()` reads `costs.round_trip_bps` from the same file. `backtest.py`
+and `scripts/horizon_sweep.py` both default from it, so the figures shown beside
+a preset and the sweep that *chooses* presets share one assumption. It defaults
+non-zero deliberately: sweeping at 0 bps systematically favours whichever
+cadence trades most, which is how the pre-2026-08-09 presets were selected.
+
+**The band does not scale itself.** It is stored in absolute ranks, so changing
+the universe size silently changes the band *fraction*
+`(top_n + buffer) / n_themes` — growing 13 → 20 themes once tightened it from
+62% to 40% and tripled churn. Revisit the presets whenever the universe changes.
+
+---
+
+## 7. State & persistence (`src/state.py`)
+
+**Supabase (Postgres)** via `psycopg2`, connection string from `DATABASE_URL`.
 
 | Table | Content |
 |---|---|
-| `scans` | One row per scan run (`scan_id`, `run_at`, `config_hash`) |
-| `signals` | Long-format: one row per (scan, region, sector, signal_name) with `raw_value` and `z_value`; `region` discriminates `US`/`EU`/`THEME` |
-| `scores` | One row per (scan, region, sector) with `level_score`, `change_score`, `data_score`, `sentiment_score`, `composite`, `rank`, deltas, `emerging_flag`; `region` discriminates `US`/`EU`/`THEME` |
-| `sentiment_signals` | FinBERT news signals per (scan, region, sector, signal_name); `region` discriminates `US`/`EU`/`THEME`; historical Google Trends rows retained but no longer written |
+| `scans` | one row per run (`scan_id`, `run_at`, `config_hash`) |
+| `signals` | long format: one row per (scan, region, theme, signal) with `raw_value` and `z_value` |
+| `scores` | one row per (scan, region, theme): level / change / data / sentiment / composite / rank |
+| `sentiment_signals` | FinBERT signals per (scan, region, theme, signal) |
 
-**Idempotency:** same-UTC-day scans are replaced (not duplicated).
+`region` is the cohort discriminator and currently always `THEME`. It reads as
+a legacy name, but it is **load-bearing**: retired US/EU sector rows are still
+in these tables, and `region` is the filter that keeps them out of every read.
 
-**Deltas:** each scan computes `delta_composite`, `delta_rank`, and
-`emerging_flag` (requires >= 2 consecutive improving scans) by joining against
-the most recent prior scan.
+Two further tables — `positions` and `alert_prefs` — plus the `v_recent_scores`
+view are **managed Supabase-side**, not by this repo's DDL. They back the
+signed-in features (starred holdings, per-user alert preferences) and are read
+directly from the browser under RLS.
 
----
+**Idempotency:** a same-UTC-day scan replaces the previous one rather than
+duplicating it.
 
-## 7. Backups (`src/backup.py`, `src/storage_backup.py`)
-
-Before each scan, a full zip of all tables is uploaded to a private Supabase
-Storage bucket (`db-backups`). Requires `SUPABASE_SERVICE_KEY`. Restore via
-`python restore.py` (latest) / `--list` / `--local <dir>`.
-
----
-
-## 8. Backtest (`src/backtest/`)
-
-A monthly top-N rotation backtest (`engine.py`, `strategy.py`, `metrics.py`)
-evaluates whether the scoring model would have caught past rotations early.
-Supports `--cost-bps` for transaction costs, stale-price guards, and curated
-rotation event-studies (`config/rotations.yaml` -> `rotations.py`). Results
-are persisted to `backtests/` and rendered in the dashboard's Backtest tab.
+**Deltas** (`delta_composite`, `delta_rank`, `emerging_flag`) are computed
+against the prior scan. Note the dashboard recomputes its own rank delta at
+build time from the last two scans in the rendered window — see BACKLOG for why
+that is wrong on weekends.
 
 ---
 
-## 9. Dashboard (`dashboard/`)
+## 8. Content gating
 
-`dashboard/build.py` reads the DB and renders a static site into `docs/` using
-**Jinja2** templates and embedded **Plotly** figures (JSON + plotly-basic
-bundle). The site is self-contained and offline-capable.
+`dashboard/gating.py`. Guests see the newest scan at least `LAG_DAYS` (7) old,
+plus a banner saying so. Authenticated users are upgraded to the live scan
+**client-side** (`dashboard/assets/auth.js`), which re-queries `v_recent_scores`
+and rebuilds the leaderboard rows. Sign-in is invite-only Supabase magic link;
+signing out reloads the baked page, which *is* the gated state.
+
+---
+
+## 9. Backtest (`src/backtest/`)
+
+Replays the scoring pipeline as-of each rebalance date, selects top-N under the
+hysteresis rule, and compares to the benchmark.
+
+- `replay.py` — rebalance calendars (`W`/`2W`/`M`/`2M`/`Q`) and as-of scoring
+- `strategy.py` — selection with hysteresis, turnover, transaction cost, churn stats
+- `metrics.py` — CAGR, Sharpe, drawdown, hit rate. `periods_per_year()` is
+  derived from the actual date spacing; leaving it at the monthly default would
+  treble a quarterly track's CAGR
+- `engine.py` — per-track orchestration
+- `results.py` — persistence to `backtests/`
+
+Read the results with the caveats the dashboard states: today's universe is
+replayed backwards (several ETFs did not exist in 2008), and the presets were
+fitted on this same history.
+
+---
+
+## 10. Dashboard (`dashboard/`)
+
+`build.py` reads the DB and renders a static site into `docs/` with **Jinja2**
+and embedded **Plotly** figures. Self-contained and offline-capable.
+
+Split into focused modules: `rows.py` (leaderboard rows + badges),
+`figures.py` (Plotly), `breakdown.py` (drill-down panel), `correlation.py`
+(heatmap), `sentiment.py`, `macro.py`, `health.py`, `validation.py`,
+`badges.py` (scorecard), `gating.py`, `feed.py` (Atom), `reports.py`,
+`data_export.py`.
 
 ### Pages
 
-- **Sectors** (`docs/index.html`) -- Leaderboard, RRG rotation plot, Drill-down,
-  Movers, History, Backtest, and Guide tabs. EN/SV language toggle. The
-  leaderboard groups every cohort (US 11, EU 14, THEME 13) under cohort
-  headers with cohort filter chips; the RRG/Drill-down/Movers/History tabs
-  render one cohort at a time via a selector, since `rs_ratio` is measured
-  against each cohort's own benchmark.
-- **Sentiment** (`docs/sentiment.html`) -- FinBERT news-sentiment dashboard
-  (info-only, separate from sector scoring).
-- **Per-scan reports** (`docs/reports/report_<scan_id>.md`) -- Markdown
-  snapshots (incrementally generated; existing reports are not regenerated).
+- **`docs/index.html`** — Leaderboard, RRG, Drill-down, Movers, History,
+  Backtest, Correlation. EN/SV toggle.
+- **`docs/sentiment.html`** — FinBERT news sentiment (info-only).
+- **`docs/reports/report_<scan_id>.md`** — per-scan Markdown snapshots.
 
-### Key build steps
+### i18n
 
-1. Load scan history and latest scores from DB.
-2. Build Plotly figures (RRG scatter with tails, movers bar chart, history
-   lines, backtest equity curves).
-3. Compute rank trajectories and deltas.
-4. Render Jinja2 templates with embedded figure JSON and score data.
-5. Copy Plotly JS bundle and CSS assets.
-6. Write `docs/.nojekyll` so GitHub Pages serves the static output as-is.
+`templates/i18n/*.js.j2`. Strings carrying markup **must** go in `SV_HTML`
+(applied via `innerHTML`) and use `data-i18n-html`; plain strings go in `SV`
+(applied via `textContent`). Putting markup in `SV` renders literal tags as
+visible text.
 
 ---
 
-## 10. CI/CD (`.github/workflows/`)
+## 11. Alerts
+
+`src/alerts.py` detects **band crossings** — a theme entering `rank <= top_n`
+or leaving `rank > top_n + buffer` — not band membership. Membership would
+re-send the same holdings every day. `src/personal_alerts.py` routes events to
+users by their starred positions and preferences. Alerts use the **default**
+horizon; per-user horizon is queued.
+
+---
+
+## 12. Backups
+
+Before each scan, a full zip of all tables is uploaded to the private Supabase
+Storage bucket `db-backups`. Requires `SUPABASE_SERVICE_KEY`. Restore with
+`python restore.py` (latest) / `--list` / `--local <dir>`.
+
+A second private bucket, `trends-cache`, holds a durable day-cache so
+re-triggered scans reuse already-fetched batches. Fail-open: a missing bucket
+or key only means scans run uncached.
+
+---
+
+## 13. CI/CD (`.github/workflows/`)
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `scan.yml` | Daily cron (`0 6 * * *` UTC) + manual | Runs `pytest`, then `scan.py --no-dashboard`, then `dashboard/build.py`, deploys `docs/` as a Pages artifact |
-| `build-docs.yml` | Push to `main` when `dashboard/`, `src/`, `config/`, `backtests/`, or `requirements.lock` change + manual | Rebuilds `docs/` and redeploys the Pages artifact |
-| `test.yml` | Push to `main`/`feature/**`/`fix/**`/`chore/**` + PRs to `main` | Runs `pytest` |
-| `code-review.yml` | PRs | Automated code review via Claude |
+| `scan.yml` | daily cron `0 6 * * *` UTC + manual | `pytest`, then `scan.py --no-dashboard`, then `dashboard/build.py`, deploys `docs/` as a Pages artifact |
+| `build-docs.yml` | push to `main` touching dashboard/src/config/backtests + manual | rebuilds and redeploys the Pages artifact |
+| `test.yml` | pushes and PRs | `pytest`, including DB-backed tests against a `postgres:17` service container |
+| `code-review.yml` | PRs | automated review |
 
 `scan.yml` and `build-docs.yml` share a `pages-deploy` concurrency group so
-their Pages deployments don't race.
+their deployments don't race.
 
-**Generated artifact policy:** `docs/` is gitignored, not committed. Each
-workflow rebuilds it from the database on every run and deploys it directly
-via `actions/upload-pages-artifact` + `actions/deploy-pages`. See the
-`pages-artifact-deploy` design doc in the private `sector_momentum-notes`
-companion repo (see `CLAUDE.md` → Design docs).
+**`docs/` is gitignored, not committed.** Each workflow rebuilds it from the
+database and deploys directly via `upload-pages-artifact` + `deploy-pages`.
+
+Note the daily cron runs seven days a week against a five-day market, so
+weekend scans are exact duplicates of Friday's.
 
 ---
 
-## 11. Data flow
+## 14. Data flow
 
 ```
-config/universe.yaml ──┐
-config/themes.yaml ────┤
+config/themes.yaml ────┐
 config/weights.yaml ───┤
                        ▼
                    scan.py
                        │
-         ┌─────────────┼─────────────┐
-         ▼             ▼             ▼
-    stooq/yfinance  GDELT+FinBERT  S&P 500
-     (prices)      (sentiment)    (breadth)
-         │             │             │
-         ▼             ▼             ▼
-     src/signals/   news_        breadth.py
-     momentum.py    sentiment.py
-     relative_strength.py
-     technical.py
-         │             │             │
-         └──────┬──────┘─────────────┘
-                ▼
-          src/pipeline.py  (build_signals_rows)
-                │
-                ▼
-          src/scoring.py   (z-score -> level/change -> composite -> rank)
-                │
-                ▼
-          src/state.py     (save to Supabase/Postgres)
-                │
-                ▼
-       dashboard/build.py  (Jinja2 + Plotly -> docs/)
-                │
-                ▼
-         GitHub Pages      (https://jbarte.github.io/sector_momentum/)
+         ┌─────────────┴─────────────┐
+         ▼                           ▼
+    yfinance                  GDELT + FinBERT
+    (prices)                    (sentiment)
+         │                           │
+         ▼                           │
+  align_cohort_asof                  │
+   (one as-of date)                  │
+         │                           │
+         ▼                           │
+   src/pipeline.py                   │
+  (8 signals/theme)                  │
+         │                           │
+         ▼                           │
+   src/scoring.py  ◄─────────────────┘  (stored, not blended)
+ (z -> level/change -> composite -> rank)
+         │
+         ▼
+   src/state.py ──────────► Supabase/Postgres
+         │
+         ├──────────────► src/alerts.py (band crossings -> email)
+         ▼
+  dashboard/build.py ────► docs/ ────► GitHub Pages
 ```
 
 ---
 
-## 12. Module index
+## 15. Tech stack
 
-| Path | Purpose |
-|---|---|
-| `scan.py` | Pipeline entrypoint: config -> prices -> signals -> scoring -> DB -> report -> dashboard |
-| `src/pipeline.py` | Signal-row builders (pure functions over price dicts) |
-| `src/scoring.py` | Cross-sectional z-scoring, level/change/composite/rank |
-| `src/state.py` | Supabase/Postgres DDL, read/write, delta computation |
-| `src/report.py` | Markdown report generation (ranked table, movers, Swedish overlay) |
-| `src/backup.py` | CSV-dump backup helpers |
-| `src/storage_backup.py` | Supabase Storage upload/download for DB backups |
-| `src/data/prices.py` | stooq + yfinance price fetcher with caching and fallback |
-| `src/data/news_sentiment.py` | GDELT headlines + ProsusAI/finbert signed polarity, z-scored per GICS sector |
-| `src/sector_map.py` | STOXX sub-sector -> GICS-11 parent map (identity fallback) |
-| `src/data/constituents.py` | S&P 500 constituent list (Wikipedia scrape) |
-| `src/data/macro.py` | FRED macro data loader |
-| `src/signals/momentum.py` | Returns and acceleration |
-| `src/signals/relative_strength.py` | RRG RS-Ratio and RS-Momentum |
-| `src/signals/technical.py` | MA distances, MA slope, OBV slope |
-| `src/signals/breadth.py` | Constituent % above 50-DMA |
-| `src/backtest/engine.py` | Monthly rotation backtest engine |
-| `src/backtest/strategy.py` | Top-N strategy with transaction costs |
-| `src/backtest/metrics.py` | Backtest performance metrics |
-| `src/backtest/rotations.py` | Curated rotation event-study replay |
-| `src/backtest/results.py` | Backtest result persistence |
-| `src/backtest/replay.py` | Point-in-time score replay |
-| `dashboard/build.py` | Static dashboard builder (Jinja2 + Plotly -> docs/) |
-| `dashboard/templates/` | HTML/JS Jinja2 templates |
-| `config/universe.yaml` | Sector ETF tickers and benchmarks |
-| `config/weights.yaml` | Pillar weights, signal params |
-| `config/themes.yaml` | Thematic ETF universe |
-| `config/sector_map.yaml` | STOXX -> GICS mapping |
-| `config/sector_etfs.yaml` | Reference UCITS ETFs for the instruments panel |
-| `config/rotations.yaml` | Curated historical rotation events for backtesting |
+Python 3.11+, `pandas`, `numpy`, `scipy`, `psycopg2`, `transformers` + `torch`
+(FinBERT), `plotly` + `jinja2`, `pyyaml`, `requests`, `python-dotenv`,
+`pyarrow`, `fredapi`, `lxml`. Runtime deps in `requirements.txt`, test deps in
+`requirements-dev.txt`, exact pins in the `.lock` files.
 
----
-
-## 13. Tech stack
-
-Python 3.11+, `pandas`, `numpy`, `scipy`, `psycopg2` (Postgres), `transformers`
-+ `torch` (FinBERT news sentiment), `plotly` + `jinja2` (dashboard), `pyyaml`,
-`requests`, `python-dotenv`. See `requirements.txt` for runtime deps and
-`requirements-dev.txt` for test deps; exact pins in `.lock` files.
-
-Hosting: **Supabase** (Postgres + Storage), **GitHub Actions** (CI/CD),
-**GitHub Pages** (dashboard). All free tier.
+Hosting: **Supabase** (Postgres + Storage + Auth), **GitHub Actions**,
+**GitHub Pages**. All free tier.
