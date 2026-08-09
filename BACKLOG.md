@@ -21,6 +21,52 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Gate the Entry/Exit badges behind sign-in
+
+Product decision (2026-08-09): the badges are the actionable layer, so they
+become a signed-in feature. Guests keep the lagged leaderboard — ranks,
+composites, pillar scores, Trend — but see no ▲ Entry / ▼ Exit.
+
+**Where badges are produced.** Two independent paths, both need gating or the
+feature leaks:
+
+| path | file | when |
+|---|---|---|
+| server-rendered | `dashboard/build.py:360` → `_compute_setup(row, _default_horizon)`, emitted at `index.html.j2:250` | baked into the page |
+| client re-derived | `index.html.j2:620` (`applyHorizonBadges`) and `auth.js` `renderLatestRows()` via `Rescore.setupForRank()` | on horizon switch / after sign-in |
+
+Gating only the template leaves the client path re-adding badges the moment a
+guest touches the horizon selector. The clean cut is to **stop computing
+`setup` at build time when `auth` is on** (the same `auth_ctx["auth"]` flag that
+already drives `lag_active` at `build.py:282`), and have the client path refuse
+to derive a badge without a session.
+
+**Knock-on decisions this forces — these are the real work, not the gating:**
+
+1. **The horizon selector becomes a no-op for guests.** Its only *visible*
+   effect is which rows get badged (`horizon_note`: "Sets the Entry/Exit band").
+   Gate the badges and a guest is left with a control that changes nothing.
+   Either hide the selector for guests too, or give it a second visible effect.
+2. **The Entry/Exit filter chips stop working** (`index.html.j2:95-96`). They
+   filter on `data-setup`, which will be empty for every row. Hide them for
+   guests or they read as broken.
+3. **The leaderboard guide explains a feature guests cannot see.** Its Entry/Exit
+   section is the longest part. Needs a signed-out variant, in **both**
+   languages (`guide_body_leaderboard` in EN template + SV_HTML).
+4. **The badge scorecard on the Backtest tab** (`dashboard/badges.py`) shows the
+   historical hit-rate of Entry/Exit. Decide whether that is also gated — it is
+   evidence *about* the feature rather than the feature itself, so it is
+   arguably the best advertisement for signing in.
+5. **Alerts are unaffected** — they run server-side off the default horizon and
+   already require an account.
+
+**Worth knowing before building it:** this is a product signal, not access
+control. A guest still sees the full ranking, and the badge rule is public —
+"Entry" is just `rank <= top_n`, with `top_n` shown in the horizon selector
+label. Anyone who reads the methodology can reconstruct the badges by eye. That
+is fine if the goal is to make the actionable layer feel like the paid tier; it
+is not fine if the goal is to withhold information.
+
 ## Ongoing fund costs (TER) are not modelled anywhere
 
 `costs.round_trip_bps` covers per-trade cost only. The backtest has no concept
