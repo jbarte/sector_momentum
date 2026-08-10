@@ -463,6 +463,31 @@ source-only and tight:
 
 # Done
 
+- **Rank-settings gear is a real, labelled control** (2026-08-10). Measured on
+  the live page it was a **7x18px** bare `⚙` glyph at **3.67:1** contrast whose
+  only accessible name was an `aria-label` — for the control that silently
+  re-ranks which themes show Entry. It failed target size, labelling and
+  contrast simultaneously.
+
+  Now `⚙ Ranking`: **75x32** on desktop, **79x44** on touch pointers, **7.2:1**
+  contrast, with visible text instead of an `aria-label` (an aria-label
+  overrides the visible name for AT, and a control this consequential should
+  say what it does on its face) and a `:focus-visible` ring. Matches the
+  sibling `ⓘ How to read this tab` trigger. The glyph sits in its own non-i18n
+  span so it survives a language switch; `rank_settings` added to the Swedish
+  dictionary.
+
+  Fixed while verifying, and not part of the original complaint: the popover is
+  ~347px wide and anchored to the trigger, so on a 375px viewport **neither
+  anchor fit** — `right: 0` put its left edge at **-179px**, and `left: 0` would
+  have run off the other side. Below 600px it now anchors to the whole utility
+  row and spans it, wrapping its two controls: 271x74, fully inside the
+  viewport, both inputs reachable. Pre-existing, but making the trigger
+  prominent without this would have sent people to a panel they could not use.
+
+  Still open, deliberately: the popover does not close on outside click or
+  Escape, and the weight `<input type=number>` re-ranks with no confirmation.
+  Both are the panel's behaviour rather than its discoverability.
 - **Horizon selector shows only the horizon** (2026-08-10). Each `<option>` read
   `Short — 3 held, ~49d, 22 trades/yr`, so the control's own label carried three
   facts and the dropdown was hard to scan. Options are now just
