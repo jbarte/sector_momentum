@@ -80,6 +80,31 @@ brainstorming/writing-plans skills' `docs/superpowers/` default. See
 this split exists — in short, this repo used to have a `design/` folder that was
 public without anyone intending it to be; it moved out entirely on 2026-07-20.
 
+## When to use the superpowers workflow (brainstorm → spec → plan → execute)
+
+Not every change earns the full `brainstorming` → `writing-plans` →
+`subagent-driven-development` pipeline. Match the process to the size of the
+decision, not the size of the diff.
+
+**Skip straight to implementation** (branch, code, tests, PR — this file's
+normal Git workflow) when the work is a bug fix, a defect with a clear cause,
+or a backlog item that already carries its own reasoning and measurements —
+i.e. the design decisions are already made, and what's left is executing
+them. Examples from this repo: the badge-gating review fixes, flagging
+Shipping unbuyable. Do the measurement/verification inline as part of the
+change; it doesn't need its own spec document.
+
+**Use the full flow** when there's real design work with no existing
+answer — multiple non-obvious choices, a meaningful blast radius, or
+anything where a wrong early call is expensive to unwind later. Signal: if
+you'd have to make up an answer to proceed, that's a question for
+`brainstorming`, not a judgment call to make silently. Example: the dark
+theme — palette character, trigger mechanism, control shape, and chart
+re-theming architecture were all open questions with real trade-offs.
+
+When in doubt, ask which one before starting rather than guessing — the two
+paths diverge immediately (branch-and-code vs. brainstorm-and-ask).
+
 ## Backlog
 
 All queued and completed work lives in `BACKLOG.md` in the project root. When asked
