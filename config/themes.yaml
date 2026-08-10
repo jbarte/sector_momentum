@@ -80,6 +80,19 @@ themes:
     gdelt_keywords: ["gold mining", "gold price", "precious metals", "gold miner"]
   Shipping:
     ticker: BOAT
+    # No UCITS equivalent exists, so this cannot be bought from an EU account.
+    # Verified on justETF 2026-08-10, not recalled: `shipping`, `maritime`,
+    # `freight`, `marine` and `transport` all return 0 across the European
+    # UCITS universe (`robotics` returns 7, so the search itself works). The one
+    # candidate this config ever noted, ETFS DAXglobal Shipping GO
+    # (IE00B3CMS880), is confirmed liquidated — last NAV 2014-09-05.
+    #
+    # `unbuyable` means SCORED BUT NEVER HELD. It keeps shaping the
+    # cross-sectional z-scores (dropping it measured worse on the default
+    # Medium preset), but the leaderboard will not prompt an entry and
+    # strategy.simulate will not put it in the book. Delete this line the day a
+    # UCITS shipping product launches.
+    unbuyable: true
     gdelt_keywords: ["container shipping", "freight rates", "shipping industry", "tanker rates"]
   Food & Beverage:
     ticker: PBJ

@@ -176,7 +176,7 @@
       </thead>
       <tbody>
         {% for row in leaderboard_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"{% if row.unbuyable %} data-unbuyable="1"{% endif %}
             data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
             data-rank="{{ row.rank }}"
@@ -188,7 +188,7 @@
           {#- Never "hold": the build has no reader and so no holdings. When the
               badge is gated, row.setup is None for everyone and applyHorizonBadges()
               writes the real badge once the session and holdings are known. -#}
-          <td>{{ row.sector }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
+          <td>{{ row.sector }}{% if row.unbuyable %}<span class="unbuyable-badge" data-i18n="badge_unbuyable" data-i18n-title="unbuyable_tip" title="No UCITS equivalent exists, so this cannot be bought from an EU account. It is still scored because it shapes how every other theme ranks.">⊘ Not buyable</span>{% endif %}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
           <td class="composite-cell">{{ row.composite }}</td>
           <td>{{ row.level_score }}</td>
           <td>{{ row.change_score }}</td>
@@ -441,7 +441,8 @@ function applyHorizonBadges() {
     var rank = parseFloat(tr.dataset.rank);
     if (visible && window.Rescore && window.Rescore.badgeFor) {
       kind = window.Rescore.badgeFor(
-        rank, h, holdings, holdings === 'ready' && pos.isHeld(tr));
+        rank, h, holdings, holdings === 'ready' && pos.isHeld(tr),
+        tr.dataset.unbuyable === '1');
     }
     tr.dataset.setup = kind || '';
     // The ⚠ marker is the same fact as the Exit badge, so it is written here
@@ -566,6 +567,12 @@ function switchHorizon(key) {
 // External assets (auth.js, scan-history.js) that also need the
 // human-readable label read this instead.
 var COHORTS = {{ cohorts_json | js_json }};   // [{region, label}, ...]
+
+// Theme names with no route to purchase (config/themes.yaml `unbuyable: true`).
+// Read by auth.js, which rebuilds the leaderboard from v_recent_scores and so
+// has no other way to know.
+var UNBUYABLE = {{ unbuyable_json | js_json }};
+window.UNBUYABLE = UNBUYABLE;
 
 // ----- Plotly data (injected by build.py) -----
 // COHORT_CHARTS is keyed by cohort region ("US"/"EU"/"THEME"); each entry

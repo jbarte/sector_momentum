@@ -120,22 +120,22 @@ horizons:
       rebalance: W
       top_n: 3
       buffer: 5
-      cagr: 0.139
-      trades_per_year: 22.1
+      cagr: 0.143
+      trades_per_year: 21.4
       median_holding_days: 49
     medium:
       label: Medium
       rebalance: M
       top_n: 5
       buffer: 4
-      cagr: 0.142
-      trades_per_year: 17.6
-      median_holding_days: 92
+      cagr: 0.150
+      trades_per_year: 16.8
+      median_holding_days: 94
     long:
       label: Long
       rebalance: 2M
       top_n: 4
       buffer: 6
-      cagr: 0.131
-      trades_per_year: 7.7
-      median_holding_days: 151.5
+      cagr: 0.141
+      trades_per_year: 7.4
+      median_holding_days: 182

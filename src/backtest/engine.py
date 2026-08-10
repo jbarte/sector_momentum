@@ -6,6 +6,9 @@ import logging
 import pandas as pd
 
 from src.backtest import metrics, replay, strategy
+# Re-exported: the backtest keeps one import, but the predicate is shared with
+# the dashboard and the alerts so they cannot disagree. See src/universe.py.
+from src.universe import unbuyable_keys  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +78,8 @@ def run_theme_track(
     fwd = strategy.forward_returns(prices, track_tickers, dates)
 
     sim = strategy.simulate(score_by_date, fwd, instrument_of, top_n=top_n,
-                            cost_bps=cost_bps, buffer=buffer)
+                            cost_bps=cost_bps, buffer=buffer,
+                            unbuyable=unbuyable_keys(themes_cfg))
     if not sim["dates"]:
         return None
 

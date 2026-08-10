@@ -36,8 +36,16 @@ from src.cohorts import Cohort
 
 
 def _horizon_ctx(dumps=json.dumps):
-    """Horizon context vars, sourced from the real config so these fixtures
-    can't drift from what build.py actually passes."""
+    """The context vars every index.html.j2 render needs, sourced from the real
+    config so these fixtures can't drift from what build.py actually passes.
+
+    Named for the horizon block it started as; it has since become the shared
+    "things the template reads that aren't figures or rows" bundle. Anything
+    added here must also be added to build.py's sectors_ctx — a var missing
+    from the context renders as `var X = ;` and takes every script on the page
+    down with it, which is what test_rendered_template_has_no_empty_js_vars
+    exists to catch.
+    """
     hs = _horizons()
     d = _default_horizon()
     return dict(
@@ -51,6 +59,7 @@ def _horizon_ctx(dumps=json.dumps):
         ]),
         horizon_default_json=dumps({
             "key": d.key, "label": d.label, "top_n": d.top_n, "buffer": d.buffer}),
+        unbuyable_json=dumps([]),
     )
 
 

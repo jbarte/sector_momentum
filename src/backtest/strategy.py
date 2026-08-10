@@ -65,7 +65,21 @@ def simulate(
     top_n: int = 5,
     cost_bps: float = 0.0,
     buffer: int = 0,
+    unbuyable: frozenset[str] = frozenset(),
 ) -> dict:
+    """`unbuyable` names are ranked but never booked.
+
+    They are removed AFTER selection, not before, so the slot they win goes
+    unused rather than passing to the next name down. That is deliberate:
+    substituting rank N+1 measured worse than the baseline in all three presets
+    on both CAGR and Sharpe, while skipping measured better in all three. It
+    also matches what the reader can actually do — there is no route to buy the
+    instrument, and buying a different one is a different strategy.
+
+    Because they never enter `prev`, they are re-selected and re-dropped every
+    period at no turnover cost, which is correct: an untradeable name is never
+    traded.
+    """
     dates = sorted(score_by_date.keys())
     out_dates: list[pd.Timestamp] = []
     strat_rets: list[float] = []
@@ -79,6 +93,8 @@ def simulate(
         scored = score_by_date[d]
         ranked = scored.sort_values("composite", ascending=False)
         picks = _select(list(ranked.index), prev, top_n, buffer)
+        if unbuyable:
+            picks = [sk for sk in picks if sk not in unbuyable]
         if not picks:
             continue
 
@@ -93,7 +109,13 @@ def simulate(
 
         out_dates.append(d)
         cur = set(picks)
-        to = len(cur ^ prev) / (2 * top_n) if prev else 1.0
+        # Turnover is a fraction of the book actually held, not of the intended
+        # top_n. Returns are the equal-weighted mean of the names held, so with
+        # an unbuyable name skipped each of the remaining 4 is 25% of the
+        # portfolio and swapping one costs 25%, not 20%. Without unbuyable
+        # names `_select` always returns exactly top_n, so this is unchanged.
+        book = max(len(cur), len(prev), 1)
+        to = len(cur ^ prev) / (2 * book) if prev else 1.0
         cost = to * cost_bps / 10_000
         strat_rets.append(float(np.mean(rets)) - cost)
         holdings.append(picks)

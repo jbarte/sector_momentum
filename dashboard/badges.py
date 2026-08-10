@@ -7,6 +7,7 @@ from datetime import timedelta
 import pandas as pd
 
 from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_float
+from src.universe import is_unbuyable
 from src.backtest.strategy import close_at
 from src.cohorts import cohorts, instrument_map
 from src.data.prices import fetch_prices
@@ -144,7 +145,11 @@ def build_badge_scorecard(
             fwd_ret = p1 / p0 - 1.0
 
             observations[traj_key].append(fwd_ret)
-            if setup == "entry":
+            # An unbuyable theme never renders an Enter badge, so folding its
+            # band crossings into the Enter cohort would have this table vouch
+            # for prompts the reader is never shown. The trajectory badges above
+            # still apply — those are descriptors, not prompts.
+            if setup == "entry" and not is_unbuyable(region, sector, themes_cfg):
                 observations["entry"].append(fwd_ret)
             elif setup == "exit":
                 observations["exit"].append(fwd_ret)

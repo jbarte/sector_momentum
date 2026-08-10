@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dashboard.rows import _safe_float, _format_raw_value
+from src.universe import is_unbuyable, unbuyable_names  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +54,22 @@ def _build_instruments_html(
         etf_list = themes_cfg.get("ucits", {}).get(sector_name, [])
     else:
         etf_list = sector_etfs.get(region, {}).get(sector_name, [])
+
+    # An unbuyable theme has no UCITS row precisely because none exists. Saying
+    # so is the point of the flag — an empty panel reads as missing data, and
+    # the reader is left to wonder which fund to buy for a theme that may be
+    # sitting at rank 1.
+    if is_unbuyable(region, sector_name, themes_cfg):
+        return (
+            '<div class="bd-instruments">'
+            '<div class="sig-title" data-i18n="ucits_title">UCITS Alternative</div>'
+            '<p class="bd-unbuyable" data-i18n="unbuyable_note">'
+            "None exists — this theme cannot be bought from an EU account. It is "
+            "still scored, because it shapes how every other theme ranks, but it "
+            "is never held: no entry is prompted here and the backtest excludes it."
+            "</p></div>"
+        )
+
     if not etf_list:
         return ""
 
