@@ -108,8 +108,11 @@
       <button type="button" class="filter-clear" id="filter-clear" hidden data-i18n="filter_clear">Clear</button>
       <span class="filter-count" id="filter-count"></span>
     </div>
+    {#- Visible text rather than aria-label on a bare glyph: an aria-label would
+        override the visible name for AT, and a control that silently re-ranks
+        the board should say so on its face. -#}
     <details class="rank-settings">
-      <summary aria-label="Rank settings">⚙</summary>
+      <summary><span class="rs-glyph" aria-hidden="true">⚙</span><span data-i18n="rank_settings">Ranking</span></summary>
       <div id="sentiment-control" class="sentiment-control">
         <label>
           <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>

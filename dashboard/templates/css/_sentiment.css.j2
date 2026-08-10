@@ -8,18 +8,35 @@
   margin: 0;
   padding: 0;
 }
+/* Was a bare 12px ⚙ with no padding: a 7x18px target at 3.67:1 contrast, with
+   its only name in an aria-label — for the control that re-ranks the board.
+   Now a labelled target on --fg3, matching the sibling guide trigger. */
 .rank-settings summary {
   cursor: pointer;
-  color: var(--fg4);
+  color: var(--fg3);
   font-size: 12px;
   font-weight: 500;
   list-style: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  padding: 6px 8px;
+  min-height: 32px;
+  border-radius: var(--radius-pill);
   user-select: none;
+  white-space: nowrap;
 }
-.rank-settings summary:hover { color: var(--fg2); }
+.rank-settings summary::-webkit-details-marker { display: none; }
+.rank-settings .rs-glyph { font-size: 13px; line-height: 1; }
+.rank-settings summary:hover { color: var(--fg1); background: var(--bg-sunken); }
+.rank-settings[open] summary { color: var(--fg1); background: var(--bg-sunken); }
+.rank-settings summary:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .rank-settings summary { min-height: 44px; padding: 10px; }
+}
 .rank-settings .sentiment-control {
   position: absolute;
   right: 0;
@@ -32,6 +49,23 @@
   z-index: 100;
   white-space: nowrap;
   min-width: 260px;
+}
+
+/* The panel is ~347px wide and anchored to the trigger. On a 375px viewport
+   neither anchor fits: right:0 puts its left edge at -179px, and left:0 would
+   run off the other side. Below 600px it anchors to the whole utility row and
+   spans it instead, wrapping its two controls. */
+@media (max-width: 600px) {
+  .utility-row { position: relative; }
+  .rank-settings { position: static; }
+  .rank-settings .sentiment-control {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    white-space: normal;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
 }
 
 /* =========================================================
