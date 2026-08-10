@@ -130,6 +130,58 @@ Any future signal added to Level should be checked for correlation against
 `above_50dma` and `rs_ratio` first; adding a ninth correlated signal buys
 almost nothing.
 
+## Dark theme
+
+There is none today — `grep` for `prefers-color-scheme` and `data-theme` across
+every template and stylesheet returns nothing. The palette is a single warm
+light scheme.
+
+**The foundation is good.** `css/_foundation.css.j2` already defines **43 CSS
+custom properties** (`--canvas`, `--surface`, `--fg1..--fg4`, `--border`,
+`--up`, `--down`, the beige/green ramps). Anything consuming those themes for
+free by adding a second token set.
+
+Three things do *not* come for free, in ascending order of effort:
+
+**1. ~35 hardcoded hex values live outside the token file.** Worst offenders by
+count: `#C4B89A` ×6, `#5A6F49` ×6, `#8FA77A` ×5, `#A55A3C` ×4, `#A9977A` ×3,
+plus off-system one-offs the design audit already flagged (`#e67e22`,
+`#c0392b`, `#ddd`, and `#7A5B8E` / `#C8B89A` in the sentiment scatter). Each
+needs promoting to a token — several are near-misses of tokens that already
+exist, so this is partly a de-duplication job.
+
+**2. The SVG illustrations use literal `fill=` / `stroke=` attributes.**
+`_rotation_illo.html.j2` today, plus the tab-guide illustration if PR #179
+lands. They need CSS-driven fills (`currentColor` or `var(--…)`) before they can
+follow a theme, and each sits on a hardcoded `linear-gradient` band.
+
+**3. Chart colours are baked server-side in Python — this is the real work.**
+`dashboard/figures.py:58-59` sets `paper_bgcolor="#F5F0E6"` and
+`plot_bgcolor="#FAF7F0"`, and there are ~53 colour references across
+`figures.py` + `correlation.py` feeding **7 Plotly figures**. A CSS media query
+cannot touch any of them: the colours are inside the figure JSON baked at build
+time. Options, roughly in order of preference:
+
+- emit a Plotly **template** per theme and switch it client-side on toggle
+  (`Plotly.relayout` / `restyle`) — one figure payload, two skins
+- bake both light and dark figure JSON and swap — simplest, doubles payload on
+  a page already at ~570 KB
+- restyle each trace imperatively on toggle — most code, most drift risk
+
+**Toggle mechanism.** Decide between following `prefers-color-scheme` only, or
+a persisted user toggle. There is a working precedent for the latter: the EN/SV
+switch in `_i18n.html.j2` persists to `localStorage` and re-applies on load. A
+three-state control (system / light / dark) matching that pattern is the
+obvious fit, and the header already has a place for it next to the language
+toggle.
+
+**Do the contrast fixes first, or at the same time.** The 2026-08-09 audit
+measured **54 elements below 4.5:1 in the existing light theme** — column
+headers at 2.95:1, the Trend badge at 3.80:1. Building a second theme on top of
+a palette that already fails doubles the surface to fix and makes it much harder
+to tell a dark-mode regression from an inherited one. See *Design review
+findings* above.
+
 ## Per-user horizon for alerts (level 3)
 
 The Short/Medium/Long selector drives the backtest curves and the leaderboard
