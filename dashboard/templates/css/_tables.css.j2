@@ -383,6 +383,26 @@ tbody td:nth-child(n+4) {
   background: var(--beige-100);
   color: var(--fg1);
 }
+/* The chosen horizon's cost, beside the control. Separated by hairlines rather
+   than middots so the three read as one stat group, not a run-on sentence. */
+.horizon-stats {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--fg3);
+  font-size: 12px;
+}
+.hz-stat { white-space: nowrap; }
+.hz-stat + .hz-stat {
+  margin-left: 9px;
+  padding-left: 9px;
+  border-left: 1px solid var(--border-soft);
+}
+.horizon-stats b {
+  color: var(--fg1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;   /* numbers must not jitter on switch */
+}
 .horizon-note { color: var(--fg4); font-size: 11px; }
 
 /* Active backtest preset row */
