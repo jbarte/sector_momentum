@@ -244,10 +244,6 @@ the overlay. `_methodology.html.j2` implements all of it correctly and its
 comment claims it mirrors the gate modal — it is the other way round. Lift the
 working `open/close/onKey` block into a shared helper.
 
-**P1 — opening the help destroys the filter layout.** `.utility-row` makes
-`.tab-guide` a flex sibling of `.filter-bar`, so `[open]` inflates the row and
-strands the chips in a floating block.
-
 **P1 — mobile shows ~35% of the table.** At 375px the wrap is 269px against a
 769px table with no sticky first column, so scrolling right loses rank and
 theme name and `TREND` is unreachable blind. 32 touch targets under 44px; the
@@ -414,6 +410,50 @@ source-only and tight:
 ---
 
 # Done
+
+- **Tab guides converted from inline `<details>` to modals** (2026-08-09).
+  Each guide was a flex sibling of the filter bar inside `.utility-row`, so
+  opening one inflated the row to ~700px: `align-items: center` stranded the ⚙
+  mid-column, the eight filter chips collapsed into a floating block detached
+  from the table they filter, and the leaderboard was pushed below the fold. At
+  375px the summary was squeezed to 44×90px and rendered as a five-line vertical
+  word-stack.
+
+  All 8 guides (7 tabs + the sentiment page) are now one modal per page, with
+  every guide body pre-rendered inside it and toggled by key. Bodies stay in the
+  DOM rather than being cloned in on demand, so the i18n pass still finds every
+  `[data-i18n-html]` node and can swap EN/SV on guides for tabs the reader has
+  not opened.
+
+  Measured before/after at 1280×800: the utility row now stays **36px whether
+  the guide is open or closed** (was inflating to ~700px) and the filter chips
+  do not move at all. At 375px the trigger is a single-line 143×44 button (was
+  44×90 across five lines), and the panel fits the viewport with its own scroll.
+
+  The modal machinery — focus trap, Escape, backdrop close, focus restore — was
+  extracted from `_methodology.html.j2` into `_modal.js.j2` and both now share
+  it, rather than carrying two copies. It is defined with `window.SMModal ||`
+  so double-inclusion cannot swap the object identity under an already-bound
+  modal. **The gate modal is still on its own incomplete handling** and remains
+  queued; it touches auth, so it stays a separate change — but the helper it
+  needs now exists.
+
+  It also gets its **own header illustration** (`_guide_illo.html.j2`), not the
+  rotation arcs the methodology and gate modals share. Those depict rotation;
+  this depicts the ranked board and its bands — a descending composite profile
+  with the buy band, the deliberately quiet hold band (drawn with explicit
+  dashed edges, because a soft fill alone did not read as a *band*), and the
+  exit tail. Zone boundaries match the shipped Medium preset (top_n 5,
+  exit_rank 9), and the ▲/▼ marks are the leaderboard's own, so the picture
+  speaks the product's vocabulary rather than inventing a second one. Bars rise
+  from the baseline rather than arcs drawing, sharing the `--illo-soft` easing
+  so the two read as one family. Full `prefers-reduced-motion` fallback.
+
+  Verified in-browser: all 7 triggers open their own guide and only that one;
+  Escape and backdrop close while a click inside the panel does not; focus
+  moves to the close button and returns to the trigger; EN→SV→EN round-trips
+  the content correctly; the sentiment page titles its modal "How is the
+  sentiment score calculated?" rather than the generic heading; console clean.
 
 - **Duplicate weekend/holiday scans no longer counted as observations**
   (2026-08-09). The cron runs seven days a week against a five-day market, so

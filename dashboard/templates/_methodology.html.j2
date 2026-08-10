@@ -152,46 +152,21 @@
   </div>
 </div>
 <script>
+{% include "_modal.js.j2" %}
 (function () {
-  var modal = document.getElementById("methodology-modal");
-  if (!modal || modal.dataset.bound) { return; }
-  modal.dataset.bound = "1";
-  var panel = modal.querySelector('[role="dialog"]');
-  var closeBtn = document.getElementById("methodology-close");
-  var lastFocus = null;
-
-  function focusables() {
-    return panel.querySelectorAll(
-      'button, a[href], input, [tabindex]:not([tabindex="-1"])');
-  }
-  function open() {
-    lastFocus = document.activeElement;
-    modal.hidden = false;
-    (closeBtn || panel).focus();
-    document.addEventListener("keydown", onKey);
-  }
-  function close() {
-    modal.hidden = true;
-    document.removeEventListener("keydown", onKey);
-    if (lastFocus && lastFocus.focus) { lastFocus.focus(); }
-  }
-  function onKey(e) {
-    if (e.key === "Escape") { close(); return; }
-    if (e.key === "Tab") {
-      var f = focusables();
-      if (!f.length) { return; }
-      var first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  }
-  modal.addEventListener("click", function (e) { if (e.target === modal) { close(); } });
-  if (closeBtn) { closeBtn.addEventListener("click", close); }
+  var overlay = document.getElementById("methodology-modal");
+  if (!overlay) { return; }
+  var modal = window.SMModal.bind(overlay, {
+    closeBtn: document.getElementById("methodology-close"),
+  });
+  if (!modal) { return; }
 
   function bindTrigger() {
     var link = document.getElementById("methodology-link");
-    if (link) { link.addEventListener("click", function (e) { e.preventDefault(); open(); }); }
-    if (location.hash === "#methodology") { open(); }
+    if (link) {
+      link.addEventListener("click", function (e) { e.preventDefault(); modal.open(); });
+    }
+    if (location.hash === "#methodology") { modal.open(); }
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bindTrigger);
