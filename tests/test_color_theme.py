@@ -111,3 +111,75 @@ def test_control_reflects_stored_choice_on_load():
     assert out[2] == {"auto": False, "light": True, "dark": False}
     assert out[3] == {"auto": False, "light": False, "dark": True}
     assert out[4] == {"auto": True, "light": False, "dark": False}
+
+
+import re
+
+_FOUNDATION = _PROJECT_ROOT / "dashboard" / "templates" / "css" / "_foundation.css.j2"
+
+_SEMANTIC_TOKENS = [
+    "--canvas", "--surface", "--bg-raised", "--bg-sunken",
+    "--fg1", "--fg2", "--fg3", "--fg4",
+    "--border", "--border-soft", "--up", "--down", "--brand-strong",
+    "--ok", "--warn", "--err",
+]
+
+
+def _block(text: str, start_marker: str) -> str:
+    """Extract one `{ ... }` block's body, matched by brace depth so nested
+    color-mix()/rgba() parens don't confuse the boundary."""
+    start = text.index(start_marker) + len(start_marker)
+    depth = 1
+    i = start
+    while depth:
+        if text[i] == "{": depth += 1
+        elif text[i] == "}": depth -= 1
+        i += 1
+    return text[start:i - 1]
+
+
+def _tokens_defined_in(block: str) -> set[str]:
+    return set(re.findall(r"(--[\w-]+)\s*:", block))
+
+
+def test_dark_tokens_are_three_way_consistent():
+    """:root (light), [data-theme="dark"], and the @media fallback must all
+    define exactly the same semantic tokens with exactly the same values —
+    this is the manual-toggle-specific risk the spec calls out: an explicit
+    Dark choice and a dark OS with no override must render identically."""
+    text = _FOUNDATION.read_text()
+    light = _block(text, ":root {")
+    dark_attr = _block(text, ':root[data-theme="dark"] {')
+    media_start = text.index("@media (prefers-color-scheme: dark)")
+    dark_media = _block(text[media_start:], "{")
+    # Strip one more layer — the media block wraps a nested selector block.
+    dark_media = _block(dark_media, "{")
+
+    for name in _SEMANTIC_TOKENS:
+        assert name in light, f"{name} missing from :root"
+        assert name in dark_attr, f"{name} missing from [data-theme=dark]"
+        assert name in dark_media, f"{name} missing from the @media fallback"
+
+    def _value(block, name):
+        m = re.search(re.escape(name) + r"\s*:\s*([^;]+);", block)
+        return m.group(1).strip() if m else None
+
+    for name in _SEMANTIC_TOKENS:
+        v_attr = _value(dark_attr, name)
+        v_media = _value(dark_media, name)
+        assert v_attr == v_media, (
+            f"{name}: [data-theme=dark] says {v_attr!r}, "
+            f"@media fallback says {v_media!r} — they must match exactly"
+        )
+
+
+def test_raw_ramps_untouched_in_dark_blocks():
+    """A dark theme that reassigns --green-600 breaks every consumer that
+    meant 'the brand green', not 'the foreground colour'."""
+    text = _FOUNDATION.read_text()
+    dark_attr = _block(text, ':root[data-theme="dark"] {')
+    media_start = text.index("@media (prefers-color-scheme: dark)")
+    dark_media = _block(_block(text[media_start:], "{"), "{")
+    for block, name in ((dark_attr, "[data-theme=dark]"), (dark_media, "@media")):
+        for prefix in ("--beige-", "--green-", "--terra-"):
+            assert prefix not in block, f"{name} redefines a raw ramp ({prefix}*)"
