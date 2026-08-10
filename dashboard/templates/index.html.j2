@@ -431,17 +431,24 @@ function applyHorizonBadges() {
   var visible = badgesVisible();
   var pos = window.SMPositions;
   var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row');
+  // Whether the badge may be personalised at all. Without holdings the
+  // action-aware rule would silently delete every Exit badge (nothing is held,
+  // so nothing can be exited) — including on an ungated build, where the server
+  // baked those Exit badges and this pass runs over them.
+  var holdings = (pos && pos.holdingsState) ? pos.holdingsState() : 'unknown';
   Array.prototype.forEach.call(rows, function (tr) {
     var kind = null;
-    if (visible && window.Rescore && window.Rescore.badgeForRank) {
-      kind = window.Rescore.badgeForRank(
-        parseFloat(tr.dataset.rank), h, !!(pos && pos.isHeld(tr)));
+    var rank = parseFloat(tr.dataset.rank);
+    if (visible && window.Rescore && window.Rescore.badgeFor) {
+      kind = window.Rescore.badgeFor(
+        rank, h, holdings, holdings === 'ready' && pos.isHeld(tr));
     }
     tr.dataset.setup = kind || '';
-    // The ⚠ marker is the same fact as the Exit badge (only a holding can be
-    // badged "exit"), so it is written here rather than derived a second time
-    // in positions.js from the DOM the previous pass happened to leave.
-    tr.classList.toggle('position-warn', kind === 'exit');
+    // The ⚠ marker is the same fact as the Exit badge, so it is written here
+    // rather than derived a second time in positions.js from the DOM the
+    // previous pass happened to leave. Only when holdings are known, though:
+    // in the band fallback an Exit badge says nothing about ownership.
+    tr.classList.toggle('position-warn', kind === 'exit' && holdings === 'ready');
 
     var nameCell = tr.cells[1];
     if (!nameCell) return;

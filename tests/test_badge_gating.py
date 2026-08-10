@@ -86,7 +86,13 @@ def test_gated_build_bakes_no_badge_and_no_setup_attribute():
 
 
 def test_ungated_build_renders_the_badge():
-    """No auth configured (a local build) keeps badges for everyone."""
+    """No auth configured (a local build) keeps badges for everyone.
+
+    This only proves the BAKE. applyHorizonBadges() then runs over these rows on
+    load and could strip them — see
+    test_unknown_holdings_falls_back_to_the_band_not_to_silence for the half
+    that keeps them.
+    """
     html = _render_index(badges_gated=False)
     assert '<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>' in html
     assert '<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>' in html
@@ -200,6 +206,64 @@ def test_only_the_badge_pass_writes_badge_markup():
     for path in [_PROJECT_ROOT / "dashboard" / "assets" / "auth.js"]:
         assert "setup-badge" not in path.read_text(), \
             f"{path.name} renders its own badge again — use applyHorizonBadges()"
+
+
+def _badge_for(rank, state, is_held, top_n=5, buffer=3):
+    script = f"""
+      const api = require({json.dumps(str(_RESCORE_JS))});
+      const h = {{top_n: {top_n}, buffer: {buffer}}};
+      process.stdout.write(JSON.stringify(api.badgeFor(
+        {json.dumps(rank)}, h, {json.dumps(state)}, {json.dumps(is_held)})));
+    """
+    return json.loads(subprocess.run(["node", "-e", script], capture_output=True,
+                                     text=True, check=True).stdout)
+
+
+@pytestmark_node
+def test_unknown_holdings_falls_back_to_the_band_not_to_silence():
+    """The action-aware rule needs holdings. Without them "nothing is held" is
+    indistinguishable from "nothing can be exited", so applying it blind deletes
+    every Exit badge — on an ungated build that means stripping badges the
+    server just rendered, and for a signed-in user whose holdings read failed it
+    means hiding a real sell signal.
+    """
+    assert _badge_for(3, "unknown", False) == "entry"
+    assert _badge_for(12, "unknown", False) == "exit"     # NOT None
+    assert _badge_for(7, "unknown", False) is None        # middle band, as before
+
+
+@pytestmark_node
+def test_loading_holdings_shows_nothing_rather_than_guessing():
+    """Mid-fetch, `isHeld` answers false for everything. Badging from that would
+    flash "Enter" on a theme the reader holds — the exact misread this change
+    exists to remove."""
+    for rank in (3, 7, 12):
+        assert _badge_for(rank, "loading", False) is None
+
+
+@pytestmark_node
+def test_ready_holdings_uses_the_action_aware_rule():
+    assert _badge_for(3, "ready", False) == "entry"
+    assert _badge_for(3, "ready", True) == "hold"
+    assert _badge_for(12, "ready", True) == "exit"
+    assert _badge_for(12, "ready", False) is None
+
+
+def test_positions_records_a_failed_holdings_read():
+    """`held` fails open to an empty Set for the ★ toggles. That is fine there
+    and wrong for badges, so the failure has to be recorded separately."""
+    src = (_PROJECT_ROOT / "dashboard" / "assets" / "positions.js").read_text()
+    assert "loadFailed = true" in src, "a failed holdings read is indistinguishable from owning nothing"
+    assert "function holdingsState()" in src
+    assert 'if (!signedIn || loadFailed) return "unknown";' in src
+
+
+def test_filter_group_has_an_explicit_hidden_rule():
+    """`.filter-group { display: flex }` is an author rule and beats the UA
+    stylesheet's `[hidden] { display: none }`, so setting the `hidden` property
+    alone leaves the chips on screen for guests."""
+    css = (_TPL_DIR / "css" / "_tables.css.j2").read_text()
+    assert ".filter-group[hidden] { display: none; }" in css
 
 
 @pytestmark_node

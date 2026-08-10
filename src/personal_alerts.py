@@ -24,7 +24,7 @@ def _event_position_key(event: dict) -> str:
 
 
 def _format_event(event: dict, held: bool) -> str:
-    label = "▲ Entry" if event.get("event") == "entry" else "▼ Exit"
+    label = "▲ Enter" if event.get("event") == "entry" else "▼ Exit"
     region = "" if event.get("cohort") == "THEME" else f" ({event.get('cohort', '')})"
     rank = f" (rank {event['rank']})" if event.get("rank") is not None else ""
     star = " ★" if held else ""
