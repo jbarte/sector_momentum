@@ -464,6 +464,20 @@ source-only and tight:
     briefly made a correct result look like a no-op. Now asserts the structure
     before asserting the content.
 
+  **Code review found the flag was only half-applied.** A badge is not the only
+  way to say "buy this": `detect_badge_events` still emitted an entry event for
+  Shipping, and `build_personal_alerts` fans entry events to every enabled user
+  — so the board hid the prompt while the push notification still delivered it,
+  on the loudest channel there is. The badge scorecard also folded suppressed
+  prompts into the Enter cohort, making its forward-return stat vouch for
+  something the reader is never shown. Both now read the same flag.
+
+  The predicate itself moved to `src/universe.py`, because the review caught the
+  dashboard matching on a bare theme name while the backtest matched on the
+  region-scoped `THEME|<name>` key. Latent only because the US/EU cohorts are
+  retired — a same-named sector would have been unbuyable on the board and
+  tradeable in the backtest. Four surfaces, one region-scoped predicate now.
+
   **Noticed, not fixed** — the lag means guests see 13 themes while the live
   board has 18, and the five newer themes (Shipping among them) have no
   drill-down panel for signed-in readers either, since auth.js reuses only the

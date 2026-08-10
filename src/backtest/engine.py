@@ -6,6 +6,9 @@ import logging
 import pandas as pd
 
 from src.backtest import metrics, replay, strategy
+# Re-exported: the backtest keeps one import, but the predicate is shared with
+# the dashboard and the alerts so they cannot disagree. See src/universe.py.
+from src.universe import unbuyable_keys  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -13,21 +16,6 @@ logger = logging.getLogger(__name__)
 def _theme_instruments(themes_cfg: dict) -> dict[str, str]:
     return {f"THEME|{name}": (cfg["ticker"] if isinstance(cfg, dict) else cfg)
             for name, cfg in themes_cfg.get("themes", {}).items()}
-
-
-def unbuyable_keys(themes_cfg: dict) -> frozenset[str]:
-    """Sector keys the reader has no route to purchase (`unbuyable: true`).
-
-    Scored but never held: they still shape the cross-sectional z-scores, and
-    the backtest must not book them or it reports returns from trades that
-    could not be made. The dashboard reads the same config flag, so the board
-    and the published figures describe one strategy.
-    """
-    return frozenset(
-        f"THEME|{name}"
-        for name, cfg in themes_cfg.get("themes", {}).items()
-        if isinstance(cfg, dict) and cfg.get("unbuyable")
-    )
 
 
 def resolve_benchmark(themes_cfg: dict, prices: dict[str, pd.DataFrame]) -> str | None:

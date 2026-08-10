@@ -10,6 +10,7 @@ import urllib.error
 import pandas as pd
 
 from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_float
+from src.universe import is_unbuyable
 from src.state import (
     get_scan_history, get_theme_scan_history, get_all_positions, get_alert_prefs,
 )
@@ -20,7 +21,8 @@ logger = logging.getLogger(__name__)
 TRAJECTORY_WINDOW = 5
 
 
-def detect_badge_events(history_df: pd.DataFrame) -> list[dict]:
+def detect_badge_events(history_df: pd.DataFrame,
+                        themes_cfg: dict | None = None) -> list[dict]:
     """Detect Entry/Exit setup badges in the latest scan.
 
     Computes rank trajectories over the last 5 scans and evaluates each
@@ -29,6 +31,12 @@ def detect_badge_events(history_df: pd.DataFrame) -> list[dict]:
     Works on any DataFrame with the standard scan history columns:
     scan_id, region, gics_sector, composite, change_score, rank.
     Returns [] if fewer than 2 scans exist (trajectory needs history).
+
+    `themes_cfg` suppresses ENTRY events for themes with no route to
+    purchase. A push notification is the most direct buy prompt the product
+    has, so leaving it unfiltered while the leaderboard hides the badge would
+    just move the defect to the loudest channel. Exit events are unaffected —
+    they only ever go to users who marked the item as held.
     """
     if history_df.empty:
         return []
@@ -72,6 +80,8 @@ def detect_badge_events(history_df: pd.DataFrame) -> list[dict]:
         # daily email listing the same positions, which is the churn this
         # whole change exists to remove. A name that was already in the band
         # last scan is not news.
+        if setup == "entry" and is_unbuyable(region, sector, themes_cfg):
+            continue
         if setup in ("entry", "exit") and setup != was:
             events.append({
                 "cohort": region,
@@ -159,6 +169,23 @@ def send_personal_alerts(conn, scan_date: str, events: list[dict], prefs: list[d
         logger.info("Personal alerts sent: %d/%d.", sent, len(payloads))
 
 
+def _load_themes_cfg() -> dict:
+    """config/themes.yaml, or {} if it cannot be read.
+
+    Fail-open: without it, unbuyable themes stop being suppressed, which is the
+    pre-2026-08-10 behaviour — worse than ideal but not worse than an alert
+    pipeline that raises.
+    """
+    try:
+        import yaml
+        from pathlib import Path as _Path
+        path = _Path(__file__).resolve().parent.parent / "config" / "themes.yaml"
+        return yaml.safe_load(path.read_text()) or {}
+    except Exception as exc:
+        logger.warning("themes.yaml unreadable (%s) — unbuyable filter off", exc)
+        return {}
+
+
 def send_alerts(conn, scan_date: str) -> None:
     """Send the ops broadcast and per-user personalized alerts."""
     topic = os.environ.get("NTFY_TOPIC")
@@ -183,8 +210,13 @@ def send_alerts(conn, scan_date: str) -> None:
     sector_history = get_scan_history(conn, n_scans=TRAJECTORY_WINDOW)
     theme_history = get_theme_scan_history(conn, n_scans=TRAJECTORY_WINDOW)
 
-    events = detect_badge_events(sector_history)
-    events.extend(detect_badge_events(theme_history))
+    # Read here rather than threaded in from the caller: send_alerts is
+    # invoked from scan.py and from CI, and a missing config must degrade to
+    # "no suppression", never to a crash mid-scan.
+    themes_cfg = _load_themes_cfg()
+
+    events = detect_badge_events(sector_history, themes_cfg)
+    events.extend(detect_badge_events(theme_history, themes_cfg))
 
     if topic:
         if events:

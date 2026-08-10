@@ -189,7 +189,11 @@
         // v_recent_scores has no buyability column; window.UNBUYABLE carries it
         // from the build so the marker and the suppressed Enter prompt survive
         // sign-in. applyHorizonBadges() reads data-unbuyable.
-        var unbuyable = (window.UNBUYABLE || []).indexOf(r.gics_sector) !== -1;
+        // Region-scoped, matching src/universe.is_unbuyable: the flag belongs to
+        // a THEME, and a same-named row in another cohort is a different
+        // instrument that is perfectly tradeable.
+        var unbuyable = r.region === "THEME"
+          && (window.UNBUYABLE || []).indexOf(r.gics_sector) !== -1;
         if (unbuyable) { tr.dataset.unbuyable = "1"; }
         tr.dataset.composite = (r.composite === null || r.composite === undefined) ? "" : r.composite;
         tr.dataset.change = (r.change_score === null || r.change_score === undefined) ? "" : r.change_score;

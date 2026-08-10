@@ -16,10 +16,9 @@ import pandas as pd
 import pytest
 import yaml
 
-from dashboard.breakdown import (_build_instruments_html, is_unbuyable,
-                                 unbuyable_names)
+from dashboard.breakdown import _build_instruments_html
 from src.backtest import strategy
-from src.backtest.engine import unbuyable_keys
+from src.universe import is_unbuyable, unbuyable_keys, unbuyable_names
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 _THEMES = yaml.safe_load((_PROJECT_ROOT / "config/themes.yaml").read_text())
@@ -51,19 +50,31 @@ def test_no_other_theme_is_flagged_by_accident():
 
 
 def test_both_halves_read_the_same_flag():
-    """`unbuyable_keys` (backtest) and `is_unbuyable` (dashboard) must agree."""
+    """`unbuyable_keys` (backtest) and `is_unbuyable` (board, alerts, scorecard)
+    must agree — they are now one predicate in src/universe.py."""
     keys = unbuyable_keys(_THEMES)
     assert keys == frozenset({"THEME|Shipping"})
     for name in _THEMES["themes"]:
-        assert is_unbuyable(name, _THEMES) == (f"THEME|{name}" in keys)
+        assert is_unbuyable("THEME", name, _THEMES) == (f"THEME|{name}" in keys)
+
+
+def test_the_flag_is_region_scoped():
+    """It is a property of a THEME. A sector that happened to share a flagged
+    theme's name must keep its own Instruments table and stay tradeable — the
+    board matching on a bare name while the backtest matched on `THEME|<name>`
+    was the asymmetry this consolidation removes."""
+    assert is_unbuyable("THEME", "Shipping", _THEMES) is True
+    assert is_unbuyable("US", "Shipping", _THEMES) is False
+    assert is_unbuyable("EU", "Shipping", _THEMES) is False
+    assert "US|Shipping" not in unbuyable_keys(_THEMES)
 
 
 def test_helpers_tolerate_missing_and_shorthand_config():
     assert unbuyable_keys({}) == frozenset()
-    assert is_unbuyable("Shipping", None) is False
+    assert is_unbuyable("THEME", "Shipping", None) is False
     # Legacy shorthand `Theme: TICKER` (a str, not a dict) must not blow up.
     assert unbuyable_keys({"themes": {"Old": "SPY"}}) == frozenset()
-    assert is_unbuyable("Old", {"themes": {"Old": "SPY"}}) is False
+    assert is_unbuyable("THEME", "Old", {"themes": {"Old": "SPY"}}) is False
 
 
 # ---------------------------------------------------------------------------
@@ -230,3 +241,63 @@ def test_swedish_copy_exists_for_every_new_string():
     sv = (_PROJECT_ROOT / "dashboard/templates/i18n/_badges.js.j2").read_text()
     for key in ("badge_unbuyable", "unbuyable_tip", "unbuyable_note", "ucits_title"):
         assert f"{key}:" in sv, f"{key} has no Swedish translation"
+
+
+# ---------------------------------------------------------------------------
+# The other two prompt channels — a badge is not the only way to say "buy this"
+# ---------------------------------------------------------------------------
+
+def _alert_history(rank_now: float, rank_prev: float, sector: str) -> pd.DataFrame:
+    """Two scans where `sector` crosses INTO the buy band — an entry event."""
+    others = [n for n in ("Semiconductors", "Biotech", "Defense", "Space",
+                          "Clean Energy") if n != sector]
+    rows = []
+    for scan_id, rank in ((1, rank_prev), (2, rank_now)):
+        for i, name in enumerate([sector] + others):
+            r = rank if name == sector else float(i + 10)
+            rows.append({"scan_id": scan_id, "run_at": f"2026-08-0{scan_id}T12:00:00",
+                         "region": "THEME", "gics_sector": name, "composite": 1.0,
+                         "change_score": 0.5, "rank": r})
+    return pd.DataFrame(rows)
+
+
+def test_alerts_do_not_push_an_entry_for_an_unbuyable_theme():
+    """A push notification is the most direct buy prompt the product has.
+    Suppressing the badge while the phone still says "▲ Enter: Shipping" just
+    moves the defect to the loudest channel."""
+    from src.alerts import detect_badge_events
+    df = _alert_history(rank_now=1.0, rank_prev=20.0, sector="Shipping")
+    assert [e["sector"] for e in detect_badge_events(df)] == ["Shipping"], \
+        "fixture no longer produces the entry event it is testing"
+    assert detect_badge_events(df, _THEMES) == []
+
+
+def test_alerts_still_push_entries_for_buyable_themes():
+    from src.alerts import detect_badge_events
+    df = _alert_history(rank_now=1.0, rank_prev=20.0, sector="Semiconductors")
+    events = detect_badge_events(df, _THEMES)
+    assert [(e["sector"], e["event"]) for e in events] == [("Semiconductors", "entry")]
+
+
+def test_alerts_fail_open_without_config():
+    """No config must mean "no suppression", never a crash mid-scan."""
+    from src.alerts import detect_badge_events
+    df = _alert_history(rank_now=1.0, rank_prev=20.0, sector="Shipping")
+    assert len(detect_badge_events(df, None)) == 1
+    assert len(detect_badge_events(df, {})) == 1
+
+
+def test_scorecard_does_not_vouch_for_prompts_it_never_shows():
+    """The Enter row reports the forward return after an Enter badge. Folding in
+    a theme whose Enter badge is suppressed makes it describe a prompt the
+    reader is never given."""
+    src = (_PROJECT_ROOT / "dashboard/badges.py").read_text()
+    assert 'if setup == "entry" and not is_unbuyable(region, sector, themes_cfg):' in src
+
+
+def test_signed_in_rebuild_matches_on_region_too():
+    """auth.js mirrors src/universe.is_unbuyable. A bare-name match there would
+    flag a same-named row in another cohort."""
+    js = (_PROJECT_ROOT / "dashboard/assets/auth.js").read_text()
+    assert 'r.region === "THEME"' in js
+    assert "window.UNBUYABLE" in js

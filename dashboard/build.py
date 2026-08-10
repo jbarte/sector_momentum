@@ -42,11 +42,10 @@ from dashboard.badges import (                      # noqa: E402, F401
 from dashboard.breakdown import (                   # noqa: E402, F401
     _build_breakdown_html,
     _build_instruments_html,
-    is_unbuyable,
-    unbuyable_names,
     _SIGNAL_DESCRIPTIONS,
     _SIGNAL_META,
 )
+from src.universe import is_unbuyable, unbuyable_names   # noqa: E402
 from dashboard.feed import (                         # noqa: E402, F401
     build_feed_entries,
     feed_updated_timestamp,
@@ -371,7 +370,7 @@ def main() -> None:
         # shape the z-scores and stay on the board, but the board must not
         # prompt an entry it knows the reader cannot act on. Same config flag
         # the backtest reads, so the two describe one strategy.
-        row["unbuyable"] = is_unbuyable(row["sector"], _themes_cfg)
+        row["unbuyable"] = is_unbuyable(row["region"], row["sector"], _themes_cfg)
         if badges_gated:
             row["setup"] = None
         else:
