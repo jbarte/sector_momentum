@@ -137,6 +137,30 @@
     return null;
   }
 
+  // Action-aware badge. setupForRank answers "where does this sit?"; the badge
+  // answers "what should I do?", which needs to know whether the reader owns it:
+  //
+  //   not held, inside the buy band  -> "entry"  Enter
+  //   held,     anywhere above exit  -> "hold"   Hold — you own it, do nothing
+  //   held,     past the exit rank   -> "exit"   Exit
+  //   not held, past the exit rank   -> null     you cannot exit what you don't own
+  //
+  // "hold" deliberately spans the buy band AND the silent middle band. Scoping
+  // it to the buy band alone would make a held theme drifting rank 4 -> 6 lose
+  // its badge, reading as a change when nothing happened — exactly the churn
+  // the band rule exists to remove.
+  //
+  // The band rule itself is unchanged, and setupForRank still mirrors
+  // dashboard/rows.py:_compute_setup for the server-side consumers (alerts,
+  // badge scorecard) that have no reader and no holdings.
+  function badgeForRank(rank, horizon, isHeld) {
+    var h = horizon || (typeof window !== "undefined" && window.HORIZON_DEFAULT) || null;
+    if (!h || rank == null || isNaN(rank)) { return null; }
+    var band = setupForRank(rank, h);
+    if (!isHeld) { return band === "entry" ? "entry" : null; }
+    return band === "exit" ? "exit" : "hold";
+  }
+
   // recentRows: array of {scan_id, region, gics_sector, change_score, composite, rank}.
   // Returns per-"REGION|Sector" meta for the LATEST scan: formatted delta, arrow,
   // trajectory, and entry/exit setup — mirroring dashboard/rows.py.
@@ -168,6 +192,7 @@
   }
 
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
+              badgeForRank: badgeForRank,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               latestRowMeta: latestRowMeta };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
