@@ -99,78 +99,6 @@ operations, different windows — do not merge them into one conclusion.
 **If the flag ships, the backtest should model the same policy**, or the
 dashboard will keep advertising returns from trades the reader cannot make.
 
-## Make the Entry/Exit badge action-aware
-
-The badge is derived from band position alone (`dashboard/rows.py:_compute_setup`),
-so it labels two situations wrongly for anyone who actually holds something:
-
-| held? | band | badge today | honest action |
-|---|---|---|---|
-| no | `rank <= top_n` | ▲ Entry | Enter — correct |
-| **yes** | `rank <= top_n` | ▲ Entry | **Keep** — misleading |
-| yes | hold band | *(none)* | Keep — arguably should say so |
-| no | hold band | *(none)* | nothing — correct |
-| yes | `rank > exit_rank` | ▼ Exit | Exit — correct |
-| **no** | `rank > exit_rank` | ▼ Exit | **nothing** — cannot exit what you do not own |
-
-"Entry" on a theme already held is the worse of the two: the honest action is to
-do nothing, but the label reads as a buy signal and could prompt doubling up.
-
-**The data already exists.** `dashboard/assets/positions.js` loads the
-`positions` table into a `held` set, applies `.position-held` per row, and
-already computes `.position-warn` for the held+Exit case — so the join between
-"what I own" and "what the band says" is implemented; only the label ignores it.
-
-**This pairs with the badge-gating item above.** If badges become signed-in-only,
-the guest case disappears entirely and every badge render has position data
-available — so action-aware labels stop being a special case and become the only
-case. Worth doing the two together.
-
-Open question for whoever builds it: the methodology deliberately states badges
-describe *position, not action* ("These describe position, not excitement"). Going
-action-aware changes that contract, so the methodology copy needs to change with
-it — in both languages.
-
-## Gate the ▲ Entry / ▼ Exit badge behind sign-in
-
-Product decision (2026-08-09): the Entry/Exit badge is the actionable layer, so
-it becomes a signed-in feature. Guests keep everything else on the lagged
-leaderboard — rank, composite, pillar scores, Trend.
-
-**Scope is the badge itself only.** The Trend badge, the Backtest tab's badge
-scorecard, and alerts are all out of scope and unchanged.
-
-**Two render paths, both need gating or it leaks:**
-
-| path | where | fires |
-|---|---|---|
-| server-rendered | `dashboard/build.py:360` → `_compute_setup()`, emitted at `index.html.j2:250` | baked into the page |
-| client re-derived | `index.html.j2:620` (`applyHorizonBadges`), `auth.js` `renderLatestRows()` — both via `Rescore.setupForRank()` | horizon switch / after sign-in |
-
-Gating only the template puts the badge straight back the moment a guest touches
-the horizon selector. Cleanest cut: stop computing `setup` at build time when
-`auth_ctx["auth"]` is on (the same flag that already drives `lag_active` at
-`build.py:282`), and have `setupForRank()` return null without a session.
-
-**Two things that break as a direct result and must ship in the same change,**
-or the page is visibly broken rather than merely gated:
-
-- The **Entry/Exit filter chips** (`index.html.j2:95-96`) filter on
-  `data-setup`, which becomes empty for every guest row — hide them for guests.
-- The **leaderboard guide** has an Entry/Exit section describing something a
-  guest cannot see. One sentence noting it is a signed-in feature is enough;
-  needs the EN template and the SV `guide_body_leaderboard` string.
-
-**Open question, not a blocker:** the horizon selector's only visible effect for
-a guest is which rows get badged, so it becomes a no-op. Leaving it is
-defensible (it still labels holdings/hold-time/churn per preset); hiding it is
-also defensible. Decide when building.
-
-**Worth knowing:** this is a product signal, not access control. "Entry" is just
-`rank <= top_n` and `top_n` is printed in the horizon selector label, so a guest
-looking at the ranking can reconstruct the badge by eye. Fine if the goal is to
-make the actionable layer feel like the signed-in tier.
-
 ## Ongoing fund costs (TER) are not modelled anywhere
 
 `costs.round_trip_bps` covers per-trade cost only. The backtest has no concept
@@ -572,6 +500,59 @@ source-only and tight:
 ---
 
 # Done
+
+- **Badges are action-aware and signed-in only** (2026-08-10). Two queued items
+  shipped together, because gating removes the guest case and makes
+  "every badge render has holdings available" the only case rather than a
+  special one.
+
+  **Wording (Jonas's call, mid-build):** `▲ Enter / ● Hold / ▼ Exit`. Verbs, so
+  they read as actions, but the strategy's own vocabulary rather than a
+  broker's — `Buy/Hold/Sell` was rejected because the site is public and carries
+  "Analysis tool, not investment advice". Swedish unified to `Gå in / Behåll /
+  Gå ur`, which also fixed an existing split where the badge said *Ursteg* and
+  its own filter chip said *Utsteg*.
+
+  **The rule** (`Rescore.badgeForRank`): not held + buy band → Enter; held and
+  anywhere above the exit rank → Hold; held + past the exit rank → Exit;
+  otherwise nothing. `Hold` deliberately spans the buy band *and* the silent
+  middle, so a holding drifting rank 4 → 6 keeps one label — scoping it to the
+  buy band would reintroduce exactly the flicker the band rule exists to remove.
+  The two rows that motivated the change: `Entry` on something already owned
+  (read as a buy signal when the honest action was nothing) and `Exit` on
+  something never owned.
+
+  **Gating** keys off the same `auth_ctx["auth"]` flag as the content lag, so a
+  local build with no auth keeps its badges. It had to happen where `setup` is
+  computed, not at render: `setup` also reaches the reader via the row's
+  `data-setup` attribute and via `data.json`'s theme rows. All three verified
+  empty on the built page.
+
+  Four things found while doing it, all fixed here:
+
+  - **The sentiment-rescore path was still on the pre-band heuristic** —
+    trajectory + change score, the rule `_compute_setup` replaced. Toggling the
+    sentiment weight silently re-badged the whole board by a rule no other path
+    had used since. All four paths now delegate to one pass.
+  - **Rescoring never updated `data-rank`**, so the next badge pass and the
+    Top 5 filter read pre-rescore ranks.
+  - **Horizon switching left badges in English** for a Swedish reader; the pass
+    now re-applies the language, and rewrites `data-en` because the badge span
+    is reused across kinds and `applyLang()` restores English from that cache.
+  - **`position-warn` (the ⚠ on a holding gone to Exit) was derived separately**
+    in `positions.js` by looking for a rendered `.setup-badge.exit` — i.e. from
+    whatever the previous pass had left behind. It is the same fact as the Exit
+    badge now, so the badge pass owns both.
+
+  A missing `badges_gated` context key renders as **gated**, not ungated: the
+  obvious `{{ 'true' if badges_gated else 'false' }}` emits `false` for an
+  undefined name, so dropping the key from build.py would have published the
+  badge to guests silently. Test covers it.
+
+  **Not touched, deliberately:** alerts (still band-only, and they alert on
+  crossings), and the Backtest tab's badge scorecard, which scores the *band*
+  because it has no holdings history — its label was renamed to `▲ Enter` only
+  so it stops disagreeing with the board in Swedish.
 
 - **Rank-settings gear is a real, labelled control** (2026-08-10). Measured on
   the live page it was a **7x18px** bare `⚙` glyph at **3.67:1** contrast whose

@@ -56,7 +56,11 @@ def test_methodology_covers_every_concept_a_reader_needs():
         ("z-scores explained",   "z-score"),
         ("horizon",              "horizon"),
         ("the hold band",        "hold band"),
-        ("badges",               "entry"),
+        ("badges",               "enter"),
+        # The badge is the band read against holdings, so a reader who does not
+        # learn that holdings are part of it cannot explain why the same theme
+        # shows Enter for one person and Hold for another.
+        ("badges depend on holdings", "not held"),
         ("sentiment",            "finbert"),
         ("backtest",             "backtest"),
         ("data sources",         "yfinance"),

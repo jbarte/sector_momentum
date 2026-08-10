@@ -98,12 +98,17 @@
       <span class="hz-stat"><b id="hz-hold">—</b> <span data-i18n="hz_hold">median hold</span></span>
       <span class="hz-stat"><b id="hz-trades">—</b> <span data-i18n="hz_trades">trades/yr</span></span>
     </span>
-    <span class="horizon-note" data-i18n="horizon_note">Sets the Entry/Exit band. Backtested figures, not predictions.</span>
+    <span class="horizon-note" data-i18n="horizon_note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
   </div>
   <div class="utility-row">
     <div class="filter-bar" id="leaderboard-filter-bar">
-      <div class="filter-group" role="group" aria-label="Setup">
-        <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Entry</button>
+      {#- Hidden for guests when the badge is gated: these chips filter on
+          data-setup, which is empty on every guest row, so leaving them up
+          would offer a control that can only ever empty the table.
+          applyHorizonBadges() owns the toggle. -#}
+      <div class="filter-group" role="group" aria-label="Setup" id="filter-group-setup">
+        <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Enter</button>
+        <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="hold" aria-pressed="false" data-i18n="filter_hold">● Hold</button>
         <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false" data-i18n="filter_exit">▼ Exit</button>
       </div>
       <div class="filter-group" role="group" aria-label="Trend">
@@ -180,7 +185,10 @@
             <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
-          <td>{{ row.sector }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
+          {#- Never "hold": the build has no reader and so no holdings. When the
+              badge is gated, row.setup is None for everyone and applyHorizonBadges()
+              writes the real badge once the session and holdings are known. -#}
+          <td>{{ row.sector }}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
           <td class="composite-cell">{{ row.composite }}</td>
           <td>{{ row.level_score }}</td>
           <td>{{ row.change_score }}</td>
@@ -372,12 +380,18 @@ var COHORT_REGIONS = [{% for c in cohort_list %}"{{ c.region }}"{% if not loop.l
 
 // Horizon presets, from config/weights.yaml via src/horizons.py. A preset is a
 // (cadence, top_n, buffer) triple; top_n/buffer are pure rank comparisons, so
-// switching preset re-derives the Entry/Exit badges in the browser with no
+// switching preset re-derives the Enter/Hold/Exit badges in the browser with no
 // rebuild. Cadence only selects which precomputed backtest curve to show —
 // re-simulating a different cadence needs a replay and cannot happen here.
 var HORIZONS = {{ horizons_json | js_json }};
 var HORIZON_DEFAULT = {{ horizon_default_json | js_json }};
 window.HORIZON_DEFAULT = HORIZON_DEFAULT;
+// True when auth is configured, i.e. when the baked page is the guest view and
+// the Enter/Hold/Exit badge is a signed-in feature. See build.py:badges_gated.
+// Written so that a MISSING context key gates rather than ungates: a plain
+// `if badges_gated` would render `false` for an undefined variable, silently
+// publishing the badge to guests. Failure here should cost a feature, not leak one.
+var BADGES_GATED = {{ 'false' if badges_gated is defined and not badges_gated else 'true' }};
 var activeHorizon = HORIZON_DEFAULT.key;
 
 var _HORIZON_LS = "sm_horizon";
@@ -395,33 +409,90 @@ function currentHorizon() {
   return HORIZON_DEFAULT;
 }
 
-// Re-tag every leaderboard row's Entry/Exit badge for the active band. The
-// badge is `rank <= top_n` / `rank > top_n + buffer`, both of which the row
-// already carries in data-rank — no server round-trip.
+// The single writer of every leaderboard badge — the horizon switch, the
+// signed-in rebuild, the sentiment rescore and the holdings toggle all end up
+// here. They used to each emit their own badge markup, and they had already
+// drifted: the rescore path was still using the pre-band trajectory heuristic
+// that _compute_setup replaced.
+//
+// Two inputs beyond the row's own data-rank:
+//   BADGES_GATED   the badge is the signed-in tier; guests get data-setup=""
+//                  and no span, whichever path rendered the row.
+//   holdings       Enter vs Hold. See Rescore.badgeForRank for the rule.
+var BADGE_TEXT_EN = { entry: '▲ Enter', hold: '● Hold', exit: '▼ Exit' };
+var BADGE_I18N = { entry: 'badge_entry', hold: 'badge_hold', exit: 'badge_exit' };
+
+function badgesVisible() {
+  return !BADGES_GATED || window.SM_SIGNED_IN === true;
+}
+
 function applyHorizonBadges() {
   var h = currentHorizon();
+  var visible = badgesVisible();
+  var pos = window.SMPositions;
   var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row');
   Array.prototype.forEach.call(rows, function (tr) {
-    var rank = parseFloat(tr.dataset.rank);
-    var setup = (window.Rescore && window.Rescore.setupForRank)
-      ? window.Rescore.setupForRank(rank, h)
-      : null;
-    tr.dataset.setup = setup || "";
+    var kind = null;
+    if (visible && window.Rescore && window.Rescore.badgeForRank) {
+      kind = window.Rescore.badgeForRank(
+        parseFloat(tr.dataset.rank), h, !!(pos && pos.isHeld(tr)));
+    }
+    tr.dataset.setup = kind || '';
+    // The ⚠ marker is the same fact as the Exit badge (only a holding can be
+    // badged "exit"), so it is written here rather than derived a second time
+    // in positions.js from the DOM the previous pass happened to leave.
+    tr.classList.toggle('position-warn', kind === 'exit');
 
     var nameCell = tr.cells[1];
     if (!nameCell) return;
     var badge = nameCell.querySelector('.setup-badge');
-    if (!setup) { if (badge) badge.remove(); return; }
+    if (!kind) { if (badge) badge.remove(); return; }
     if (!badge) {
       badge = document.createElement('span');
       nameCell.appendChild(badge);
     }
-    badge.className = 'setup-badge ' + setup;
-    badge.setAttribute('data-i18n', setup === 'entry' ? 'badge_entry' : 'badge_exit');
-    badge.textContent = setup === 'entry' ? '▲ Entry' : '▼ Exit';
+    badge.className = 'setup-badge ' + kind;
+    badge.setAttribute('data-i18n', BADGE_I18N[kind]);
+    badge.textContent = BADGE_TEXT_EN[kind];
+    // data-en must be rewritten, not left to _i18n.html.j2's first-sight
+    // capture: this span is REUSED across kinds, and applyLang() restores
+    // English from data-en. A span that went Enter -> Hold would otherwise
+    // carry data-en="▲ Enter" and snap back to Enter on the next EN pass.
+    badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);
   });
+
+  var setupFilters = document.getElementById('filter-group-setup');
+  if (setupFilters && setupFilters.hidden !== !visible) {
+    setupFilters.hidden = !visible;
+    // Dropping the chips without dropping the state they set would leave an
+    // invisible filter pinning the table to zero rows. The guard is for the
+    // init call, which can run before _filterState's `var` is evaluated.
+    if (!visible && typeof _filterState !== 'undefined' && _filterState) {
+      _filterState.setup = [];
+    }
+    Array.prototype.forEach.call(
+      setupFilters.querySelectorAll('.filter-chip'), function (c) {
+        if (visible) return;
+        c.classList.remove('active');
+        c.setAttribute('aria-pressed', 'false');
+      });
+  }
+
+  // Badge text is written in English above; without this a Swedish reader got
+  // English badges from every path except the initial page load.
+  if (window.applyLang) {
+    var lang = 'en';
+    try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
+    window.applyLang(lang);
+  }
   if (typeof applyFilters === 'function') applyFilters();
 }
+
+// Anything that changes gating, holdings, or the rendered rows re-runs the
+// single pass rather than patching badges itself.
+document.addEventListener('sm:auth-changed', applyHorizonBadges);
+document.addEventListener('sm:positions-changed', applyHorizonBadges);
+document.addEventListener('sm:leaderboard-upgraded', applyHorizonBadges);
 
 // Sync the <select> to the restored state. Without this the control shows the
 // first option while activeHorizon is whatever localStorage (or the config
@@ -455,9 +526,11 @@ function initHorizonSelect() {
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
     tr.classList.toggle('active', tr.dataset.horizon === activeHorizon);
   });
-  // Re-derive badges only if the restored horizon differs from the one the
-  // page was baked with; otherwise the server-rendered badges already match.
-  if (activeHorizon !== HORIZON_DEFAULT.key) { applyHorizonBadges(); }
+  // Always, not only when the restored horizon differs from the baked one:
+  // this pass also hides the Enter/Hold/Exit filter chips for guests, and a
+  // guest who never touched the horizon selector would otherwise keep a chip
+  // group that can only empty the table.
+  applyHorizonBadges();
 }
 
 if (document.readyState === 'loading') {
@@ -850,36 +923,16 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
       }
       var traj = tr.querySelector(".traj-badge");
       if (traj) { traj.className = "traj-badge traj-" + r.trajectory_state; traj.textContent = r.trajectory_label; }
-      var sectorCell = tr.querySelectorAll("td")[1];
-      if (sectorCell) {
-        var changeVal = parseFloat(tr.querySelectorAll("td")[5].textContent);
-        var setup = null;
-        if (r.composite > 0 && (r.trajectory_state === "up" || r.trajectory_state === "strong_up") && changeVal > 0) {
-          setup = "entry";
-        } else if ((r.trajectory_state === "down" || r.trajectory_state === "strong_down") && changeVal < 0) {
-          setup = "exit";
-        }
-        var sbadge = sectorCell.querySelector(".setup-badge");
-        var lang = "en"; try { lang = localStorage.getItem("lang") || "en"; } catch(e) {}
-        var entryText = lang === "sv" ? "▲ Insteg" : "▲ Entry";
-        var exitText = lang === "sv" ? "▼ Ursteg" : "▼ Exit";
-        var badgeText = setup === "entry" ? entryText : exitText;
-        var i18nKey = setup === "entry" ? "badge_entry" : "badge_exit";
-        if (setup && !sbadge) {
-          var s = document.createElement("span");
-          s.className = "setup-badge " + setup;
-          s.setAttribute("data-i18n", i18nKey);
-          s.setAttribute("data-en", setup === "entry" ? "▲ Entry" : "▼ Exit");
-          s.textContent = badgeText;
-          sectorCell.appendChild(s);
-        } else if (setup && sbadge) {
-          sbadge.className = "setup-badge " + setup;
-          sbadge.setAttribute("data-i18n", i18nKey);
-          sbadge.setAttribute("data-en", setup === "entry" ? "▲ Entry" : "▼ Exit");
-          sbadge.textContent = badgeText;
-        } else if (!setup && sbadge) { sbadge.remove(); }
-      }
+      // Rescoring changes the rank, and the rank is what the badge is derived
+      // from — so data-rank has to move with it or the next badge pass (and the
+      // Top 5 filter) would still be reading pre-rescore ranks.
+      tr.dataset.rank = r.rank;
     });
+    // Badges are not patched here. This path used to carry its own rule — the
+    // trajectory + change-score heuristic that _compute_setup replaced with the
+    // rank band — so toggling the sentiment weight silently re-badged the board
+    // by a rule no other path had used since. One writer now.
+    applyHorizonBadges();
   }
 
   function sortVisibleByRank(rows, scored, tbody) {
@@ -985,23 +1038,31 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
                month; pick <strong>Long</strong> and you may go months without doing
                anything. If you are unsure, leave it on Medium.</p>
 
-            <h4>Entry, Exit, and no badge at all</h4>
-            <p>These say where a theme sits relative to your horizon, and nothing else:</p>
+            <h4>Enter, Hold, Exit — and no badge at all</h4>
+            <p><strong>Badges are a signed-in feature.</strong> They combine the band with
+               the holdings you have marked, so they say what there is to <em>do</em>
+               rather than only where a theme sits:</p>
             <ul>
-              <li><span class="signal-hi">▲ Entry</span> — inside the buy band for your
-                  horizon.</li>
-              <li><strong>No badge</strong> — the hold band. <strong>This is the most
-                  common state and it means do nothing.</strong> A theme drifting a rank
-                  or two in here is normal noise, not a signal.</li>
-              <li><span class="signal-lo">▼ Exit</span> — it has dropped clearly out of
-                  the hold band. Not a wobble.</li>
+              <li><span class="signal-hi">▲ Enter</span> — inside the buy band for your
+                  horizon, and you do not own it.</li>
+              <li><strong>● Hold</strong> — you own it and it is still inside the band.
+                  <strong>Do nothing.</strong> On a full book this is the most common
+                  badge; a theme drifting a rank or two is normal noise, not a signal.</li>
+              <li><span class="signal-lo">▼ Exit</span> — you own it and it has dropped
+                  clearly out of the band. Not a wobble.</li>
+              <li><strong>No badge</strong> — nothing to do. Either it is not in the buy
+                  band and you do not own it, or it has fallen out of the band and you
+                  never owned it.</li>
             </ul>
-            <p>The gap between Entry and Exit is deliberate. Without it, a theme bouncing
+            <p>Mark what you hold with the ☆ beside a theme's name. Until you do, every
+               theme in the buy band shows <span class="signal-hi">▲ Enter</span> — which
+               is correct, because as far as the board knows you own nothing.</p>
+            <p>The gap between Enter and Exit is deliberate. Without it, a theme bouncing
                between 5th and 6th place would have you buying and selling the same fund
                for no reason. Silence is the point.</p>
-            <p><strong>An important quirk:</strong> the badge describes position, not
+            <p><strong>An important quirk:</strong> the badge describes the band, not
                health. A theme falling hard but still ranked first shows
-               <span class="signal-hi">▲ Entry</span>, because it is still the strongest
+               <span class="signal-hi">▲ Enter</span>, because it is still the strongest
                thing on the board. That is what the Trend column is for.</p>
 
             <h4>Trend — the health check</h4>
@@ -1012,8 +1073,8 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
               <li>→ Flat — going nowhere in particular.</li>
               <li><span class="signal-lo">↓ Falling</span> / <span class="signal-lo">↓↓ Falling fast</span> — losing ground, even if the rank is still high.</li>
             </ul>
-            <p>Read Trend <em>with</em> the badge. Entry plus ↑ is a theme arriving.
-               Entry plus ↓↓ is one on its way out that has not fallen far enough to
+            <p>Read Trend <em>with</em> the badge. Enter plus ↑ is a theme arriving.
+               Hold plus ↓↓ is one on its way out that has not fallen far enough to
                trigger an Exit yet.</p>
 
             <h4>Market context chips</h4>

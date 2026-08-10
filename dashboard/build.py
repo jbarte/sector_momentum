@@ -280,6 +280,11 @@ def main() -> None:
         auth_ctx = {"auth": None, "auth_config_json": ""}
 
     lag_active = bool(auth_ctx["auth"])
+    # The ▲ Entry / ▼ Exit badge is the actionable layer, so it is a signed-in
+    # feature. Same switch as the lag: when auth is configured, the baked page
+    # IS the guest view. With no auth configured there is nobody to sign in, so
+    # a local build keeps its badges.
+    badges_gated = lag_active
     lb_history_df, lb_scan_id, lag_banner_date = apply_leaderboard_lag(
         history_df, lag_active=lag_active
     )
@@ -357,7 +362,13 @@ def main() -> None:
         traj = trajectories.get(key, {"label": "→", "state": "flat"})
         row["trajectory_label"] = traj["label"]
         row["trajectory_state"] = traj["state"]
-        _compute_setup(row, _default_horizon)
+        # Gating has to happen here, not in the template: `setup` also reaches
+        # the reader through data-setup on the row and through data.json's
+        # theme rows, so suppressing only the rendered span would leak it twice.
+        if badges_gated:
+            row["setup"] = None
+        else:
+            _compute_setup(row, _default_horizon)
         mask = (
             (latest_scores["region"]      == row["region"]) &
             (latest_scores["gics_sector"] == row["sector"])
@@ -459,6 +470,7 @@ def main() -> None:
         }),
         "cohorts_json": cohorts_json,
         "has_any_rows": bool(leaderboard_rows),
+        "badges_gated": badges_gated,
         "plotly_bundle": plotly_bundle_rel,
         "lag_banner_date": lag_banner_date,
     }

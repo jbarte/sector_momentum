@@ -63,10 +63,21 @@
       .match({ item_type: item.item_type, region: item.region, name: item.name });
   }
 
+  /* Holdings are what makes the Enter/Hold/Exit badge action-aware, so the badge
+   * pass (index.html.j2:applyHorizonBadges) has to be able to ask this file
+   * what is held, and has to re-run whenever the answer changes. */
+  function announce() {
+    document.dispatchEvent(new CustomEvent("sm:positions-changed"));
+  }
+
+  /* position-warn (the ⚠ on a holding that has gone to Exit) is NOT set here.
+   * It is the same fact as the Exit badge — only a held theme can be badged
+   * "exit" now — so the badge pass owns both and they cannot disagree. This
+   * file used to derive it independently by looking for a rendered
+   * .setup-badge.exit, which meant it silently read whatever the previous
+   * badge pass had left behind. */
   function applyRowState(tr, isHeld) {
     tr.classList.toggle("position-held", isHeld);
-    var hasExit = !!tr.querySelector(".setup-badge.exit");
-    tr.classList.toggle("position-warn", isHeld && hasExit);
     var btn = tr.querySelector(".position-toggle");
     if (btn) {
       btn.textContent = isHeld ? "★" : "☆";   // ★ / ☆
@@ -97,12 +108,14 @@
       var next = !held.has(key);
       if (next) held.add(key); else held.delete(key);    // optimistic
       applyRowState(tr, next);
+      announce();                                        // Enter <-> Hold flips now
       persist(next, item).then(function (res) {
         if (res && res.error) { revert(); }
       }).catch(revert);
       function revert() {
         if (next) held.delete(key); else held.add(key);
         applyRowState(tr, !next);
+        announce();
       }
     });
   }
@@ -111,7 +124,17 @@
     if (!signedIn || !held) return;
     var rows = document.querySelectorAll(".leaderboard-row");
     Array.prototype.forEach.call(rows, decorateRow);
+    announce();
   }
+
+  function isHeldRow(tr) {
+    if (!signedIn || !held) return false;
+    var item = itemForRow(tr);
+    if (!item) return false;
+    return held.has(rowKey(item.item_type, item.region, item.name));
+  }
+
+  window.SMPositions = { isHeld: isHeldRow };
 
   function clearAll() {
     var btns = document.querySelectorAll(".position-toggle");
@@ -122,6 +145,7 @@
     });
     held = null;
     loadPromise = null;
+    announce();
   }
 
   sb.auth.onAuthStateChange(function (_event, session) {

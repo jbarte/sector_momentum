@@ -64,6 +64,12 @@
 
   function render(session) {
     var signedIn = !!(session && session.user);
+    /* The Enter/Hold/Exit badge is the signed-in tier (BADGES_GATED in the page).
+     * Everything that renders a badge reads this flag, so it must be set
+     * before any of them run — including the guest case, where it stays
+     * false and the badge pass strips whatever the build baked. */
+    window.SM_SIGNED_IN = signedIn;
+    document.dispatchEvent(new CustomEvent("sm:auth-changed"));
     signinBtn.hidden = signedIn;
     userBox.hidden = !signedIn;
     emailLabel.textContent = signedIn ? (session.user.email || "") : "";
@@ -162,20 +168,17 @@
         var rank = (r.rank === null || isNaN(r.rank)) ? "—" : Math.round(r.rank);
         var top3 = (typeof rank === "number" && rank <= 3) ? " top3" : "";
         var m = meta[r.region + "|" + r.gics_sector] || {};
-        // Same filter attributes the static build emits, so the leaderboard
-        // filter bar works on signed-in rows too (setup/trend come from the
-        // client-side meta computed in rescore.js).
-        tr.dataset.setup = m.setup || "";
+        // The same filter attributes the static build emits, so the filter bar
+        // works on signed-in rows too — minus data-setup. That one is written
+        // by applyHorizonBadges() instead: the badge is action-aware, so it
+        // needs the holdings set, which positions.js is still fetching at this
+        // point. The page's applyHorizonBadges() pass owns data-setup and the
+        // badge element for every row on both render paths; it runs on
+        // sm:leaderboard-upgraded and again on sm:positions-changed.
         tr.dataset.trend = m.trajectory_state || "";
         tr.dataset.composite = (r.composite === null || r.composite === undefined) ? "" : r.composite;
         tr.dataset.change = (r.change_score === null || r.change_score === undefined) ? "" : r.change_score;
         tr.dataset.rank = (r.rank === null || isNaN(r.rank)) ? "" : Math.round(r.rank);
-        var badge = "";
-        if (m.setup === "entry") {
-          badge = '<span class="setup-badge entry" data-i18n="badge_entry">▲ Entry</span>';
-        } else if (m.setup === "exit") {
-          badge = '<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>';
-        }
         var deltaInner = m.arrow
           ? '<span class="arrow ' + m.arrow_class + '">' + m.arrow + "</span> " + (m.delta_rank || "—")
           : (m.delta_rank || "—");
@@ -184,7 +187,7 @@
           : "—";
         tr.innerHTML =
           '<td class="rank-cell"><span class="rank-badge' + top3 + '">' + rank + "</span></td>" +
-          "<td>" + r.gics_sector + badge + "</td>" +
+          "<td>" + r.gics_sector + "</td>" +
           '<td class="composite-cell">' + fmtScore(r.composite) + "</td>" +
           "<td>" + fmtScore(r.level_score) + "</td>" +
           "<td>" + fmtScore(r.change_score) + "</td>" +

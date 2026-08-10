@@ -17,7 +17,11 @@ MIN_SCANS = 6
 TRAJECTORY_WINDOW = 5
 
 _BADGE_ORDER = [
-    ("▲ Entry", "entry", True),
+    # Label must track the leaderboard's badge_entry string — the template
+    # renders this text under data-i18n="badge_entry", so a mismatch shows one
+    # word in English and another in Swedish. The scorecard scores the band
+    # itself (it has no holdings history), which is the "not held" case.
+    ("▲ Enter", "entry", True),
     ("↑↑ Rising fast", "rising_fast", True),
     ("↑ Rising", "rising", True),
     ("→ Flat", "flat", None),
