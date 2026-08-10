@@ -21,6 +21,60 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Flag Shipping as unbuyable on the leaderboard
+
+**Shipping (BOAT) is scored and ranked but cannot be bought.** There is no UCITS
+equivalent, so if it reaches Entry the board is recommending something the
+account holder has no route to purchase. Verified on justETF 2026-08-10, not
+recalled:
+
+- The one candidate the config ever noted, **ETFS DAXglobal Shipping GO
+  (`IE00B3CMS880`)**, is confirmed dead — justETF states "This fund has been
+  liquidated or merged", last NAV **2014-09-05**. The original caution about
+  listing a possibly-dead instrument was right.
+- justETF search across the whole European UCITS universe: `shipping` **0**,
+  `maritime` **0**, `freight` **0**, `marine` **0**, `transport` **0**.
+  `logistics` returns 1 (L&G Ecommerce Logistics, `IE00BF0M6N54`) — warehousing
+  and last-mile delivery, not the freight-rate cycle. Not a substitute.
+- Method sanity-checked before trusting the zeros: `robotics` returns 7, so the
+  search works and the zeros are real.
+
+**Do this:** mark the row so Shipping can never surprise the reader at Entry —
+a marker in the theme cell plus a line in the drill-down where the UCITS
+alternative would otherwise appear. No scoring change; it keeps contributing to
+the cross-sectional z-scores.
+
+**Chosen over the two alternatives, both measured** (deltas vs current, 100 bps,
+3 presets x 2 windows):
+
+| option | outcome |
+|---|---|
+| drop to 17 themes | helps Short/Long, **hurts Medium — the default** (−0.7 to −1.2pp CAGR, −5.7pp drawdown post-2015) |
+| swap → Copper Miners (COPX) | **worse in all 6 cells** on CAGR *and* Sharpe (−4.8 to −1.7pp) |
+| swap → Global Infrastructure (IGF) | worse in 5 of 6 (−3.8 to −0.4pp) |
+| **flag it** | no scoring change, no measured cost |
+
+Dropping to 17 beat both swaps almost everywhere, so replacement is not on the
+table with these candidates.
+
+**Two caveats recorded so this is not re-litigated on false precision:**
+
+1. **BOAT has price data only from 2021-08-04.** For 13 of the 18 backtest
+   years "keeping Shipping" is already a 17-theme universe, so every
+   Shipping-related delta above rests on ~4 years. The swap candidates have
+   history from 2007 (IGF) and 2010 (COPX), so part of their negative delta is
+   "adding any long-history theme dilutes the top-N picks", not purely "this
+   theme is bad". The direction was consistent across six cells, but the
+   magnitudes are not a precise ranking.
+2. Shipping's mean weekly correlation with the cohort is **0.19** versus
+   0.41–0.45 for both candidates — genuinely the most distinct name in the
+   universe, which is likely why removing it hurts the default. But the
+   2026-08-09 audit established that **low correlation is not automatically
+   useful diversification** (that reasoning is what made the SIL/OIH
+   recommendation wrong), and 0.19 is a four-year estimate.
+
+Revisit only if a UCITS shipping product actually launches.
+
 ## Gate the ▲ Entry / ▼ Exit badge behind sign-in
 
 Product decision (2026-08-09): the Entry/Exit badge is the actionable layer, so
