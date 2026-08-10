@@ -369,6 +369,12 @@ tbody td:nth-child(n+4) {
 }
 .filter-clear:hover { color: var(--fg2); }
 .filter-clear[hidden] { display: none; }
+/* .filter-group sets display:flex, an AUTHOR rule, which beats the UA
+   stylesheet's [hidden] { display: none } no matter the specificity. Without
+   this the setup group's `hidden` property is set and the chips still render —
+   and a guest clicking one filters on a data-setup that is empty on every row,
+   emptying the table. */
+.filter-group[hidden] { display: none; }
 .filter-count { color: var(--fg4); font-size: 0.75rem; }
 
 /* =========================================================

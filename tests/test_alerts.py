@@ -95,9 +95,9 @@ class TestFormatAlertBody:
         assert "Sectors — US" in body
         assert "Sectors — EU" in body
         assert "Themes" in body
-        assert "▲ Entry: Energy (rank 2)" in body
+        assert "▲ Enter: Energy (rank 2)" in body
         assert "▼ Exit: Tech (rank 5)" in body
-        assert "▲ Entry: Uranium (rank 1)" in body
+        assert "▲ Enter: Uranium (rank 1)" in body
 
     def test_empty_events(self):
         assert format_alert_body([]) == ""

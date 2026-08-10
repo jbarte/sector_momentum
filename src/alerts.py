@@ -100,7 +100,7 @@ def format_alert_body(events: list[dict]) -> str:
         for ev in grouped[label]:
             rank_info = f" (rank {ev['rank']})" if ev["rank"] is not None else ""
             if ev["event"] == "entry":
-                lines.append(f"  ▲ Entry: {ev['sector']}{rank_info}")
+                lines.append(f"  ▲ Enter: {ev['sector']}{rank_info}")
             else:
                 lines.append(f"  ▼ Exit: {ev['sector']}{rank_info}")
         lines.append("")

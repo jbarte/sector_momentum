@@ -161,6 +161,27 @@
     return band === "exit" ? "exit" : "hold";
   }
 
+  // Which rule the leaderboard may apply, given what is known about holdings.
+  // `state` comes from positions.js:holdingsState():
+  //
+  //   "ready"    holdings known -> the action-aware rule above
+  //   "loading"  signed in, request in flight -> nothing, rather than flashing
+  //              "Enter" on a theme the reader actually holds
+  //   "unknown"  no session, or the holdings read failed -> the plain band,
+  //              which is what the page did before holdings existed and what
+  //              the server bakes on an ungated build. Showing a
+  //              possibly-irrelevant Exit beats hiding a real one.
+  //
+  // Without the "unknown" arm the action-aware rule deletes every Exit badge
+  // whenever holdings are unavailable — nothing is held, so nothing can be
+  // exited — including on ungated builds, where it would strip badges the
+  // server had just rendered.
+  function badgeFor(rank, horizon, state, isHeld) {
+    if (state === "loading") { return null; }
+    if (state === "ready") { return badgeForRank(rank, horizon, isHeld); }
+    return setupForRank(rank, horizon);
+  }
+
   // recentRows: array of {scan_id, region, gics_sector, change_score, composite, rank}.
   // Returns per-"REGION|Sector" meta for the LATEST scan: formatted delta, arrow,
   // trajectory, and entry/exit setup — mirroring dashboard/rows.py.
@@ -192,7 +213,7 @@
   }
 
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
-              badgeForRank: badgeForRank,
+              badgeForRank: badgeForRank, badgeFor: badgeFor,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               latestRowMeta: latestRowMeta };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }

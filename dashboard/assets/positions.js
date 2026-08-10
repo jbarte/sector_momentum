@@ -11,6 +11,7 @@
   var held = null;       // Set of rowKey() strings once loaded, else null
   var signedIn = false;
   var loadPromise = null; // in-flight guard: concurrent callers await one request
+  var loadFailed = false; // last holdings read failed -> `held` is empty by default, not by fact
 
   function rowKey(itemType, region, name) {
     return itemType + "|" + region + "|" + name;
@@ -40,16 +41,27 @@
 
   function loadHoldings() {
     if (loadPromise) return loadPromise;         // coalesce concurrent callers
+    loadFailed = false;
     loadPromise = sb.from("positions").select("item_type, region, name")
       .then(function (res) {
         held = new Set();
-        if (res.error || !res.data) return held;  // fail-open -> empty set
+        // Still fail-open for the ★ toggles, but RECORD the failure. An empty
+        // set is indistinguishable from "owns nothing", and the badge rule now
+        // depends on holdings: silently treating a failed read as "owns
+        // nothing" would delete every ▼ Exit badge for someone who does hold
+        // things. holdingsState() reports it so the badge pass can fall back
+        // to the plain band instead.
+        if (res.error || !res.data) { loadFailed = true; return held; }
         res.data.forEach(function (r) {
           held.add(rowKey(r.item_type, r.region, r.name));
         });
         return held;
       })
-      .catch(function () { held = new Set(); return held; });  // fail-open on hard reject
+      .catch(function () {                       // fail-open on hard reject
+        held = new Set();
+        loadFailed = true;
+        return held;
+      });
     return loadPromise;
   }
 
@@ -134,7 +146,19 @@
     return held.has(rowKey(item.item_type, item.region, item.name));
   }
 
-  window.SMPositions = { isHeld: isHeldRow };
+  /* What the badge pass may assume about holdings:
+   *   "ready"   holdings are known — label Enter vs Hold from them
+   *   "loading" signed in, request in flight — badge nothing rather than
+   *             flash "Enter" on a theme the reader actually holds
+   *   "unknown" no session or the read failed — fall back to the plain band,
+   *             which is what the page did before holdings existed. Showing a
+   *             possibly-irrelevant Exit beats hiding a real one. */
+  function holdingsState() {
+    if (!signedIn || loadFailed) return "unknown";
+    return held ? "ready" : "loading";
+  }
+
+  window.SMPositions = { isHeld: isHeldRow, holdingsState: holdingsState };
 
   function clearAll() {
     var btns = document.querySelectorAll(".position-toggle");

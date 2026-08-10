@@ -549,10 +549,33 @@ source-only and tight:
   undefined name, so dropping the key from build.py would have published the
   badge to guests silently. Test covers it.
 
-  **Not touched, deliberately:** alerts (still band-only, and they alert on
-  crossings), and the Backtest tab's badge scorecard, which scores the *band*
-  because it has no holdings history — its label was renamed to `▲ Enter` only
-  so it stops disagreeing with the board in Swedish.
+  **Not touched, deliberately:** broadcast alerts (`src/alerts.py`) stay
+  band-only and alert on crossings; personal alerts already joined holdings.
+  The Backtest tab's badge scorecard scores the *band* because it has no
+  holdings history. All three had their label renamed to `▲ Enter` only, so the
+  product speaks one vocabulary.
+
+  **Code review caught four things, all fixed in-branch:**
+
+  - **`hidden` did not hide the filter chips.** `.filter-group { display: flex }`
+    is an author rule and beats the UA stylesheet's `[hidden] { display: none }`
+    at any specificity, so guests kept the Enter/Hold/Exit chips and clicking one
+    emptied the board — the exact failure the code claimed to prevent. Eight
+    other toggled elements in this CSS already carry an explicit
+    `X[hidden] { display: none }`; `.filter-group` needed one too.
+  - **Applying the action-aware rule without holdings deletes every Exit badge**
+    (nothing is held, so nothing can be exited). That hit ungated builds, where
+    the pass ran over Exit badges the server had just baked, *and* signed-in
+    users whose holdings read failed — `loadHoldings()` fails open to an empty
+    Set, which is indistinguishable from "owns nothing". Now three-way:
+    `positions.js:holdingsState()` returns ready / loading / unknown, and
+    `Rescore.badgeFor()` maps them to action-aware / nothing / plain band. A
+    possibly-irrelevant Exit beats a hidden real one.
+  - **A mid-fetch pass flashed "Enter" on held themes** — `loading` now badges
+    nothing rather than guessing.
+  - **The Swedish unification missed five more strings** (`alerts_intro`, the
+    drill-down guide, the footer, and both alert modules), which would have
+    reintroduced the Utsteg/Ursteg split this change set out to remove.
 
 - **Rank-settings gear is a real, labelled control** (2026-08-10). Measured on
   the live page it was a **7x18px** bare `⚙` glyph at **3.67:1** contrast whose
