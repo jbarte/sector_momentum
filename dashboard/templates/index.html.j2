@@ -8,6 +8,7 @@
 <link rel="alternate" type="application/atom+xml" title="ETF Momentum Feed" href="feed.xml"/>
 <script src="{{ plotly_bundle }}"></script>
 <script src="assets/rescore.js"></script>
+<script src="assets/theme.js"></script>
 <style>
 {% include "_style.html.j2" %}
 </style>
@@ -695,6 +696,7 @@ function switchCohort(region) {
 window.switchCohort = switchCohort;
 
 _populateDrilldownSelect();
+if (window.SMTheme) { window.SMTheme.initControl(); }
 
 // ----- Breakdown toggle -----
 function toggleBreakdown(id) {
