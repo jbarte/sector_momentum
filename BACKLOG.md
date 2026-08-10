@@ -488,6 +488,25 @@ source-only and tight:
   Still open, deliberately: the popover does not close on outside click or
   Escape, and the weight `<input type=number>` re-ranks with no confirmation.
   Both are the panel's behaviour rather than its discoverability.
+- **Horizon selector shows only the horizon** (2026-08-10). Each `<option>` read
+  `Short — 3 held, ~49d, 22 trades/yr`, so the control's own label carried three
+  facts and the dropdown was hard to scan. Options are now just
+  `Short` / `Medium` / `Long`, with the selected horizon's cost rendered beside
+  the control and updating live on switch.
+
+  The numbers were worth keeping — they make the cost of the choice visible —
+  but the three-way *comparison* they enabled already exists in the Backtest
+  tab, which tabulates every preset and highlights the active row. The option
+  label was duplicating it in the one place that cannot lay it out.
+
+  Implementation note: numbers live in their own elements and the unit words
+  carry `data-i18n`. `applyLang()` rewrites `[data-i18n]` textContent wholesale,
+  so a single node holding both would have its figures blanked on every language
+  switch. Verified EN→SV→EN and switching horizon while in Swedish.
+
+  Fixed in passing: `horizon_label` and `horizon_note` carried `data-i18n` but
+  had **no Swedish entry**, so they silently fell back to English. Added
+  alongside the new unit strings.
 
 - **Tab guides converted from inline `<details>` to modals** (2026-08-09).
   Each guide was a flex sibling of the filter bar inside `.utility-row`, so

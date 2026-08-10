@@ -84,9 +84,20 @@
     <label for="horizon-select" data-i18n="horizon_label">Horizon:</label>
     <select id="horizon-select" onchange="switchHorizon(this.value)">
       {% for h in horizon_list %}
-      <option value="{{ h.key }}">{{ h.label }} — {{ h.top_n }} held, ~{{ h.median_holding_days | round | int }}d, {{ h.trades_per_year | round | int }} trades/yr</option>
+      <option value="{{ h.key }}">{{ h.label }}</option>
       {% endfor %}
     </select>
+    {#- The cost of the chosen horizon, beside the control rather than crammed
+        into every option label. Numbers live in their own elements and the unit
+        words carry data-i18n: applyLang() rewrites [data-i18n] textContent, so
+        putting both in one node would wipe the figures on a language switch.
+        The full three-way comparison lives in the Backtest tab, which already
+        tabulates every preset and highlights the active row. -#}
+    <span class="horizon-stats" id="horizon-stats">
+      <span class="hz-stat"><b id="hz-held">—</b> <span data-i18n="hz_held">held</span></span>
+      <span class="hz-stat"><b id="hz-hold">—</b> <span data-i18n="hz_hold">median hold</span></span>
+      <span class="hz-stat"><b id="hz-trades">—</b> <span data-i18n="hz_trades">trades/yr</span></span>
+    </span>
     <span class="horizon-note" data-i18n="horizon_note">Sets the Entry/Exit band. Backtested figures, not predictions.</span>
   </div>
   <div class="utility-row">
@@ -415,9 +426,32 @@ function applyHorizonBadges() {
 // Sync the <select> to the restored state. Without this the control shows the
 // first option while activeHorizon is whatever localStorage (or the config
 // default) says — the page would render one band and label it another.
+// The selected horizon's cost, rendered beside the control. Only the numbers
+// are written here; the unit words are i18n-managed nodes and must not be
+// touched, or a language switch would blank them.
+function renderHorizonStats(key) {
+  var h = null;
+  for (var i = 0; i < HORIZONS.length; i++) {
+    if (HORIZONS[i].key === key) { h = HORIZONS[i]; break; }
+  }
+  if (!h) { return; }
+  function set(id, value) {
+    var el = document.getElementById(id);
+    if (el) { el.textContent = value; }
+  }
+  // trades_per_year / median_holding_days are optional in config — a preset
+  // with no recorded backtest shows an em dash rather than "NaN".
+  set('hz-held', h.top_n);
+  set('hz-hold', h.median_holding_days == null
+      ? '—' : '~' + Math.round(h.median_holding_days) + 'd');
+  set('hz-trades', h.trades_per_year == null
+      ? '—' : Math.round(h.trades_per_year));
+}
+
 function initHorizonSelect() {
   var sel = document.getElementById('horizon-select');
   if (sel) { sel.value = activeHorizon; }
+  renderHorizonStats(activeHorizon);
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
     tr.classList.toggle('active', tr.dataset.horizon === activeHorizon);
   });
@@ -435,6 +469,7 @@ if (document.readyState === 'loading') {
 function switchHorizon(key) {
   activeHorizon = key;
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
+  renderHorizonStats(key);
   applyHorizonBadges();
   // Highlight the matching backtest row and redraw its curve.
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
