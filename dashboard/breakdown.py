@@ -40,6 +40,32 @@ _SIGNAL_DESCRIPTIONS: dict[str, str] = {
 }
 
 
+def unbuyable_names(themes_cfg: dict | None) -> list[str]:
+    """Every theme flagged unbuyable, read from CONFIG — not from the rendered rows.
+
+    Deriving this from `leaderboard_rows` looks equivalent and is not: the baked
+    page is lagged, so it can carry an older and smaller universe than a
+    signed-in reader gets. On the 2026-08-10 build the lag capped the bake at
+    scan 150, which predates five themes including Shipping — the row list was
+    13 themes while the live scan had 18. A rows-derived list would have shipped
+    empty and dropped the marker on exactly the path that shows the theme.
+    """
+    themes = (themes_cfg or {}).get("themes") or {}
+    return sorted(name for name, cfg in themes.items()
+                  if isinstance(cfg, dict) and cfg.get("unbuyable"))
+
+
+def is_unbuyable(sector_name: str, themes_cfg: dict | None) -> bool:
+    """Whether this theme carries `unbuyable: true` in config/themes.yaml.
+
+    The same flag drives `src/backtest/engine.unbuyable_keys()`, so the board
+    and the published backtest figures agree about what can be held. See the
+    Shipping entry in config/themes.yaml for what the flag means.
+    """
+    cfg = (themes_cfg or {}).get("themes", {}).get(sector_name)
+    return bool(isinstance(cfg, dict) and cfg.get("unbuyable"))
+
+
 def _build_instruments_html(
     sector_key: str,
     sector_etfs: dict,
@@ -53,6 +79,22 @@ def _build_instruments_html(
         etf_list = themes_cfg.get("ucits", {}).get(sector_name, [])
     else:
         etf_list = sector_etfs.get(region, {}).get(sector_name, [])
+
+    # An unbuyable theme has no UCITS row precisely because none exists. Saying
+    # so is the point of the flag — an empty panel reads as missing data, and
+    # the reader is left to wonder which fund to buy for a theme that may be
+    # sitting at rank 1.
+    if is_unbuyable(sector_name, themes_cfg):
+        return (
+            '<div class="bd-instruments">'
+            '<div class="sig-title" data-i18n="ucits_title">UCITS Alternative</div>'
+            '<p class="bd-unbuyable" data-i18n="unbuyable_note">'
+            "None exists — this theme cannot be bought from an EU account. It is "
+            "still scored, because it shapes how every other theme ranks, but it "
+            "is never held: no entry is prompted here and the backtest excludes it."
+            "</p></div>"
+        )
+
     if not etf_list:
         return ""
 

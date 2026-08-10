@@ -84,6 +84,16 @@
     }
   }
 
+  /* Mirrors the static build's markup in index.html.j2 (same classes, same
+   * i18n keys) so the two render paths look identical. applyLang() runs right
+   * after the rebuild, which is what translates it. */
+  var UNBUYABLE_BADGE =
+    '<span class="unbuyable-badge" data-i18n="badge_unbuyable"'
+    + ' data-i18n-title="unbuyable_tip"'
+    + ' title="No UCITS equivalent exists, so this cannot be bought from an EU'
+    + ' account. It is still scored because it shapes how every other theme'
+    + ' ranks.">⊘ Not buyable</span>';
+
   var _upgraded = false;
 
   function fmtScore(v) {
@@ -176,6 +186,11 @@
         // badge element for every row on both render paths; it runs on
         // sm:leaderboard-upgraded and again on sm:positions-changed.
         tr.dataset.trend = m.trajectory_state || "";
+        // v_recent_scores has no buyability column; window.UNBUYABLE carries it
+        // from the build so the marker and the suppressed Enter prompt survive
+        // sign-in. applyHorizonBadges() reads data-unbuyable.
+        var unbuyable = (window.UNBUYABLE || []).indexOf(r.gics_sector) !== -1;
+        if (unbuyable) { tr.dataset.unbuyable = "1"; }
         tr.dataset.composite = (r.composite === null || r.composite === undefined) ? "" : r.composite;
         tr.dataset.change = (r.change_score === null || r.change_score === undefined) ? "" : r.change_score;
         tr.dataset.rank = (r.rank === null || isNaN(r.rank)) ? "" : Math.round(r.rank);
@@ -187,7 +202,7 @@
           : "—";
         tr.innerHTML =
           '<td class="rank-cell"><span class="rank-badge' + top3 + '">' + rank + "</span></td>" +
-          "<td>" + r.gics_sector + "</td>" +
+          "<td>" + r.gics_sector + (unbuyable ? UNBUYABLE_BADGE : "") + "</td>" +
           '<td class="composite-cell">' + fmtScore(r.composite) + "</td>" +
           "<td>" + fmtScore(r.level_score) + "</td>" +
           "<td>" + fmtScore(r.change_score) + "</td>" +

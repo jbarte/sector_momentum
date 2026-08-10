@@ -176,10 +176,19 @@
   // whenever holdings are unavailable — nothing is held, so nothing can be
   // exited — including on ungated builds, where it would strip badges the
   // server had just rendered.
-  function badgeFor(rank, horizon, state, isHeld) {
+  // `unbuyable` suppresses ONLY the Enter prompt. A theme with no route to
+  // purchase can still be marked as held (the reader may own the exposure some
+  // other way), and Hold/Exit on a position they say they have is still true
+  // and still actionable. What would be false is telling them to buy something
+  // they cannot buy — the same "badge names an action you cannot take" problem
+  // that Enter-on-a-holding was.
+  function badgeFor(rank, horizon, state, isHeld, unbuyable) {
     if (state === "loading") { return null; }
-    if (state === "ready") { return badgeForRank(rank, horizon, isHeld); }
-    return setupForRank(rank, horizon);
+    var kind = (state === "ready")
+      ? badgeForRank(rank, horizon, isHeld)
+      : setupForRank(rank, horizon);
+    if (unbuyable && kind === "entry") { return null; }
+    return kind;
   }
 
   // recentRows: array of {scan_id, region, gics_sector, change_score, composite, rank}.

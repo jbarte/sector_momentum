@@ -259,6 +259,31 @@ tbody td:nth-child(n+4) {
   background: color-mix(in srgb, var(--down) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--down) 30%, transparent);
 }
+/* Not a signal — a permanent property of the instrument. Deliberately the
+   quietest mark on the row: it should answer "why is there no Enter badge and
+   no UCITS row?" when the reader looks, not compete with the badges. */
+.unbuyable-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  color: var(--fg4);
+  background: var(--bg-sunken);
+  border: 1px dashed var(--border);
+  cursor: help;
+  white-space: nowrap;
+}
+.bd-unbuyable {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--fg3);
+  max-width: 46em;
+}
+
 /* Hold is the "do nothing" badge and by far the most common one on a populated
    book, so it is deliberately the quietest of the three — neutral rather than
    up/down, so Enter and Exit keep the eye. */

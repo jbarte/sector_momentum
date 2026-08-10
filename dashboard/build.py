@@ -42,6 +42,8 @@ from dashboard.badges import (                      # noqa: E402, F401
 from dashboard.breakdown import (                   # noqa: E402, F401
     _build_breakdown_html,
     _build_instruments_html,
+    is_unbuyable,
+    unbuyable_names,
     _SIGNAL_DESCRIPTIONS,
     _SIGNAL_META,
 )
@@ -365,10 +367,17 @@ def main() -> None:
         # Gating has to happen here, not in the template: `setup` also reaches
         # the reader through data-setup on the row and through data.json's
         # theme rows, so suppressing only the rendered span would leak it twice.
+        # Themes with no route to purchase are scored but never held — they
+        # shape the z-scores and stay on the board, but the board must not
+        # prompt an entry it knows the reader cannot act on. Same config flag
+        # the backtest reads, so the two describe one strategy.
+        row["unbuyable"] = is_unbuyable(row["sector"], _themes_cfg)
         if badges_gated:
             row["setup"] = None
         else:
             _compute_setup(row, _default_horizon)
+            if row["unbuyable"] and row["setup"] == "entry":
+                row["setup"] = None
         mask = (
             (latest_scores["region"]      == row["region"]) &
             (latest_scores["gics_sector"] == row["sector"])
@@ -469,6 +478,13 @@ def main() -> None:
             "top_n": _default_horizon.top_n, "buffer": _default_horizon.buffer,
         }),
         "cohorts_json": cohorts_json,
+        # The signed-in rebuild (auth.js) sources rows from v_recent_scores,
+        # which knows nothing about buyability — without this the marker and the
+        # suppressed Enter prompt would both vanish the moment someone signs in.
+        # Sourced from config, NOT from leaderboard_rows: those are lagged and
+        # may be a smaller universe than the signed-in reader sees. See
+        # breakdown.unbuyable_names().
+        "unbuyable_json": _json.dumps(unbuyable_names(_themes_cfg)),
         "has_any_rows": bool(leaderboard_rows),
         "badges_gated": badges_gated,
         "plotly_bundle": plotly_bundle_rel,

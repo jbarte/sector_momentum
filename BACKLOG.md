@@ -21,84 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Flag Shipping as unbuyable on the leaderboard
-
-**Shipping (BOAT) is scored and ranked but cannot be bought.** There is no UCITS
-equivalent, so if it reaches Entry the board is recommending something the
-account holder has no route to purchase. Verified on justETF 2026-08-10, not
-recalled:
-
-- The one candidate the config ever noted, **ETFS DAXglobal Shipping GO
-  (`IE00B3CMS880`)**, is confirmed dead — justETF states "This fund has been
-  liquidated or merged", last NAV **2014-09-05**. The original caution about
-  listing a possibly-dead instrument was right.
-- justETF search across the whole European UCITS universe: `shipping` **0**,
-  `maritime` **0**, `freight` **0**, `marine` **0**, `transport` **0**.
-  `logistics` returns 1 (L&G Ecommerce Logistics, `IE00BF0M6N54`) — warehousing
-  and last-mile delivery, not the freight-rate cycle. Not a substitute.
-- Method sanity-checked before trusting the zeros: `robotics` returns 7, so the
-  search works and the zeros are real.
-
-**Do this:** mark the row so Shipping can never surprise the reader at Entry —
-a marker in the theme cell plus a line in the drill-down where the UCITS
-alternative would otherwise appear. No scoring change; it keeps contributing to
-the cross-sectional z-scores.
-
-**Chosen over the two alternatives, both measured** (deltas vs current, 100 bps,
-3 presets x 2 windows):
-
-| option | outcome |
-|---|---|
-| drop to 17 themes | helps Short/Long, **hurts Medium — the default** (−0.7 to −1.2pp CAGR, −5.7pp drawdown post-2015) |
-| swap → Copper Miners (COPX) | **worse in all 6 cells** on CAGR *and* Sharpe (−4.8 to −1.7pp) |
-| swap → Global Infrastructure (IGF) | worse in 5 of 6 (−3.8 to −0.4pp) |
-| **flag it** | no scoring change, no measured cost |
-
-Dropping to 17 beat both swaps almost everywhere, so replacement is not on the
-table with these candidates.
-
-**Two caveats recorded so this is not re-litigated on false precision:**
-
-1. **BOAT has price data only from 2021-08-04.** For 13 of the 18 backtest
-   years "keeping Shipping" is already a 17-theme universe, so every
-   Shipping-related delta above rests on ~4 years. The swap candidates have
-   history from 2007 (IGF) and 2010 (COPX), so part of their negative delta is
-   "adding any long-history theme dilutes the top-N picks", not purely "this
-   theme is bad". The direction was consistent across six cells, but the
-   magnitudes are not a precise ranking.
-2. Shipping's mean weekly correlation with the cohort is **0.19** versus
-   0.41–0.45 for both candidates — genuinely the most distinct name in the
-   universe, which is likely why removing it hurts the default. But the
-   2026-08-09 audit established that **low correlation is not automatically
-   useful diversification** (that reasoning is what made the SIL/OIH
-   recommendation wrong), and 0.19 is a four-year estimate.
-
-Revisit only if a UCITS shipping product actually launches.
-
-**Related defect — the backtest holds Shipping, so the published figures
-include positions that cannot be taken.** `strategy.simulate` has no concept of
-an unbuyable instrument, and Shipping is picked far more often than "edge case"
-suggests: **25 of 60 periods on Medium (42%)**, 60/261 on Short, 6/29 on Long,
-over 2021-08 onward. Measured at 100 bps on that period:
-
-| policy | short | medium | long |
-|---|---|---|---|
-| as shipped (holds it) | 11.2% / 0.56 | 10.5% / 0.59 | 16.3% / 0.74 |
-| skip, 4 names + cash slot | +0.8pp / 0.59 | +2.2pp / 0.69 | +0.2pp / 0.76 |
-| skip, 4 names fully invested | +1.1pp / 0.58 | +2.7pp / 0.69 | +1.1pp / 0.75 |
-| substitute the next rank | **−0.9pp** / 0.52 | **−0.9pp** / 0.54 | **−0.5pp** / 0.72 |
-
-Substituting measured worse than the baseline in **all three presets** on both
-CAGR and Sharpe; skipping measured better in all three on both.
-
-Note this does *not* contradict the drop-to-17 result above: dropping removes
-Shipping from the z-score **cohort** across 2008–2026, while skipping keeps it
-in the cohort and out of the **book**, measured only on 2021+. Different
-operations, different windows — do not merge them into one conclusion.
-
-**If the flag ships, the backtest should model the same policy**, or the
-dashboard will keep advertising returns from trades the reader cannot make.
-
 ## Ongoing fund costs (TER) are not modelled anywhere
 
 `costs.round_trip_bps` covers per-trade cost only. The backtest has no concept
@@ -500,6 +422,53 @@ source-only and tight:
 ---
 
 # Done
+
+- **Shipping flagged unbuyable — scored, never held** (2026-08-10). One flag in
+  `config/themes.yaml` (`unbuyable: true`) drives both halves, so the board and
+  the published backtest describe one strategy. Shipping stays in the universe
+  because it shapes the cross-sectional z-scores; dropping it measured worse on
+  the default Medium preset.
+
+  **On the board:** a quiet `⊘ Not buyable` marker on the row, the Enter prompt
+  suppressed (Hold/Exit survive — the reader may hold the exposure another way,
+  and only the *buy* prompt is false), and the drill-down says why instead of
+  rendering an empty panel. Both render paths carry it: the baked page from the
+  row flag, the signed-in rebuild from `window.UNBUYABLE`.
+
+  **In the backtest:** `strategy.simulate(..., unbuyable=…)` removes it AFTER
+  selection, so the slot goes unused rather than passing to rank N+1 —
+  substituting measured worse in all three presets on both CAGR and Sharpe.
+  Regenerated figures, and the preset stats in `weights.yaml` with them:
+
+  | preset | periods holding it | CAGR | Sharpe |
+  |---|---|---|---|
+  | short | 57 / 958 (5.9%) | 13.9% → **14.3%** | 0.67 → 0.68 |
+  | medium | 25 / 221 (11.3%) | 14.2% → **15.0%** | 0.81 → 0.83 |
+  | long | 4 / 110 (3.6%) | 13.1% → **14.1%** | 0.70 → 0.73 |
+
+  Smaller than the +1.1/+2.7/+1.1pp measured on 2021+ alone, as expected: BOAT
+  has prices only from 2021-08, so 13 of the 18 backtest years are unaffected.
+  Same direction in all three, which is the coherence check that matters.
+
+  **Two things that nearly shipped wrong:**
+
+  - `unbuyable_json` was first derived from `leaderboard_rows`. Those are
+    **lagged** — gating capped this build at scan 150, a 13-theme universe,
+    while the live scan has 18 — so it rendered `[]` and would have dropped the
+    marker on the signed-in path, the only path that currently shows Shipping
+    at all. Now sourced from config via `breakdown.unbuyable_names()`.
+  - The artifact test read `holdings` as lists of sector keys; they are
+    `{"date", "sectors"}` dicts, so it compared against the dict's keys and
+    passed on every input, including artifacts that *did* book Shipping. It
+    reported "0 periods held Shipping" both before and after the change, which
+    briefly made a correct result look like a no-op. Now asserts the structure
+    before asserting the content.
+
+  **Noticed, not fixed** — the lag means guests see 13 themes while the live
+  board has 18, and the five newer themes (Shipping among them) have no
+  drill-down panel for signed-in readers either, since auth.js reuses only the
+  baked panels. That is the queued *Signed-in drill-down gap after a universe
+  change* item; this confirms it is still live.
 
 - **Badges are action-aware and signed-in only** (2026-08-10). Two queued items
   shipped together, because gating removes the guest case and makes

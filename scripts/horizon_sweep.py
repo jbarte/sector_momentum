@@ -59,11 +59,13 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps):
+def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
+          unbuyable=frozenset()):
     """One grid cell. Mirrors run_theme_track's metric assembly, minus the
     equity-curve serialisation we don't need here."""
     sim = strategy.simulate(score_by_date, fwd, instrument_of,
-                            top_n=top_n, cost_bps=cost_bps, buffer=buffer)
+                            top_n=top_n, cost_bps=cost_bps, buffer=buffer,
+                            unbuyable=unbuyable)
     if not sim["dates"]:
         return None
 
@@ -135,7 +137,8 @@ def main() -> int:
 
         for top_n, buffer in product(TOP_N, BUFFERS):
             cell = _cell(score_by_date, fwd, instrument_of, benchmark,
-                         top_n, buffer, args.cost_bps)
+                         top_n, buffer, args.cost_bps,
+                         engine.unbuyable_keys(themes_cfg))
             if cell:
                 cell["band"] = (top_n + buffer) / max(1, len(instrument_of))
                 rows.append({"freq": freq, **cell})
