@@ -423,6 +423,9 @@ def main() -> None:
     plotly_src = _ASSETS_DIR / "plotly.min.js"
     if plotly_src.exists():
         shutil.copy2(plotly_src, docs_assets / "plotly.min.js")
+    theme_src = _ASSETS_DIR / "theme.js"
+    if theme_src.exists():
+        shutil.copy2(theme_src, docs_assets / "theme.js")
     rescore_src = _ASSETS_DIR / "rescore.js"
     if rescore_src.exists():
         shutil.copy2(rescore_src, docs_assets / "rescore.js")
