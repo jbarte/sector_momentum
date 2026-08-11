@@ -21,6 +21,46 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Five same-idiom badges already fail 4.5:1 contrast (pre-existing, found during dark-theme work)
+
+Checking `.rank-badge.top3`'s dark-theme contrast regression (2026-08-11) turned
+up a pattern this codebase already had: several badges set their text colour to
+the *same* colour their background is a `color-mix(... N%, transparent)` tint
+of — `color: var(--up)` on `background: color-mix(in srgb, var(--up) N%,
+transparent)`, or the `--down`/`--fg4` equivalents. At low tint percentages this
+idiom is close to WCAG's 4.5:1 text minimum, and five sites fall on the wrong
+side of it in one theme or the other (computed against each badge's real
+container background, `--bg-raised`, via `.table-wrap`):
+
+| Site (`dashboard/templates/css/_tables.css.j2`) | Tint | Light | Dark |
+|---|---|---|---|
+| `.traj-badge.traj-strong_up` | `--up` 15% | **4.26:1** ✗ | 6.03:1 |
+| `.traj-badge.traj-down` | `--down` 8% | **4.28:1** ✗ | 5.31:1 |
+| `.traj-badge.traj-strong_down` | `--down` 15% | **3.90:1** ✗ | 4.71:1 |
+| `.traj-badge.traj-flat` | `--fg4` 10% | 4.64:1 | **4.33:1** ✗ |
+| `.setup-badge.entry` | `--up` 12% | **4.43:1** ✗ | 6.48:1 |
+| `.setup-badge.exit` | `--down` 12% | **4.07:1** ✗ | 4.97:1 |
+
+All six predate the dark theme work — none is a regression it caused (the one
+regression it did cause, `.rank-badge.top3` at the same 15%-tint idiom, was
+fixed in that same change by dropping to 8%, which is the model for the fix
+here too: for each failing row, find the smallest tint percentage that clears
+4.5:1 in **both** themes — sibling badges already establish the available
+steps are 8/10/12/15%, so this is choosing among values already in use
+elsewhere, not inventing new ones).
+
+**`.traj-badge.traj-flat` needs its own look**: it's the one row that passes
+light and fails dark, the reverse of the other five — its background pass/fail
+was checked against the wrong container background (`--surface` instead of the
+table's actual `--bg-raised`) during the dark-theme work's Task 2 review, which
+is how a genuine failure went unnoticed. Any fix must be re-verified against
+`--bg-raised` in both themes, not `--surface`.
+
+**Not urgent**: five of six only fail in light mode, which has shipped this way
+for a while without a reported problem — likely because trend/setup badges are
+small, infrequent, and paired with an icon/arrow that carries some of the
+signal non-verbally. Worth fixing on its own, not worth blocking anything on.
+
 ## Alerts section should be a modal, opened from a footer link
 
 The alerts/notifications UI (`_footer.html.j2`, `<section id="alert-prefs">`)
