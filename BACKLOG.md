@@ -488,6 +488,21 @@ source-only and tight:
   `[data-theme="dark"]` block and its `@media` Auto-fallback twin, which must
   stay value-identical per `test_dark_tokens_are_three_way_consistent`).
 
+  **Raw-ramp cleanup beyond the spec's original hex audit**: promoted every
+  hardcoded hex and raw-ramp `var(--beige-*/--green-*/--terra-*)` reference
+  outside `_foundation.css.j2` to a semantic token, across `_tables.css.j2`,
+  `_sentiment.css.j2`, `_chrome.css.j2`, `_guides.css.j2`, and `_charts.css.j2`
+  — anything still reading a raw ramp directly is stuck in the light palette
+  forever, since the ramps themselves are intentionally left undefined in the
+  dark blocks (`test_raw_ramps_untouched_in_dark_blocks`). Almost all of these
+  were value-for-value swaps with no visible change; two were deliberate,
+  approved exceptions where the light theme's rendered colour changed on
+  accessibility grounds: `.tab-note`'s caption colour (`#8C8370` →
+  `var(--fg4)`) went **3.75:1 → 5.63:1** against its card background, and
+  `select.sector-select:focus`'s border colour (`var(--green-400)` →
+  `var(--brand-strong)`) went **2.46:1 → 5.16:1** against the select's own
+  `--bg-raised` background — both were failing WCAG AA before this pass.
+
 - **Shipping flagged unbuyable — scored, never held** (2026-08-10). One flag in
   `config/themes.yaml` (`unbuyable: true`) drives both halves, so the board and
   the published backtest describe one strategy. Shipping stays in the universe

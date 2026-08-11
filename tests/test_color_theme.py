@@ -302,6 +302,53 @@ def test_rank_badge_top3_contrast_meets_wcag_aa():
     )
 
 
+# Hardcoded hex values for `--fg4`, in both themes. Same trade-off as
+# _UP_LIGHT/_UP_DARK above: must be kept in sync with _foundation.css.j2 by
+# hand if --fg4 or --bg-raised ever change.
+_FG4_LIGHT = "#6F674F"
+_FG4_DARK = "#A59A80"
+
+
+def _traj_flat_tint_pct() -> int:
+    """`.traj-badge.traj-flat`'s tint percentage in the color-mix idiom, read
+    from the source CSS rather than copy-pasted, mirroring
+    `_rank_badge_top3_tint_pct`:
+      color: var(--fg4);
+      background: color-mix(in srgb, var(--fg4) <PCT>%, transparent);
+    Sits in the same `.table-wrap` (`--bg-raised`) container as
+    `.rank-badge.top3`, so the tint composites against `--bg-raised` too."""
+    text = _CSS_DIR.joinpath("_tables.css.j2").read_text()
+    m = re.search(
+        r"\.traj-badge\.traj-flat\s*\{[^}]*color-mix\(in srgb, var\(--fg4\) (\d+)%, transparent\)",
+        text,
+    )
+    assert m, ".traj-badge.traj-flat background is not the expected color-mix(var(--fg4) N%) idiom"
+    return int(m.group(1))
+
+
+def test_traj_flat_contrast_meets_wcag_aa():
+    """`.traj-badge.traj-flat` text (var(--fg4), opaque) on its tinted
+    background (color-mix(in srgb, var(--fg4) N%, transparent) composited
+    over --bg-raised) must clear the 4.5:1 WCAG AA minimum in both themes.
+    Regression guard for the dark-theme failure (4.33:1) Task 9's
+    verification pass found and fixed by brightening dark --fg4."""
+    pct = _traj_flat_tint_pct()
+    light_bg = _mix_over(_FG4_LIGHT, pct, _BG_RAISED_LIGHT)
+    dark_bg = _mix_over(_FG4_DARK, pct, _BG_RAISED_DARK)
+
+    light_ratio = _contrast_ratio(_FG4_LIGHT, light_bg)
+    dark_ratio = _contrast_ratio(_FG4_DARK, dark_bg)
+
+    assert light_ratio >= 4.5, (
+        f".traj-badge.traj-flat light-theme contrast is {light_ratio:.2f}:1 "
+        f"at {pct}% tint, below the 4.5:1 AA minimum"
+    )
+    assert dark_ratio >= 4.5, (
+        f".traj-badge.traj-flat dark-theme contrast is {dark_ratio:.2f}:1 "
+        f"at {pct}% tint, below the 4.5:1 AA minimum"
+    )
+
+
 _ILLOS = [
     _PROJECT_ROOT / "dashboard" / "templates" / "_rotation_illo.html.j2",
     _PROJECT_ROOT / "dashboard" / "templates" / "_guide_illo.html.j2",
