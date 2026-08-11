@@ -21,6 +21,48 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Alerts section should be a modal, opened from a footer link
+
+The alerts/notifications UI (`_footer.html.j2`, `<section id="alert-prefs">`)
+currently renders as a **permanently-present block appended after the footer**,
+shown only when `auth` is configured and toggled by `alert-prefs.js` flipping
+its `hidden` attribute. It sits below the site footer — after the disclaimer,
+Methodology link and RSS link — which is both an odd reading order and an odd
+place for a control that only signed-in readers can use.
+
+**Do this:** make it a modal opened from a footer link, exactly mirroring the
+Methodology treatment that already works:
+
+- A `<button type="button" id="alerts-link" class="footer-link">` in the
+  `<footer class="site-footer">` row, beside the existing `#methodology-link`.
+- The section's markup moves into an overlay + dialog wrapper matching
+  `_methodology.html.j2`'s shape (`.methodology-overlay` / `role="dialog"` /
+  `aria-modal="true"` / `aria-labelledby`), with its own close button.
+- Bind with the **existing shared helper**: `window.SMModal.bind(overlay,
+  {closeBtn})` from `_modal.js.j2` — it already provides the focus trap,
+  Escape, backdrop-close and focus restore. Do not hand-roll any of that; the
+  2026-08-09 audit's P1 finding was specifically that the gate modal declared
+  `aria-modal="true"` and implemented none of it, and the fix was to lift
+  `_methodology.html.j2`'s working implementation into that shared helper.
+- Consider `location.hash === "#alerts"` deep-linking, matching
+  `#methodology`.
+
+**Watch out for two things:**
+
+1. **`alert-prefs.js` owns `#alert-prefs`'s `hidden` attribute** to mean "this
+   reader has alerts available". A modal overlay also uses `hidden` to mean
+   "closed". Those two meanings will collide if the section element becomes the
+   overlay element — the wrapper needs to be a new element, with the existing
+   `#alert-prefs` section nested inside it, so `alert-prefs.js` keeps working
+   unchanged.
+2. The whole block is inside `{% if auth %}`, so the footer link must be too —
+   otherwise guests get a link that opens an empty dialog.
+
+**Why it is worth doing:** it removes a stray always-rendered block from below
+the footer, puts the control where its sibling controls already live, and
+inherits a modal implementation that is already accessible rather than adding
+a third bespoke one.
+
 ## Ongoing fund costs (TER) are not modelled anywhere
 
 `costs.round_trip_bps` covers per-trade cost only. The backtest has no concept
