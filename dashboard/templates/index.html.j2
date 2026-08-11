@@ -598,7 +598,7 @@ function renderRRG() {
   _rendered.rrg = true;
   var chart = COHORT_CHARTS[activeCohort];
   if (!chart) return;
-  Plotly.newPlot('rrg-chart', chart.rrg.data, chart.rrg.layout, {responsive: true, displayModeBar: true});
+  SMTheme.smPlot('rrg-chart', chart.rrg);
 }
 
 function renderMovers() {
@@ -606,7 +606,7 @@ function renderMovers() {
   _rendered.movers = true;
   var chart = COHORT_CHARTS[activeCohort];
   if (!chart) return;
-  Plotly.newPlot('movers-chart', chart.movers.data, chart.movers.layout, {responsive: true, displayModeBar: true});
+  SMTheme.smPlot('movers-chart', chart.movers);
 }
 
 function renderHistory() {
@@ -614,7 +614,7 @@ function renderHistory() {
   _rendered.history = true;
   var chart = COHORT_CHARTS[activeCohort];
   if (!chart) return;
-  Plotly.newPlot('history-chart', chart.history.data, chart.history.layout, {responsive: true, displayModeBar: true});
+  SMTheme.smPlot('history-chart', chart.history);
 }
 
 // One container for the active cohort's track. This used to iterate a
@@ -628,7 +628,7 @@ function renderBacktest() {
   var f = el && BACKTEST_DATA[activeHorizon];
   if (el) {
     el.style.display = f ? '' : 'none';
-    if (f) Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
+    if (f) SMTheme.smPlot(el, f);
   }
 }
 
@@ -636,7 +636,7 @@ function renderCorrelation() {
   if (_rendered.correlation) return;
   _rendered.correlation = true;
   if (typeof CORRELATION_DATA !== 'undefined') {
-    Plotly.newPlot('correlation-chart', CORRELATION_DATA.data, CORRELATION_DATA.layout, {responsive: true, displayModeBar: true});
+    SMTheme.smPlot('correlation-chart', CORRELATION_DATA);
   }
 }
 
@@ -673,7 +673,7 @@ function updateDrilldown() {
       '<p style="padding:24px;color:var(--fg4)">No data for ' + key + '</p>';
     return;
   }
-  Plotly.newPlot('drilldown-chart', fig.data, fig.layout, {responsive: true, displayModeBar: true});
+  SMTheme.smPlot('drilldown-chart', fig);
 }
 
 // ----- Cohort switching -----

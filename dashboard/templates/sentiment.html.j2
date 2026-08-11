@@ -88,7 +88,7 @@ var SENTIMENT_DATA = {{ sentiment_scatter_json | js_json }};
   if (!window.Plotly) return;
   var el = document.getElementById('sentiment-scatter');
   if (!el) return;
-  Plotly.newPlot(el, SENTIMENT_DATA.data, SENTIMENT_DATA.layout, {responsive: true});
+  SMTheme.smPlot(el, SENTIMENT_DATA);
 })();
 
 if (window.SMTheme) { window.SMTheme.initControl(); }

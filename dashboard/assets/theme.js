@@ -83,8 +83,16 @@
     }
   }
 
+  // Colour substitution lands in Task 7 (recolor()); for now this is a
+  // pass-through so every call site can switch to it with zero behaviour
+  // change, verified before any colour logic is added.
+  function smPlot(el, fig) {
+    return Plotly.newPlot(el, fig.data, fig.layout, {responsive: true, displayModeBar: true});
+  }
+
   var api = { resolveTheme: resolveTheme, get: get, set: set,
-              initControl: initControl, pressedStateFor: pressedStateFor };
+              initControl: initControl, pressedStateFor: pressedStateFor,
+              smPlot: smPlot };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
   root.SMTheme = api;
 })(typeof window !== "undefined" ? window : this);

@@ -313,3 +313,19 @@ def test_illustrations_have_no_hardcoded_fill_or_stroke():
     for path in _ILLOS:
         hits = _SVG_HEX_ATTR_RE.findall(path.read_text())
         assert not hits, f"{path.name} has hardcoded fill/stroke: {hits}"
+
+
+_INDEX_TPL = _PROJECT_ROOT / "dashboard" / "templates" / "index.html.j2"
+_SENTIMENT_TPL = _PROJECT_ROOT / "dashboard" / "templates" / "sentiment.html.j2"
+
+
+def test_no_bare_plotly_newplot_outside_smplot():
+    """Four independent badge writers drifted before they were consolidated
+    into one pass (2026-08-10). Seven independent Plotly.newPlot call sites
+    are the same shape — this test is what stops an eighth chart, or a
+    forgotten call site, from silently skipping the theme."""
+    for path in (_INDEX_TPL, _SENTIMENT_TPL):
+        text = path.read_text()
+        assert "Plotly.newPlot" not in text, (
+            f"{path.name} calls Plotly.newPlot directly — use SMTheme.smPlot instead"
+        )
