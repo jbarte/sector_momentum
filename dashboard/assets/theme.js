@@ -83,16 +83,75 @@
     }
   }
 
-  // Colour substitution lands in Task 7 (recolor()); for now this is a
-  // pass-through so every call site can switch to it with zero behaviour
-  // change, verified before any colour logic is added.
+  // Keys that are known to carry colour. Deliberately NOT "every string in
+  // the object" — a hex string appearing as hover text, a trace name, or any
+  // other data field must survive untouched. See recolor's own tests for the
+  // exact failure this restriction prevents.
+  var COLOUR_KEYS = {
+    color: true, bgcolor: true, bordercolor: true, gridcolor: true,
+    zerolinecolor: true, paper_bgcolor: true, plot_bgcolor: true,
+  };
+  // Keys whose VALUE is itself an object worth recursing into, even though
+  // the key name itself carries no colour (e.g. `line: {...}` isn't a
+  // colour, but `line.color` is).
+  var CONTAINER_KEYS = {
+    line: true, marker: true, font: true, legend: true, title: true,
+    xaxis: true, yaxis: true, yaxis2: true,
+  };
+
+  function _recolorValue(value, darkMap) {
+    if (Array.isArray(value)) {
+      return value.map(function (v) {
+        return (typeof v === "string" && darkMap[v]) ? darkMap[v] : v;
+      });
+    }
+    if (typeof value === "string") {
+      return darkMap[value] || value;
+    }
+    return value;
+  }
+
+  function _walk(node, darkMap) {
+    if (Array.isArray(node)) {
+      return node.map(function (item) { return _walk(item, darkMap); });
+    }
+    if (!node || typeof node !== "object") { return node; }
+    var out = {};
+    Object.keys(node).forEach(function (key) {
+      var value = node[key];
+      if (COLOUR_KEYS[key]) {
+        out[key] = _recolorValue(value, darkMap);
+      } else if (CONTAINER_KEYS[key] && value && typeof value === "object") {
+        out[key] = _walk(value, darkMap);
+      } else if (key === "data" || key === "layout" || key === "shapes" || key === "annotations") {
+        out[key] = _walk(value, darkMap);
+      } else {
+        out[key] = value;
+      }
+    });
+    return out;
+  }
+
+  // Pure: fig unchanged if !isDark, else a NEW object (never mutates fig)
+  // with every colour-bearing value substituted via darkMap. Values not
+  // present in darkMap pass through unchanged — including Plotly built-in
+  // colorscale names like "RdBu_r", which are strings but never colour hex.
+  function recolor(fig, darkMap, isDark) {
+    if (!isDark) { return fig; }
+    return {
+      data: _walk(fig.data, darkMap),
+      layout: _walk(fig.layout, darkMap),
+    };
+  }
+
   function smPlot(el, fig) {
-    return Plotly.newPlot(el, fig.data, fig.layout, {responsive: true, displayModeBar: true});
+    var themed = recolor(fig, root.CHART_DARK || {}, get() === "dark");
+    return Plotly.newPlot(el, themed.data, themed.layout, {responsive: true, displayModeBar: true});
   }
 
   var api = { resolveTheme: resolveTheme, get: get, set: set,
               initControl: initControl, pressedStateFor: pressedStateFor,
-              smPlot: smPlot };
+              smPlot: smPlot, recolor: recolor };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
   root.SMTheme = api;
 })(typeof window !== "undefined" ? window : this);

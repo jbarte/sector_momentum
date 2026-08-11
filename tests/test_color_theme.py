@@ -362,3 +362,73 @@ def test_chart_dark_map_values_are_all_hex():
         assert re.match(r"^#[0-9A-Fa-f]{6}$", light), f"key {light!r} is not hex"
         assert re.match(r"^#[0-9A-Fa-f]{6}$", dark), f"value {dark!r} is not hex"
         assert light != dark, f"{light} maps to itself — not actually themed"
+
+
+def _recolor(fig: dict, dark_map: dict, is_dark: bool) -> dict:
+    script = f"""
+      const api = require({json.dumps(str(_THEME_JS))});
+      process.stdout.write(JSON.stringify(api.recolor(
+        {json.dumps(fig)}, {json.dumps(dark_map)}, {json.dumps(is_dark)})));
+    """
+    return json.loads(_node_eval(script))
+
+
+@pytestmark_node
+def test_recolor_leaves_light_theme_untouched():
+    fig = {"data": [{"line": {"color": "#5A6F49"}}],
+           "layout": {"paper_bgcolor": "#F5F0E6"}}
+    out = _recolor(fig, {"#5A6F49": "#A9C48E", "#F5F0E6": "#2A2619"}, False)
+    assert out == fig
+
+
+@pytestmark_node
+def test_recolor_substitutes_under_colour_bearing_keys():
+    fig = {"data": [{"line": {"color": "#5A6F49"}, "marker": {"color": "#A55A3C"}}],
+           "layout": {"paper_bgcolor": "#F5F0E6", "plot_bgcolor": "#FAF7F0",
+                      "font": {"color": "#3E392B"},
+                      "xaxis": {"gridcolor": "#DFD5BE"}}}
+    dark_map = {"#5A6F49": "#A9C48E", "#A55A3C": "#D98E6B", "#F5F0E6": "#2A2619",
+                "#FAF7F0": "#262218", "#3E392B": "#E4DDCC", "#DFD5BE": "#34301F"}
+    out = _recolor(fig, dark_map, True)
+    assert out["data"][0]["line"]["color"] == "#A9C48E"
+    assert out["data"][0]["marker"]["color"] == "#D98E6B"
+    assert out["layout"]["paper_bgcolor"] == "#2A2619"
+    assert out["layout"]["plot_bgcolor"] == "#262218"
+    assert out["layout"]["font"]["color"] == "#E4DDCC"
+    assert out["layout"]["xaxis"]["gridcolor"] == "#34301F"
+
+
+@pytestmark_node
+def test_recolor_does_not_touch_non_colour_keys():
+    """A hex string appearing as DATA (a hover label, a theme name) must
+    survive untouched — only keys known to carry colour are walked. This is
+    the exact risk the spec's Risks section calls out."""
+    fig = {"data": [{"text": ["#5A6F49 is a great colour"],
+                     "name": "#5A6F49",
+                     "line": {"color": "#5A6F49"}}]}
+    dark_map = {"#5A6F49": "#A9C48E"}
+    out = _recolor(fig, dark_map, True)
+    assert out["data"][0]["text"] == ["#5A6F49 is a great colour"]
+    assert out["data"][0]["name"] == "#5A6F49"
+    assert out["data"][0]["line"]["color"] == "#A9C48E"
+
+
+@pytestmark_node
+def test_recolor_handles_a_string_valued_line_or_marker():
+    """Plotly sometimes accepts `marker_color: "#hex"` directly, or a list of
+    colours (marker.color can be an array for per-point colouring)."""
+    fig = {"data": [{"marker": {"color": ["#5A6F49", "#A55A3C", "#5A6F49"]}}]}
+    dark_map = {"#5A6F49": "#A9C48E", "#A55A3C": "#D98E6B"}
+    out = _recolor(fig, dark_map, True)
+    assert out["data"][0]["marker"]["color"] == ["#A9C48E", "#D98E6B", "#A9C48E"]
+
+
+@pytestmark_node
+def test_recolor_leaves_unmapped_colours_and_named_colorscales_alone():
+    """RdBu_r (the correlation heatmap's colorscale) is a Plotly built-in
+    name, not a hex value — recolor must not choke on it or try to "fix" it.
+    An unmapped hex also passes through unchanged rather than erroring."""
+    fig = {"data": [{"colorscale": "RdBu_r", "marker": {"color": "#999999"}}]}
+    out = _recolor(fig, {"#5A6F49": "#A9C48E"}, True)
+    assert out["data"][0]["colorscale"] == "RdBu_r"
+    assert out["data"][0]["marker"]["color"] == "#999999"
