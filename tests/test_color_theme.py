@@ -7,6 +7,47 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 _INIT = _PROJECT_ROOT / "dashboard" / "templates" / "_theme_init.html.j2"
 
 
+# --- WCAG relative luminance / contrast ratio helper (pure Python, no deps) ---
+# Reusable for any future test that needs to check rendered text-on-background
+# contrast rather than just the absence of hardcoded colours.
+
+def _hex_to_rgb(hex_color: str) -> tuple[float, float, float]:
+    h = hex_color.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _srgb_channel_to_linear(c: float) -> float:
+    c = c / 255.0
+    if c <= 0.03928:
+        return c / 12.92
+    return ((c + 0.055) / 1.055) ** 2.4
+
+
+def _relative_luminance(hex_color: str) -> float:
+    r, g, b = (_srgb_channel_to_linear(c) for c in _hex_to_rgb(hex_color))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast_ratio(hex_a: str, hex_b: str) -> float:
+    """WCAG contrast ratio between two colours, order-independent."""
+    l1 = _relative_luminance(hex_a)
+    l2 = _relative_luminance(hex_b)
+    lighter, darker = max(l1, l2), min(l1, l2)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def _mix_over(fg_hex: str, fg_pct: float, bg_hex: str) -> str:
+    """Approximate CSS `color-mix(in srgb, fg_hex fg_pct%, transparent)`
+    composited over an opaque `bg_hex` container background: linear
+    interpolation per channel in gamma-encoded sRGB space, weighted by
+    fg_pct — matching what `color-mix(in srgb, ...)` does."""
+    fg = _hex_to_rgb(fg_hex)
+    bg = _hex_to_rgb(bg_hex)
+    w = fg_pct / 100.0
+    mixed = tuple(fg[i] * w + bg[i] * (1 - w) for i in range(3))
+    return "#%02X%02X%02X" % tuple(round(c) for c in mixed)
+
+
 def test_theme_init_partial_exists_and_is_synchronous():
     """No defer/async — the whole point is running before first paint."""
     src = _INIT.read_text()
@@ -210,3 +251,52 @@ def test_no_raw_ramp_references_outside_foundation():
         text = path.read_text()
         hits = _RAW_RAMP_RE.findall(text)
         assert not hits, f"{path.name} references a raw ramp directly: {hits}"
+
+
+# Hardcoded hex values for the tokens `.rank-badge.top3` resolves against, in
+# both themes. These MUST be kept in sync with `_foundation.css.j2` if
+# `--bg-raised` or `--up` ever change — a CSS-parsing test would track the
+# source of truth automatically and be more robust, but is out of scope for
+# this one-line fix.
+_BG_RAISED_LIGHT = "#FAF7F0"
+_BG_RAISED_DARK = "#262218"
+_UP_LIGHT = "#5A6F49"
+_UP_DARK = "#A9C48E"
+
+def _rank_badge_top3_tint_pct() -> int:
+    """`.rank-badge.top3`'s tint percentage in the color-mix idiom, read
+    straight from the source CSS so this test tracks the real rule instead
+    of a copy-pasted number:
+      background: color-mix(in srgb, var(--up) <PCT>%, transparent);
+      color: var(--up);
+    `.rank-badge` sits inside `.table-wrap`, which sets
+    `background: var(--bg-raised)` with no intervening tbody/tr/td
+    background override, so the tint composites against `--bg-raised` in
+    practice."""
+    text = _CSS_DIR.joinpath("_tables.css.j2").read_text()
+    block = _block(text, ".rank-badge.top3 {")
+    m = re.search(r"color-mix\(in srgb, var\(--up\) (\d+)%, transparent\)", block)
+    assert m, ".rank-badge.top3 background is not the expected color-mix(var(--up) N%) idiom"
+    return int(m.group(1))
+
+
+def test_rank_badge_top3_contrast_meets_wcag_aa():
+    """`.rank-badge.top3` text (var(--up), opaque) on its tinted background
+    (color-mix(in srgb, var(--up) N%, transparent) composited over the
+    table's real container background, --bg-raised) must clear the 4.5:1
+    WCAG AA minimum for normal-size text, in both themes."""
+    pct = _rank_badge_top3_tint_pct()
+    light_bg = _mix_over(_UP_LIGHT, pct, _BG_RAISED_LIGHT)
+    dark_bg = _mix_over(_UP_DARK, pct, _BG_RAISED_DARK)
+
+    light_ratio = _contrast_ratio(_UP_LIGHT, light_bg)
+    dark_ratio = _contrast_ratio(_UP_DARK, dark_bg)
+
+    assert light_ratio >= 4.5, (
+        f".rank-badge.top3 light-theme contrast is {light_ratio:.2f}:1 "
+        f"at {pct}% tint, below the 4.5:1 AA minimum"
+    )
+    assert dark_ratio >= 4.5, (
+        f".rank-badge.top3 dark-theme contrast is {dark_ratio:.2f}:1 "
+        f"at {pct}% tint, below the 4.5:1 AA minimum"
+    )
