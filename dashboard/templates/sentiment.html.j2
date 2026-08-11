@@ -93,6 +93,10 @@ window.CHART_DARK = CHART_DARK;
   var el = document.getElementById('sentiment-scatter');
   if (!el) return;
   SMTheme.smPlot(el, SENTIMENT_DATA);
+
+  document.addEventListener('sm:theme-changed', function () {
+    SMTheme.smPlot(el, SENTIMENT_DATA);
+  });
 })();
 
 if (window.SMTheme) { window.SMTheme.initControl(); }

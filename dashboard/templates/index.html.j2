@@ -699,6 +699,24 @@ function switchCohort(region) {
 }
 window.switchCohort = switchCohort;
 
+// Re-skin whichever chart tab is currently visible when the theme changes —
+// via the manual control, or the OS flipping under a reader on Auto. Mirrors
+// switchCohort()'s own "find the active tab, re-render only that one" shape;
+// every other tab picks up the new theme lazily via smPlot() the next time
+// it's opened, same as switchCohort's own comment already explains.
+document.addEventListener('sm:theme-changed', function () {
+  _rendered = {};
+  var active = document.querySelector('.tab-panel.active');
+  if (!active) return;
+  var name = active.id.replace('tab-', '');
+  if (name === 'rrg')       renderRRG();
+  if (name === 'movers')    renderMovers();
+  if (name === 'history')   renderHistory();
+  if (name === 'drilldown') renderDrilldown();
+  if (typeof renderBacktest === 'function' && name === 'backtest') renderBacktest();
+  if (name === 'correlation') renderCorrelation();
+});
+
 _populateDrilldownSelect();
 if (window.SMTheme) { window.SMTheme.initControl(); }
 
