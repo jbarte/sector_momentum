@@ -37,11 +37,10 @@ container background, `--bg-raised`, via `.table-wrap`):
 | `.traj-badge.traj-strong_up` | `--up` 15% | **4.26:1** ✗ | 6.03:1 |
 | `.traj-badge.traj-down` | `--down` 8% | **4.28:1** ✗ | 5.31:1 |
 | `.traj-badge.traj-strong_down` | `--down` 15% | **3.90:1** ✗ | 4.71:1 |
-| `.traj-badge.traj-flat` | `--fg4` 10% | 4.64:1 | **4.33:1** ✗ |
 | `.setup-badge.entry` | `--up` 12% | **4.43:1** ✗ | 6.48:1 |
 | `.setup-badge.exit` | `--down` 12% | **4.07:1** ✗ | 4.97:1 |
 
-All six predate the dark theme work — none is a regression it caused (the one
+All five predate the dark theme work — none is a regression it caused (the one
 regression it did cause, `.rank-badge.top3` at the same 15%-tint idiom, was
 fixed in that same change by dropping to 8%, which is the model for the fix
 here too: for each failing row, find the smallest tint percentage that clears
@@ -49,17 +48,15 @@ here too: for each failing row, find the smallest tint percentage that clears
 steps are 8/10/12/15%, so this is choosing among values already in use
 elsewhere, not inventing new ones).
 
-**`.traj-badge.traj-flat` needs its own look**: it's the one row that passes
-light and fails dark, the reverse of the other five — its background pass/fail
-was checked against the wrong container background (`--surface` instead of the
-table's actual `--bg-raised`) during the dark-theme work's Task 2 review, which
-is how a genuine failure went unnoticed. Any fix must be re-verified against
-`--bg-raised` in both themes, not `--surface`.
-
-**Not urgent**: five of six only fail in light mode, which has shipped this way
+**Not urgent**: all five only fail in light mode, which has shipped this way
 for a while without a reported problem — likely because trend/setup badges are
 small, infrequent, and paired with an icon/arrow that carries some of the
 signal non-verbally. Worth fixing on its own, not worth blocking anything on.
+
+*(A sixth same-idiom badge, `.traj-badge.traj-flat` at `--fg4` 10%, was in this
+table until the dark theme's Task 9 verification pass (2026-08-11) found and
+fixed its dark-mode failure — 4.33:1 → 4.85:1 — at the token layer, since it
+was the one P0 badge in that feature's own scope. See Done.)*
 
 ## Alerts section should be a modal, opened from a footer link
 
@@ -171,58 +168,6 @@ the other six are useless — 16% of picks differ, which compounds — but the
 Any future signal added to Level should be checked for correlation against
 `above_50dma` and `rs_ratio` first; adding a ninth correlated signal buys
 almost nothing.
-
-## Dark theme
-
-There is none today — `grep` for `prefers-color-scheme` and `data-theme` across
-every template and stylesheet returns nothing. The palette is a single warm
-light scheme.
-
-**The foundation is good.** `css/_foundation.css.j2` already defines **43 CSS
-custom properties** (`--canvas`, `--surface`, `--fg1..--fg4`, `--border`,
-`--up`, `--down`, the beige/green ramps). Anything consuming those themes for
-free by adding a second token set.
-
-Three things do *not* come for free, in ascending order of effort:
-
-**1. ~35 hardcoded hex values live outside the token file.** Worst offenders by
-count: `#C4B89A` ×6, `#5A6F49` ×6, `#8FA77A` ×5, `#A55A3C` ×4, `#A9977A` ×3,
-plus off-system one-offs the design audit already flagged (`#e67e22`,
-`#c0392b`, `#ddd`, and `#7A5B8E` / `#C8B89A` in the sentiment scatter). Each
-needs promoting to a token — several are near-misses of tokens that already
-exist, so this is partly a de-duplication job.
-
-**2. The SVG illustrations use literal `fill=` / `stroke=` attributes.**
-`_rotation_illo.html.j2` today, plus the tab-guide illustration if PR #179
-lands. They need CSS-driven fills (`currentColor` or `var(--…)`) before they can
-follow a theme, and each sits on a hardcoded `linear-gradient` band.
-
-**3. Chart colours are baked server-side in Python — this is the real work.**
-`dashboard/figures.py:58-59` sets `paper_bgcolor="#F5F0E6"` and
-`plot_bgcolor="#FAF7F0"`, and there are ~53 colour references across
-`figures.py` + `correlation.py` feeding **7 Plotly figures**. A CSS media query
-cannot touch any of them: the colours are inside the figure JSON baked at build
-time. Options, roughly in order of preference:
-
-- emit a Plotly **template** per theme and switch it client-side on toggle
-  (`Plotly.relayout` / `restyle`) — one figure payload, two skins
-- bake both light and dark figure JSON and swap — simplest, doubles payload on
-  a page already at ~570 KB
-- restyle each trace imperatively on toggle — most code, most drift risk
-
-**Toggle mechanism.** Decide between following `prefers-color-scheme` only, or
-a persisted user toggle. There is a working precedent for the latter: the EN/SV
-switch in `_i18n.html.j2` persists to `localStorage` and re-applies on load. A
-three-state control (system / light / dark) matching that pattern is the
-obvious fit, and the header already has a place for it next to the language
-toggle.
-
-**Do the contrast fixes first, or at the same time.** The 2026-08-09 audit
-measured **54 elements below 4.5:1 in the existing light theme** — column
-headers at 2.95:1, the Trend badge at 3.80:1. Building a second theme on top of
-a palette that already fails doubles the surface to fix and makes it much harder
-to tell a dark-mode regression from an inherited one. See *Design review
-findings* above.
 
 ## Per-user horizon for alerts (level 3)
 
@@ -409,6 +354,18 @@ naming in the data layer* above, which recommends leaving them alone. A rebrand
 is a rename of the *product*, not a schema migration; conflating the two is how
 a cosmetic PR turns into a live-database risk.
 
+## No regression test guards `dashboard/build.py`'s per-asset copy block
+
+Nothing fails CI if a new client-side asset is referenced by the templates but
+never added to the per-asset copy block in `dashboard/build.py`. This is
+exactly how `theme.js` went unnoticed for 3 commits during the dark theme
+feature's own development — referenced by templates since that feature's Task
+1, never actually copied into `docs/assets/` until Task 7's manual browser
+verification caught the page silently loading without it. A test that diffs
+"assets referenced in templates" against "assets copied by `build.py`" would
+have caught this at commit time instead of relying on someone opening a real
+browser.
+
 ---
 
 # Parked
@@ -504,6 +461,32 @@ source-only and tight:
 ---
 
 # Done
+
+- **Dark theme** (2026-08-11). System `prefers-color-scheme` default, plus a
+  manual Auto/Light/Dark override persisted to `localStorage` — a scope
+  expansion from the original spec, which was system-only until the human
+  partner asked for a manual override mid-brainstorming. Warm dark palette
+  (not a neutral/cool grey) to stay visually consistent with the existing warm
+  beige light theme rather than reading as a bolted-on generic dark mode.
+  Charts follow via client-side colour substitution over the baked Plotly
+  JSON (`CHART_DARK` map + `SMTheme.recolor`), not a baked second payload.
+  Flash-prevention is a synchronous inline script, first in `<head>`, that
+  sets `data-theme` from `localStorage` before any stylesheet parses —
+  verified by disagreement (OS light / stored dark and OS dark / stored
+  light both render correctly from first paint on a hard reload).
+
+  **P0 contrast fix**, measured with real WCAG relative-luminance ratios
+  against each element's actual composited background, not carried-over
+  spec numbers: column headers (`thead th`, light theme) **2.95:1 → 4.53:1**
+  via `--fg4` (`--beige-500` → `--beige-550`). `.rank-badge.top3` regressed
+  to a failing ratio partway through implementation (15%-tint idiom) and was
+  fixed in-flight by dropping to an 8% tint. `.traj-badge.traj-flat` — the one
+  P0 badge in this feature's scope — passed light (4.63:1) but was found
+  failing dark (`--fg4` 10%-tint-of-itself against `--bg-raised`) during this
+  task's own final verification pass: **4.33:1 → 4.85:1**, fixed by brightening
+  dark-mode `--fg4` from `#9A9078` to `#A59A80` at the token layer (both the
+  `[data-theme="dark"]` block and its `@media` Auto-fallback twin, which must
+  stay value-identical per `test_dark_tokens_are_three_way_consistent`).
 
 - **Shipping flagged unbuyable — scored, never held** (2026-08-10). One flag in
   `config/themes.yaml` (`unbuyable: true`) drives both halves, so the board and
