@@ -300,3 +300,16 @@ def test_rank_badge_top3_contrast_meets_wcag_aa():
         f".rank-badge.top3 dark-theme contrast is {dark_ratio:.2f}:1 "
         f"at {pct}% tint, below the 4.5:1 AA minimum"
     )
+
+
+_ILLOS = [
+    _PROJECT_ROOT / "dashboard" / "templates" / "_rotation_illo.html.j2",
+    _PROJECT_ROOT / "dashboard" / "templates" / "_guide_illo.html.j2",
+]
+_SVG_HEX_ATTR_RE = re.compile(r'(?:fill|stroke)="#[0-9A-Fa-f]{3,8}"')
+
+
+def test_illustrations_have_no_hardcoded_fill_or_stroke():
+    for path in _ILLOS:
+        hits = _SVG_HEX_ATTR_RE.findall(path.read_text())
+        assert not hits, f"{path.name} has hardcoded fill/stroke: {hits}"

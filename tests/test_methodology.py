@@ -114,7 +114,7 @@ def test_all_pages_include_methodology_partial():
 def test_rotation_illo_partial_markup():
     html = _render("_rotation_illo.html.j2")
     assert 'class="modal-illo"' in html
-    assert 'class="arc a1"' in html
+    assert 'class="arc a1 arc1"' in html
     assert 'class="sweep"' in html
     assert 'class="halo"' in html
     assert 'role="img"' in html
