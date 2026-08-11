@@ -9,8 +9,8 @@
   box-shadow: var(--shadow-xs);
 }
 .scan-index { margin-bottom: 20px; }
-.scan-index .active-scan { background: var(--green-100); }
-.showing-badge { color: var(--green-700); font-weight: 600; font-size: 0.8em; white-space: nowrap; }
+.scan-index .active-scan { background: color-mix(in srgb, var(--up) 12%, transparent); }
+.showing-badge { color: var(--up); font-weight: 600; font-size: 0.8em; white-space: nowrap; }
 .scan-index tr[data-scan-id] { cursor: pointer; }
 .scan-index tr[data-scan-id]:not(.active-scan):hover { background: var(--bg-sunken); }
 .scan-index tr[data-scan-id]:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
@@ -107,8 +107,8 @@ tbody td:nth-child(n+4) {
   color: var(--fg3);
 }
 .rank-badge.top3 {
-  background: var(--green-100);
-  color: var(--green-700);
+  background: color-mix(in srgb, var(--up) 15%, transparent);
+  color: var(--up);
 }
 .arrow.up   { color: var(--up);   font-size: 11px; }
 .arrow.down { color: var(--down); font-size: 11px; }
@@ -134,7 +134,7 @@ tbody td:nth-child(n+4) {
    Leaderboard row breakdown
    ========================================================= */
 .leaderboard-row { cursor: pointer; }
-.leaderboard-row:hover { background: rgba(143,167,122,0.06); }
+.leaderboard-row:hover { background: color-mix(in srgb, var(--brand-strong) 6%, transparent); }
 .chevron {
   font-size: 0.6em;
   color: var(--fg4);
@@ -199,7 +199,7 @@ tbody td:nth-child(n+4) {
 .z-bar-wrap {
   display: inline-block;
   width: 60px; height: 6px;
-  background: var(--beige-300);
+  background: var(--border);
   border-radius: var(--radius-pill);
   vertical-align: middle;
 }
@@ -209,8 +209,8 @@ tbody td:nth-child(n+4) {
   border-radius: var(--radius-pill);
 }
 .sig-chip   { font-size: 11px; }
-.sig-chip.bull { color: var(--green-600); }
-.sig-chip.bear { color: var(--terra-500); }
+.sig-chip.bull { color: var(--up); }
+.sig-chip.bear { color: var(--down); }
 .sig-chip.neut { color: var(--fg4); }
 /* Signal tooltip */
 .sig-tip {
@@ -419,7 +419,7 @@ tbody td:nth-child(n+4) {
   padding: 4px 8px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-pill);
-  background: var(--beige-100);
+  background: var(--bg-raised);
   color: var(--fg1);
 }
 /* The chosen horizon's cost, beside the control. Separated by hairlines rather
@@ -446,6 +446,6 @@ tbody td:nth-child(n+4) {
 
 /* Active backtest preset row */
 tr.bt-row.active td {
-  background: var(--beige-200);
+  background: var(--bg-sunken);
   font-weight: 600;
 }

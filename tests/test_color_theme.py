@@ -183,3 +183,30 @@ def test_raw_ramps_untouched_in_dark_blocks():
     for block, name in ((dark_attr, "[data-theme=dark]"), (dark_media, "@media")):
         for prefix in ("--beige-", "--green-", "--terra-"):
             assert prefix not in block, f"{name} redefines a raw ramp ({prefix}*)"
+
+
+_CSS_DIR = _PROJECT_ROOT / "dashboard" / "templates" / "css"
+_HEX_RE = re.compile(r"#[0-9A-Fa-f]{3,8}\b")
+_RAW_RAMP_RE = re.compile(r"var\(--(?:beige|green|terra)-\d")
+
+
+def _css_files_excluding_foundation():
+    return [p for p in _CSS_DIR.glob("*.j2") if p.name != "_foundation.css.j2"]
+
+
+def test_no_hardcoded_hex_outside_foundation():
+    for path in _css_files_excluding_foundation():
+        text = path.read_text()
+        hits = _HEX_RE.findall(text)
+        assert not hits, f"{path.name} has hardcoded hex: {hits}"
+
+
+def test_no_raw_ramp_references_outside_foundation():
+    """A component that reads --beige-200 directly instead of --bg-sunken
+    (its semantic alias) will not theme — the raw ramps are fixed by design
+    (test_raw_ramps_untouched_in_dark_blocks), so anything reading them
+    directly is stuck in the light palette forever."""
+    for path in _css_files_excluding_foundation():
+        text = path.read_text()
+        hits = _RAW_RAMP_RE.findall(text)
+        assert not hits, f"{path.name} references a raw ramp directly: {hits}"
