@@ -83,6 +83,10 @@
 <script>
 var SENTIMENT_DATA = {{ sentiment_scatter_json | js_json }};
 
+// Light->dark hex map for the baked Plotly figures (Task 7 consumes this).
+var CHART_DARK = {{ chart_dark_json | js_json }};
+window.CHART_DARK = CHART_DARK;
+
 // Plot the scatter once the container is laid out.
 (function () {
   if (!window.Plotly) return;

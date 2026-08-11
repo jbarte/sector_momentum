@@ -329,3 +329,36 @@ def test_no_bare_plotly_newplot_outside_smplot():
         assert "Plotly.newPlot" not in text, (
             f"{path.name} calls Plotly.newPlot directly — use SMTheme.smPlot instead"
         )
+
+
+import sys
+sys.path.insert(0, str(_PROJECT_ROOT))
+
+from dashboard.figures import (
+    build_chart_dark_map, _WARM_PALETTE, _SCORE_SIGNAL_COLORS, _base_layout,
+    _build_rrg_figure, _build_sentiment_scatter_figure, _build_movers_figure,
+)
+
+
+def test_chart_dark_map_covers_every_figure_constant():
+    """Every literal hex used by a figure builder must have a dark
+    equivalent, or that colour silently stays light-mode-only forever."""
+    m = build_chart_dark_map()
+    for hexval in _WARM_PALETTE:
+        assert hexval in m, f"_WARM_PALETTE entry {hexval} has no dark mapping"
+    for hexval in _SCORE_SIGNAL_COLORS.values():
+        assert hexval in m, f"_SCORE_SIGNAL_COLORS entry {hexval} has no dark mapping"
+    base = _base_layout()
+    assert base["paper_bgcolor"] in m
+    assert base["plot_bgcolor"] in m
+    assert base["font"]["color"] in m
+    assert base["legend"]["bgcolor"] in m
+    assert base["legend"]["bordercolor"] in m
+
+
+def test_chart_dark_map_values_are_all_hex():
+    m = build_chart_dark_map()
+    for light, dark in m.items():
+        assert re.match(r"^#[0-9A-Fa-f]{6}$", light), f"key {light!r} is not hex"
+        assert re.match(r"^#[0-9A-Fa-f]{6}$", dark), f"value {dark!r} is not hex"
+        assert light != dark, f"{light} maps to itself — not actually themed"

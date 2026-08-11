@@ -60,6 +60,7 @@ def _horizon_ctx(dumps=json.dumps):
         horizon_default_json=dumps({
             "key": d.key, "label": d.label, "top_n": d.top_n, "buffer": d.buffer}),
         unbuyable_json=dumps([]),
+        chart_dark_json=dumps({}),
     )
 
 

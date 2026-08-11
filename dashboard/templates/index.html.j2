@@ -576,6 +576,10 @@ var COHORTS = {{ cohorts_json | js_json }};   // [{region, label}, ...]
 var UNBUYABLE = {{ unbuyable_json | js_json }};
 window.UNBUYABLE = UNBUYABLE;
 
+// Light->dark hex map for the baked Plotly figures (Task 7 consumes this).
+var CHART_DARK = {{ chart_dark_json | js_json }};
+window.CHART_DARK = CHART_DARK;
+
 // ----- Plotly data (injected by build.py) -----
 // COHORT_CHARTS is keyed by cohort region ("US"/"EU"/"THEME"); each entry
 // holds that cohort's own rrg/movers/history/drilldown figures plus the
