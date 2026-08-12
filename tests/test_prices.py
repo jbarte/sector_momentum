@@ -450,3 +450,66 @@ def test_no_source_stats_warning_when_yfinance_succeeds(mock_fresh, mock_fetch, 
         fetch_prices(["XLK", "XLF"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
 
     assert not any("succeeded" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# `start` must trim a warm cache, not just gate a cold one
+# ---------------------------------------------------------------------------
+
+def test_start_trims_data_served_from_a_warm_cache(tmp_path):
+    """A fresh cache holding more history than requested must be trimmed.
+
+    `_cache_is_fresh` only rejects a cache that is too *short*; nothing handled
+    one that is too *long*, so `--start` was silently ignored whenever the cache
+    was fresh — the backtest would run the full window while reporting the
+    narrow one.
+
+    `stats_out` pins this to the cache branch. Without that assertion the test
+    passes for the wrong reason: a stale cache falls through to the network,
+    where `start` is honoured anyway.
+    """
+    last = _expected_latest_close(date.today())
+    idx = pd.bdate_range("2003-01-01", last)
+    df = pd.DataFrame(
+        {"Close": 1.0, "Open": 1.0, "High": 1.0, "Low": 1.0, "Volume": 100},
+        index=idx,
+    )
+    cache_dir = str(tmp_path)
+    df.to_parquet(_cache_path("TEST", cache_dir))
+
+    stats: dict[str, int] = {}
+    out = fetch_prices(["TEST"], start="2015-01-01", end="2026-08-08",
+                       cache_dir=cache_dir, stats_out=stats)
+
+    assert stats.get("cache") == 1 and stats.get("yfinance", 0) == 0, (
+        "test must exercise the cache branch, not a network refetch"
+    )
+    got = out["TEST"]
+    assert got.index.min() >= pd.Timestamp("2015-01-01"), (
+        f"cached frame not trimmed to start: first row {got.index.min().date()}"
+    )
+    assert got.index.max() == idx.max(), "trimming must not drop the recent end"
+
+
+def test_start_trim_keeps_everything_when_nothing_precedes_start(tmp_path):
+    """Trimming must not shorten a cache that already starts at `start`.
+
+    (Asking for a start *earlier* than the cache begins is a different case —
+    `_cache_is_fresh` rejects that cache as too short and refetches, which is
+    the existing, intended behaviour.)
+    """
+    last = _expected_latest_close(date.today())
+    idx = pd.bdate_range("2020-01-01", last)
+    df = pd.DataFrame(
+        {"Close": 1.0, "Open": 1.0, "High": 1.0, "Low": 1.0, "Volume": 100},
+        index=idx,
+    )
+    cache_dir = str(tmp_path)
+    df.to_parquet(_cache_path("TEST", cache_dir))
+
+    stats: dict[str, int] = {}
+    out = fetch_prices(["TEST"], start="2020-01-01", end="2026-08-08",
+                       cache_dir=cache_dir, stats_out=stats)
+
+    assert stats.get("cache") == 1, "must exercise the cache branch"
+    assert len(out["TEST"]) == len(idx), "trim dropped rows it should have kept"

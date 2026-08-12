@@ -176,11 +176,10 @@ closes per call. Consequence: build-diff verification cannot be used on backtest
 artifacts, and any future "did this change the backtest?" question needs a
 tolerance, not equality. Fix is to pin/snapshot the price inputs.
 
-**3. `--start` does not trim cached data.** `fetch_prices(..., start=...)`
-returns whatever the parquet cache holds, so once `data/backtest_cache/` contains
-2003+ history, `--start 2015-01-01` is silently ignored. The flag only has effect
-on a cold cache. Either filter the cached frame by `start` on load, or key the
-cache by window.
+**3. `--start` does not trim cached data.** — **FIXED 2026-08-12.** The cache
+branch of `fetch_prices` now trims to `start` on load; regression test
+`test_start_trims_data_served_from_a_warm_cache` pins the cache path via
+`stats_out` so it cannot pass by silently refetching. See Done.
 
 **Sequencing:** the sector tracks disappear when the sector cohort is retired, so
 fix (1) is best resolved at that point — regenerate the artifact once, with only
@@ -412,6 +411,21 @@ source-only and tight:
 ---
 
 # Done
+
+- **`--start` now trims a warm price cache** — `fetch_prices` returned the whole
+  cached parquet frame on a cache hit, so once `data/backtest_cache/` held long
+  history a narrower `--start` was silently ignored and the run covered the full
+  window while reporting the narrow one. `_cache_is_fresh` only ever rejected a
+  cache that was too *short*; nothing handled one that was too *long*. Now trimmed
+  on load. This mattered most for the queued preset re-pick, which depends on
+  multi-window checks (2008– vs 2015–) that would otherwise both have run on the
+  full window. Regression test pins the cache branch with `stats_out` — an earlier
+  draft "passed" against the real cache only because it was stale enough to
+  refetch from the network, where `start` is honoured anyway. Closes defect (3) of
+  the "Backtest artifact" item; (1) staleness is also resolved (artifact
+  regenerated 2026-08-10 at 100 bps, guarded by
+  `test_backtest_artifact_was_generated_at_the_configured_cost`), leaving only
+  (2) run-to-run non-reproducibility. *(2026-08-12)*
 
 - **Seven pre-existing same-idiom badges/tokens now clear 4.5:1 WCAG AA contrast**
   (2026-08-12). Found during the dark theme's own contrast work: several
