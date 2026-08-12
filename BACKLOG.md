@@ -363,18 +363,6 @@ naming in the data layer* above, which recommends leaving them alone. A rebrand
 is a rename of the *product*, not a schema migration; conflating the two is how
 a cosmetic PR turns into a live-database risk.
 
-## No regression test guards `dashboard/build.py`'s per-asset copy block
-
-Nothing fails CI if a new client-side asset is referenced by the templates but
-never added to the per-asset copy block in `dashboard/build.py`. This is
-exactly how `theme.js` went unnoticed for 3 commits during the dark theme
-feature's own development — referenced by templates since that feature's Task
-1, never actually copied into `docs/assets/` until Task 7's manual browser
-verification caught the page silently loading without it. A test that diffs
-"assets referenced in templates" against "assets copied by `build.py`" would
-have caught this at commit time instead of relying on someone opening a real
-browser.
-
 ---
 
 # Parked
@@ -470,6 +458,21 @@ source-only and tight:
 ---
 
 # Done
+
+- **`build.py`'s per-asset copy step is now regression-tested** (2026-08-12).
+  Static analysis, no DB/build needed: `tests/test_build_assets.py` greps
+  every template for `<script src="assets/…">`, greps `build.py`'s copy
+  block for every `docs_assets / "…"` destination, and asserts the first set
+  is a subset of the second. Sabotage-verified against the exact bug it
+  targets — removing `theme.js`'s copy block fails the test with a clear
+  message; restoring it passes.
+
+  This exists because that precise failure already happened: `theme.js` was
+  referenced by both pages from the dark theme feature's first commit but
+  never added to the copy block, so the whole feature 404'd silently for 3
+  commits until a manual browser check caught it (`python3 dashboard/build.py`
+  exits 0 either way — nothing about the build script's own success signals
+  whether the *output* actually serves what the templates ask for).
 
 - **Dark theme** (2026-08-11). System `prefers-color-scheme` default, plus a
   manual Auto/Light/Dark override persisted to `localStorage` — a scope
