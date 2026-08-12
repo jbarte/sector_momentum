@@ -168,13 +168,16 @@ understates drawdown by more than half. **Decide which window is intended** —
 longer history with a real crash is more honest, but it is a product choice, so
 it was deliberately not slipped into an unrelated PR.
 
-**2. Two identical runs disagree.** Running `backtest.py --no-themes
---no-rotations` twice back-to-back yields different metrics at ~1e-6 relative
-(US total_return 9.959400625 vs 9.959395970), and occasionally flips the order of
-tied holdings. Almost certainly the price fetch — yfinance recomputes adjusted
-closes per call. Consequence: build-diff verification cannot be used on backtest
-artifacts, and any future "did this change the backtest?" question needs a
-tolerance, not equality. Fix is to pin/snapshot the price inputs.
+**2. Two identical runs disagree.** — **FIXED 2026-08-12.** Root-caused: the
+engine is deterministic (same prices in one process → identical metrics); the
+drift came entirely from each run re-fetching prices. `_cache_is_fresh` judged
+coverage by the cache's first row, so any instrument younger than `--start`
+(49 of 53 cached tickers at `--start 2003-01-01`) was permanently "too short"
+and refetched every run. Caches now record the window they were fetched over,
+so a second run reuses pinned inputs. Verified: two consecutive backtests now
+produce byte-identical metrics and equity curves (previously ~1e-7 apart). The
+"tied holdings flip" half was already fixed by `_select`'s deterministic sort
+(2026-08-08). See Done.
 
 **3. `--start` does not trim cached data.** — **FIXED 2026-08-12.** The cache
 branch of `fetch_prices` now trims to `start` on load; regression test
@@ -426,6 +429,21 @@ source-only and tight:
   regenerated 2026-08-10 at 100 bps, guarded by
   `test_backtest_artifact_was_generated_at_the_configured_cost`), leaving only
   (2) run-to-run non-reproducibility. *(2026-08-12)*
+- **Backtest runs are reproducible again** — two identical `backtest.py` runs
+  disagreed at ~1e-7 on every metric, so "did this change the backtest?" could
+  not be answered by diff. Root cause was *not* the engine: with the same prices
+  in one process it is exactly deterministic, and holdings already matched across
+  959/221/110 periods. The drift came from each run re-fetching prices, because
+  `_cache_is_fresh` judged coverage by the cache's **first row** — so any
+  instrument that simply did not exist at `--start` was ruled "too short" forever.
+  At `--start 2003-01-01` that was **49 of 53** cached tickers, refetched on every
+  single run. Caches now record the window they were fetched over (a `.meta.json`
+  sidecar, written atomically, best-effort) and coverage is judged against that;
+  caches without the sidecar keep the old behaviour and self-heal on next fetch.
+  Verified end-to-end: first run fetched 18/20, second run served **20/20 from
+  cache** and produced byte-identical metrics and equity curves. Closes defect (2)
+  of the "Backtest artifact" item, and removes a large amount of redundant network
+  I/O as a side effect. *(2026-08-12)*
 
 - **Seven pre-existing same-idiom badges/tokens now clear 4.5:1 WCAG AA contrast**
   (2026-08-12). Found during the dark theme's own contrast work: several
