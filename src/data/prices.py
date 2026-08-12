@@ -198,6 +198,12 @@ def fetch_prices(
             try:
                 df = pd.read_parquet(path)
                 df.index = pd.to_datetime(df.index)
+                # Trim to the requested window. _cache_is_fresh only rejects a
+                # cache that is too *short*; without this a cache holding more
+                # history than asked for silently widened the run, so `--start`
+                # had no effect whenever the cache was fresh.
+                if start is not None:
+                    df = df.loc[df.index >= pd.Timestamp(start)]
                 result[ticker] = df
                 source_counts["cache"] += 1
                 logger.debug("Loaded %s from cache (%s rows)", ticker, len(df))
