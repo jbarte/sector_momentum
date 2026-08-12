@@ -170,10 +170,12 @@
           <th onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_composite">Composite</th>
           <th onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_level">Level</th>
           <th onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_change">Change</th>
-          <th onclick="sortTable(5)" data-col="5" tabindex="0" data-i18n="col_data">Data</th>
-          <th onclick="sortTable(6)" data-col="6" tabindex="0" data-i18n="col_sentiment">Sentiment</th>
-          <th onclick="sortTable(7)" data-col="7" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
-          <th data-col="8" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
+          {#- "Data" was dropped 2026-08-12: with sentiment weighted 0 by default
+              the composite IS the data score, so the column repeated its
+              neighbour verbatim in every row. -#}
+          <th onclick="sortTable(5)" data-col="5" tabindex="0" data-i18n="col_sentiment">Sentiment</th>
+          <th onclick="sortTable(6)" data-col="6" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
+          <th data-col="7" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
         </tr>
       </thead>
       <tbody>
@@ -191,10 +193,9 @@
               badge is gated, row.setup is None for everyone and applyHorizonBadges()
               writes the real badge once the session and holdings are known. -#}
           <td>{{ row.sector }}{% if row.unbuyable %}<span class="unbuyable-badge" data-i18n="badge_unbuyable" data-i18n-title="unbuyable_tip" title="No UCITS equivalent exists, so this cannot be bought from an EU account. It is still scored because it shapes how every other theme ranks.">⊘ Not buyable</span>{% endif %}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
-          <td class="composite-cell">{{ row.composite }}</td>
+          <td class="composite-cell">{{ row.composite_bar | safe }}</td>
           <td>{{ row.level_score }}</td>
           <td>{{ row.change_score }}</td>
-          <td>{{ row.data_score }}</td>
           <td class="sentiment-cell">{{ row.sentiment_score }}</td>
           <td class="delta-cell">
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
@@ -204,14 +205,14 @@
           </td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
-          <td colspan="9">{{ row.breakdown_html | safe }}</td>
+          <td colspan="8">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% endfor %}
         {% if not has_any_rows %}
-        <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
+        <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
-          <td colspan="9" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
+          <td colspan="8" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
         </tr>
       </tbody>
     </table>

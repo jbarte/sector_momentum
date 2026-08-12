@@ -221,10 +221,35 @@
     return out;
   }
 
+  /* Composite cell: a centre-origin diverging bar plus the number.
+   *
+   * The composite is an average of z-scores, so it is signed and centred on
+   * zero — a left-filled bar would render -0.7 and +0.7 identically. Scale is
+   * FIXED (+/-COMPOSITE_FULL_SCALE), not per-scan, so bar lengths stay
+   * comparable between scans; values beyond it clamp.
+   */
+  var COMPOSITE_FULL_SCALE = 1.5;
+
+  function compositeBar(v) {
+    var n = Number(v);
+    if (v === null || v === undefined || isNaN(n)) {
+      return '<span class="cbar-wrap"></span><span class="cbar-val">—</span>';
+    }
+    var frac = Math.min(Math.abs(n) / COMPOSITE_FULL_SCALE, 1);
+    var pct = (frac * 50).toFixed(1);            // half-width max, from centre
+    var side = n >= 0 ? "left:50%" : "right:50%";
+    var cls = n >= 0 ? "cbar pos" : "cbar neg";
+    return '<span class="cbar-wrap">'
+         + '<span class="' + cls + '" style="' + side + ";width:" + pct + '%"></span>'
+         + "</span>"
+         + '<span class="cbar-val">' + n.toFixed(3) + "</span>";
+  }
+
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
               badgeForRank: badgeForRank, badgeFor: badgeFor,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
-              latestRowMeta: latestRowMeta };
+              latestRowMeta: latestRowMeta, compositeBar: compositeBar,
+              COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
   root.Rescore = api;
 })(typeof window !== "undefined" ? window : this);

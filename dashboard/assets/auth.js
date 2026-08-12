@@ -207,10 +207,9 @@
         tr.innerHTML =
           '<td class="rank-cell"><span class="rank-badge' + top3 + '">' + rank + "</span></td>" +
           "<td>" + r.gics_sector + (unbuyable ? UNBUYABLE_BADGE : "") + "</td>" +
-          '<td class="composite-cell">' + fmtScore(r.composite) + "</td>" +
+          '<td class="composite-cell">' + Rescore.compositeBar(r.composite) + "</td>" +
           "<td>" + fmtScore(r.level_score) + "</td>" +
           "<td>" + fmtScore(r.change_score) + "</td>" +
-          "<td>" + fmtScore(r.data_score) + "</td>" +
           '<td class="sentiment-cell">' + fmtScore(r.sentiment_score) + "</td>" +
           '<td class="delta-cell">' + deltaInner + "</td>" +
           "<td>" + trendInner + "</td>";

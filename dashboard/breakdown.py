@@ -119,6 +119,30 @@ def _build_instruments_html(
     )
 
 
+def _z_bar(z_v: float) -> tuple[str, str]:
+    """Return (bar_html, chip_html) for a signed z-score.
+
+    Centre-origin: a z-score is signed, so the bar grows left for negative and
+    right for positive. Filling from the left edge with width proportional to
+    |z| rendered -2.5 and +2.5 identically, leaving colour as the only cue.
+    """
+    half = min(abs(z_v) / 3.0, 1.0) * 50          # % of the track, from centre
+    side = "left:50%" if z_v >= 0 else "right:50%"
+    if z_v >= 0.5:
+        color, chip = "#8FA77A", '<span class="sig-chip bull">▲</span>'
+    elif z_v <= -0.5:
+        color, chip = "#BF6F50", '<span class="sig-chip bear">▼</span>'
+    else:
+        color, chip = "#C4B89A", '<span class="sig-chip neut">—</span>'
+    bar = (
+        f'<span class="z-bar-wrap">'
+        f'<span class="z-bar" style="{side};width:{half:.1f}%;'
+        f'background:{color}"></span>'
+        f'</span>'
+    )
+    return bar, chip
+
+
 def _build_breakdown_html(
     sector_key: str,
     score_row: dict,
@@ -204,18 +228,7 @@ def _build_breakdown_html(
         z_v  = _safe_float(sig.get("z_value"))
 
         if z_v is not None:
-            bar_w = min(abs(z_v) / 3.0, 1.0) * 60
-            if z_v >= 0.5:
-                color, chip = "#8FA77A", '<span class="sig-chip bull">▲</span>'
-            elif z_v <= -0.5:
-                color, chip = "#BF6F50", '<span class="sig-chip bear">▼</span>'
-            else:
-                color, chip = "#C4B89A", '<span class="sig-chip neut">—</span>'
-            bar = (
-                f'<span class="z-bar-wrap">'
-                f'<span class="z-bar" style="width:{bar_w:.0f}px;background:{color}"></span>'
-                f'</span>'
-            )
+            bar, chip = _z_bar(z_v)
             z_str = f"{z_v:+.2f}"
         else:
             bar  = '<span class="z-bar-wrap"></span>'

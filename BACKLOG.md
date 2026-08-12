@@ -248,31 +248,20 @@ names, and the cheap subset (`sector_key`, `sector_id`, `top_sector`,
 `sector_count`, the two `scans` health columns) can be renamed independently of
 the schema at much lower risk.
 
-## Design review findings (2026-08-09 audit)
+## Design review findings (2026-08-09 audit) — P1/P2 remainder
 
 From a dual-agent design review + mechanical browser measurement. Nielsen
-score **23/40**; cognitive-load checklist fails 6 of 8. Full detail is in the
-review thread; the actionable set:
+score **23/40**; cognitive-load checklist fails 6 of 8.
 
-**P0 — three of nine leaderboard columns carry no information.** `DATA` is a
-verbatim duplicate of `COMPOSITE` in every row (sentiment weighs 0, so
-`composite = data_score` by construction). `RANK Δ` is empty (see the weekend
-item above). `SENTIMENT` affects nothing at the default weight. Meanwhile the
-composite — the entire thesis — is rendered as bare 3-decimal monospace with no
-bar, no zero reference, no scale.
+**All four P0s are resolved (2026-08-12)** — see Done. Two were fixed then; two
+turned out to be already fixed or overstated when re-measured against the code:
 
-**P0 — `.z-bar` encodes signed values as unsigned.** It fills from the *left*
-with width ∝ |z| and uses near-invisible `#C4B89A` for negative, so −2.5 and
-+2.5 render identically in the same direction, and the worst signals appear as
-the faintest marks. Should be a centre-origin diverging bar.
-
-**P0 — meaning-bearing text fails contrast at sub-10px.** 54 elements below
-4.5:1. Column headers 2.95:1 at 10px. `.traj-badge` — the Trend column the
-guide explicitly says to trust for exits — is **3.80:1 at 9.84px**.
-
-**P0 — no focus indicators.** 43 of 43 visible interactive elements show no
-ring; the stylesheet has only three `:focus-visible` rules, none covering tabs,
-chips, rows or headers.
+- `RANK Δ` was *not* empty (13/20 themes carried a non-zero delta) — the weekend
+  dedup fix had already resolved it.
+- Contrast at the two cited elements already passed: column headers **4.53:1**
+  (audit said 2.95) and `.traj-badge` **4.76-5.26:1** (audit said 3.80), fixed by
+  the badge/status-token retint. The audit's wider "54 elements below 4.5:1" was
+  not re-measured element-by-element and may still hold in places.
 
 **P1 — the gate modal declares `aria-modal="true"` and implements none of it.**
 No focus move, no trap, no Escape, no backdrop close; first Tab lands *behind*
@@ -283,7 +272,8 @@ working `open/close/onKey` block into a shared helper.
 **P1 — mobile shows ~35% of the table.** At 375px the wrap is 269px against a
 769px table with no sticky first column, so scrolling right loses rank and
 theme name and `TREND` is unreachable blind. 32 touch targets under 44px; the
-⚙ that changes ranking weights is 7×18px.
+⚙ that changes ranking weights is 7×18px. (Dropping the `DATA` column narrowed
+the table by one, but did not fix this.)
 
 **P1 — badge/trend hierarchy is inverted against the copy.** `▲ Entry` is a
 tinted pill beside the theme name; `Trend` is a 9.84px arrow in the last
@@ -446,6 +436,28 @@ source-only and tight:
 ---
 
 # Done
+
+- **Design review P0s** — verified each against the code before changing
+  anything, which changed the work: of the four, one was already fixed and one
+  was stale. **Fixed:** (a) the `DATA` column, a verbatim duplicate of
+  `COMPOSITE` in 20/20 rows (sentiment weighs 0, so `composite = data_score` by
+  construction), removed from all three row builders — the server template, the
+  signed-in live upgrade in `auth.js`, and the scan-history view — with the
+  colspans; (b) `COMPOSITE` given a centre-origin diverging bar plus its number,
+  on a fixed ±1.5 scale so bar lengths stay comparable between scans;
+  (c) the breakdown `.z-bar`, which filled from the left with width ∝ |z| so
+  −2.5 and +2.5 rendered identically, now diverges from a zero line (extracted to
+  a testable `_z_bar`); (d) focus indicators — one shared `:focus-visible` ring
+  now covers tabs, sortable headers, leaderboard rows and footer links, none of
+  which had one. **Already fixed / stale:** `RANK Δ` is populated (13/20) since
+  the weekend dedup fix, and the two cited contrast failures now pass (headers
+  4.53:1, traj-badge 4.76-5.26:1) after the token retint — so only the `DATA`
+  column was genuinely dead, not three columns. Guard tests pin the three row
+  builders to the same column count, the colspans to the header count, and the
+  Python/JS composite-bar implementations to each other. Verified in-browser in
+  both themes: bar geometry measured (track 54px, positives start at the 27px
+  centre, negatives end at it), a real Tab press shows a ring, no console errors.
+  *(2026-08-12)*
 
 - **`--start` now trims a warm price cache** — `fetch_prices` returned the whole
   cached parquet frame on a cache hit, so once `data/backtest_cache/` held long

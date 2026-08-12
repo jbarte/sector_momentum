@@ -827,3 +827,113 @@ def test_item_for_row_classifies_by_region_not_dataset_shape():
     assert results[3] == {"item_type": "sector", "region": "US", "name": "Energy"}
     assert results[4] == {"item_type": "sector", "region": "EU", "name": "Banks"}
     assert results[5] is None
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard column structure — three builders must agree
+# ---------------------------------------------------------------------------
+
+def _count_cells(fragment: str) -> int:
+    """Number of <td ...> openings in a row-building fragment."""
+    import re
+    return len(re.findall(r"<td\b", fragment))
+
+
+def test_leaderboard_row_builders_emit_the_same_column_count():
+    """The server template, the signed-in live upgrade (auth.js) and the
+    scan-history view each build leaderboard rows independently. A column
+    added or removed in one and not the others silently misaligns every row
+    against the header, so pin them together.
+    """
+    root = Path(__file__).parent.parent
+
+    auth = (root / "dashboard/assets/auth.js").read_text()
+    body = auth.split("tr.innerHTML =", 1)[1].split("tbody.appendChild(tr)", 1)[0]
+    auth_cells = _count_cells(body)
+
+    hist = (root / "dashboard/assets/scan-history.js").read_text()
+    hbody = hist.split('html += \'<tr class="leaderboard-row">\'', 1)[1].split('"</tr>"', 1)[0]
+    hist_cells = _count_cells(hbody)
+
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+    tbody = tpl.split('{% for row in leaderboard_rows %}', 1)[1].split("{% endfor %}", 1)[0]
+    # The template's row also contains the breakdown <td>; count only the data row.
+    tpl_row = tbody.split('<tr class="breakdown-row"', 1)[0]
+    tpl_cells = _count_cells(tpl_row)
+
+    assert auth_cells == hist_cells == tpl_cells, (
+        f"leaderboard column count drifted: template={tpl_cells} "
+        f"auth.js={auth_cells} scan-history.js={hist_cells}"
+    )
+
+
+def test_leaderboard_colspans_match_the_column_count():
+    """A stale colspan leaves the breakdown panel and empty-state rows spanning
+    the wrong width once a column is added or removed."""
+    import re
+    root = Path(__file__).parent.parent
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+
+    tbody = tpl.split('{% for row in leaderboard_rows %}', 1)[1].split("{% endfor %}", 1)[0]
+    tpl_row = tbody.split('<tr class="breakdown-row"', 1)[0]
+    n_cols = _count_cells(tpl_row)
+
+    header = tpl.split("<thead>", 1)[1].split("</thead>", 1)[0]
+    n_headers = len(re.findall(r"<th\b", header))
+    assert n_headers == n_cols, f"{n_headers} headers vs {n_cols} body cells"
+
+    # Every colspan in the leaderboard table must equal the column count.
+    table = tpl.split('id="leaderboard-table"', 1)[1].split("</table>", 1)[0]
+    for span in re.findall(r'colspan="(\d+)"', table):
+        assert int(span) == n_cols, f"colspan={span} but table has {n_cols} columns"
+
+
+def test_composite_bar_python_and_js_agree():
+    """`_composite_bar` (build) and `compositeBar` (rescore.js) render the same
+    cell. The static build, the signed-in upgrade and the scan-history view
+    would otherwise disagree on the same number."""
+    import re
+    from dashboard.rows import _composite_bar, COMPOSITE_FULL_SCALE
+
+    js = (Path(__file__).parent.parent / "dashboard/assets/rescore.js").read_text()
+    m = re.search(r"var COMPOSITE_FULL_SCALE = ([\d.]+);", js)
+    assert m, "COMPOSITE_FULL_SCALE missing from rescore.js"
+    assert float(m.group(1)) == COMPOSITE_FULL_SCALE, "full-scale constant drifted"
+
+    # Positive grows right from centre, negative grows left, both half-width max.
+    pos = _composite_bar(1.5)
+    neg = _composite_bar(-1.5)
+    assert "left:50%" in pos and "width:50.0%" in pos
+    assert "right:50%" in neg and "width:50.0%" in neg
+    assert "cbar pos" in pos and "cbar neg" in neg
+
+    # Equal magnitudes must NOT render identically (the defect being fixed).
+    assert _composite_bar(2.0) != _composite_bar(-2.0)
+
+    # Beyond full scale clamps rather than overflowing the track.
+    assert "width:50.0%" in _composite_bar(99.0)
+    assert _composite_bar(None) == (
+        '<span class="cbar-wrap"></span><span class="cbar-val">—</span>'
+    )
+
+
+def test_z_bar_is_centre_origin():
+    """The breakdown z-bar encoded sign only as colour: -2.5 and +2.5 both
+    filled from the left, so direction carried no meaning."""
+    from dashboard.breakdown import _z_bar
+
+    up, _ = _z_bar(2.5)
+    down, _ = _z_bar(-2.5)
+    assert "left:50%" in up, "positive z should grow right from centre"
+    assert "right:50%" in down, "negative z should grow left from centre"
+    assert up != down, "equal magnitudes must not render identically"
+
+    # Magnitude still encoded, and clamped at the track edge.
+    small, _ = _z_bar(0.75)
+    assert "width:12.5%" in small
+    big, _ = _z_bar(9.0)
+    assert "width:50.0%" in big
+
+    # The neutral band keeps its muted chip.
+    _, chip = _z_bar(0.1)
+    assert "neut" in chip
