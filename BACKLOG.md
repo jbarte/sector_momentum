@@ -21,6 +21,50 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Header context chips don't say what they mean or what to do with them
+
+The `SPY +9.9%` / `VIX 15.3` / `Live` chips in the command bar are the first
+thing on the page and the least explained. Reading them off the header alone,
+it is not clear what they measure, what the colour asserts, or what a reader is
+supposed to *do* differently because of them.
+
+**What exists today**
+
+- `SPY +9.9%` — distance from the 200-day average; green above, red below.
+  Tooltip is `vs 200-DMA — above`, which restates the mechanic and stops there.
+- `VIX 15.3` — banded Calm (<15) / Elevated (15–25) / Stressed (>25). Tooltip
+  is the band word alone (`Calm`), i.e. a synonym for the colour.
+- `Live` — injected by `auth.js` when the signed-in leaderboard upgrades to the
+  latest scan. **No tooltip at all, no explanatory copy anywhere, and a
+  hardcoded English string** (stays "Live" in Swedish).
+
+Good explanatory copy *does* exist — the "Market context chips" section of the
+leaderboard tab guide covers SPY and VIX, and lands the actually-useful framing:
+*"They change no scores. They tell you how much to trust the board."* The
+problem is that it lives behind a guide modal, so the reader has to already
+suspect there is something to learn.
+
+**Why the tooltips are not the fix**
+
+`title` attributes do not exist on touch. After the mobile work (2026-08-12) the
+board is usable on a phone, where these three chips are permanently
+unexplained.
+
+**Worth encoding, not just explaining:** the project *measured* SPY-vs-200-DMA
+as a scoring input and **parked** it — no regime-conditional scheme beat the
+fixed 50/50 split in both regions (regime research, 2026-07-22). So "context
+only, deliberately not acted on" is an evidence-backed stance, not a hedge, and
+the UI can say so plainly rather than leaving the reader to guess whether the
+chip is a signal.
+
+**Shape of a fix** (not decided): surface the trust-the-board framing at the
+point of display rather than only in a guide — e.g. make the cluster a labelled,
+tappable control that opens the existing explanation, and give `Live` a tooltip,
+i18n and a one-line meaning ("showing the latest scan, not the public delayed
+one"). Decide whether the chips earn their prime position at all, or belong
+next to the data they qualify.
+
+
 ## Remove the RSS/Atom feed
 
 Nobody is known to subscribe, and it is a second public surface that has to stay
@@ -134,6 +178,21 @@ sweep at 50 bps puts **all three current cells off the frontier**:
 
 `W/3/6` beats the current `short` on return, Sharpe **and** churn at once —
 one wider buffer.
+
+**Re-swept 2026-08-12 at the real 100 bps (config `costs.round_trip_bps`),
+on both 2008– and 2015–.** The table above was run at 50 bps, i.e. half the
+shipped cost. Requiring a cell to beat the incumbent on CAGR *and* Sharpe in
+**both** windows:
+
+| preset | incumbent | verdict at 100 bps, both windows |
+|---|---|---|
+| short | W/3/5 (band 44%) | **beaten** — `W/3/6` (band 50%): 15.1%/0.72/16tr on 2008–, 17.1%/0.77/23tr on 2015–; better return, Sharpe *and* churn in both |
+| medium | M/5/4 (band 50%) | **beaten by 4 cells** — best combined Sharpe `M/5/7` (band 67%): 14.8%/0.81/8tr and 15.8%/0.84/13tr; also `M/4/8`, `M/4/5`, `M/4/4` |
+| long | 2M/4/6 (band 56%) | **survives — no cell beats it in both windows.** The 50 bps candidate `2M/5/8` does *not* hold up |
+
+So the 50 bps table's "all three off the frontier" does not survive the real
+cost plus a subperiod check — `long` should stay put. **`medium` still needs a
+choice between the four survivors**, which is why this is not yet done.
 
 **Deliberately not done as part of the cost fix.** This changes what the
 dashboard tells you to hold, and it rests on one sweep over one market history.
