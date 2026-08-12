@@ -202,6 +202,45 @@ multi-window discipline: confirm each candidate on 2008– *and* 2015– before
 adopting, and check the band fraction `(top_n + buffer) / n_themes` rather than
 the absolute buffer, since the universe size keeps moving.
 
+**Even 100 bps may be conservative for Jonas specifically (2026-08-12).**
+Researched Avanza's actual fee schedule and combined it with his account facts
+(ISK — no capital-gains drag, but no access to the cheaper KF Valutakonto —
+and a 150k–500k SEK portfolio): real round-trip cost works out to **~65–80bps**,
+not 100, across the position sizes these three presets produce. The FX leg
+(0.25%/leg, 0.5% round-trip on ISK) dominates over courtage at these sizes.
+**Before picking `medium`'s survivor, re-run the same dual-window frontier
+check at ~70bps** — a cheaper true cost could pull a different cell onto the
+frontier, or change which of the four current survivors wins on Sharpe. Full
+fee research, the calculation, and sources:
+[`sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md`](/Users/jonasbarte/AI%20Projects/sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md)
+(§ Thread A).
+
+## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
+
+The horizon-preset spec (`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`)
+named this in advance as "the daily-signal mismatch" and planned a three-part
+fix. Two parts shipped — rank-band badges (2026-08-10) and alert gating to band
+crossings. **The third never did: "the dashboard states the next rebalance date
+and whether today is one... badges are informational [between rebalances]; the
+copy should say so rather than implying 'act now'."** Confirmed 2026-08-12: no
+`next_rebalance`/`is_rebalance_day` concept exists anywhere in `dashboard/` or
+`src/`.
+
+**Consequence, measured 2026-08-12:** a reader who checks more often than their
+preset's intended cadence sees materially more badge crossings than the preset
+was tuned for — running Medium's band (`M/5/4`, tuned for monthly review) but
+checked weekly costs ~1.9pp CAGR and 0.19 Sharpe versus checking it monthly, in
+a real backtest comparison (this repo, `backtest.py --rebalance`/`--buffer`/
+`--theme-top-n`/`--cost-bps`, at the ~70bps real-cost figure above). Switching
+to Short (built for weekly review) recovers most but not all of that gap.
+
+This isn't a new problem — it's the one committed piece of an already-approved
+design that shipping stopped short of. Options (rebalance-date UI awareness vs.
+a lighter preset-cadence nudge vs. leaving it to the tab guide's existing copy)
+are laid out, not decided, in
+[`sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md`](/Users/jonasbarte/AI%20Projects/sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md)
+(§ Thread B).
+
 ## Composite structure — 4.2 effective signals of 8
 
 Same measurement run. Worth recording so the question is not re-opened from
