@@ -814,3 +814,46 @@ def test_recolor_leaves_no_light_hex_survivors_in_any_real_figure():
         "light-palette hex survived recolor() under a colour-bearing key "
         f"(figure -> [(key, hex), ...]): {all_survivors}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Responsive cascade order
+# ---------------------------------------------------------------------------
+
+def test_responsive_css_is_included_last():
+    """Media queries add no specificity, so a responsive override only wins if
+    it comes after the unconditional rule it targets.
+
+    This was a live bug: the mobile block sat in _foundation (first include)
+    while _chrome (second) re-declared `.card` margin and `.tab-panel` padding
+    unconditionally. At 375px the query matched and the desktop values still
+    applied — 104px of a 375px viewport lost to margins that were supposed to
+    have shrunk.
+    """
+    style = (Path(__file__).parent.parent
+             / "dashboard/templates/_style.html.j2").read_text()
+    includes = re.findall(r'include\s+"(css/[^"]+)"', style)
+    assert includes, "no css includes found"
+    assert includes[-1] == "css/_responsive.css.j2", (
+        f"_responsive.css.j2 must be the last CSS include, got {includes[-1]!r}. "
+        "Responsive rules placed earlier are silently outranked."
+    )
+
+
+def test_no_responsive_overrides_left_earlier_in_the_cascade():
+    """A width-based media query in a partial that loads before _responsive is
+    liable to be dead. (pointer/prefers-* queries are fine — they do not
+    conflict with the same properties.)"""
+    root = Path(__file__).parent.parent / "dashboard/templates"
+    style = (root / "_style.html.j2").read_text()
+    includes = re.findall(r'include\s+"(css/[^"]+)"', style)
+
+    offenders = []
+    for name in includes[:-1]:                      # everything before _responsive
+        src = (root / name).read_text()
+        for m in re.finditer(r"@media\s*\(\s*(max|min)-width", src):
+            offenders.append(f"{name}:{src[:m.start()].count(chr(10)) + 1}")
+    assert not offenders, (
+        "width-based media queries before _responsive.css.j2 may be dead: "
+        + ", ".join(offenders)
+    )

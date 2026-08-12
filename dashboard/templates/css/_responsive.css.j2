@@ -1,0 +1,136 @@
+/* =========================================================
+   Responsive overrides — MUST be the last stylesheet included
+   =========================================================
+   Media queries add no specificity. A `@media (max-width: 600px)` rule for
+   `.card` earlier in the cascade therefore loses to a plain `.card` rule
+   later, silently: the query matches, the declaration is simply outranked.
+
+   That is exactly what happened — the mobile block lived in _foundation
+   (first include) while _chrome (second) re-declared `.card` margin and
+   `.tab-panel` padding unconditionally. At 375px the query matched and the
+   desktop values still applied, costing 104px of a 375px viewport and leaving
+   the leaderboard 271px of a 730px table.
+
+   Keep every responsive override here, and keep this file last in
+   _style.html.j2. A new mobile rule anywhere earlier is liable to be dead on
+   arrival. */
+
+@media (max-width: 600px) {
+  .command-bar { padding: 10px 16px; }
+  .card { margin: 12px 8px 16px; }
+  .card > .tab-panel { padding: 14px 10px; }
+  .card > .tabs { padding: 0 8px; }
+  .site-footer { padding: 14px 16px; }
+}
+
+@media (max-width: 420px) {
+  .scan-meta { display: none; }
+}
+
+/* ---------------------------------------------------------
+   Leaderboard: keep identity visible while scrolling right
+   ---------------------------------------------------------
+   The table is far wider than a phone. Without pinned columns, scrolling out
+   to Rank Δ / Trend takes the rank and the theme name off screen, so the
+   reader is looking at four numbers with nothing saying which theme they
+   belong to. Pin the first two columns; the rest scrolls under them. */
+@media (max-width: 600px) {
+  #leaderboard-table th:nth-child(1),
+  #leaderboard-table td:nth-child(1),
+  #leaderboard-table th:nth-child(2),
+  #leaderboard-table td:nth-child(2) {
+    position: sticky;
+    z-index: 2;
+    background: var(--bg-raised);
+  }
+  /* Fixed widths so the second column's offset is exact rather than measured. */
+  #leaderboard-table th:nth-child(1),
+  #leaderboard-table td:nth-child(1) { left: 0; width: 44px; min-width: 44px; }
+  #leaderboard-table th:nth-child(2),
+  #leaderboard-table td:nth-child(2) { left: 44px; width: 116px; min-width: 116px; }
+
+  /* border-collapse drops the shared edge on a sticky cell, so draw the
+     separation explicitly — otherwise scrolled content abuts the pinned name. */
+  #leaderboard-table th:nth-child(2),
+  #leaderboard-table td:nth-child(2) { box-shadow: inset -1px 0 0 var(--border-soft); }
+
+  /* Hover/held tints are set on the row; repeat them on the pinned cells so
+     they do not read as a detached strip. */
+  .leaderboard-row:hover td:nth-child(1),
+  .leaderboard-row:hover td:nth-child(2) { background: var(--bg-sunken); }
+
+  /* Tighten the cells so more of the data columns fit alongside the pinned pair. */
+  #leaderboard-table td, #leaderboard-table th { padding-left: 8px; padding-right: 8px; }
+
+  /* The breakdown panel spans the full row and must not be pinned. */
+  .breakdown-row td { position: static; width: auto; min-width: 0; }
+}
+
+/* ---------------------------------------------------------
+   Touch targets
+   ---------------------------------------------------------
+   Pointer-coarse rather than a width query: a small window on a desktop still
+   has a mouse. 44px is the WCAG 2.5.5 / platform minimum. */
+@media (pointer: coarse) {
+  .tab-btn,
+  .filter-chip,
+  .segment-btn,
+  .lag-banner-btn,
+  .footer-link,
+  #horizon-select { min-height: 44px; }
+
+  /* Footer anchors are plain links, not .footer-link buttons. */
+  .site-footer a { display: inline-flex; align-items: center; min-height: 44px; }
+
+  .theme-btn,
+  .lang-toggle { min-height: 44px; min-width: 44px; }
+
+  /* Inline text toggles need a box before a min-height can apply. */
+  .digest-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 8px;
+  }
+
+  /* A 13px checkbox is the smallest control on the page. Enlarge the box and
+     give its label a full-height hit area rather than only the glyph. */
+  /* A native checkbox clamps `width` under appearance:auto, so set both the
+     box and a min-width, and give the wrapping label the 44px hit area — the
+     label is what a thumb actually lands on. */
+  #sentiment-toggle { width: 22px; min-width: 22px; height: 22px; min-height: 22px; }
+  #sentiment-weight { min-height: 44px; }
+  .sentiment-control label,
+  .rank-settings label { display: inline-flex; align-items: center; min-height: 44px; }
+
+  /* Disclosure summaries are tap targets too. */
+  .health-panel > summary { min-height: 44px; display: flex; align-items: center; }
+
+  /* Sortable headers are activated by tap; give them a real target height. */
+  #leaderboard-table thead th[tabindex="0"] { padding-top: 14px; padding-bottom: 14px; }
+}
+
+/* ---------------------------------------------------------
+   Relocated from other partials
+   ---------------------------------------------------------
+   These were not dead (nothing later re-declared their properties) but they
+   sat before this file, so they were one edit away from being outranked.
+   Consolidated here so the convention holds without exceptions. */
+
+/* from _tables.css.j2 */
+@media (max-width: 700px) { .breakdown-grid { grid-template-columns: 1fr; } }
+
+/* from _sentiment.css.j2 — the ranking popover anchors to the utility row and
+   spans it below 600px, instead of running off the side. */
+@media (max-width: 600px) {
+  .utility-row { position: relative; }
+  .rank-settings { position: static; }
+  .rank-settings .sentiment-control {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    white-space: normal;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+}
