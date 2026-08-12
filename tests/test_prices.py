@@ -18,6 +18,7 @@ from src.data.prices import (
     _fetch_single,
     _normalize_columns,
     _sanitize_ticker,
+    _write_cache_meta,
     fetch_prices,
 )
 
@@ -513,3 +514,71 @@ def test_start_trim_keeps_everything_when_nothing_precedes_start(tmp_path):
 
     assert stats.get("cache") == 1, "must exercise the cache branch"
     assert len(out["TEST"]) == len(idx), "trim dropped rows it should have kept"
+
+# Cache coverage: judge by the window we fetched, not by the ETF's birthday
+# ---------------------------------------------------------------------------
+
+def _fresh_frame(first: str):
+    """A frame ending at today's expected close, starting at `first`."""
+    idx = pd.bdate_range(first, _expected_latest_close(date.today()))
+    return pd.DataFrame(
+        {"Close": 1.0, "Open": 1.0, "High": 1.0, "Low": 1.0, "Volume": 100},
+        index=idx,
+    )
+
+
+def test_cache_covers_request_when_fetched_from_an_earlier_start(tmp_path):
+    """A young ETF must not be refetched forever.
+
+    `BOTZ` has no data before 2016, so a cache of it can never contain 2003.
+    Judging coverage by the frame's first row therefore marked it stale on
+    every run. What matters is the window we *asked Yahoo for*: fetched from
+    2003, this cache is as complete as the ticker can be.
+    """
+    path = _cache_path("BOTZ", str(tmp_path))
+    _fresh_frame("2016-09-13").to_parquet(path)
+    _write_cache_meta(path, start="2003-01-01")
+
+    assert _cache_is_fresh(path, "2003-01-01") is True
+
+
+def test_cache_is_stale_when_fetched_from_a_later_start(tmp_path):
+    """Asking for more history than we fetched must still refetch."""
+    path = _cache_path("BOTZ", str(tmp_path))
+    _fresh_frame("2016-09-13").to_parquet(path)
+    _write_cache_meta(path, start="2015-01-01")
+
+    assert _cache_is_fresh(path, "2003-01-01") is False
+
+
+def test_cache_without_metadata_falls_back_to_the_legacy_check(tmp_path):
+    """Caches written before this change carry no metadata; they must keep
+    behaving exactly as before rather than being trusted blindly."""
+    path = _cache_path("BOTZ", str(tmp_path))
+    _fresh_frame("2016-09-13").to_parquet(path)   # no sidecar written
+
+    assert _cache_is_fresh(path, "2003-01-01") is False   # legacy: too short
+    # Within the legacy 7-day tolerance of the cache's first row (2016-09-13).
+    assert _cache_is_fresh(path, "2016-09-10") is True
+
+
+def test_second_identical_fetch_is_served_from_cache(tmp_path):
+    """The reproducibility guarantee: back-to-back runs must reuse the same
+    pinned inputs instead of each pulling fresh data from the network."""
+    cache_dir = str(tmp_path)
+    frame = _fresh_frame("2016-09-13")
+
+    with patch("src.data.prices._fetch_single", return_value=("yfinance", frame)):
+        s1: dict[str, int] = {}
+        fetch_prices(["BOTZ"], "2003-01-01", "2026-08-12",
+                     cache_dir=cache_dir, stats_out=s1)
+        assert s1.get("yfinance") == 1, "first run should fetch"
+
+        s2: dict[str, int] = {}
+        fetch_prices(["BOTZ"], "2003-01-01", "2026-08-12",
+                     cache_dir=cache_dir, stats_out=s2)
+
+    assert s2.get("cache") == 1 and s2.get("yfinance", 0) == 0, (
+        "second identical run refetched instead of reusing the cache — "
+        "this is what makes consecutive backtests disagree"
+    )

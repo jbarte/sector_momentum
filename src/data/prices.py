@@ -31,6 +31,7 @@ independently, so a dict returned by `fetch_prices` can mix as-of dates even
 when every ticker came from the same source.
 """
 
+import json
 import logging
 import os
 from datetime import date, timedelta
@@ -62,6 +63,41 @@ def _expected_latest_close(ref: date) -> date:
     return ref
 
 
+def _meta_path(path: str) -> str:
+    """Sidecar recording the window a cache file was fetched over."""
+    return path + ".meta.json"
+
+
+def _write_cache_meta(path: str, start: str) -> None:
+    """Record the requested start alongside a freshly written cache file.
+
+    Written atomically and best-effort: a missing sidecar only costs us the
+    legacy coverage heuristic, never correctness of the prices themselves.
+    """
+    meta_path = _meta_path(path)
+    tmp = meta_path + ".tmp"
+    try:
+        with open(tmp, "w") as fh:
+            json.dump({"start": str(pd.Timestamp(start).date())}, fh)
+        os.replace(tmp, meta_path)
+    except Exception as exc:
+        logger.debug("Could not write cache metadata for %s: %s", path, exc)
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
+def _read_cache_meta_start(path: str):
+    """The start this cache was fetched from, or None when unrecorded."""
+    try:
+        with open(_meta_path(path)) as fh:
+            return pd.Timestamp(json.load(fh)["start"]).date()
+    except Exception:
+        return None
+
+
 def _cache_is_fresh(path: str, start: str | None = None) -> bool:
     """Return True if the cache file exists, its last date reaches the most
     recent expected trading day (weekday walk-back from today, with a 1-day
@@ -82,8 +118,18 @@ def _cache_is_fresh(path: str, start: str | None = None) -> bool:
         if last_cached < grace_boundary:
             return False
         if start is not None:
-            cached_start = df.index.min().date() if hasattr(df.index.min(), "date") else df.index.min()
             requested_start = pd.Timestamp(start).date()
+            fetched_start = _read_cache_meta_start(path)
+            if fetched_start is not None:
+                # We know the window this cache was fetched over. It covers the
+                # request whenever we asked Yahoo for an equal-or-earlier start
+                # — regardless of when the instrument itself began trading.
+                return fetched_start <= requested_start
+            # No metadata (cache predates this being recorded): fall back to
+            # judging by the first row. This is wrong for any instrument younger
+            # than `start` — it can never hold data it never had — but it is the
+            # previous behaviour, and the cache self-heals on the next refetch.
+            cached_start = df.index.min().date() if hasattr(df.index.min(), "date") else df.index.min()
             if cached_start > requested_start + timedelta(days=7):
                 return False
         return True
@@ -224,6 +270,7 @@ def fetch_prices(
             try:
                 df.to_parquet(tmp_path)
                 os.replace(tmp_path, path)
+                _write_cache_meta(path, start)
             except Exception:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
