@@ -179,47 +179,6 @@ badges, but **alerts stay on the configured default** (`horizons.default` in
 Deferred because it touches the path that reaches Jonas's inbox, and because
 one shared default is defensible until more than one person uses the dashboard.
 
-## Backtest artifact is stale, non-reproducible, and ignores `--start`
-
-Three related defects in `backtests/`, all found while wiring the theme track
-(2026-08-05). None is urgent; all undermine trusting the backtest tab.
-
-**1. The committed artifact is 11 years narrower than a fresh run.**
-`backtests/summary.json` was seeded once (`1c0dd08`, generated 2026-06-26 from a
-`--start 2015-01-01` run) and never refreshed. `DEFAULT_START` is `2003-01-01`,
-so a plain `python3 backtest.py` today produces a materially different picture:
-
-| | committed | fresh run |
-|---|---|---|
-| US window | 2015-01-30 → 2026-06-25 | 2003-05-30 → 2026-08-04 |
-| US CAGR / maxDD | 12.5% / −18.4% | 10.8% / **−45.2%** |
-| EU CAGR / maxDD | 10.3% / −18.5% | 8.5% / **−42.2%** |
-
-The live dashboard therefore shows a backtest that excludes the GFC and
-understates drawdown by more than half. **Decide which window is intended** —
-longer history with a real crash is more honest, but it is a product choice, so
-it was deliberately not slipped into an unrelated PR.
-
-**2. Two identical runs disagree.** — **FIXED 2026-08-12.** Root-caused: the
-engine is deterministic (same prices in one process → identical metrics); the
-drift came entirely from each run re-fetching prices. `_cache_is_fresh` judged
-coverage by the cache's first row, so any instrument younger than `--start`
-(49 of 53 cached tickers at `--start 2003-01-01`) was permanently "too short"
-and refetched every run. Caches now record the window they were fetched over,
-so a second run reuses pinned inputs. Verified: two consecutive backtests now
-produce byte-identical metrics and equity curves (previously ~1e-7 apart). The
-"tied holdings flip" half was already fixed by `_select`'s deterministic sort
-(2026-08-08). See Done.
-
-**3. `--start` does not trim cached data.** — **FIXED 2026-08-12.** The cache
-branch of `fetch_prices` now trims to `start` on load; regression test
-`test_start_trims_data_served_from_a_warm_cache` pins the cache path via
-`stats_out` so it cannot pass by silently refetching. See Done.
-
-**Sequencing:** the sector tracks disappear when the sector cohort is retired, so
-fix (1) is best resolved at that point — regenerate the artifact once, with only
-the THEME track in it. (2) and (3) are independent.
-
 ## Sector-era naming in the data layer (`region`, `gics_sector`)
 
 Cosmetic only, and **not obviously worth doing** — recorded so the question
@@ -435,6 +394,23 @@ source-only and tight:
 ---
 
 # Done
+
+- **Backtest artifact item closed — all three defects resolved** — the item
+  filed 2026-08-05 bundled three problems with `backtests/`. (2)
+  non-reproducibility and (3) `--start` being ignored on a warm cache each got
+  their own fix and Done entry on 2026-08-12. (1) "the committed artifact is 11
+  years narrower than a fresh run" is now resolved too, and its open product
+  question — *which window is intended* — was answered in practice by the
+  cohort migration: `summary.json` was regenerated 2026-08-10 covering
+  **2008-03-28 → 2026-08-07** (full available history from `DEFAULT_START`,
+  bounded by ACWI's first date) with only the theme tracks, at the real 100 bps
+  cost. That is exactly the resolution the item's own sequencing note called
+  for — "regenerate the artifact once, with only the THEME track in it", once
+  the sector cohort was retired. The dashboard therefore no longer shows a
+  backtest that excludes the GFC: max drawdown reads −44.3% / −35.4% / −31.4%
+  across the three horizons rather than the understated −18.4% the defect
+  flagged. Verified against the committed artifact, not assumed.
+  *(2026-08-12)*
 
 - **Mobile leaderboard is usable** — at 375px the table showed ~37% of itself
   with no pinned columns, so scrolling out to Rank Δ / Trend took the rank and
