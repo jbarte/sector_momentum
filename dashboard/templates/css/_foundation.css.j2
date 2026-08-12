@@ -8,16 +8,14 @@
   --beige-200: #EDE6D6;
   --beige-300: #DFD5BE;
   --beige-400: #C4B89A;
-  --beige-500: #8F8568;
+  --beige-550: #6F674F;
   --beige-600: #5E5742;
   --beige-700: #3E392B;
   --beige-900: #1F1C15;
 
-  --green-100: #E2EBD9;
   --green-300: #A9BF95;
   --green-400: #8FA77A;
   --green-600: #5A6F49;
-  --green-700: #455636;
 
   --terra-400: #BF6F50;
   --terra-500: #A55A3C;
@@ -28,12 +26,15 @@
   --fg1:          var(--beige-900);
   --fg2:          var(--beige-700);
   --fg3:          var(--beige-600);
-  --fg4:          var(--beige-500);
+  --fg4:          var(--beige-550);
   --brand-strong: var(--green-600);
   --border:       var(--beige-300);
   --border-soft:  var(--beige-200);
   --up:           var(--green-600);
   --down:         var(--terra-500);
+  --ok:    #2E8B45;
+  --warn:  #B8620C;
+  --err:   #B23A2E;
 
   --font-display: 'Familjen Grotesk', 'Helvetica Neue', system-ui, sans-serif;
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -53,6 +54,60 @@
   --ease-standard: cubic-bezier(0.2,0.6,0.2,1);
   --illo-soft:     cubic-bezier(0.33,0.9,0.36,1);
   --duration-fast: 140ms;
+}
+
+:root[data-theme="dark"] {
+  --canvas:       #17150F;
+  --surface:      #201D15;
+  --bg-raised:    #262218;
+  --bg-sunken:    #2A2619;
+  --fg1:          #F0EADB;
+  --fg2:          #E4DDCC;
+  --fg3:          #B5AB92;
+  --fg4:          #A59A80;
+  --border:       #34301F;
+  --border-soft:  #2A2619;
+  --up:           #A9C48E;
+  --down:         #D98E6B;
+  --brand-strong: #A9C48E;
+  --ok:           #8FCB8A;
+  --warn:         #E0A85E;
+  --err:          #E0836E;
+
+  --shadow-xs:   0 1px 2px rgba(0,0,0,0.35);
+  --shadow-sm:   0 1px 2px rgba(0,0,0,0.30), 0 2px 6px rgba(0,0,0,0.28);
+  --shadow-card: 0 1px 5px rgba(0,0,0,0.45);
+}
+
+/* The Auto fallback. Its token VALUES must match the block above exactly
+   (indentation differs, values must not) — test_dark_tokens_are_three_way_
+   consistent enforces this. The :not() guard
+   stops an explicit Light choice on a dark OS from being clobbered: without
+   it, a reader who picked Light while their OS is dark would see the media
+   query re-apply dark anyway. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas:       #17150F;
+    --surface:      #201D15;
+    --bg-raised:    #262218;
+    --bg-sunken:    #2A2619;
+    --fg1:          #F0EADB;
+    --fg2:          #E4DDCC;
+    --fg3:          #B5AB92;
+    --fg4:          #A59A80;
+    --border:       #34301F;
+    --border-soft:  #2A2619;
+    --up:           #A9C48E;
+    --down:         #D98E6B;
+    --brand-strong: #A9C48E;
+    --ok:           #8FCB8A;
+    --warn:         #E0A85E;
+    --err:          #E0836E;
+
+    --shadow-xs:   0 1px 2px rgba(0,0,0,0.35);
+    --shadow-sm:   0 1px 2px rgba(0,0,0,0.30), 0 2px 6px rgba(0,0,0,0.28);
+    --shadow-card: 0 1px 5px rgba(0,0,0,0.45);
+  }
 }
 
 html, body {

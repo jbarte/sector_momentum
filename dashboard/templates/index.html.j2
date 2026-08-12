@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+{% include "_theme_init.html.j2" %}
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ETF Momentum</title>
 <link rel="alternate" type="application/atom+xml" title="ETF Momentum Feed" href="feed.xml"/>
 <script src="{{ plotly_bundle }}"></script>
 <script src="assets/rescore.js"></script>
+<script src="assets/theme.js"></script>
 <style>
 {% include "_style.html.j2" %}
 </style>
@@ -574,6 +576,10 @@ var COHORTS = {{ cohorts_json | js_json }};   // [{region, label}, ...]
 var UNBUYABLE = {{ unbuyable_json | js_json }};
 window.UNBUYABLE = UNBUYABLE;
 
+// Light->dark hex map for the baked Plotly figures (Task 7 consumes this).
+var CHART_DARK = {{ chart_dark_json | js_json }};
+window.CHART_DARK = CHART_DARK;
+
 // ----- Plotly data (injected by build.py) -----
 // COHORT_CHARTS is keyed by cohort region ("US"/"EU"/"THEME"); each entry
 // holds that cohort's own rrg/movers/history/drilldown figures plus the
@@ -596,7 +602,7 @@ function renderRRG() {
   _rendered.rrg = true;
   var chart = COHORT_CHARTS[activeCohort];
   if (!chart) return;
-  Plotly.newPlot('rrg-chart', chart.rrg.data, chart.rrg.layout, {responsive: true, displayModeBar: true});
+  SMTheme.smPlot('rrg-chart', chart.rrg);
 }
 
 function renderMovers() {
@@ -604,7 +610,7 @@ function renderMovers() {
   _rendered.movers = true;
   var chart = COHORT_CHARTS[activeCohort];
   if (!chart) return;
-  Plotly.newPlot('movers-chart', chart.movers.data, chart.movers.layout, {responsive: true, displayModeBar: true});
+  SMTheme.smPlot('movers-chart', chart.movers);
 }
 
 function renderHistory() {
@@ -612,7 +618,7 @@ function renderHistory() {
   _rendered.history = true;
   var chart = COHORT_CHARTS[activeCohort];
   if (!chart) return;
-  Plotly.newPlot('history-chart', chart.history.data, chart.history.layout, {responsive: true, displayModeBar: true});
+  SMTheme.smPlot('history-chart', chart.history);
 }
 
 // One container for the active cohort's track. This used to iterate a
@@ -626,7 +632,7 @@ function renderBacktest() {
   var f = el && BACKTEST_DATA[activeHorizon];
   if (el) {
     el.style.display = f ? '' : 'none';
-    if (f) Plotly.newPlot(el, f.data, f.layout, {responsive: true, displayModeBar: true});
+    if (f) SMTheme.smPlot(el, f);
   }
 }
 
@@ -634,7 +640,7 @@ function renderCorrelation() {
   if (_rendered.correlation) return;
   _rendered.correlation = true;
   if (typeof CORRELATION_DATA !== 'undefined') {
-    Plotly.newPlot('correlation-chart', CORRELATION_DATA.data, CORRELATION_DATA.layout, {responsive: true, displayModeBar: true});
+    SMTheme.smPlot('correlation-chart', CORRELATION_DATA);
   }
 }
 
@@ -671,7 +677,7 @@ function updateDrilldown() {
       '<p style="padding:24px;color:var(--fg4)">No data for ' + key + '</p>';
     return;
   }
-  Plotly.newPlot('drilldown-chart', fig.data, fig.layout, {responsive: true, displayModeBar: true});
+  SMTheme.smPlot('drilldown-chart', fig);
 }
 
 // ----- Cohort switching -----
@@ -693,7 +699,26 @@ function switchCohort(region) {
 }
 window.switchCohort = switchCohort;
 
+// Re-skin whichever chart tab is currently visible when the theme changes —
+// via the manual control, or the OS flipping under a reader on Auto. Mirrors
+// switchCohort()'s own "find the active tab, re-render only that one" shape;
+// every other tab picks up the new theme lazily via smPlot() the next time
+// it's opened, same as switchCohort's own comment already explains.
+document.addEventListener('sm:theme-changed', function () {
+  _rendered = {};
+  var active = document.querySelector('.tab-panel.active');
+  if (!active) return;
+  var name = active.id.replace('tab-', '');
+  if (name === 'rrg')       renderRRG();
+  if (name === 'movers')    renderMovers();
+  if (name === 'history')   renderHistory();
+  if (name === 'drilldown') renderDrilldown();
+  if (typeof renderBacktest === 'function' && name === 'backtest') renderBacktest();
+  if (name === 'correlation') renderCorrelation();
+});
+
 _populateDrilldownSelect();
+if (window.SMTheme) { window.SMTheme.initControl(); }
 
 // ----- Breakdown toggle -----
 function toggleBreakdown(id) {

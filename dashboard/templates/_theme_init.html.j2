@@ -1,0 +1,20 @@
+{# Sets data-theme on <html> BEFORE the page's inlined <style> block runs, so
+   a reader who chose Light/Dark manually never sees a flash of the other
+   theme. Must stay the FIRST thing inside <head> in every template that
+   includes it — see tests/test_color_theme.py for why, and don't add
+   defer/async to the tag or gate this behind a DOMContentLoaded listener;
+   that defeats the entire purpose.
+
+   "auto" is the ABSENCE of data-theme (the @media fallback in
+   _foundation.css.j2 handles it), so there is nothing to do for that case —
+   only an explicit override needs to win before paint. #}
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem("theme");
+    if (t === "light" || t === "dark") {
+      document.documentElement.setAttribute("data-theme", t);
+    }
+  } catch (e) {}
+})();
+</script>

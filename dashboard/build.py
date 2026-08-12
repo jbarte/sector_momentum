@@ -62,6 +62,7 @@ from dashboard.figures import (                      # noqa: E402, F401
     _build_rrg_figure,
     _build_scan_history_data,
     _build_sentiment_scatter_figure,
+    build_chart_dark_map,
     build_cohort_chart_context as _figures_cohort_charts_ctx,
     build_sectors_context as _figures_sectors_ctx,
 )
@@ -422,6 +423,9 @@ def main() -> None:
     plotly_src = _ASSETS_DIR / "plotly.min.js"
     if plotly_src.exists():
         shutil.copy2(plotly_src, docs_assets / "plotly.min.js")
+    theme_src = _ASSETS_DIR / "theme.js"
+    if theme_src.exists():
+        shutil.copy2(theme_src, docs_assets / "theme.js")
     rescore_src = _ASSETS_DIR / "rescore.js"
     if rescore_src.exists():
         shutil.copy2(rescore_src, docs_assets / "rescore.js")
@@ -484,6 +488,7 @@ def main() -> None:
         # may be a smaller universe than the signed-in reader sees. See
         # breakdown.unbuyable_names().
         "unbuyable_json": _json.dumps(unbuyable_names(_themes_cfg)),
+        "chart_dark_json": _json.dumps(build_chart_dark_map()),
         "has_any_rows": bool(leaderboard_rows),
         "badges_gated": badges_gated,
         "plotly_bundle": plotly_bundle_rel,
@@ -516,6 +521,7 @@ def main() -> None:
         # it interpolate the cost. Omit this and the sentiment page fails to
         # render on an Undefined, even though it shows no backtest itself.
         "round_trip_bps": _round_trip_bps,
+        "chart_dark_json": _json.dumps(build_chart_dark_map()),
     }
     sentiment_ctx.update(_sentiment_ctx(shared))
     sentiment_ctx.update(macro_page_ctx)
