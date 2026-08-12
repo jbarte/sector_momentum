@@ -361,6 +361,138 @@ def test_traj_flat_contrast_meets_wcag_aa():
     )
 
 
+# Hardcoded hex for `--down` (terra-500), in both themes — same trade-off as
+# _UP_LIGHT/_UP_DARK above.
+_DOWN_LIGHT = "#A55A3C"
+_DOWN_DARK = "#D98E6B"
+
+
+def _tint_pct(css_filename: str, selector: str, var_name: str) -> int:
+    """Read a badge's tint percentage straight from its source CSS, for any
+    rule shaped `color: var(<var_name>); background: color-mix(in srgb,
+    var(<var_name>) <PCT>%, transparent);` — generalizes
+    `_rank_badge_top3_tint_pct`/`_traj_flat_tint_pct` above across the five
+    same-idiom badges the 2026-08-11 audit flagged, so each test tracks its
+    real rule instead of a copy-pasted number."""
+    text = _CSS_DIR.joinpath(css_filename).read_text()
+    pattern = (
+        # Non-greedy [^}]*?: some of these rules (setup-badge.entry/.exit)
+        # have a second color-mix() for their border later in the same
+        # block, and a greedy match would find that one instead of the
+        # background's — the one the badge text actually renders against.
+        re.escape(selector) + r"\s*\{[^}]*?background:\s*color-mix\(in srgb, var\("
+        + re.escape(var_name) + r"\) (\d+)%, transparent\)"
+    )
+    m = re.search(pattern, text)
+    assert m, f"{selector} background is not the expected color-mix(var({var_name}) N%) idiom"
+    return int(m.group(1))
+
+
+def _assert_badge_contrast(name: str, fg_light: str, fg_dark: str, pct: int) -> None:
+    """Shared assertion body for the five same-idiom badge contrast tests
+    below: text (fully opaque `fg_*`) on its own colour tinted over
+    `--bg-raised`, in both themes."""
+    light_bg = _mix_over(fg_light, pct, _BG_RAISED_LIGHT)
+    dark_bg = _mix_over(fg_dark, pct, _BG_RAISED_DARK)
+    light_ratio = _contrast_ratio(fg_light, light_bg)
+    dark_ratio = _contrast_ratio(fg_dark, dark_bg)
+    assert light_ratio >= 4.5, (
+        f"{name} light-theme contrast is {light_ratio:.2f}:1 at {pct}% tint, "
+        f"below the 4.5:1 AA minimum"
+    )
+    assert dark_ratio >= 4.5, (
+        f"{name} dark-theme contrast is {dark_ratio:.2f}:1 at {pct}% tint, "
+        f"below the 4.5:1 AA minimum"
+    )
+
+
+def test_traj_strong_up_contrast_meets_wcag_aa():
+    """Regression guard for the pre-existing failure the 2026-08-11 audit
+    found: `.traj-badge.traj-strong_up` at its original 15% tint was 4.26:1
+    in light mode. Dropped to 10% — the largest step in the 8/10/12/15%
+    family already used across these badges that still clears 4.5:1 in both
+    themes."""
+    pct = _tint_pct("_tables.css.j2", ".traj-badge.traj-strong_up", "--up")
+    _assert_badge_contrast(".traj-badge.traj-strong_up", _UP_LIGHT, _UP_DARK, pct)
+
+
+def test_setup_badge_entry_contrast_meets_wcag_aa():
+    """Same pre-existing failure pattern as traj-strong_up (same `--up`
+    colour, 12% tint, 4.43:1 light). Dropped to 10% to match."""
+    pct = _tint_pct("_tables.css.j2", ".setup-badge.entry", "--up")
+    _assert_badge_contrast(".setup-badge.entry", _UP_LIGHT, _UP_DARK, pct)
+
+
+def test_traj_down_contrast_meets_wcag_aa():
+    """`--down` (terra-500) needs a materially lower tint than `--up` for the
+    same contrast target: 8% — already the smallest step in the
+    8/10/12/15% family other badges share — still failed at 4.28:1 light, so
+    this one needed a tint below any step already in use elsewhere rather
+    than a swap among them."""
+    pct = _tint_pct("_tables.css.j2", ".traj-badge.traj-down", "--down")
+    _assert_badge_contrast(".traj-badge.traj-down", _DOWN_LIGHT, _DOWN_DARK, pct)
+
+
+def test_traj_strong_down_contrast_meets_wcag_aa():
+    """Same `--down` ceiling as traj-down above, at the badge's own original
+    15% tint (3.90:1 light) rather than 8%."""
+    pct = _tint_pct("_tables.css.j2", ".traj-badge.traj-strong_down", "--down")
+    _assert_badge_contrast(".traj-badge.traj-strong_down", _DOWN_LIGHT, _DOWN_DARK, pct)
+
+
+def test_setup_badge_exit_contrast_meets_wcag_aa():
+    """Same `--down` ceiling again, at setup-badge.exit's original 12% tint
+    (4.07:1 light)."""
+    pct = _tint_pct("_tables.css.j2", ".setup-badge.exit", "--down")
+    _assert_badge_contrast(".setup-badge.exit", _DOWN_LIGHT, _DOWN_DARK, pct)
+
+
+# Hardcoded hex for `--canvas`, in both themes — the container `--ok`/`--warn`/
+# `--err` render directly against (`.health-panel` sets no background of its
+# own, so it inherits `body`'s `--bg` == `--canvas`).
+_CANVAS_LIGHT = "#f1ecdf"
+_CANVAS_DARK = "#17150F"
+
+
+def _status_token_hex(token: str, block_marker: str) -> str:
+    """Read `--ok`/`--warn`/`--err`'s hex value out of a given `_foundation.css.j2`
+    block (`:root {` for light, `:root[data-theme="dark"] {` for dark),
+    tracking the source instead of a copy-pasted value."""
+    text = _FOUNDATION.read_text()
+    block = _block(text, block_marker)
+    m = re.search(re.escape(token) + r":\s*(#[0-9A-Fa-f]{6})", block)
+    assert m, f"{token} not found as a plain hex value in block starting {block_marker!r}"
+    return m.group(1)
+
+
+def test_status_tokens_contrast_meets_wcag_aa_in_light_mode():
+    """`--ok`/`--warn` render as plain text directly on `--canvas` in
+    `.badge-green`/`.badge-amber`/`health-warn-dot` (`_health.css.j2`) with no
+    tint idiom involved, unlike the five badges above. The 2026-08-12 final
+    whole-branch review of the dark theme found both under 4.5:1 in light
+    mode (3.64:1, 3.72:1) — `--err` already passed (5.03:1) and is included
+    here only as a regression guard, not a fix."""
+    for token in ("--ok", "--warn", "--err"):
+        hex_value = _status_token_hex(token, ":root {")
+        ratio = _contrast_ratio(hex_value, _CANVAS_LIGHT)
+        assert ratio >= 4.5, (
+            f"{token} ({hex_value}) on --canvas is {ratio:.2f}:1 in light "
+            f"mode, below the 4.5:1 AA minimum"
+        )
+
+
+def test_status_tokens_contrast_still_meets_wcag_aa_in_dark_mode():
+    """The light-mode fix above must not regress dark mode, which already
+    passed comfortably before this change."""
+    for token in ("--ok", "--warn", "--err"):
+        hex_value = _status_token_hex(token, ':root[data-theme="dark"] {')
+        ratio = _contrast_ratio(hex_value, _CANVAS_DARK)
+        assert ratio >= 4.5, (
+            f"{token} ({hex_value}) on --canvas is {ratio:.2f}:1 in dark "
+            f"mode, below the 4.5:1 AA minimum"
+        )
+
+
 _ILLOS = [
     _PROJECT_ROOT / "dashboard" / "templates" / "_rotation_illo.html.j2",
     _PROJECT_ROOT / "dashboard" / "templates" / "_guide_illo.html.j2",
