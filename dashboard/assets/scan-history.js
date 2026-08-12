@@ -88,10 +88,9 @@
         html += '<tr class="leaderboard-row">'
           + '<td class="rank-cell"><span class="rank-badge' + rankClass + '">' + sc.rank + "</span></td>"
           + "<td>" + sector + "</td>"
-          + '<td class="composite-cell">' + fmtScore(sc.composite) + "</td>"
+          + '<td class="composite-cell">' + Rescore.compositeBar(sc.composite) + "</td>"
           + "<td>" + fmtScore(sc.level) + "</td>"
           + "<td>" + fmtScore(sc.change) + "</td>"
-          + "<td>" + fmtScore(sc.data) + "</td>"
           + '<td class="sentiment-cell">' + fmtScore(sc.sentiment) + "</td>"
           + '<td class="delta-cell">' + arrowHtml + fmtDelta(e.delta) + "</td>"
           + "<td>—</td>"

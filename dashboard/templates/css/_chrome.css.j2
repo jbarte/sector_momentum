@@ -486,3 +486,25 @@
 .alert-prefs-toggle { display: block; margin: 12px 0 8px; color: var(--fg2); }
 .alert-prefs-status { margin: 8px 0 0; color: var(--fg4); font-size: 0.78rem; }
 .alert-prefs-status:empty { display: none; }
+
+/* =========================================================
+   Focus indicators
+   =========================================================
+   Keyboard users had no visible focus anywhere: the stylesheet carried only a
+   handful of :focus-visible rules and none covered the tabs, the sortable
+   column headers, the leaderboard rows or the footer links. One shared ring,
+   applied broadly, so a new control inherits it instead of being forgotten.
+
+   :focus-visible (not :focus) so a mouse click does not leave a ring behind. */
+:where(a, button, summary, [tabindex="0"], input, select):focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Table rows and header cells clip an offset ring, so inset it instead. */
+.leaderboard-row:focus-visible,
+thead th[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: -2px;
+}

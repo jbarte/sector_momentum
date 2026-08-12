@@ -206,6 +206,36 @@ def _compute_setup(row: dict, horizon=None) -> None:
 # Shared row-building helper
 # ---------------------------------------------------------------------------
 
+# Composite cell rendering. Mirrors `compositeBar` in dashboard/assets/rescore.js
+# — the signed-in upgrade and the scan-history view build the same markup in JS,
+# so the two implementations must stay in step (guarded by
+# test_composite_bar_python_and_js_agree).
+COMPOSITE_FULL_SCALE = 1.5
+
+
+def _composite_bar(value) -> str:
+    """A centre-origin diverging bar plus the number.
+
+    The composite is an average of z-scores: signed and centred on zero, so a
+    left-filled bar would render -0.7 and +0.7 identically. The scale is fixed
+    rather than per-scan, so bar lengths stay comparable between scans; values
+    beyond it clamp.
+    """
+    v = _safe_float(value)
+    if v is None:
+        return '<span class="cbar-wrap"></span><span class="cbar-val">—</span>'
+    frac = min(abs(v) / COMPOSITE_FULL_SCALE, 1.0)
+    pct = f"{frac * 50:.1f}"
+    side = "left:50%" if v >= 0 else "right:50%"
+    cls = "cbar pos" if v >= 0 else "cbar neg"
+    return (
+        f'<span class="cbar-wrap">'
+        f'<span class="{cls}" style="{side};width:{pct}%"></span>'
+        f"</span>"
+        f'<span class="cbar-val">{v:.3f}</span>'
+    )
+
+
 def _build_rows_common(
     history_df,
     *,
@@ -296,9 +326,9 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
                 "sector": row["gics_sector"],
                 "region": row["region"],
                 "composite": f"{composite:.3f}" if composite is not None else "—",
+                "composite_bar": _composite_bar(composite),
                 "level_score": _fv(row.get("level_score")),
                 "change_score": _fv(row.get("change_score")),
-                "data_score": _fv(row.get("data_score")),
                 "sentiment_score": _fv(row.get("sentiment_score")),
                 "delta_rank": _safe_float(row.get("delta_rank", 0)) or 0.0,
                 "_raw_composite": composite,
