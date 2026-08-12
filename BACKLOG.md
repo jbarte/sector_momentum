@@ -58,6 +58,15 @@ table until the dark theme's Task 9 verification pass (2026-08-11) found and
 fixed its dark-mode failure — 4.33:1 → 4.85:1 — at the token layer, since it
 was the one P0 badge in that feature's own scope. See Done.)*
 
+**Also found in the final whole-branch review (2026-08-12):** the dark theme's
+new `--ok`/`--warn`/`--err` status tokens (`dashboard/templates/css/_health.css.j2`)
+have the same light-mode shortfall. Against `--canvas` in light mode: `--ok`
+(`#2E8B45`) is 3.64:1, `--warn` (`#B8620C`) is 3.72:1 — both below the 4.5:1
+AA minimum, though both are still a large improvement over the literal hex
+colours they replaced (2.44:1 and 2.42:1). `--err` (`#B23A2E`) passes at
+5.03:1. Same fix shape as the badges above: find the smallest adjustment that
+clears 4.5:1 in light mode without changing what already passes in dark.
+
 ## Alerts section should be a modal, opened from a footer link
 
 The alerts/notifications UI (`_footer.html.j2`, `<section id="alert-prefs">`)
