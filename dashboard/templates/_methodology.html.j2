@@ -1,6 +1,8 @@
 {# Methodology reference modal — static English content, included on all pages.
    Opened by the footer #methodology-link button, Esc/backdrop/close to dismiss.
-   Accessibility mirrors the gate-modal (role=dialog, aria-modal, focus trap). #}
+   Accessibility (role=dialog, aria-modal, focus trap, Escape, backdrop
+   close) comes from the shared _modal.js.j2 helper, which was extracted
+   FROM this file — the gate modal later adopted it too. #}
 <div class="methodology-overlay" id="methodology-modal" hidden>
   <div class="methodology-modal" role="dialog" aria-modal="true" aria-labelledby="methodology-title">
     <button type="button" class="methodology-close" id="methodology-close" aria-label="Close">&times;</button>

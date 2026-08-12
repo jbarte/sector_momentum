@@ -1,10 +1,10 @@
 {# Shared modal behaviour: focus trap, Escape, backdrop close, focus restore.
 
    Extracted from _methodology.html.j2 on 2026-08-09 so the tab guides could
-   reuse it rather than carry a second copy. The gate modal still has its own
-   (incomplete) handling — it declares aria-modal="true" and implements none of
-   this — and is queued to move onto this helper too; that one touches auth, so
-   it is deliberately a separate change.
+   reuse it rather than carry a second copy. The gate modal moved onto it on
+   2026-08-12 (dashboard/assets/auth.js) — it had declared aria-modal="true"
+   while implementing none of this. Every modal on the site now shares this
+   behaviour; a new one should bind here rather than hand-roll it.
 
    Usage:
      window.SMModal.bind(overlayEl, {closeBtn, onOpen})  -> {open, close}

@@ -263,12 +263,6 @@ turned out to be already fixed or overstated when re-measured against the code:
   the badge/status-token retint. The audit's wider "54 elements below 4.5:1" was
   not re-measured element-by-element and may still hold in places.
 
-**P1 — the gate modal declares `aria-modal="true"` and implements none of it.**
-No focus move, no trap, no Escape, no backdrop close; first Tab lands *behind*
-the overlay. `_methodology.html.j2` implements all of it correctly and its
-comment claims it mirrors the gate modal — it is the other way round. Lift the
-working `open/close/onKey` block into a shared helper.
-
 **P1 — mobile shows ~35% of the table.** At 375px the wrap is 269px against a
 769px table with no sticky first column, so scrolling right loses rank and
 theme name and `TREND` is unreachable blind. 32 touch targets under 44px; the
@@ -458,6 +452,22 @@ source-only and tight:
   both themes: bar geometry measured (track 54px, positives start at the 27px
   centre, negatives end at it), a real Tab press shows a ring, no console errors.
   *(2026-08-12)*
+- **Gate modal accessibility** — the sign-in/landing modal declared
+  `aria-modal="true"` and implemented none of it: no focus move, no trap, no
+  Escape, no backdrop close, so the first Tab landed *behind* the overlay. It now
+  binds to the shared `window.SMModal` helper (`templates/_modal.js.j2`) that the
+  methodology and tab-guide modals already used — the helper was complete and
+  explicitly waiting for this, since it touches auth. Fail-open: if the helper is
+  absent, `auth.js` falls back to the plain hidden toggle rather than taking
+  sign-in down. Only the explicit "Continue as guest" press still sets
+  `guest_dismissed`; Escape and backdrop-click just close, so a stray Escape
+  cannot permanently hide the sign-in prompt. Also corrected two comments the
+  audit caught pointing the wrong way — `_methodology.html.j2` claimed to mirror
+  the gate modal when the helper was extracted *from* it, and `_modal.js.j2`
+  still described the gate modal as unmigrated. Verified in-browser: focus moves
+  into the dialog on open, Tab and Shift+Tab both wrap inside it, Escape and
+  backdrop close while a click *inside* the panel does not, and focus returns to
+  the exact element that opened it. *(2026-08-12)*
 
 - **`--start` now trims a warm price cache** — `fetch_prices` returned the whole
   cached parquet frame on a cache hit, so once `data/backtest_cache/` held long

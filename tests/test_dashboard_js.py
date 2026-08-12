@@ -937,3 +937,49 @@ def test_z_bar_is_centre_origin():
     # The neutral band keeps its muted chip.
     _, chip = _z_bar(0.1)
     assert "neut" in chip
+
+def test_gate_modal_uses_the_shared_modal_helper():
+    """The gate modal declared aria-modal="true" while implementing none of it:
+    no focus move, no trap, no Escape, no backdrop close. It must go through
+    window.SMModal (templates/_modal.js.j2) like every other modal, and must
+    fail open if that helper is missing rather than taking sign-in down."""
+    auth = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+
+    assert "SMModal.bind(modal" in auth, "gate modal not bound to the shared helper"
+    assert "closeBtn: continueBtn" in auth, "dismiss button not wired as the close control"
+    # Fail-open path preserved.
+    assert "modal.hidden = !show" in auth, "plain-toggle fallback removed"
+
+
+def test_shared_modal_helper_implements_the_aria_modal_contract():
+    """A dialog claiming aria-modal must actually trap focus, close on Escape
+    and on backdrop click, and restore focus to whatever opened it."""
+    js = (Path(__file__).parent.parent
+          / "dashboard/templates/_modal.js.j2").read_text()
+
+    assert 'e.key === "Escape"' in js, "no Escape handling"
+    assert 'e.key !== "Tab"' in js and "shiftKey" in js, "no focus trap"
+    assert "e.target === overlay" in js, "no backdrop close"
+    assert "lastFocus = document.activeElement" in js, "focus not captured on open"
+    assert "lastFocus.focus()" in js, "focus not restored on close"
+
+
+def test_every_aria_modal_dialog_is_bound_to_the_helper():
+    """Guard against a future modal re-introducing the same defect: anything
+    declaring aria-modal must be reachable by SMModal.bind."""
+    import re
+    root = Path(__file__).parent.parent
+    bound = set()
+    for f in ("dashboard/assets/auth.js",
+              "dashboard/templates/_methodology.html.j2",
+              "dashboard/templates/index.html.j2",
+              "dashboard/templates/sentiment.html.j2"):
+        bound |= set(re.findall(r"SMModal\.bind\(\s*(\w+)", (root / f).read_text()))
+    assert bound, "no modal is bound to the shared helper at all"
+
+    # Every page that renders an aria-modal dialog must also include the helper.
+    for page in ("dashboard/templates/index.html.j2",
+                 "dashboard/templates/sentiment.html.j2"):
+        src = (root / page).read_text()
+        if 'aria-modal="true"' in src:
+            assert "_modal.js.j2" in src, f"{page} has a modal but never includes the helper"

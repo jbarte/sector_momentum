@@ -58,8 +58,22 @@
     catch (e) { return false; }
   }
 
+  /* The gate modal declared aria-modal="true" but implemented none of it: no
+   * focus move, no trap, no Escape, no backdrop close — the first Tab landed
+   * behind the overlay. window.SMModal (templates/_modal.js.j2, already used by
+   * the methodology and tab-guide modals) provides all of it, and is defined
+   * earlier in the page than this file loads.
+   *
+   * Fail-open: if the helper is somehow absent, fall back to the plain hidden
+   * toggle. A missing a11y helper must not take sign-in down with it. */
+  var gate = (window.SMModal && modal)
+    ? window.SMModal.bind(modal, {closeBtn: continueBtn})
+    : null;
+
   function showModal(show) {
-    if (modal) modal.hidden = !show;
+    if (!modal) { return; }
+    if (!gate) { modal.hidden = !show; return; }
+    if (show) { gate.open(); } else { gate.close(); }
   }
 
   function render(session) {
@@ -243,10 +257,14 @@
     }
   });
 
+  /* Only the explicit "Continue as guest" press suppresses the modal on future
+   * visits. Escape and backdrop-click (added by SMModal) just close it for now:
+   * an accidental Escape should not permanently hide the sign-in prompt. The
+   * helper closes the overlay itself, so this only records the choice. */
   if (continueBtn) {
     continueBtn.addEventListener("click", function () {
       try { localStorage.setItem("guest_dismissed", "1"); } catch (e) {}
-      showModal(false);
+      if (!gate) { showModal(false); }
     });
   }
 
