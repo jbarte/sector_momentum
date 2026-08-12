@@ -55,18 +55,7 @@
    neither anchor fits: right:0 puts its left edge at -179px, and left:0 would
    run off the other side. Below 600px it anchors to the whole utility row and
    spans it instead, wrapping its two controls. */
-@media (max-width: 600px) {
-  .utility-row { position: relative; }
-  .rank-settings { position: static; }
-  .rank-settings .sentiment-control {
-    left: 0;
-    right: 0;
-    min-width: 0;
-    white-space: normal;
-    flex-wrap: wrap;
-    gap: 10px 16px;
-  }
-}
+/* The 600px block moved to css/_responsive.css.j2 (included last). */
 
 /* =========================================================
    Sentiment toggle control

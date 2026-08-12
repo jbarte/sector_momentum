@@ -5,3 +5,6 @@
 {% include "css/_guides.css.j2" %}
 {% include "css/_sentiment.css.j2" %}
 {% include "css/_health.css.j2" %}
+{# Responsive overrides last: media queries add no specificity, so these
+   must come after the unconditional rules they are meant to override. #}
+{% include "css/_responsive.css.j2" %}

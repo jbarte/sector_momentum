@@ -125,13 +125,7 @@ html, body {
 /* =========================================================
    Responsive
    ========================================================= */
-@media (max-width: 600px) {
-  .command-bar { padding: 10px 16px; }
-  .card { margin: 12px 12px 16px; }
-  .card > .tab-panel { padding: 14px 16px; }
-  .card > .tabs { padding: 0 8px; }
-  .site-footer { padding: 14px 16px; }
-}
-@media (max-width: 420px) {
-  .scan-meta { display: none; }
-}
+/* Responsive overrides moved to css/_responsive.css.j2 (included last).
+   They were dead here: _chrome.css.j2 loads afterwards and re-declares
+   .card / .tab-panel unconditionally, and a media query adds no specificity,
+   so the desktop values won even at 375px. */

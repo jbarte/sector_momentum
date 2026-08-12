@@ -268,6 +268,11 @@ turned out to be already fixed or overstated when re-measured against the code:
 theme name and `TREND` is unreachable blind. 32 touch targets under 44px; the
 ⚙ that changes ranking weights is 7×18px. (Dropping the `DATA` column narrowed
 the table by one, but did not fix this.)
+**P1 — the gate modal declares `aria-modal="true"` and implements none of it.**
+No focus move, no trap, no Escape, no backdrop close; first Tab lands *behind*
+the overlay. `_methodology.html.j2` implements all of it correctly and its
+comment claims it mirrors the gate modal — it is the other way round. Lift the
+working `open/close/onKey` block into a shared helper.
 
 **P1 — badge/trend hierarchy is inverted against the copy.** `▲ Entry` is a
 tinted pill beside the theme name; `Trend` is a 9.84px arrow in the last
@@ -430,6 +435,29 @@ source-only and tight:
 ---
 
 # Done
+
+- **Mobile leaderboard is usable** — at 375px the table showed ~37% of itself
+  with no pinned columns, so scrolling out to Rank Δ / Trend took the rank and
+  theme name off screen and Trend was unreachable blind. **Root cause of the
+  cramped width was not a missing rule but a dead one:** a
+  `@media (max-width: 600px)` block lived in `_foundation.css.j2` (first CSS
+  include) while `_chrome.css.j2` (second) re-declared `.card` margin and
+  `.tab-panel` padding unconditionally — and media queries add no specificity,
+  so the desktop values won even though the query matched. 104px of a 375px
+  viewport was going to margins that were supposed to have shrunk. Fixed by
+  moving every responsive override into a new `css/_responsive.css.j2` included
+  **last**, consolidating the stragglers from `_sentiment` and `_tables` so the
+  convention holds without exceptions. On top of that: the first two columns
+  (rank, theme) are now `position: sticky` on mobile, so identity stays visible
+  while the data scrolls under them. **Measured 37% → 56% visible, and Trend is
+  now reachable with the theme name still on screen.** Touch targets went
+  **34 → 2** under 44px; the two left are a 22px checkbox inside an 81×57 label
+  (the label is the tap target) and the RSS link, which is 44px tall and queued
+  for deletion anyway. The ⚙ ranking control the audit measured at 7×18px is now
+  79×44. Desktop verified unchanged (query does not match, 28px margin, static
+  columns, table still fits without scrolling). Two regression tests pin
+  `_responsive.css.j2` as the last include and fail if any width-based media
+  query reappears earlier in the cascade. *(2026-08-12)*
 
 - **Design review P0s** — verified each against the code before changing
   anything, which changed the work: of the four, one was already fixed and one
