@@ -1,9 +1,25 @@
 """Dark theme: the data-theme attribute, its flash-prevention script, the
 manual control, and (in later tasks) the token layer and chart substitution.
 """
+import json
+import re
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
+import pandas as pd
+
 _PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(_PROJECT_ROOT))
+
+from dashboard.figures import (
+    build_chart_dark_map, _WARM_PALETTE, _SCORE_SIGNAL_COLORS, _base_layout,
+    _build_rrg_figure, _build_sentiment_scatter_figure, _build_movers_figure,
+    _build_history_figure, _build_drilldown_data, _build_backtest_figures,
+)
+from dashboard.correlation import _build_heatmap_figure, _order_labels
+
 _INIT = _PROJECT_ROOT / "dashboard" / "templates" / "_theme_init.html.j2"
 
 
@@ -49,11 +65,16 @@ def _mix_over(fg_hex: str, fg_pct: float, bg_hex: str) -> str:
 
 
 def test_theme_init_partial_exists_and_is_synchronous():
-    """No defer/async — the whole point is running before first paint."""
+    """No defer/async on the <script> tag itself — the whole point is running
+    before first paint. Scoped to just the opening tag (not the whole file,
+    which also contains an explanatory comment free to use those words in
+    plain English) — see the comment above the tag in _theme_init.html.j2."""
     src = _INIT.read_text()
-    assert "<script" in src
-    assert "defer" not in src
-    assert "async" not in src
+    tag_match = re.search(r"<script[^>]*>", src)
+    assert tag_match, "no <script> tag found in _theme_init.html.j2"
+    tag = tag_match.group(0)
+    assert "defer" not in tag
+    assert "async" not in tag
     assert "localStorage.getItem(\"theme\")" in src
     assert "setAttribute(\"data-theme\"" in src
 
@@ -93,10 +114,6 @@ def test_theme_control_markup():
     # (2026-08-09 audit) — this control must not repeat that mistake.
     assert 'role="tablist"' not in src.split('class="theme-toggle"')[1][:400]
 
-
-import json
-import shutil
-import subprocess
 
 _THEME_JS = _PROJECT_ROOT / "dashboard" / "assets" / "theme.js"
 
@@ -154,8 +171,6 @@ def test_control_reflects_stored_choice_on_load():
     assert out[4] == {"auto": True, "light": False, "dark": False}
 
 
-import re
-
 _FOUNDATION = _PROJECT_ROOT / "dashboard" / "templates" / "css" / "_foundation.css.j2"
 
 _SEMANTIC_TOKENS = [
@@ -163,6 +178,7 @@ _SEMANTIC_TOKENS = [
     "--fg1", "--fg2", "--fg3", "--fg4",
     "--border", "--border-soft", "--up", "--down", "--brand-strong",
     "--ok", "--warn", "--err",
+    "--shadow-xs", "--shadow-sm", "--shadow-card",
 ]
 
 
@@ -177,10 +193,6 @@ def _block(text: str, start_marker: str) -> str:
         elif text[i] == "}": depth -= 1
         i += 1
     return text[start:i - 1]
-
-
-def _tokens_defined_in(block: str) -> set[str]:
-    return set(re.findall(r"(--[\w-]+)\s*:", block))
 
 
 def test_dark_tokens_are_three_way_consistent():
@@ -378,15 +390,6 @@ def test_no_bare_plotly_newplot_outside_smplot():
         )
 
 
-import sys
-sys.path.insert(0, str(_PROJECT_ROOT))
-
-from dashboard.figures import (
-    build_chart_dark_map, _WARM_PALETTE, _SCORE_SIGNAL_COLORS, _base_layout,
-    _build_rrg_figure, _build_sentiment_scatter_figure, _build_movers_figure,
-)
-
-
 def test_chart_dark_map_covers_every_figure_constant():
     """Every literal hex used by a figure builder must have a dark
     equivalent, or that colour silently stays light-mode-only forever."""
@@ -479,3 +482,203 @@ def test_recolor_leaves_unmapped_colours_and_named_colorscales_alone():
     out = _recolor(fig, {"#5A6F49": "#A9C48E"}, True)
     assert out["data"][0]["colorscale"] == "RdBu_r"
     assert out["data"][0]["marker"]["color"] == "#999999"
+
+
+# ---------------------------------------------------------------------------
+# Whole-figure survivor test — closes the gap that let Important #1 (the
+# sentiment scatter's textfont labels shipping unthemed) get through 9 rounds
+# of task review. test_chart_dark_map_covers_every_figure_constant above only
+# checks a colour is IN the dark map; it never checks recolor() actually
+# REACHES it inside a real baked figure. This builds all 7 real figure types
+# with the actual Python builders (fixture patterns lifted from
+# tests/test_dashboard_js.py, tests/test_dashboard_backtest.py, and
+# tests/test_correlation.py), recolors each with the real dark map, and
+# walks the OUTPUT for any light-palette hex still sitting under a
+# colour-bearing key — including nested inside a container key like
+# `textfont` that theme.js's CONTAINER_KEYS walk might not know to open.
+# ---------------------------------------------------------------------------
+
+def _minimal_history_df() -> pd.DataFrame:
+    """One scan, two sectors — mirrors tests/test_dashboard_js.py's fixture
+    of the same name (kept local rather than imported so this file's figure
+    fixtures don't depend on that test module's internals)."""
+    rows = []
+    for region, sector in [("US", "Technology"), ("EU", "Financials")]:
+        rows.append({
+            "scan_id": 1, "run_at": "2026-06-23T12:00:00",
+            "region": region, "gics_sector": sector,
+            "level_score": 0.5, "change_score": 0.3, "data_score": 0.6,
+            "sentiment_score": 0.1, "composite": 0.4, "rank": 1.0,
+        })
+    return pd.DataFrame(rows)
+
+
+def _sentiment_history_df() -> pd.DataFrame:
+    """Exercises both textfont-bearing trace shapes in
+    _build_sentiment_scatter_figure: a 'solid' point (has sentiment data,
+    labelled by the per-region trace's textfont) and a 'faded' one (no
+    sentiment data, labelled by the separate faded trace's textfont) — the
+    two textfont dicts Important #1 found shipped unthemed."""
+    return pd.DataFrame([
+        {"scan_id": 1, "region": "US", "gics_sector": "Technology",
+         "data_score": 0.6, "sentiment_score": 0.4},
+        {"scan_id": 1, "region": "EU", "gics_sector": "Financials",
+         "data_score": 0.5, "sentiment_score": 0.2},
+        {"scan_id": 1, "region": "US", "gics_sector": "Energy",
+         "data_score": -0.1, "sentiment_score": 0.0},
+    ])
+
+
+def _backtest_summary() -> dict:
+    """Minimal single-track summary — same shape as
+    tests/test_dashboard_backtest.py's `_summary()`."""
+    return {
+        "generated_at": "2026-06-26T00:00:00Z", "top_n": 5,
+        "tracks": {
+            "US": {
+                "region": "US", "benchmark": "RSP", "top_n": 5,
+                "start": "2020-01-31", "end": "2020-03-31",
+                "equity_curve": [
+                    {"date": "2020-01-31", "strategy": 1.0, "benchmark": 1.0},
+                    {"date": "2020-02-29", "strategy": 1.1, "benchmark": 1.05},
+                ],
+            },
+        },
+    }
+
+
+def _correlation_fixture():
+    """Minimal 3x3 correlation matrix + labels/tickers/block_sizes, same
+    shape tests/test_correlation.py builds via _order_labels — small and
+    literal here since _build_heatmap_figure only needs a valid matrix, not
+    a realistic one."""
+    tickers = ["A", "B", "C"]
+    corr = pd.DataFrame(
+        [[1.0, 0.3, -0.2],
+         [0.3, 1.0, 0.1],
+         [-0.2, 0.1, 1.0]],
+        index=tickers, columns=tickers,
+    )
+    labels = ["Alpha (US)", "Beta (US)", "Gamma (EU)"]
+    block_sizes = [2, 1]
+    return corr, labels, tickers, block_sizes
+
+
+def _build_all_seven_figures() -> dict:
+    """Build one real instance of each of the 7 baked Plotly figure types,
+    as Plotly-JSON-shaped dicts (post pio.to_json + json.loads, exactly as
+    build.py embeds them). Returns exactly the 7 named figures — richer
+    coverage (e.g. every sector's drilldown) is out of scope; one instance
+    per builder is enough to prove recolor() reaches every colour-bearing
+    key that builder can produce."""
+    figs: dict[str, dict] = {}
+
+    hist = _minimal_history_df()
+
+    figs["rrg"] = json.loads(
+        _build_rrg_figure(hist.assign(rs_ratio=100.5, rs_momentum=99.8)))
+
+    figs["sentiment_scatter"] = json.loads(
+        _build_sentiment_scatter_figure(_sentiment_history_df()))
+
+    two_scan = pd.concat([
+        hist.assign(scan_id=1),
+        hist.assign(scan_id=2, composite=hist["composite"] + 0.1),
+    ], ignore_index=True)
+    figs["movers"] = json.loads(_build_movers_figure(two_scan))
+
+    figs["history"] = json.loads(_build_history_figure(hist))
+
+    drilldown, sector_keys, _ = _build_drilldown_data(hist)
+    figs["drilldown"] = json.loads(drilldown[sector_keys[0]])
+
+    backtest_figs = _build_backtest_figures(_backtest_summary())
+    figs["backtest"] = json.loads(backtest_figs["US"])
+
+    corr, labels, tickers, block_sizes = _correlation_fixture()
+    figs["correlation"] = json.loads(
+        _build_heatmap_figure(corr, labels, tickers, block_sizes))
+
+    assert set(figs) == {
+        "rrg", "sentiment_scatter", "movers", "history",
+        "drilldown", "backtest", "correlation",
+    }, f"expected exactly the 7 baked figure types, got {sorted(figs)}"
+    return figs
+
+
+# Colour-bearing keys the survivor walk checks — COLOUR_KEYS from theme.js
+# plus textfont (a CONTAINER_KEYS entry whose value is itself colour-bearing
+# once you're inside it, and the specific gap Important #1 closed).
+_SURVIVOR_KEYS = {
+    "color", "bgcolor", "bordercolor", "gridcolor", "zerolinecolor",
+    "paper_bgcolor", "plot_bgcolor", "textfont",
+}
+
+
+def _collect_strings(value) -> list[str]:
+    """Recursively collect every string leaf under `value` (dict/list/str)."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        out: list[str] = []
+        for item in value:
+            out.extend(_collect_strings(item))
+        return out
+    if isinstance(value, dict):
+        out = []
+        for item in value.values():
+            out.extend(_collect_strings(item))
+        return out
+    return []
+
+
+def _find_light_survivors(node, light_hexes: set[str]) -> list[tuple[str, str]]:
+    """Walk a recolor()'d figure and return every (key, value) pair where a
+    colour-bearing key still holds one of `light_hexes` — i.e. recolor()
+    failed to reach it. Walks the WHOLE tree unconditionally (unlike
+    theme.js's own CONTAINER_KEYS-gated _walk) specifically so a key
+    theme.js doesn't know to recurse into can't hide a survivor from this
+    check the way it hid the sentiment scatter's textfont bug."""
+    survivors: list[tuple[str, str]] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in _SURVIVOR_KEYS:
+                for s in _collect_strings(value):
+                    if s in light_hexes:
+                        survivors.append((key, s))
+            survivors.extend(_find_light_survivors(value, light_hexes))
+    elif isinstance(node, list):
+        for item in node:
+            survivors.extend(_find_light_survivors(item, light_hexes))
+    return survivors
+
+
+@pytestmark_node
+def test_recolor_leaves_no_light_hex_survivors_in_any_real_figure():
+    """For each of the 7 real baked figures, apply the dark map via the real
+    theme.js recolor() and assert no light-palette hex survives anywhere
+    under a colour-bearing key. This is the spec's original Testing-section
+    requirement ("apply the map and assert no light-palette hex survives
+    anywhere in the resulting object") that Task 6's brief substituted a
+    weaker version of — see test_chart_dark_map_covers_every_figure_constant,
+    which only checks membership in the map, not that recolor() reaches it.
+
+    Verified to catch the actual shipped bug: with theme.js's `textfont: true`
+    CONTAINER_KEYS entry reverted, this test fails on "sentiment_scatter"
+    (textfont.color survives at #3E392B and #8C8370); with the fix applied,
+    it passes. See final-review-fix-report.md for the red/green transcript."""
+    dark_map = build_chart_dark_map()
+    light_hexes = set(dark_map.keys())
+    figs = _build_all_seven_figures()
+
+    all_survivors: dict[str, list[tuple[str, str]]] = {}
+    for name, fig in figs.items():
+        recolored = _recolor(fig, dark_map, True)
+        survivors = _find_light_survivors(recolored, light_hexes)
+        if survivors:
+            all_survivors[name] = survivors
+
+    assert not all_survivors, (
+        "light-palette hex survived recolor() under a colour-bearing key "
+        f"(figure -> [(key, hex), ...]): {all_survivors}"
+    )

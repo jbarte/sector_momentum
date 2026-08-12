@@ -96,7 +96,7 @@
   // colour, but `line.color` is).
   var CONTAINER_KEYS = {
     line: true, marker: true, font: true, legend: true, title: true,
-    xaxis: true, yaxis: true, yaxis2: true,
+    xaxis: true, yaxis: true, yaxis2: true, textfont: true,
   };
 
   function _recolorValue(value, darkMap) {
@@ -138,10 +138,10 @@
   // colorscale names like "RdBu_r", which are strings but never colour hex.
   function recolor(fig, darkMap, isDark) {
     if (!isDark) { return fig; }
-    return {
+    return Object.assign({}, fig, {
       data: _walk(fig.data, darkMap),
       layout: _walk(fig.layout, darkMap),
-    };
+    });
   }
 
   function smPlot(el, fig) {
