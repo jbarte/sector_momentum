@@ -26,9 +26,17 @@ _TEMPLATED_ASSET_REFS = {"plotly.min.js"}
 
 def _referenced_assets() -> set[str]:
     """Every asset filename loaded via `<script src="assets/…">` across all
-    templates, plus the one templated exception above."""
+    templates, plus the one templated exception above.
+
+    Recursive glob, not `_TPL_DIR.glob("*.j2")`: partials under `css/` and
+    `i18n/` are rendered via `{% include %}` from `_style.html.j2` /
+    `_i18n.html.j2` just as much as the 14 top-level files are, and a
+    non-recursive scan would silently miss a script reference added to one
+    of those 15 subdirectory files — the same failure mode this test exists
+    to catch, just one directory level deeper.
+    """
     names = set(_TEMPLATED_ASSET_REFS)
-    for path in _TPL_DIR.glob("*.j2"):
+    for path in _TPL_DIR.rglob("*.j2"):
         for m in re.finditer(r'src="assets/([^"]+)"', path.read_text()):
             names.add(m.group(1))
     return names
