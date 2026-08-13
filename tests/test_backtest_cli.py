@@ -90,3 +90,35 @@ def test_default_invocation_passes_both_guards(tmp_path, monkeypatch):
     Reached = _reaching_fetch(monkeypatch)
     with pytest.raises(Reached):
         backtest.run(_args())
+
+
+# ---------------------------------------------------------------------------
+# Review findings, 2026-08-14
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("out", ["backtests/", "./backtests", "backtests/../backtests"])
+def test_clobber_guard_is_not_fooled_by_an_equivalent_path(out):
+    """The guard compared `args.out == "backtests"` as a raw string, so every
+    spelling below named the tracked directory and slipped past it. Compared by
+    realpath now."""
+    assert backtest.run(_args(start="2015-01-01", out=out)) == 1
+
+
+def test_a_partially_empty_run_writes_nothing(monkeypatch, tmp_path):
+    """`long` needs one more scored theme than `medium`, so a thin window can
+    produce a result for one preset and None for the other. That used to be
+    written as `{"medium": {...}, "long": null}` with exit 0 — clobbering the
+    artifact, orphaning a stale equity_long.csv, and silently dropping Long from
+    the dashboard's Backtest tab. Any missing track now fails the run.
+    """
+    monkeypatch.setattr("src.data.prices.fetch_prices", lambda **kw: {"ACWI": object()})
+    # medium returns a track, long returns None.
+    seen = iter([{"metrics": {}, "equity_curve": []}, None])
+    monkeypatch.setattr("src.backtest.engine.run_theme_track",
+                        lambda *a, **k: next(seen))
+
+    def _must_not_write(*a, **k):
+        raise AssertionError("write_results must not be called on a partial run")
+    monkeypatch.setattr("src.backtest.results.write_results", _must_not_write)
+
+    assert backtest.run(_args(out=str(tmp_path))) == 1

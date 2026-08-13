@@ -4,14 +4,19 @@
 Fetches long price history, runs the US and EU top-N monthly rotation
 strategies, and writes results to backtests/ for the dashboard to render.
 
-    python backtest.py                 # both tracks, full history
-    python backtest.py --top-n 5       # override hold count
-    python backtest.py --start 2010-01-01
+    python backtest.py                      # every preset, full history
+    python backtest.py --top-n 5            # override hold count
+    python backtest.py --start 2015-01-01 --out /tmp/bt   # windowed exploration
+
+`--start` bounds the EVALUATION window; history always comes from
+replay.FETCH_START. A windowed run must pass --out: it may not overwrite the
+committed backtests/ artifact the dashboard renders.
 """
 from __future__ import annotations
 
 import argparse
 import logging
+import os
 from datetime import date, datetime, timezone
 
 try:
@@ -99,7 +104,10 @@ def run(args: argparse.Namespace) -> int:
     # a windowed one and say nothing. Refuse instead, and name the way out.
     # Windowed runs only became useful with this fix, so the hazard arrived with
     # it.
-    if args.start != DEFAULT_EVAL_START and args.out == DEFAULT_OUT:
+    # realpath, not string equality: `--out backtests/`, `--out ./backtests` and
+    # an absolute path all name the tracked directory and all bypassed a `==`.
+    if (args.start != DEFAULT_EVAL_START
+            and os.path.realpath(args.out) == os.path.realpath(DEFAULT_OUT)):
         logger.error(
             "refusing to overwrite the committed artifact in %s/ with a windowed "
             "run (--start %s). Pass --out somewhere else, e.g. --out /tmp/bt.",
@@ -145,13 +153,17 @@ def run(args: argparse.Namespace) -> int:
                 themes_cfg, prices, top_n=h.top_n, cost_bps=args.cost_bps,
                 rebalance_freq=h.rebalance, buffer=h.buffer, since=args.start)
 
-    # Every track empty means the run produced nothing — an over-late --start,
-    # or a universe with no usable prices. Writing that out replaces a good
-    # artifact with `{"tracks": {"medium": null, ...}}` and exits 0, which reads
-    # as success. Fail instead, leaving whatever was there intact.
-    if not any(tracks.values()):
-        logger.error("no track produced a result (evaluating from %s) — nothing "
-                     "written; %s/ left unchanged", args.start, args.out)
+    # ANY missing track is a failed run, not just an all-empty one. A partial
+    # result is the more dangerous case: `long` needs one more scored theme than
+    # `medium` (score_calendar's min_members=top_n), so a thin window can write
+    # `{"medium": {...}, "long": null}` over the artifact and exit 0 — leaving a
+    # stale equity_long.csv beside it and silently dropping Long from the
+    # dashboard's Backtest tab. Fail, leaving whatever was there intact.
+    empty = [k for k, v in tracks.items() if not v]
+    if empty:
+        logger.error("no result for %s (evaluating from %s) — nothing written; "
+                     "%s/ left unchanged",
+                     ", ".join(sorted(empty)), args.start, args.out)
         return 1
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

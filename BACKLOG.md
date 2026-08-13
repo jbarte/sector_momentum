@@ -190,37 +190,6 @@ backtest change until it turns up a real mismatch.
 Also still true and untouched by the above: `Shipping` has no UCITS entry at
 all, which is consistent with it being flagged unbuyable.
 
-## Documentation has drifted from the current structure and functionality
-
-`README.md` and `ARCHITECTURE.md` were rewritten 2026-08-09 for the
-theme-era system and were accurate then. A week of changes has moved past them,
-and nothing checks it.
-
-Known-stale as of 2026-08-14:
-
-- **`README.md:31` still says "A horizon preset (Short / Medium / Long)".**
-  There are two presets, Medium and Long, both monthly — `short` was removed
-  2026-08-14 (see Done). This is the most misleading line in either document:
-  it describes a control the reader will not find.
-- **The preset cells and their figures are unstated or stale** wherever the
-  documents quote strategy numbers. Current: `medium` M/4/5 (15.6% / 0.85 /
-  12.9 trades per year / 120-day median hold), `long` M/5/8 (14.0% / 0.78 /
-  6.9 / 183).
-- **The band cut lines in the leaderboard are undocumented** — shipped
-  2026-08-14, and they are now the main thing the Horizon control visibly does.
-- **The fetch-window vs evaluation-window split is undocumented.** `--start`
-  bounds evaluation only; history always comes from `replay.FETCH_START`. This
-  is a trap that has already produced one wrong analysis, so it belongs in
-  ARCHITECTURE rather than only in code comments.
-
-Scope: a read-through of both files against the current code, not a rewrite —
-they are structurally sound. Worth doing as its own pass rather than folded into
-a feature branch, since it spans changes from several PRs.
-
-Worth considering while there: neither document has anything that fails when it
-goes stale. A test asserting that the horizon preset names in `README.md` match
-`config/weights.yaml` would have caught the line above the day it broke.
-
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
 The horizon-preset spec (`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`)
@@ -535,6 +504,58 @@ source-only and tight:
 
 # Done
 
+- **README and ARCHITECTURE brought back in line with the code, with tests so
+  they cannot drift silently again** — both were rewritten 2026-08-09 and were
+  accurate then; a week of changes had moved past them and nothing checked it.
+
+  Corrected:
+
+  - **`README.md` advertised "Short / Medium / Long".** There are two presets,
+    both monthly, and it now names their actual bands — `Medium` (hold 4, sell
+    past rank 9) and `Long` (hold 5, sell past rank 13) — plus why the weekly one
+    was removed: cadence contributes little, band width does the work.
+  - **The badge rule was described as "Entry / Exit".** It is Enter / Hold /
+    Exit, action-aware against marked holdings, and signed-in only.
+  - **The band cut lines were undocumented** — now described, including that they
+    appear only under a rank sort, since a reader who sorted by Composite and saw
+    them vanish would read that as a bug.
+  - **The fetch-versus-evaluation window split was undocumented** and now has its
+    own subsection in ARCHITECTURE §9, with the concrete failure it caused: the
+    starved sweep put `M/5/7` 1.9pp ahead of `M/5/4`, warm it lands 0.8pp behind,
+    and the 2.1pp disagreement between the two harnesses on an identical cell is
+    what exposed it. A trap that has already produced one wrong analysis belongs
+    somewhere more findable than a code comment.
+  - **ARCHITECTURE §6** now records that `long` holds *more* names than `medium`
+    (deliberate — concentration is a risk choice, holding period is a horizon
+    choice), that `applyHorizonBadges()` is the single client-side badge writer,
+    and that four copies of `rank <= 3` had drifted out of step with `top_n`
+    before `inBuyBand` collapsed them.
+  - `scripts/` was missing from the README's project tree, including
+    `horizon_sweep.py` — the tool that actually chooses the presets.
+
+  **New `tests/test_docs_match_config.py` (5 tests)** pins the claims a config
+  change can falsify: no retired preset label may appear in either document,
+  every shipped label must appear in the README, the stated preset *count* must
+  match `horizons()`, and the quoted sell thresholds must equal
+  `top_n + buffer`. Each was mutation-checked — reintroducing "Short", writing
+  "three presets", and shifting a band edge to rank 14 each fail the suite — so
+  they are not vacuous. The retired-label vocabulary is a deliberate literal
+  list, since only an explicit set distinguishes "Short is gone" from "Short was
+  never mentioned".
+
+  Deliberately narrow: they pin statements the config owns, not the prose.
+
+  **Corrected in review:** the first draft of ARCHITECTURE §9 claimed
+  `validate_eval_start()` "rejects a window that starts inside the warm-up",
+  which overpromises. It proves the *fetch* was not truncated; it cannot promise
+  every ticker is warm, because warm-up is bounded by each fund's inception. At
+  the default run's first evaluated date (2008-03-31, set by ACWI's inception)
+  only **7 of 18 tickers have 200 bars behind them** — the other 11 did not exist
+  yet, which no fetch window can fix and which `score_calendar`'s
+  `min_members=top_n` is what actually handles. Measured, then written down.
+
+  721 tests pass. *(2026-08-14)*
+
 - **`backtest.py --start` no longer starves the warm-up — and the two harnesses
   now agree** — the twin of the sweep bug fixed on 2026-08-13. `backtest.py`
   passed `args.start` straight to `fetch_prices`, and `run_theme_track` then
@@ -581,9 +602,10 @@ source-only and tight:
     wrote `{"tracks": {"medium": null, "long": null}}` over a good artifact and
     returned 0. An all-empty result now fails without writing.
 
-  Ten tests, all offline: three pin `since` at the engine boundary (it bounds
-  the curve, `since=None` is byte-identical to the old behaviour, an over-late
-  window takes the existing "not enough data" path rather than raising), and six
+  Eleven new test functions (13 cases with parametrisation), all offline: three
+  pin `since` at the engine boundary (it bounds the curve, `since=None` is
+  byte-identical to the old behaviour, an over-late window takes the existing
+  "not enough data" path rather than raising), and eight
   cover the CLI by replacing `fetch_prices` with a probe — including the direct
   assertion that **`--start` never reaches `fetch_prices`**, which is the bug
   itself. 712 pass. *(2026-08-14)*
