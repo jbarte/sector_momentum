@@ -60,12 +60,36 @@ below). There is no merge-conflict risk from `docs/` anymore; feature PRs should
 be **source-only** (`dashboard/templates/`, `dashboard/build.py`, `src/`, `config/`, tests).
 
 `BACKLOG.md` uses a `merge=union` driver (`.gitattributes`) so concurrent Done-list
-additions auto-combine instead of conflicting. This only works cleanly for pure
-*additions* (new Done bullets). If two branches both *edit* the same existing paragraph
-(e.g. rewording a queued item's "To activate" section), union merge concatenates both
-versions verbatim instead of picking one — silently, with no conflict markers to flag
-it. Check the diff after any merge/rebase that touches `BACKLOG.md` alongside another
-branch's edits, and hand-dedupe if a paragraph got doubled.
+additions auto-combine instead of conflicting. Union keeps **both sides' lines**,
+which is right for additions and has two failure modes, both silent:
+
+- **Concurrent edits to the same paragraph** get concatenated verbatim rather
+  than one winning.
+- **Deletions get undone.** If another branch deleted a section and yours still
+  carries those lines, union brings it back. This resurrected a whole 51-line
+  queued item on 2026-08-14 (#208 deleted it, #209 still had it), leaving the
+  item in Queued *and* Done at once. Git reported a clean merge.
+
+**Run this after any merge or rebase of `main` into a branch that touches
+`BACKLOG.md`** — reading the merge output will not show either problem:
+
+```bash
+diff <(git show origin/main:BACKLOG.md | awk '/^# Queued/,/^# Done/' | grep '^## ') \
+     <(awk '/^# Queued/,/^# Done/' BACKLOG.md | grep '^## ')
+```
+
+Every `>` line must be an item your branch *intends* to add. Anything else is a
+resurrection — delete it. Then hand-dedupe if a paragraph got doubled. Once
+merged there is no base left to diff against, which is why `/backlog-sync` also
+sweeps for the after-the-fact symptom (an item in both Queued and Done).
+
+A `>` line that is not a plausible item heading (`## ') \`) means a **malformed
+edit**, not a resurrection. **When deleting a section, do not find its end by
+searching for the next `## `** — several items contain fenced code blocks whose
+lines start with `## `, so that match lands inside the fence and truncates the
+deletion, leaving a fragment behind. Match the next item's known heading text
+instead. This is how the check earned its keep the day it was written: it caught
+exactly this in the commit that added it.
 
 ## Design docs (specs & plans) — private companion repo, NOT `docs/` or `design/`
 

@@ -506,6 +506,46 @@ source-only and tight:
 
 # Done
 
+- **Union-merge resurrections in `BACKLOG.md` now have a named check on both
+  sides of a merge** — `merge=union` (`.gitattributes`) keeps both sides' lines,
+  which is correct for concurrent Done additions and has two silent failure
+  modes: concurrent edits to one paragraph get concatenated, and **deletions get
+  undone**. On 2026-08-14 that resurrected a 51-line queued item — #208 deleted
+  it, #209 still carried the lines — leaving it in Queued *and* Done at once,
+  after a merge git reported as clean.
+
+  Two checks, because the symptom differs either side of the merge:
+
+  - **`CLAUDE.md`** now carries the pre-merge check, a `diff` of the Queued
+    section headings against `origin/main`. Every `>` line must be an item the
+    branch intends to add; anything else is a resurrection. This is the one that
+    actually caught it, and it belongs there rather than in the command because
+    it applies to every branch that touches the file.
+  - **`/backlog-sync`** gained step 3, an after-the-fact sweep for when it has
+    already merged and there is no base left to diff: an item present in both
+    Queued and Done (the resurrection signature), plus exact `sort | uniq -d`
+    checks for a duplicated Queued heading and a duplicated Done headline. It
+    runs before classification, and its findings are drift to fix in the pass
+    rather than items to classify — where an item appears twice, the Done entry
+    is the truth.
+
+  The command's "When to run" section now points at the pre-merge check too, so
+  the two are discoverable from each other rather than being separate folklore.
+
+  **The check caught a real bug in the commit that added it.** Removing the
+  queued item this replaces, the edit found the section's end by searching for the
+  next `## ` — which matched inside the item's own fenced code block (`## ') \`),
+  truncating the deletion and leaving a 33-line fragment as the first "item" in
+  Queued. The heading diff flagged it immediately. `CLAUDE.md` now warns against
+  ending a section-delete on a `## ` search for that reason, and notes that a
+  flagged line which is not a plausible heading means a malformed edit rather than
+  a resurrection.
+
+  Filed and implemented in one change rather than left queued: the whole point is
+  that the failure is invisible, so a check sitting in the backlog protects
+  nothing. 721 tests pass (documentation only — no code paths touched).
+  *(2026-08-14)*
+
 - **Sentiment marked alpha, withdrawn from the ranking, and its column hidden**
   — the state of the FinBERT/GDELT output is not known well enough for it to move
   the board, so it now moves nothing and says so.
