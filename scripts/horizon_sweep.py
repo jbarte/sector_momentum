@@ -46,10 +46,22 @@ TOP_N = [3, 4, 5]
 BUFFERS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 BACKTEST_CACHE = "data/backtest_cache"
 
+# History is ALWAYS fetched from here, whatever --start says. --start bounds the
+# evaluation window only. Fetching from --start instead is a trap this script
+# fell into until 2026-08-13: signals with a trailing window return NaN until
+# their lookback fills (compute_ma_structure needs 200 bars for above_200dma),
+# so a `--start 2008-01-01` run scored the whole 2008 crash on a degraded signal
+# set. It was enough to invert the ranking of the horizon presets — `M/5/7`
+# beat `M/5/4` by 1.9pp CAGR starved, and lost to it by 0.8pp warm.
+FETCH_START = "2003-01-01"
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--start", default="2003-01-01")
+    p.add_argument("--start", default=FETCH_START,
+                   help="Start of the EVALUATION window. Price history is always "
+                        f"fetched from {FETCH_START} so trailing-window signals are "
+                        "warm on the first evaluated date.")
     p.add_argument("--cost-bps", type=float, default=None,
                    help="Round-trip cost in bps applied on turnover. Defaults to "
                         "costs.round_trip_bps in config/weights.yaml. Sweeping at 0 "
@@ -110,8 +122,10 @@ def main() -> int:
     tickers = sorted(set(instrument_of.values()) | {themes_cfg.get("benchmark", "ACWI"), "SPY"})
     end = date.today().strftime("%Y-%m-%d")
 
-    logger.info("Fetching %d tickers %s → %s …", len(tickers), args.start, end)
-    prices = fetch_prices(tickers=tickers, start=args.start, end=end, cache_dir=BACKTEST_CACHE)
+    logger.info("Fetching %d tickers %s → %s (evaluating from %s) …",
+                len(tickers), FETCH_START, end, args.start)
+    prices = fetch_prices(tickers=tickers, start=FETCH_START, end=end,
+                          cache_dir=BACKTEST_CACHE)
 
     benchmark = engine.resolve_benchmark(themes_cfg, prices)
     if benchmark is None:
@@ -120,7 +134,8 @@ def main() -> int:
 
     rows: list[dict] = []
     for freq in CADENCES:
-        calendar = replay.rebalance_dates(prices[benchmark].index, freq)
+        calendar = replay.rebalance_dates(prices[benchmark].index, freq,
+                                          since=args.start)
         if len(calendar) < 3:
             logger.warning("%s: fewer than 3 rebalance dates — skipping", freq)
             continue
@@ -160,7 +175,8 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
     lines = [
         "# Rebalance horizon sweep",
         "",
-        f"- start `{args.start}`, cost `{args.cost_bps:.0f}` bps, benchmark `{benchmark}`",
+        f"- evaluated from `{args.start}` (history fetched from `{FETCH_START}`), "
+        f"cost `{args.cost_bps:.0f}` bps, benchmark `{benchmark}`",
         f"- benchmark CAGR `{fmt(rows[0]['bench_cagr'], pct=True)}` "
         "(varies slightly by cadence — each cadence measures it on its own calendar)",
         "",

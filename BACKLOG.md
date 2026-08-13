@@ -165,55 +165,90 @@ paid, and the `match` quality field is describing the wrong instrument.
 
 ## Re-pick the horizon presets at realistic cost
 
-The cost assumption was fixed on 2026-08-09 (see Done), but the presets
-themselves were **selected** by a sweep that defaulted to 0 bps, and free
-trading systematically flatters whichever cadence trades most. Re-running the
-sweep at 50 bps puts **all three current cells off the frontier**:
+**Every number this item previously carried was wrong** — produced by the
+sweep's warm-up bug, fixed 2026-08-13 (see Done). The old tables claimed all
+three cells were off the frontier and that `M/5/7` beat `M/5/4` by ~1.9pp CAGR.
+Re-run on warm history, `M/5/4` *wins* by 0.8pp. The claim inverted, so the
+tables are deleted rather than annotated.
 
-| preset | current cell | @50bps | a frontier cell that beats it |
+**Where it actually stands**, sweep at 100 bps (config `costs.round_trip_bps`),
+history fetched from 2003 so trailing-window signals are warm:
+
+| preset | cell | 2008– CAGR/Sharpe/tr | 2015– CAGR/Sharpe/tr |
 |---|---|---|---|
-| short | W/3/5 | 14.8% / 0.70 / 26.9 tr | **W/3/6 — 16.3% / 0.76 / 19.8 tr** |
-| medium | M/5/4 | 15.0% / 0.83 / 19.5 tr | M/4/5 — 15.7% / 0.84 / 14.7 tr |
-| long | 2M/4/6 | 13.7% / 0.72 / 7.2 tr | 2M/5/8 — 14.1% / 0.75 / 4.4 tr |
+| short | W/3/5 (current) | 14.4% / 0.68 / 21.4 | 15.9% / 0.72 / — |
+| short | `W/3/6` | 14.3% / 0.68 / **15.7** | 17.1% / 0.76 / — |
+| medium | M/5/4 (current) | **15.0% / 0.84** / 16.8 | **17.1% / 0.90** / — |
+| medium | `M/5/7` | 14.2% / 0.78 / **8.0** | 15.9% / 0.83 / — |
+| long | 2M/4/6 (current) | 14.1% / 0.73 / 7.4 | 15.8% / 0.73 / — |
 
-`W/3/6` beats the current `short` on return, Sharpe **and** churn at once —
-one wider buffer.
+What remains to decide:
 
-**Re-swept 2026-08-12 at the real 100 bps (config `costs.round_trip_bps`),
-on both 2008– and 2015–.** The table above was run at 50 bps, i.e. half the
-shipped cost. Requiring a cell to beat the incumbent on CAGR *and* Sharpe in
-**both** windows:
+- **`short` → `W/3/6`?** Return and Sharpe are a wash on 2008– and better on
+  2015–, with **27% fewer trades**. Defensible on churn alone, since churn is
+  cost actually paid. This is the one candidate still standing.
+- **`medium`: leave at M/5/4.** `M/5/7` costs 0.8pp CAGR and 0.06 Sharpe in
+  both windows to halve modelled churn. Only worth revisiting if the
+  cadence-blind badge problem (see the actionable-day item below) is quantified
+  well enough to show the unmodelled churn exceeds that give-up — measured at
+  29 trades/yr acting weekly against 18 modelled.
+- **`long`: no change.** Nothing beat it in either window.
 
-| preset | incumbent | verdict at 100 bps, both windows |
-|---|---|---|
-| short | W/3/5 (band 44%) | **beaten** — `W/3/6` (band 50%): 15.1%/0.72/16tr on 2008–, 17.1%/0.77/23tr on 2015–; better return, Sharpe *and* churn in both |
-| medium | M/5/4 (band 50%) | **beaten by 4 cells** — best combined Sharpe `M/5/7` (band 67%): 14.8%/0.81/8tr and 15.8%/0.84/13tr; also `M/4/8`, `M/4/5`, `M/4/4` |
-| long | 2M/4/6 (band 56%) | **survives — no cell beats it in both windows.** The 50 bps candidate `2M/5/8` does *not* hold up |
+Discipline to keep: confirm on 2008– *and* 2015– before adopting (this repo has
+had single-cell results reverse under a subperiod check three times now,
+counting this one), and read the band fraction `(top_n + buffer) / n_themes`
+rather than the absolute buffer, since the universe keeps moving.
 
-So the 50 bps table's "all three off the frontier" does not survive the real
-cost plus a subperiod check — `long` should stay put. **`medium` still needs a
-choice between the four survivors**, which is why this is not yet done.
-
-**Deliberately not done as part of the cost fix.** This changes what the
-dashboard tells you to hold, and it rests on one sweep over one market history.
-This repo has twice in one month had a single-cell result reverse under a
-subperiod check (SIL/OIH, and the 12m trend filter). Re-pick with the
-multi-window discipline: confirm each candidate on 2008– *and* 2015– before
-adopting, and check the band fraction `(top_n + buffer) / n_themes` rather than
-the absolute buffer, since the universe size keeps moving.
-
-**Even 100 bps may be conservative for Jonas specifically (2026-08-12).**
-Researched Avanza's actual fee schedule and combined it with his account facts
-(ISK — no capital-gains drag, but no access to the cheaper KF Valutakonto —
-and a 150k–500k SEK portfolio): real round-trip cost works out to **~65–80bps**,
-not 100, across the position sizes these three presets produce. The FX leg
-(0.25%/leg, 0.5% round-trip on ISK) dominates over courtage at these sizes.
-**Before picking `medium`'s survivor, re-run the same dual-window frontier
-check at ~70bps** — a cheaper true cost could pull a different cell onto the
-frontier, or change which of the four current survivors wins on Sharpe. Full
-fee research, the calculation, and sources:
+**Cost input is settled and does not change the answer.** Researched Avanza's
+schedule against Jonas's account (ISK — no capital-gains drag, no access to the
+cheaper KF Valutakonto — 150k–500k SEK): real round-trip is **~65–80bps**, not
+100, with the FX leg (0.5% round-trip) dominating courtage at these sizes. The
+sweep was run at both 70 and 100 bps and picks the same cells at each, so the
+shipped 100 is merely conservative. Full fee research and sources:
 [`sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md`](/Users/jonasbarte/AI%20Projects/sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md)
 (§ Thread A).
+
+## `backtest.py --start` starves the warm-up, same bug as the sweep
+
+`backtest.py:90` passes `args.start` straight to `fetch_prices`, and
+`engine.run_theme_track:66` then derives the rebalance calendar from that
+truncated index — the identical defect fixed in `scripts/horizon_sweep.py` on
+2026-08-13 (see Done). Any `python3 backtest.py --start 2015-01-01` scores its
+opening months on NaN `above_200dma` and reports figures that can invert a
+preset ranking.
+
+Latent, not live: CI and every scheduled run use the default `2003-01-01`, so
+`backtests/summary.json` is correct today. It bites the next person who runs a
+windowed backtest by hand.
+
+Fix is the same shape: fetch from a fixed `FETCH_START`, thread `since=` down
+to `replay.rebalance_dates` (the parameter already exists and is tested). The
+threading through `run_theme_track` is the only real work.
+
+## Horizon selector has no visible effect on a typical portfolio
+
+The Horizon dropdown is labelled "Sets the Enter/Exit band", but on 2026-08-13,
+signed in with four holdings at ranks 1–4, all three presets rendered
+**byte-identical badges** — four `Hold`, nothing else. Verified against the
+live rule, not inferred.
+
+Two causes combining:
+
+1. `Hold` deliberately spans the whole band, rank 1 through `top_n + buffer`
+   ([`rescore.js:148`](dashboard/assets/rescore.js)), so a holding comfortably
+   inside every preset's band is `Hold` under all of them. The tightest exit
+   rank across the presets is 8; the holdings sat at 1–4.
+2. The one row that *would* have differed — rank 5 under `medium`'s top-5 band
+   — was Shipping, which is `unbuyable`, so its `Enter` is suppressed by
+   design.
+
+So the control changes only the grey stats strip beside it, which is not where
+the eye goes. Not a bug in `switchHorizon` — that pass was verified correct.
+
+Proposed fix: **draw the band boundaries in the leaderboard itself** — a rule
+after `top_n` and another after `top_n + buffer` — so switching preset visibly
+moves the lines whether or not any badge changes. Cheap, and it makes the
+control honest for every portfolio rather than only for ones near a boundary.
 
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
@@ -237,9 +272,45 @@ to Short (built for weekly review) recovers most but not all of that gap.
 This isn't a new problem — it's the one committed piece of an already-approved
 design that shipping stopped short of. Options (rebalance-date UI awareness vs.
 a lighter preset-cadence nudge vs. leaving it to the tab guide's existing copy)
-are laid out, not decided, in
+are laid out in
 [`sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md`](/Users/jonasbarte/AI%20Projects/sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md)
 (§ Thread B).
+
+**Direction chosen 2026-08-13** (option B1, rebalance-date awareness in the UI);
+design agreed in conversation but not yet written up as a spec, so recorded here
+so it isn't lost:
+
+- **Mute, don't hide.** Between reviews, `Enter`/`Exit` render de-emphasised
+  (drop the background tint, keep the border) rather than disappearing. `Hold`
+  does not mute — it means "do nothing", so there is no action to hold back.
+  Badge *text* stays constant across states: the span is reused across kinds and
+  `applyLang()` restores English from `data-en`, so making text state-dependent
+  as well as kind-dependent is how that breaks. Words live in a chip and a
+  tooltip; the badge carries styling only.
+- **A review stays due until acknowledged**, not for a fixed grace period. Once
+  the review date passes, badges are actionable until a `Done ✓` click, stored
+  per preset in `localStorage`, or the next review date arrives. A strict
+  single-day window would be missed most months by anyone reviewing weekly.
+- **Server generates the calendar, client decides "today".** `build.py` embeds
+  the next ~6 review dates per preset in the existing `horizons_json`; the
+  browser picks the first date ≥ its own clock. Baking `is_review_day` at build
+  time would state yesterday's truth on a static page; deriving the cadence rule
+  in JS would duplicate it away from `replay.rebalance_dates`.
+- **Forward dates use last *weekday*, not last trading day** — future market
+  holidays aren't knowable from price data. They diverge rarely but really
+  (2024-03-29 was both the last weekday of March and Good Friday). Under
+  due-until-dismissed the cost is a review falling due one day early, which is
+  not worth a holiday-calendar dependency.
+- **Pin the `2M` parity explicitly.** `rebalance_dates` takes every 2nd period
+  end counting from the start of the index, so the `long` preset's review months
+  are an artifact of where the price history begins (odd months, given a January
+  start). A forward calendar must hardcode that parity with a test asserting it
+  still matches `replay.rebalance_dates` over the real index, or the UI will
+  name review dates the backtest never simulated.
+- **Alerts unchanged** — crossing-gated, single default horizon.
+
+Sizing caveat: this was scoped against `M/5/4`'s 11-trade/yr gap. If `medium`
+ever moves to a wider band the gap shrinks and this needs re-justifying.
 
 ## Composite structure — 4.2 effective signals of 8
 
@@ -492,6 +563,41 @@ source-only and tight:
 ---
 
 # Done
+
+- **Horizon sweep starved its own warm-up, inverting the preset ranking** —
+  `scripts/horizon_sweep.py` passed `--start` straight to `fetch_prices`, then
+  derived the rebalance calendar from that truncated index. Evaluation therefore
+  began on the first fetched bar with no history behind it, and
+  `compute_ma_structure` returns NaN for `above_200dma` until 200 bars have
+  accumulated ([`src/signals/technical.py`](src/signals/technical.py)) — so a
+  `--start 2008-01-01` run scored roughly the first eight months, i.e. the whole
+  GFC crash, on a degraded signal set. `--start 2015-01-01` had the same defect.
+
+  **This produced a wrong recommendation, not just noisy numbers.** Starved,
+  `M/5/7` beat `M/5/4` by 1.9pp CAGR and 0.09 Sharpe; warm, it *loses* by 0.8pp
+  and 0.06 in both windows. The ranking inverted. Every table in the
+  "Re-pick the horizon presets" queued item came from starved runs and has been
+  deleted rather than annotated. Caught because a same-data comparison of the
+  old and new presets through `backtest.py` disagreed with the sweep by 2.1pp on
+  an identical cell — the two harnesses had never actually been compared.
+
+  Fixed by separating the two concerns the flag conflated: `FETCH_START` is a
+  module constant (`2003-01-01`) that history is always fetched from, and
+  `--start` now bounds the evaluation window only, via a new `since=` parameter
+  on `replay.rebalance_dates`. Filtering happens *after* the period grouping on
+  purpose — slicing the index first shifts which months a multi-period cadence
+  like `2M` treats as review months, so the naive fix would have silently
+  evaluated a different calendar than the presets were picked on. Regression
+  test covers exactly that, cutting mid-parity so a lucky January boundary
+  can't make it pass vacuously.
+
+  Verified: the fixed `--start 2008-01-01` reproduces the full-history run to
+  the decimal (correct — the data itself begins 2008-03-28), while
+  `--start 2015-01-01` still bounds to a genuinely different, warm window. The
+  sweep and `backtest.py` now agree exactly on every shared cell. 691 tests
+  pass. `backtest.py` carries the same defect on its own `--start` and is
+  filed as its own Queued item — latent, since CI never passes the flag.
+  *(2026-08-13)*
 
 - **Backtest artifact item closed — all three defects resolved** — the item
   filed 2026-08-05 bundled three problems with `backtests/`. (2)
