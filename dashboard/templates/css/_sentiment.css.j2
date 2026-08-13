@@ -64,3 +64,15 @@
 .sentiment-control input[type=number] { width:52px; }
 .sentiment-control .sw-weight[data-disabled="true"] { opacity:0.45; }
 .tab-note { font-size:0.8em; color:var(--fg4); margin:0 0 8px; }
+
+{% if not sentiment_ranking_enabled %}
+/* Sentiment column hidden while sentiment is alpha (build.SENTIMENT_RANKING_ENABLED).
+   HIDDEN, not removed: the leaderboard's column indices are positional —
+   `sortTable(6)`, `data-col`, and `tbody td:nth-child(n+4)` all count cells — so
+   dropping the <td> would shift every reference after it. display:none keeps the
+   cell in the DOM and out of the accessibility tree, which is what is wanted.
+   Scoped to the leaderboard: the sentiment PAGE still shows its own tables.
+   Delete this block to restore the column. */
+#leaderboard-table th[data-col="5"],
+#leaderboard-table td.sentiment-cell { display: none; }
+{% endif %}

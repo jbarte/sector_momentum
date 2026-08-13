@@ -6,10 +6,13 @@
     {% else %}
     <a class="segment-btn" href="index.html" data-i18n="segment_sectors">Themes</a>
     {% endif %}
+    {#- The alpha badge sits OUTSIDE the [data-i18n] span on purpose: applyLang()
+        rewrites that node's textContent, so a badge nested inside it would be
+        wiped on the first language switch. -#}
     {% if active_segment == "sentiment" %}
-    <span class="segment-btn active" aria-current="page" data-i18n="segment_sentiment">Sentiment</span>
+    <span class="segment-btn active" aria-current="page"><span data-i18n="segment_sentiment">Sentiment</span><span class="alpha-badge" data-i18n="badge_alpha">alpha</span></span>
     {% else %}
-    <a class="segment-btn" href="sentiment.html" data-i18n="segment_sentiment">Sentiment</a>
+    <a class="segment-btn" href="sentiment.html"><span data-i18n="segment_sentiment">Sentiment</span><span class="alpha-badge" data-i18n="badge_alpha">alpha</span></a>
     {% endif %}
   </div>
   <div class="meta-cluster">
