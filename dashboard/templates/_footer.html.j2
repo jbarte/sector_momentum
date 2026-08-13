@@ -38,10 +38,31 @@
 <footer class="site-footer">
   <span data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
   <button type="button" id="methodology-link" class="footer-link">Methodology</button>
+  {#- Inside {% if auth %} so guests never get a link to a dialog that cannot
+      exist. It also starts `hidden` and is revealed by alert-prefs.js only once
+      alerts are actually available for this reader — a signed-in user whose
+      alert_prefs table is missing would otherwise open an empty dialog. -#}
+  {% if auth %}
+  <button type="button" id="alerts-link" class="footer-link" hidden data-i18n="alerts_title">Alerts</button>
+  {% endif %}
 </footer>
 {% if auth %}
+{#- Alerts modal.
+    ------------
+    Was a permanently-rendered block sitting BELOW the footer — after the
+    disclaimer and Methodology link — which is an odd reading order and an odd
+    home for a control only signed-in readers can use. Now a modal opened from
+    the footer, mirroring the Methodology treatment beside it.
+
+    The overlay is a NEW wrapper with #alert-prefs nested inside, deliberately:
+    alert-prefs.js owns that section's `hidden` attribute to mean "alerts are
+    available to this reader", while a modal overlay uses `hidden` to mean
+    "closed". Collapsing the two elements would collide those meanings. -#}
+<div class="methodology-overlay" id="alerts-modal" hidden>
+  <div class="methodology-modal" role="dialog" aria-modal="true" aria-labelledby="alerts-title">
+    <button type="button" class="methodology-close" id="alerts-close" aria-label="Close">&times;</button>
+    <h2 id="alerts-title" data-i18n="alerts_title">Alerts</h2>
 <section id="alert-prefs" class="alert-prefs" hidden>
-  <h3 data-i18n="alerts_title">Alerts</h3>
   <p class="alert-prefs-intro" data-i18n="alerts_intro">Get a push notification after each scan: Exit signals for themes you hold, plus new Enter signals.</p>
   <div id="alert-prefs-off" hidden>
     <button type="button" id="alert-prefs-enable" class="lang-toggle" data-i18n="alerts_enable">Enable alerts</button>
@@ -63,6 +84,35 @@
   </div>
   <p id="alert-prefs-status" class="alert-prefs-status" aria-live="polite"></p>
 </section>
+  </div>
+</div>
+<script>
+{% include "_modal.js.j2" %}
+(function () {
+  var overlay = document.getElementById("alerts-modal");
+  if (!overlay) { return; }
+  var modal = window.SMModal.bind(overlay, {
+    closeBtn: document.getElementById("alerts-close"),
+  });
+  if (!modal) { return; }
+  // Exposed so alert-prefs.js can open it on #alerts once it knows alerts are
+  // available — the deep link has to wait for that, since the dialog is empty
+  // until then.
+  window.SMAlertsModal = modal;
+
+  function bindTrigger() {
+    var link = document.getElementById("alerts-link");
+    if (link) {
+      link.addEventListener("click", function (e) { e.preventDefault(); modal.open(); });
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindTrigger);
+  } else {
+    bindTrigger();
+  }
+})();
+</script>
 <script>window.SUPABASE_CONFIG = {{ auth_config_json | js_json }};</script>
 <script src="assets/supabase.min.js"></script>
 <script src="assets/auth.js"></script>
