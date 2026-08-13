@@ -12,7 +12,8 @@ import pytest
 from dashboard.rows import _compute_setup
 from src.backtest.replay import REBALANCE_FREQS
 from src.horizons import (
-    _FALLBACK_ROUND_TRIP_BPS, Horizon, default_horizon, horizons, round_trip_bps,
+    _FALLBACK, _FALLBACK_ROUND_TRIP_BPS, Horizon, default_horizon, horizons,
+    round_trip_bps,
 )
 
 
@@ -138,6 +139,21 @@ def test_missing_config_yields_a_sane_fallback(tmp_path):
     h = default_horizon(tmp_path / "does-not-exist.yaml")
     assert h.top_n > 0 and h.buffer > 0
     assert h.rebalance in REBALANCE_FREQS
+
+
+def test_fallback_matches_the_shipped_default_preset():
+    """The hardcoded fallback claims to mirror `medium` — hold it to that.
+
+    It silently stopped matching: `_FALLBACK` sat at M/5/3 (exit rank 8) through
+    two preset retunes while the shipped `medium` moved to M/4/5 (exit rank 9),
+    so a config-less run got a different book AND a different band from the
+    default it documented itself as copying. Nothing failed, because every other
+    test either reads config or only checks the fallback is non-degenerate.
+    """
+    shipped = default_horizon()
+    assert (shipped.rebalance, shipped.top_n, shipped.buffer) == (
+        _FALLBACK["rebalance"], _FALLBACK["top_n"], _FALLBACK["buffer"]
+    ), "_FALLBACK has drifted from the shipped default preset in config/weights.yaml"
 
 
 def test_exit_rank_is_the_hold_band_edge():

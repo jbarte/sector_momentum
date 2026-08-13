@@ -77,17 +77,25 @@ costs:
 # stays within top_n + buffer, so a one-rank wobble no longer forces a trade.
 # It is the single biggest churn lever — far more than the cadence.
 #
-# THE TWO PRESETS SHARE A CADENCE AND DIFFER ONLY IN BAND WIDTH. That is the
-# whole design, and it is what the 2026-08-14 warm sweep found: cadence barely
-# moves the result, band width does the work. No weekly cell won anything on
-# either window. So the reader's only dial is how far a holding may fall before
-# it is sold — 50% of the universe for `medium`, 72% for `long`.
+# THE TWO PRESETS SHARE A CADENCE. Both rebalance monthly; what separates them
+# is the width of the hold band. That is the whole design, and it is what the
+# 2026-08-14 warm sweep found: cadence barely moves the result, band width does
+# the work, and no weekly cell won anything on either window.
+#
+# (They also differ slightly in book size — `medium` holds 4, `long` holds 5.
+# That is a consequence of which cells won, not part of the design: don't
+# describe the two as differing ONLY in band width.)
 #
 # The band as a FRACTION of the universe is what generalises:
-# (top_n + buffer) / n_themes. Because the band is stored in ABSOLUTE ranks,
-# growing the universe from 13 to 20 themes on 2026-08-05 silently tightened it
-# from 62% to 40% and tripled churn. If the universe size changes again, revisit
-# these — the band does not scale itself.
+# (top_n + buffer) / n_themes. THE BACKTEST PRICES 18 THEMES (20 are configured;
+# two have no usable price history), so the shipped cells sit at 9/18 = 50% for
+# `medium` and 13/18 = 72% for `long`. Keep that denominator in mind before
+# recomputing — against the 20 configured themes the same cells read 45% / 65%.
+#
+# Because the band is stored in ABSOLUTE ranks, growing the universe from 13 to
+# 20 themes on 2026-08-05 silently tightened it from 62% to 40% and tripled
+# churn. If the universe size changes again, revisit these — the band does not
+# scale itself.
 #
 # These are PRECOMPUTED OPERATING POINTS from one sweep over one market
 # history, not a live optimiser. The recorded cagr/trades_per_year are the
