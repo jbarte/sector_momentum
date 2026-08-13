@@ -58,7 +58,14 @@
 
 <div class="card">
 <section class="tab-panel active">
-  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
+  {#- Was "Sentiment weighting affects the leaderboard ranking only", which
+      stopped being true when the blend control was withdrawn: sentiment now
+      affects nothing. -#}
+  <p class="tab-note alpha-note" data-i18n-html="note_sentiment"><strong>Alpha.</strong>
+     These readings are experimental and have not been validated. They are
+     <strong>excluded from the composite score and from the ranking</strong> &mdash;
+     nothing on the Themes board moves because of anything on this page. Shown for
+     research only.</p>
 
   <div class="utility-row">
   <button type="button" class="tab-guide-btn" data-guide="guide_body_sentiment" data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</button>

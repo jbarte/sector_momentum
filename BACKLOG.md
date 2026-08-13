@@ -139,6 +139,59 @@ the footer, puts the control where its sibling controls already live, and
 inherits a modal implementation that is already accessible rather than adding
 a third bespoke one.
 
+## Restore the sentiment blend control — and make it work when signed in
+
+The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
+ranking" plus a weight %) blended sentiment into the composite client-side and
+re-ranked the board. **Withdrawn 2026-08-14** while sentiment is alpha — see
+Done. Restoring it is one flag, `SENTIMENT_RANKING_ENABLED` in
+`dashboard/build.py`, but two things should be settled first.
+
+**1. Validate the sentiment pipeline.** This is the blocker and the reason the
+control went away: the FinBERT/GDELT output has not been checked against
+anything. Until there is a reason to believe a positive polarity reading means
+something, letting it move the ranking is worse than not showing it. Nothing
+below matters until this is answered.
+
+**2. It never worked signed in, and that is fixable.** `makeLeaderboardReadOnly()`
+([`auth.js:147`](dashboard/assets/auth.js)) hides the cogwheel and disables
+column sorting for signed-in readers, because the signed-in path replaces the
+baked rows with fresh ones from `v_recent_scores`, and the client-side rescore
+reads `RESCORE_DATA` — a per-scan history baked at build time and keyed by
+`data-sector-key`, which the rebuilt rows do not carry.
+
+But that query already selects what the blend needs:
+
+```
+level_score, change_score, data_score, sentiment_score, composite, rank
+```
+
+The composite is `(1 − W)·data + W·sentiment`, so the slider's whole job can be
+done from the two scores already on each rebuilt row — no baked history required.
+It needs `Rescore.rescore()`'s arithmetic sourced from the row instead of from
+`RESCORE_DATA`, then a re-rank. Signing in currently trades the slider and
+sorting for badges and fresh data, and it need not.
+
+**Sorting is a separate, smaller fix:** `sortTable` groups by
+`data-sector-key`, which `renderLatestRows` does not emit. Adding that attribute
+is likely all it needs.
+
+**Two things to honour when it returns:**
+
+- **The band cut lines follow the ranking**, so they must be redrawn after any
+  re-rank. Already wired on the guest path — `applyRanking()` calls
+  `applyBandBoundaries()` after `sortVisibleByRank()` — so the signed-in path
+  needs the same call, not a new mechanism.
+- **The stored composite must stay pure.** `scan.py` passes
+  `blend_sentiment=False` and that should not change: the blend is a reader's
+  view, not a change to what is persisted, backtested or alerted on.
+  `tests/test_sentiment_alpha_gate.py` pins this.
+
+**Also queued with it:** un-hide the leaderboard's Sentiment column (one CSS
+block in `_sentiment.css.j2`, deliberately a `display:none` rather than a removal
+so the positional column indices stay aligned), and drop the `alpha` badge from
+the Sentiment nav and page note.
+
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
 The horizon-preset spec (`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`)
@@ -453,6 +506,44 @@ source-only and tight:
 
 # Done
 
+- **Sentiment marked alpha, withdrawn from the ranking, and its column hidden**
+  — the state of the FinBERT/GDELT output is not known well enough for it to move
+  the board, so it now moves nothing and says so.
+
+  - **The "Ranking" cogwheel is no longer rendered** (`SENTIMENT_RANKING_ENABLED`
+    in `dashboard/build.py`). **Not hidden — absent.** The sentiment wiring in
+    `index.html.j2` early-returns when the control is missing, and that is what
+    stops the blend being re-applied on load from a stale
+    `localStorage.sentimentEnabled`. A `display:none` would have hidden the
+    control and left that path live. Verified in the browser by seeding
+    `sentimentEnabled=true` and confirming the ranking still came up by pure
+    composite.
+  - **The leaderboard's Sentiment column is hidden by CSS**, deliberately rather
+    than removed: the column indices are positional (`sortTable(6)`, `data-col`,
+    `tbody td:nth-child(n+4)`), so dropping the cell would shift every reference
+    after it. Confirmed `data-col="6"` still resolves to Rank Δ.
+  - **An `alpha` badge** sits on the Sentiment nav segment on both pages, and the
+    page's note was rewritten — it had claimed "Sentiment weighting affects the
+    leaderboard ranking only", which stopped being true the moment the control
+    was withdrawn: it now affects nothing.
+
+  **The stored composite was already clean** and did not need changing: `scan.py`
+  has always passed `blend_sentiment=False`, so `scores.composite` is pure price
+  data and always was. Sentiment only ever reached the ranking through the
+  client-side slider. `tests/test_sentiment_alpha_gate.py` now pins that
+  invariant at its call site — mutation-checked by flipping it to `True` and
+  watching the suite fail — alongside both directions of the flag, so the gate
+  cannot silently become a deletion.
+
+  One i18n trap caught on the way: the page note moved from `data-i18n` to
+  `data-i18n-html`, and those resolve from **different bundles** (`SV` vs
+  `SV_HTML`). Leaving the Swedish string in `SV` would have left it silently
+  unused. Moved to `SV_HTML` in `_sentiment.js.j2`.
+
+  An existing test asserted the control was present; updated to assert its
+  absence, with a note that `RESCORE_DATA` and `rescore.js` stay unconditional —
+  the slider is only one of their consumers, the badge rules and trajectory
+  maths are the others. 727 tests pass. Restoring it is queued. *(2026-08-14)*
 - **Fund costs (TER): closed with no model change — the item's premise was
   wrong, and the holdings question is answered** — filed on the reasoning that
   the backtest ignores an annual drag and should take "a flat annual haircut of

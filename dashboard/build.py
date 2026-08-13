@@ -98,6 +98,23 @@ from dashboard.validation import (                    # noqa: E402, F401
 )
 
 
+# Sentiment is ALPHA: the FinBERT/GDELT output has not been validated well
+# enough to let it move the board. While this is False:
+#
+#   - the "Ranking" cogwheel — the control that blends sentiment into the
+#     composite client-side — is NOT RENDERED, rather than hidden. The wiring in
+#     index.html.j2 early-returns when the control is absent, so a reader who
+#     once enabled it cannot have it silently re-applied from localStorage on the
+#     next visit. CSS hiding alone would leave that path live.
+#   - the leaderboard's Sentiment column is hidden by CSS rather than removed.
+#     Column indices are positional (sortTable(6), data-col, nth-child), so
+#     dropping the cell would shift every reference after it.
+#
+# The STORED composite has never included sentiment — scan.py passes
+# blend_sentiment=False — so this governs presentation and the client-side blend
+# only. See BACKLOG for what restoring it involves.
+SENTIMENT_RANKING_ENABLED = False
+
 # ---------------------------------------------------------------------------
 # Plotly bundle management
 # ---------------------------------------------------------------------------
@@ -473,6 +490,7 @@ def main() -> None:
         "leaderboard_rows": leaderboard_rows,
         "cohort_list": cohort_list,
         "horizon_list": horizon_list,
+        "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
         "round_trip_bps": _round_trip_bps,
         "horizons_json": _json.dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
@@ -494,6 +512,7 @@ def main() -> None:
         # breakdown.unbuyable_names().
         "unbuyable_json": _json.dumps(unbuyable_names(_themes_cfg)),
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
+        "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
         "has_any_rows": bool(leaderboard_rows),
         "badges_gated": badges_gated,
         "plotly_bundle": plotly_bundle_rel,
