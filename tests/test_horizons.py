@@ -77,7 +77,7 @@ def test_backtest_artifact_was_generated_at_the_configured_cost():
 def test_shipped_config_defines_presets():
     hs = horizons()
     assert len(hs) >= 2, "a selector needs something to select between"
-    assert {h.key for h in hs} >= {"short", "medium", "long"}
+    assert {h.key for h in hs} >= {"medium", "long"}
 
 
 def test_every_preset_names_a_real_cadence():
@@ -87,23 +87,33 @@ def test_every_preset_names_a_real_cadence():
 
 
 def test_presets_are_ordered_by_holding_period():
-    """Short holds briefest, Long the longest. If this inverts, the labels lie
-    about what the reader is choosing.
+    """Long holds longer and trades less than Medium. If either inverts, the
+    labels lie about what the reader is choosing.
 
-    HOLDING PERIOD is the ordering that defines the presets. trades/yr is only a
-    consequence of band width, and it is NOT required to order with them: since
-    `short` widened to W/3/6 on 2026-08-13 it trades 15.7/yr against `medium`'s
-    16.8. That is not an inversion of the labels — a wide band on a weekly
-    cadence genuinely churns less than a narrow band on a monthly one, while
-    still turning positions over in 63 days rather than 94. Long remains the
-    quietest by both measures, which is the comparison that would actually
-    mislead if it broke.
+    Both assertions are back after the 2026-08-14 cut to two presets. The
+    trade-count one had to be relaxed while `short` existed, because a wide band
+    on a weekly cadence churned less than a narrow band on a monthly one — Short
+    ended up trading less per year than Medium. With both presets now on the same
+    cadence, differing only in band width, holding period and trade count order
+    together again and there is no reason to accept a looser guarantee.
     """
     by_key = {h.key: h for h in horizons()}
-    s, m, l = by_key["short"], by_key["medium"], by_key["long"]
-    assert s.median_holding_days < m.median_holding_days < l.median_holding_days
-    assert s.trades_per_year > l.trades_per_year
+    m, l = by_key["medium"], by_key["long"]
+    assert m.median_holding_days < l.median_holding_days
     assert m.trades_per_year > l.trades_per_year
+
+
+def test_presets_share_one_cadence():
+    """The two-preset design is 'one cadence, two band widths'.
+
+    Adding a preset on a different cadence would reintroduce what the 2026-08-14
+    cut removed: a lineup where the faster-cadence option can trade less than the
+    slower one, and three separate review calendars for the badges to be blind to.
+    Deliberate enough to be worth failing a test over rather than discovering in
+    a sweep months later.
+    """
+    cadences = {h.rebalance for h in horizons()}
+    assert len(cadences) == 1, f"presets span multiple cadences: {sorted(cadences)}"
 
 
 def test_default_is_one_of_the_presets():
@@ -192,9 +202,25 @@ def test_every_preset_has_a_distinct_band():
     )
 
 
-def test_long_holds_fewer_names_than_medium():
-    """Long concentrates into fewer positions held for longer — that is what
-    makes it 'long', not just a slower rebalance."""
+def test_long_tolerates_more_drift_than_medium():
+    """Long's defining property is a WIDER band, not a smaller book.
+
+    This test used to also require `long.top_n <= medium.top_n`, on the reasoning
+    that Long "concentrates into fewer positions held for longer". The 2026-08-14
+    two-preset cut dropped that half: Long is now M/5/8 (5 names, band 72%)
+    against Medium's M/4/5 (4 names, band 50%), so Long holds one name MORE.
+
+    That is a correction, not a regression. Concentration is a risk choice and
+    holding period is a horizon choice; the old lineup conflated them. A patient
+    sleeve that tolerates more drift before selling naturally ends up holding a
+    broader set, and the cells bear it out — M/5/8 beat the best top_n<=4 patient
+    candidate (M/4/7) on CAGR, Sharpe, churn and holding period across both
+    windows, losing only on drawdown. Keeping the concentration rule would have
+    cost real quality to preserve a property nothing depends on.
+
+    What still must hold is the band ordering: if Long's exit rank were not
+    strictly wider, the two presets would differ only in book size and Long would
+    not be longer in any meaningful sense.
+    """
     by_key = {h.key: h for h in horizons()}
-    assert by_key["long"].top_n <= by_key["medium"].top_n
     assert by_key["long"].exit_rank > by_key["medium"].exit_rank

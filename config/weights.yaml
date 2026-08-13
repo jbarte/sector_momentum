@@ -77,17 +77,17 @@ costs:
 # stays within top_n + buffer, so a one-rank wobble no longer forces a trade.
 # It is the single biggest churn lever — far more than the cadence.
 #
-# The buffers are 6 / 4 / 6. `medium` and `long` date from the 2026-08-09
-# retune, when the redundancy audit trimmed the universe 20 -> 18; `short`
-# widened 5 -> 6 on 2026-08-13 (see the re-pick note below). Picked per preset,
-# not band-scaled mechanically.
+# THE TWO PRESETS SHARE A CADENCE AND DIFFER ONLY IN BAND WIDTH. That is the
+# whole design, and it is what the 2026-08-14 warm sweep found: cadence barely
+# moves the result, band width does the work. No weekly cell won anything on
+# either window. So the reader's only dial is how far a holding may fall before
+# it is sold — 50% of the universe for `medium`, 72% for `long`.
 #
-# What DOES generalise is the band as a FRACTION of the universe:
-# (top_n + buffer) / n_themes. Medium sits at ~50%, which keeps coming out as
-# the plateau. Because the band is stored in ABSOLUTE ranks, growing the
-# universe from 13 to 20 themes on 2026-08-05 silently tightened it from 62% to
-# 40% and tripled churn. If the universe size changes again, revisit these —
-# the band does not scale itself.
+# The band as a FRACTION of the universe is what generalises:
+# (top_n + buffer) / n_themes. Because the band is stored in ABSOLUTE ranks,
+# growing the universe from 13 to 20 themes on 2026-08-05 silently tightened it
+# from 62% to 40% and tripled churn. If the universe size changes again, revisit
+# these — the band does not scale itself.
 #
 # These are PRECOMPUTED OPERATING POINTS from one sweep over one market
 # history, not a live optimiser. The recorded cagr/trades_per_year are the
@@ -98,28 +98,32 @@ costs:
 # median_holding_days are unchanged by cost — the cost model is applied to
 # returns, never to selection, so the same names are picked either way.
 #
-# RE-PICKED 2026-08-13, but only `short`. The cells were originally chosen by a
-# sweep run at 0 bps, which flatters whichever cadence trades most. Re-running
-# it at cost was supposed to settle all three; the first attempt instead
-# produced a WRONG answer, because the sweep starved its own signal warm-up
-# (fixed the same day — see BACKLOG). On warm history:
+# CUT FROM THREE PRESETS TO TWO, 2026-08-14. `short` is gone, not re-tuned.
+# Re-swept on warm history (the sweep starved its own signal warm-up until
+# 2026-08-13 and produced inverted answers before that — see BACKLOG), at 100
+# bps and again at the ~70 bps an ISK account really pays, on 2008- and 2015-:
 #
-#   short   W/3/5 -> W/3/6   equal CAGR and Sharpe, 27% fewer trades
-#   medium  M/5/4 unchanged   beats every challenger on both metrics, both windows
-#   long    2M/4/6 unchanged  nothing beat it in either window
+#   medium  M/5/4  -> M/4/5   15.0->15.6% CAGR, 0.84->0.85 Sharpe,
+#                             16.8->12.9 trades/yr, maxDD -35.4 -> -30.8%
+#   long    2M/4/6 -> M/5/8   14.1->14.0% CAGR, 0.73->0.78 Sharpe,
+#                             7.4->6.9 trades/yr, hold 182 -> 183 days
+#   short   W/3/6  -> removed
 #
-# `short` ships on CHURN alone, not return: 14.3%/0.68 against 14.4%/0.68, with
-# trades/yr falling 21.4 -> 15.7. Churn is cost actually paid, and the shipped
-# 100 bps is if anything conservative for an ISK account (~65-80 bps real, see
-# the horizon-cost spec in sector_momentum-notes), so the trade is a real one at
-# no measurable cost to return.
+# `M/4/5` is the best cell in the whole grid on both windows — top Sharpe AND
+# shallowest drawdown — and it beats the `M/5/4` it replaces on return, churn
+# and drawdown at once. `M/5/8` does what `long` existed for (≈7 trades/yr,
+# half-year holds) on a monthly cadence, and beats the 2M cell it replaces on
+# Sharpe in both windows.
 #
-# CONSEQUENCE WORTH KNOWING: `short` now trades LESS per year than `medium`
-# (15.7 vs 16.8). The horizon ordering is by HOLDING PERIOD (63 / 94 / 182 days),
-# which still holds; trades/yr is a consequence of the band width, not the
-# definition, and a wide band on a weekly cadence genuinely churns less than a
-# narrow one on a monthly cadence. test_presets_are_ordered_by_holding_period
-# asserts the holding-period ordering for this reason.
+# WHY `short` WENT RATHER THAN BEING RE-TUNED: it was a cadence choice, and the
+# warm sweep says cadence is not where the return is. Every weekly cell was
+# dominated. Its last incarnation (W/3/6, shipped 2026-08-13) had already drifted
+# to trading LESS per year than `medium`, which made the three-way lineup
+# actively misleading.
+#
+# The two remaining presets still order by holding period, 120 vs 183 days, and
+# now by trades/yr as well (12.9 vs 6.9) — the inversion that forced
+# test_presets_are_ordered_by_holding_period to be relaxed is gone.
 #
 # `default` is what the baked page renders and what alerts use. Signed-in users
 # can switch preset client-side; alerts stay on the default (per-user horizon
@@ -127,27 +131,19 @@ costs:
 horizons:
   default: medium
   presets:
-    short:
-      label: Short
-      rebalance: W
-      top_n: 3
-      buffer: 6
-      cagr: 0.143
-      trades_per_year: 15.7
-      median_holding_days: 63
     medium:
       label: Medium
       rebalance: M
-      top_n: 5
-      buffer: 4
-      cagr: 0.150
-      trades_per_year: 16.8
-      median_holding_days: 94
+      top_n: 4
+      buffer: 5
+      cagr: 0.156
+      trades_per_year: 12.9
+      median_holding_days: 120
     long:
       label: Long
-      rebalance: 2M
-      top_n: 4
-      buffer: 6
-      cagr: 0.141
-      trades_per_year: 7.4
-      median_holding_days: 182
+      rebalance: M
+      top_n: 5
+      buffer: 8
+      cagr: 0.140
+      trades_per_year: 6.9
+      median_holding_days: 183
