@@ -139,57 +139,6 @@ the footer, puts the control where its sibling controls already live, and
 inherits a modal implementation that is already accessible rather than adding
 a third bespoke one.
 
-## Fund costs (TER) — the wrapper differential is ~zero; only the holdings question remains
-
-**Researched 2026-08-14. The original framing of this item was wrong and the
-modelling change it proposed would have made the backtest LESS accurate.**
-
-It asked for "a flat annual haircut of roughly 0.5% applied to strategy
-returns", plus a smaller one on the benchmark. That double-counts: an ETF's
-price series is already **net of the fund's expenses** — NAV is struck after
-fees — so the backtest's CAGR carries the US fund's TER, and ACWI's series
-carries ACWI's. Charging a full TER on top subtracts the same cost twice.
-
-The correct quantity is the **differential**: the UCITS fund actually bought
-minus the US fund whose price series is modelled. Measured over 9 of the 17
-themes with a recorded UCITS equivalent:
-
-| theme | US | US TER | UCITS | UCITS TER | differential |
-|---|---|---|---:|---|---:|
-| AI & Robotics | BOTZ | 0.68% | XAIX | 0.35% | **−0.33pp** |
-| Semiconductors | SOXX | 0.33% | VVSM | 0.35% | +0.02pp |
-| Cybersecurity | CIBR | 0.59% | W1TB | 0.45% | −0.14pp |
-| Clean Energy | ICLN | 0.39% | IQQH | 0.65% | **+0.26pp** |
-| Defense | ITA | 0.38% | DFEN | 0.55% | +0.17pp |
-| Blockchain & Crypto | BLOK | 0.73% | DAVV | 0.65% | −0.08pp |
-| Quantum Computing | QTUM | 0.40% | QUTM | 0.55% | +0.15pp |
-| Lithium & Battery | LIT | 0.75% | LI7U | 0.60% | −0.15pp |
-| Gold & Precious Miners | GDX | 0.51% | G2X | 0.53% | +0.02pp |
-
-**Mean differential: −0.01pp. Mixed sign, and zero on average.** The item's
-premise that the UCITS wrapper is "usually higher" does not hold — US thematic
-ETFs are frequently the more expensive one. So there is **no systematic drag to
-model**, and no code change is proposed. Modelling a per-theme differential
-would move the headline CAGR by a rounding error while adding a maintenance
-burden (TERs change; the table above is a 2026-08-14 snapshot from public fund
-pages, not a live feed).
-
-**What genuinely remains, and only Jonas can answer:** whether the UCITS funds
-recorded in `config/themes.yaml` are the ones actually held. The Avanza
-disclosure that prompted this item showed **L&G ROBO Global Robotics**
-(*Löpande avgifter 0.8%/yr* + *Transaktionsavgifter 0.03%/yr*) for the AI &
-Robotics exposure, while the config records **XAIX at 0.35%**. If the real
-holding is the 0.8% fund, that theme carries ~0.45pp more drag than recorded,
-the `match: close` quality is describing a different instrument, and the
-differential for it flips from −0.33pp to **+0.12pp**.
-
-That is a **data-accuracy** question about 17 config entries, not a modelling
-one. Worth an audit pass against the actual Avanza holdings; not worth a
-backtest change until it turns up a real mismatch.
-
-Also still true and untouched by the above: `Shipping` has no UCITS entry at
-all, which is consistent with it being flagged unbuyable.
-
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
 The horizon-preset spec (`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`)
@@ -503,6 +452,43 @@ source-only and tight:
 ---
 
 # Done
+
+- **Fund costs (TER): closed with no model change — the item's premise was
+  wrong, and the holdings question is answered** — filed on the reasoning that
+  the backtest ignores an annual drag and should take "a flat annual haircut of
+  roughly 0.5%", plus a smaller one on the benchmark.
+
+  **That would have double-counted.** An ETF's price series is already net of the
+  fund's expenses — NAV is struck after fees — so the modelled CAGR carries the
+  US fund's TER and ACWI's series carries ACWI's. Subtracting a full TER on top
+  removes the same cost twice. It would have looked like prudence and been an
+  error, which is the reason this is recorded rather than quietly dropped.
+
+  The correct quantity is the **UCITS-minus-US differential**. Measured across 9
+  of the 17 themes with a recorded equivalent (public fund pages, 2026-08-14
+  snapshot): BOTZ→XAIX −0.33pp, ICLN→IQQH +0.26pp, ITA→DFEN +0.17pp,
+  QTUM→QUTM +0.15pp, LIT→LI7U −0.15pp, CIBR→W1TB −0.14pp, BLOK→DAVV −0.08pp,
+  SOXX→VVSM +0.02pp, GDX→G2X +0.02pp. **Mean −0.01pp, mixed sign.** The
+  assumption that the UCITS wrapper costs more does not hold — US thematic ETFs
+  are frequently the pricier side. Nothing systematic to model, so no code
+  changed.
+
+  **The data question is answered (2026-08-14): the recorded UCITS entries ARE
+  what is held.** Jonas buys the fund named on each leaderboard entry, so the
+  differential table describes real costs and the queued config audit is
+  unnecessary.
+
+  One legacy exception, deliberately not acted on: the AI & Robotics exposure is
+  **L&G ROBO Global Robotics** (0.8%/yr ongoing + 0.03% transaction), predating
+  the project, where the config records **XAIX at 0.35%**. That flips this
+  theme's differential from −0.33pp to about +0.12pp — roughly 0.45pp more drag
+  than recorded on one of four or five equal-weight positions, so ~0.1pp of
+  portfolio per year (~300 SEK on 300k). It **retires itself**: the next time AI
+  & Robotics leaves the band, the replacement is the recorded XAIX. Not worth a
+  config exception for a position that resolves on its own next Exit.
+
+  Still true and untouched: `Shipping` has no UCITS entry, consistent with it
+  being flagged unbuyable. *(2026-08-14)*
 
 - **README and ARCHITECTURE brought back in line with the code, with tests so
   they cannot drift silently again** — both were rewritten 2026-08-09 and were
