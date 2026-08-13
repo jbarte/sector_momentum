@@ -180,26 +180,6 @@ Fix is the same shape: fetch from a fixed `FETCH_START`, thread `since=` down
 to `replay.rebalance_dates` (the parameter already exists and is tested). The
 threading through `run_theme_track` is the only real work.
 
-## The gold rank badge highlights top 3, but the buy band is top 4
-
-`.rank-badge.top3` is applied to ranks 1–3 and has nothing to do with the active
-horizon — it is baked server-side in `index.html.j2` (`row.rank <= 3`) and
-re-derived in `dashboard/assets/scan-history.js` (`sc.rank <= 3`). `medium`'s
-`top_n` is 4.
-
-Harmless while nothing else marked the band. Now that the band cut lines ship
-(2026-08-14, see Done) the two disagree *visibly*: three highlighted rank badges
-sit above a buy-band line drawn after the fourth row, which reads as one of them
-being wrong. Switching to `long` (top 5) widens the gap to two rows.
-
-Fix: drive the highlight from the active horizon's `top_n` rather than a literal
-3, updated in `applyBandBoundaries()` (which already walks every row and knows
-the horizon). Needs the class renamed off `top3` — it is referenced in the
-template, the CSS, and the scan-history rebuild path, and a name asserting "3"
-is what let it drift in the first place. Historical scans rendered by
-scan-history.js have no horizon selector, so they should keep highlighting a
-fixed count; pass it explicitly rather than leaving a second literal behind.
-
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
 The horizon-preset spec (`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`)
@@ -513,6 +493,43 @@ source-only and tight:
 ---
 
 # Done
+
+- **The highlighted rank badge follows the active horizon instead of a
+  hardcoded 3** — `.rank-badge.top3` marked ranks 1-3 from a literal that knew
+  nothing about the preset. Harmless until the band cut lines shipped
+  (2026-08-14); after that, three gold badges sat above a buy-band line drawn
+  under the *fourth* row, reading as one of them being wrong, and `long` (top 5)
+  widened the disagreement to two rows.
+
+  **The literal existed in four places, none aware of the horizon:** the server
+  bake, the sentiment rescore, the signed-in rebuild (`auth.js`) and the
+  scan-history rebuild — two more than the item recorded when it was filed. All
+  four now go through one rule, `Rescore.inBuyBand(rank, horizon)`, alongside
+  `setupForRank`. The two paths that end by triggering `applyHorizonBadges()`
+  (rescore, signed-in rebuild) dropped their copy entirely rather than writing a
+  class the single writer immediately overwrites.
+
+  Renamed `top3` -> `in-buy-band`: a class name asserting "3" is what let it
+  drift, and the same name is referenced from the template, the CSS, the
+  scan-history path and the WCAG contrast tests.
+
+  Written in `applyHorizonBadges()`, NOT `applyBandBoundaries()`, because it is a
+  per-row property rather than a boundary — it must stay correct when the table
+  is sorted by Theme or Composite, where the cut lines are deliberately
+  withdrawn. Verified: sorting by Theme keeps the highlight and drops the lines.
+
+  **Caught during implementation:** `_compute_setup` also sets `in_buy_band`,
+  but `build.py` only called it on the *ungated* branch, so the shipped (gated)
+  build rendered every badge unhighlighted — reintroducing the same disagreement
+  from the other side. The call now runs before the gate, with `setup` still
+  withheld from guests immediately after; two tests pin it, one on build.py's
+  branch order and one end-to-end through the template.
+
+  Also verified in the browser after a cache-bust (a stale `rescore.js` made the
+  first check look like a logic bug): Medium highlights 1-4 with the cut after 4,
+  Long highlights 1-5 with the cut after 5. 704 tests pass, including four new
+  cross-language `inBuyBand` cases covering average ranks (4.5) and the
+  `null <= 4 === true` trap in JavaScript. *(2026-08-14)*
 
 - **Band boundaries drawn in the leaderboard, so the Horizon control is
   visibly doing something** — the selector claimed to "set the Enter/Exit band"

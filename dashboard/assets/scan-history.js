@@ -78,7 +78,10 @@
         var e = group[j];
         var sc = e.scores;
         var sector = e.key.split("|")[1];
-        var rankClass = sc.rank <= 3 ? " top3" : "";
+        // Rescore.inBuyBand falls back to window.HORIZON_DEFAULT, which is
+        // right here: a past scan has no horizon selector of its own, and the
+        // band shown should be the one the reader is currently running.
+        var rankClass = Rescore.inBuyBand(sc.rank) ? " in-buy-band" : "";
         var arrow = "";
         var arrowClass = "";
         if (e.delta > 0) { arrow = "▲"; arrowClass = "up"; }

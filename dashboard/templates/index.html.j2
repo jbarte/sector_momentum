@@ -193,7 +193,7 @@
             data-rank="{{ row.rank }}"
             tabindex="0">
           <td class="rank-cell">
-            <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
+            <span class="rank-badge{% if row.in_buy_band %} in-buy-band{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
           {#- Never "hold": the build has no reader and so no holdings. When the
@@ -514,6 +514,17 @@ function applyHorizonBadges() {
     // previous pass happened to leave. Only when holdings are known, though:
     // in the band fallback an Exit badge says nothing about ownership.
     tr.classList.toggle('position-warn', kind === 'exit' && holdings === 'ready');
+
+    // The highlighted rank badge follows the ACTIVE horizon's top_n. Written
+    // here rather than in applyBandBoundaries() because it is a per-row property,
+    // not a boundary: it must stay correct when the table is sorted by Theme or
+    // Composite, where the cut lines are deliberately withdrawn. Ungated on
+    // purpose — it marks where a rank sits, which top_n already makes public,
+    // rather than telling a signed-in reader what to do.
+    var rankBadge = tr.cells[0] ? tr.cells[0].querySelector('.rank-badge') : null;
+    if (rankBadge && window.Rescore && window.Rescore.inBuyBand) {
+      rankBadge.classList.toggle('in-buy-band', window.Rescore.inBuyBand(rank, h));
+    }
 
     var nameCell = tr.cells[1];
     if (!nameCell) return;
@@ -1023,7 +1034,9 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
       var r = scored[tr.getAttribute("data-sector-key")];
       if (!r) { return; }
       var badge = tr.querySelector(".rank-cell .rank-badge");
-      if (badge) { badge.textContent = r.rank; badge.classList.toggle("top3", r.rank <= 3); }
+      // The highlight is applyHorizonBadges()'s to write (it runs at the end
+      // of this function and knows the active horizon); only the number here.
+      if (badge) { badge.textContent = r.rank; }
       var compCell = tr.querySelector(".composite-cell");
       if (compCell) { compCell.textContent = fmt(r.composite, 3); }
       var deltaCell = tr.querySelector(".delta-cell");

@@ -120,6 +120,46 @@ def test_build_passes_badges_gated_into_the_page_context():
     assert "badges_gated = lag_active" in build_text
 
 
+def test_in_buy_band_is_computed_even_when_badges_are_gated():
+    """The highlighted rank badge is NOT a signed-in feature and must survive
+    gating.
+
+    It regressed the moment it was introduced: `_compute_setup` also sets
+    `in_buy_band`, but build.py only called it on the ungated branch, so the
+    shipped (gated) build rendered every rank badge unhighlighted while the
+    buy-band cut line was drawn right below the fourth row — the exact
+    disagreement this replaced the hardcoded `rank <= 3` to fix.
+
+    Asserted against build.py's structure because the bug was in which branch
+    the call sat on, not in _compute_setup itself.
+    """
+    build_text = (_PROJECT_ROOT / "dashboard" / "build.py").read_text()
+    call = build_text.index("_compute_setup(row, _default_horizon)")
+    gate = build_text.index('if badges_gated:\n            row["setup"] = None')
+    assert call < gate, (
+        "_compute_setup must run before the gate, or in_buy_band is never set "
+        "on a gated build"
+    )
+    assert build_text.count("_compute_setup(row, _default_horizon)") == 1, (
+        "two call sites means one of them can drift behind the gate again"
+    )
+
+
+def test_gated_row_still_marks_the_buy_band():
+    """End to end through the template: gated rows carry no setup but do carry
+    the highlight."""
+    rows = _rows()
+    for row in rows:
+        row["setup"] = None
+    rows[0]["in_buy_band"] = True
+    html = _render_index(leaderboard_rows=rows, badges_gated=True)
+    assert 'class="rank-badge in-buy-band"' in html
+    assert 'data-setup=""' in html
+    # No BAKED badge span. The literal "setup-badge" also appears in the page's
+    # JavaScript, which builds them at runtime, so match the rendered markup.
+    assert '<span class="setup-badge' not in html
+
+
 def test_gating_suppresses_setup_before_data_json_is_built():
     """data.json's theme rows are spread from leaderboard_rows, so gating has to
     happen where setup is computed, not at render time."""
