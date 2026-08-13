@@ -11,6 +11,23 @@
   var sb = window.supabase.createClient(cfg.url, cfg.key);
   var userId = null;
 
+  /* `root.hidden` means "alerts are available to this reader", NOT "the dialog
+     is closed" — the modal overlay is a separate element for exactly that
+     reason. The footer link mirrors availability, so a reader whose alert_prefs
+     table is missing never gets a link that opens an empty dialog.
+     Every place that used to assign root.hidden goes through here instead, so
+     the two cannot drift apart. */
+  function setAvailable(available) {
+    root.hidden = !available;
+    var link = document.getElementById("alerts-link");
+    if (link) { link.hidden = !available; }
+    // Deep link, deferred until the content exists. #alerts on a cold load
+    // arrives long before the auth round-trip that decides availability.
+    if (available && location.hash === "#alerts" && window.SMAlertsModal) {
+      window.SMAlertsModal.open();
+    }
+  }
+
   var offBox = document.getElementById("alert-prefs-off");
   var onBox = document.getElementById("alert-prefs-on");
   var topicEl = document.getElementById("alert-prefs-topic");
@@ -51,7 +68,7 @@
   }
 
   function renderPref(pref) {
-    root.hidden = false;
+    setAvailable(true);
     if (!pref) {
       offBox.hidden = false;
       onBox.hidden = true;
@@ -67,10 +84,10 @@
   function load() {
     return sb.from("alert_prefs").select("ntfy_topic, enabled").limit(1)
       .then(function (res) {
-        if (res.error) { root.hidden = true; return; }   // table missing -> stay hidden
+        if (res.error) { setAvailable(false); return; }  // table missing -> stay hidden
         renderPref(res.data && res.data.length ? res.data[0] : null);
       })
-      .catch(function () { root.hidden = true; });
+      .catch(function () { setAvailable(false); });
   }
 
   enableBtn.addEventListener("click", function () {
@@ -122,6 +139,6 @@
      filters above are defense in depth in case that policy is ever dropped. */
   sb.auth.onAuthStateChange(function (_event, session) {
     if (session && session.user) { userId = session.user.id; load(); }
-    else { userId = null; root.hidden = true; }
+    else { userId = null; setAvailable(false); }
   });
 })();

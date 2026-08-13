@@ -21,48 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Alerts section should be a modal, opened from a footer link
-
-The alerts/notifications UI (`_footer.html.j2`, `<section id="alert-prefs">`)
-currently renders as a **permanently-present block appended after the footer**,
-shown only when `auth` is configured and toggled by `alert-prefs.js` flipping
-its `hidden` attribute. It sits below the site footer — after the disclaimer,
-Methodology link and RSS link — which is both an odd reading order and an odd
-place for a control that only signed-in readers can use.
-
-**Do this:** make it a modal opened from a footer link, exactly mirroring the
-Methodology treatment that already works:
-
-- A `<button type="button" id="alerts-link" class="footer-link">` in the
-  `<footer class="site-footer">` row, beside the existing `#methodology-link`.
-- The section's markup moves into an overlay + dialog wrapper matching
-  `_methodology.html.j2`'s shape (`.methodology-overlay` / `role="dialog"` /
-  `aria-modal="true"` / `aria-labelledby`), with its own close button.
-- Bind with the **existing shared helper**: `window.SMModal.bind(overlay,
-  {closeBtn})` from `_modal.js.j2` — it already provides the focus trap,
-  Escape, backdrop-close and focus restore. Do not hand-roll any of that; the
-  2026-08-09 audit's P1 finding was specifically that the gate modal declared
-  `aria-modal="true"` and implemented none of it, and the fix was to lift
-  `_methodology.html.j2`'s working implementation into that shared helper.
-- Consider `location.hash === "#alerts"` deep-linking, matching
-  `#methodology`.
-
-**Watch out for two things:**
-
-1. **`alert-prefs.js` owns `#alert-prefs`'s `hidden` attribute** to mean "this
-   reader has alerts available". A modal overlay also uses `hidden` to mean
-   "closed". Those two meanings will collide if the section element becomes the
-   overlay element — the wrapper needs to be a new element, with the existing
-   `#alert-prefs` section nested inside it, so `alert-prefs.js` keeps working
-   unchanged.
-2. The whole block is inside `{% if auth %}`, so the footer link must be too —
-   otherwise guests get a link that opens an empty dialog.
-
-**Why it is worth doing:** it removes a stray always-rendered block from below
-the footer, puts the control where its sibling controls already live, and
-inherits a modal implementation that is already accessible rather than adding
-a third bespoke one.
-
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
@@ -429,6 +387,53 @@ source-only and tight:
 ---
 
 # Done
+
+- **Alerts moved into a modal opened from the footer** — it had been a
+  permanently-rendered block appended *below* the site footer, after the
+  disclaimer and Methodology link: an odd reading order, and an odd home for a
+  control only signed-in readers can use. Now it mirrors the Methodology
+  treatment sitting beside it.
+
+  Accessibility comes entirely from the shared `_modal.js.j2` helper —
+  focus trap, Escape, backdrop close, focus restore — rather than a third
+  hand-rolled implementation. That helper exists precisely because the
+  2026-08-09 audit's P1 finding was a modal declaring `aria-modal="true"` and
+  implementing none of it.
+
+  **Both traps the queued item named were real and are handled:**
+
+  1. `alert-prefs.js` owns `#alert-prefs`'s `hidden` attribute to mean *"alerts
+     are available to this reader"*, while a modal overlay uses `hidden` to mean
+     *"closed"*. The overlay is therefore a **new wrapper** with the existing
+     section nested inside, so `alert-prefs.js` keeps working untouched.
+     Verified in the browser: opening and closing the dialog leaves
+     `#alert-prefs.hidden` exactly as it was.
+  2. The footer link is inside `{% if auth %}`, so guests never see a link to a
+     dialog that cannot exist.
+
+  Went further than the item on one point: the link also **starts hidden and is
+  revealed only once alerts are actually available**, because availability is
+  only known after an auth round-trip. A signed-in reader whose `alert_prefs`
+  table is missing would otherwise open an empty dialog. Availability is now
+  written in one place — `setAvailable()` owns both the panel and the link, so
+  they cannot drift — and the `#alerts` deep link fires from there rather than
+  beside the trigger binding, since the hash arrives long before the data.
+
+  The panel also lost its own card chrome (max-width, centring margin,
+  background, border): the dialog already supplies all of it, and keeping both
+  drew a box inside a box.
+
+  **A test caught a bug in its own test, worth recording.** The auth-gate test
+  passed under mutation — removing the real `{% if auth %}` did not fail it —
+  because the *comment* explaining the gate contains the literal string
+  `{% if auth %}`, and the search matched the comment. The test now strips Jinja
+  comments before analysing. Prose inside a template is not inert to a
+  source-scanning test.
+
+  `tests/test_alerts_modal.py` (8 tests) pins the wrapper separation, the auth
+  gate, the hidden-by-default link, single-writer availability, use of the shared
+  helper, the accessible name, and the deferred deep link. 750 tests pass.
+  *(2026-08-14)*
 
 - **RSS/Atom feed removed** — a second public surface that had to stay correct as
   the product changed, with no known subscriber. It had already survived the

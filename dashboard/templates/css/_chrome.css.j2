@@ -461,17 +461,15 @@
 /* =========================================================
    Personalized alerts panel
    ========================================================= */
+/* The panel now lives inside the alerts modal, which already supplies the
+   surface, border, radius and padding. Keeping its own card chrome would draw a
+   second box inside the dialog. The standalone-block rules it used to need
+   (max-width, centring margin, background, border) are gone with it; only the
+   type scale is still the panel's own. */
 .alert-prefs {
-  max-width: 640px;
-  margin: 24px auto 0;
-  padding: 16px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   font-size: 0.85rem;
 }
 .alert-prefs[hidden] { display: none; }
-.alert-prefs h3 { margin: 0 0 6px; font-size: 0.95rem; color: var(--fg1); }
 .alert-prefs-intro { margin: 0 0 12px; color: var(--fg2); }
 .alert-prefs-topic { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .alert-prefs-topic code {
