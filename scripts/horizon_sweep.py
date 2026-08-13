@@ -55,12 +55,42 @@ BACKTEST_CACHE = "data/backtest_cache"
 # beat `M/5/4` by 1.9pp CAGR starved, and lost to it by 0.8pp warm.
 FETCH_START = "2003-01-01"
 
+# How much history an evaluation window must leave behind its first date.
+# above_200dma needs 200 TRADING bars; a calendar year is ~252 of them, so a
+# year of margin clears it without needing a trading calendar here.
+WARMUP_DAYS = 365
+
+# Deliberately NOT FETCH_START. Defaulting the evaluation start to the fetch
+# start would leave the bare `python3 scripts/horizon_sweep.py` — the run that
+# actually picks the presets — evaluating from the first fetched bar, i.e. the
+# exact defect this separation exists to remove.
+DEFAULT_START = "2004-01-01"
+
+
+def _validate_start(start: str) -> pd.Timestamp:
+    """Parse an evaluation start, rejecting one that would evaluate cold.
+
+    Raises rather than clamping: a silently-moved window is what produced a
+    report header claiming a start the run never used.
+    """
+    ts = pd.Timestamp(start)
+    earliest = pd.Timestamp(FETCH_START) + pd.Timedelta(days=WARMUP_DAYS)
+    if ts < earliest:
+        raise ValueError(
+            f"--start {ts.date()} leaves too little history to warm the signals: "
+            f"prices are fetched from {FETCH_START}, and evaluation must begin no "
+            f"earlier than {earliest.date()} ({WARMUP_DAYS} days later) so "
+            f"above_200dma is populated on the first evaluated date."
+        )
+    return ts
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--start", default=FETCH_START,
+    p.add_argument("--start", default=DEFAULT_START,
                    help="Start of the EVALUATION window. Price history is always "
-                        f"fetched from {FETCH_START} so trailing-window signals are "
+                        f"fetched from {FETCH_START}, and this must be at least "
+                        f"{WARMUP_DAYS} days later so trailing-window signals are "
                         "warm on the first evaluated date.")
     p.add_argument("--cost-bps", type=float, default=None,
                    help="Round-trip cost in bps applied on turnover. Defaults to "
@@ -110,6 +140,12 @@ def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
 
 def main() -> int:
     args = _parse_args()
+
+    try:
+        _validate_start(args.start)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        return 1
 
     if args.cost_bps is None:
         from src.horizons import round_trip_bps
