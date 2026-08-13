@@ -503,6 +503,17 @@ function applyHorizonBadges() {
   Array.prototype.forEach.call(rows, function (tr) {
     var kind = null;
     var rank = parseFloat(tr.dataset.rank);
+    // Rows rebuilt by scan-history.js for a PAST scan carry no data-rank
+    // ATTRIBUTE at all: that view deliberately shows no action badges, because a
+    // ranking from three weeks ago is not something to act on today. Leave those
+    // rows alone — otherwise this pass strips their rank-badge highlight, which
+    // the old hardcoded class survived only because nothing ever rewrote it.
+    // scan-history.js writes that highlight itself, from the active horizon.
+    //
+    // Tested on the attribute, not on isNaN(rank): auth.js sets data-rank=""
+    // for a row whose rank is null, and those rows must keep going through the
+    // pass below so any stale badge is cleared, exactly as before.
+    if (!tr.hasAttribute('data-rank')) { return; }
     if (visible && window.Rescore && window.Rescore.badgeFor) {
       kind = window.Rescore.badgeFor(
         rank, h, holdings, holdings === 'ready' && pos.isHeld(tr),
@@ -629,6 +640,11 @@ function switchHorizon(key) {
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
   renderHorizonStats(key);
   applyHorizonBadges();
+  // A past scan's rows bake their band highlight at render time and are skipped
+  // by applyHorizonBadges (no data-rank), so re-render to pick up the new band.
+  if (window.SM_ACTIVE_SCAN_ID != null && typeof window.showScan === 'function') {
+    window.showScan(window.SM_ACTIVE_SCAN_ID);
+  }
   // Highlight the matching backtest row and redraw its curve.
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
     tr.classList.toggle('active', tr.dataset.horizon === key);

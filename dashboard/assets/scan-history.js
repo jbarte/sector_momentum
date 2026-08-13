@@ -78,10 +78,13 @@
         var e = group[j];
         var sc = e.scores;
         var sector = e.key.split("|")[1];
-        // Rescore.inBuyBand falls back to window.HORIZON_DEFAULT, which is
-        // right here: a past scan has no horizon selector of its own, and the
-        // band shown should be the one the reader is currently running.
-        var rankClass = Rescore.inBuyBand(sc.rank) ? " in-buy-band" : "";
+        // The reader's ACTIVE horizon, not HORIZON_DEFAULT: the selector stays
+        // live in this view (only the sentiment toggle is disabled), and a
+        // reader on Long would otherwise see past scans marked top-4. Falls back
+        // to inBuyBand's own HORIZON_DEFAULT default if the page's inline script
+        // has not defined currentHorizon yet.
+        var _h = (typeof currentHorizon === "function") ? currentHorizon() : null;
+        var rankClass = Rescore.inBuyBand(sc.rank, _h) ? " in-buy-band" : "";
         var arrow = "";
         var arrowClass = "";
         if (e.delta > 0) { arrow = "▲"; arrowClass = "up"; }
@@ -126,7 +129,14 @@
     return null;
   }
 
+  // Which past scan is on screen, or null for the latest. switchHorizon() reads
+  // this to re-render: these rows bake the band highlight at render time, so
+  // without a re-render the highlight would keep describing the horizon that
+  // was active when the scan was opened.
+  window.SM_ACTIVE_SCAN_ID = null;
+
   window.showScan = function (scanId) {
+    window.SM_ACTIVE_SCAN_ID = scanId;
     renderScanLeaderboard(scanId);
     updateShowingBadge(scanId);
     var meta = findScanMeta(scanId);
@@ -147,7 +157,12 @@
   };
 
   window.restoreLatest = function () {
+    window.SM_ACTIVE_SCAN_ID = null;
     tbody.innerHTML = originalTbody;
+    // originalTbody is the BAKED markup, whose rank-badge highlight is the
+    // default horizon's. Re-run the single writer so it matches whatever the
+    // reader has selected; these rows carry data-rank, so the pass applies.
+    if (typeof applyHorizonBadges === "function") { applyHorizonBadges(); }
     updateShowingBadge(latestScanId);
     if (headerDate) headerDate.innerHTML = originalDate;
     if (banner) banner.style.display = "none";
