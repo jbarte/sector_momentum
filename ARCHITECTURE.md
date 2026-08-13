@@ -258,9 +258,18 @@ This is not hypothetical. Both entry points passed the evaluation start
 straight to `fetch_prices`, and in `scripts/horizon_sweep.py` it **inverted the
 horizon preset ranking**: starved, `M/5/7` beat `M/5/4` by 1.9pp CAGR; warm, it
 lost by 0.8pp. The two harnesses disagreed by 2.1pp on an identical cell, which
-is how the bug was found. `validate_eval_start()` now rejects a window that
-starts inside the warm-up, and the filtering happens *after* period grouping so
-a `2M` calendar cannot silently shift onto the other month parity.
+is how the bug was found. The filtering happens *after* period grouping, so a `2M` calendar cannot
+silently shift onto the other month parity.
+
+**What the guard does and does not promise.** `validate_eval_start()` rejects an
+evaluation start closer than `WARMUP_DAYS` to `FETCH_START` — i.e. it proves the
+*fetch* was not truncated. It cannot promise every ticker is warm, because
+warm-up is bounded by each fund's own inception, not by the fetch: at the
+default run's first evaluated date (2008-03-31, set by ACWI's inception) only 7
+of 18 tickers have 200 bars behind them. The other 11 did not exist yet. That is
+the same limitation the dashboard states as "today's universe is replayed
+backwards", and no fetch window can fix it — `score_calendar`'s
+`min_members=top_n` is what keeps a thin date from producing a track.
 
 `backtest.py` additionally refuses to overwrite the committed `backtests/`
 artifact with a windowed run, and refuses to write at all when every track came

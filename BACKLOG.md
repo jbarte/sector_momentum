@@ -543,8 +543,18 @@ source-only and tight:
   list, since only an explicit set distinguishes "Short is gone" from "Short was
   never mentioned".
 
-  Deliberately narrow: they pin statements the config owns, not the prose. 717
-  tests pass. *(2026-08-14)*
+  Deliberately narrow: they pin statements the config owns, not the prose.
+
+  **Corrected in review:** the first draft of ARCHITECTURE §9 claimed
+  `validate_eval_start()` "rejects a window that starts inside the warm-up",
+  which overpromises. It proves the *fetch* was not truncated; it cannot promise
+  every ticker is warm, because warm-up is bounded by each fund's inception. At
+  the default run's first evaluated date (2008-03-31, set by ACWI's inception)
+  only **7 of 18 tickers have 200 bars behind them** — the other 11 did not exist
+  yet, which no fetch window can fix and which `score_calendar`'s
+  `min_members=top_n` is what actually handles. Measured, then written down.
+
+  721 tests pass. *(2026-08-14)*
 
 - **`backtest.py --start` no longer starves the warm-up — and the two harnesses
   now agree** — the twin of the sweep bug fixed on 2026-08-13. `backtest.py`
@@ -592,9 +602,10 @@ source-only and tight:
     wrote `{"tracks": {"medium": null, "long": null}}` over a good artifact and
     returned 0. An all-empty result now fails without writing.
 
-  Ten tests, all offline: three pin `since` at the engine boundary (it bounds
-  the curve, `since=None` is byte-identical to the old behaviour, an over-late
-  window takes the existing "not enough data" path rather than raising), and six
+  Eleven new test functions (13 cases with parametrisation), all offline: three
+  pin `since` at the engine boundary (it bounds the curve, `since=None` is
+  byte-identical to the old behaviour, an over-late window takes the existing
+  "not enough data" path rather than raising), and eight
   cover the CLI by replacing `fetch_prices` with a probe — including the direct
   assertion that **`--start` never reaches `fetch_prices`**, which is the bug
   itself. 712 pass. *(2026-08-14)*
