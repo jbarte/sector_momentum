@@ -201,6 +201,14 @@ def _compute_setup(row: dict, horizon=None) -> None:
     else:
         row["setup"] = None
 
+    # The highlighted rank badge. Unlike `setup` this is NOT gated — it says
+    # where a rank sits, not what to do about it, and top_n is already public in
+    # the page's HORIZONS. Baked here so the first paint is right for the default
+    # horizon; applyHorizonBadges() rewrites it whenever the reader switches.
+    # Mirrors Rescore.inBuyBand, which is the one rule the four client paths
+    # share after this replaced their hardcoded `rank <= 3`.
+    row["in_buy_band"] = rank is not None and rank <= h.top_n
+
 
 # ---------------------------------------------------------------------------
 # Shared row-building helper

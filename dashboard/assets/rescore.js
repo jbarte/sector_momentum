@@ -137,6 +137,21 @@
     return null;
   }
 
+  // Is this rank inside the buy band? Drives the highlighted rank badge.
+  //
+  // This was a literal `rank <= 3` in FOUR places — the server bake, the
+  // sentiment rescore, the signed-in rebuild and the scan-history rebuild —
+  // none of which knew about the horizon. `medium` holds 4, so three highlighted
+  // badges sat above a buy-band cut line drawn after the fourth row, and `long`
+  // (top 5) widened the disagreement to two rows. Same band rule as
+  // setupForRank's entry arm, without the holdings and buyability logic that
+  // badgeFor layers on: this is "where does it sit", not "what should you do".
+  function inBuyBand(rank, horizon) {
+    var h = horizon || (typeof window !== "undefined" && window.HORIZON_DEFAULT) || null;
+    if (!h || rank == null || isNaN(rank)) { return false; }
+    return rank <= h.top_n;
+  }
+
   // Action-aware badge. setupForRank answers "where does this sit?"; the badge
   // answers "what should I do?", which needs to know whether the reader owns it:
   //
@@ -246,6 +261,7 @@
   }
 
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
+              inBuyBand: inBuyBand,
               badgeForRank: badgeForRank, badgeFor: badgeFor,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               latestRowMeta: latestRowMeta, compositeBar: compositeBar,

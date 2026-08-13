@@ -372,12 +372,17 @@ def main() -> None:
         # prompt an entry it knows the reader cannot act on. Same config flag
         # the backtest reads, so the two describe one strategy.
         row["unbuyable"] = is_unbuyable(row["region"], row["sector"], _themes_cfg)
+        # Always computed, even when gated: _compute_setup also sets
+        # `in_buy_band`, which drives the highlighted rank badge and is NOT a
+        # signed-in feature — top_n is already public in the page's HORIZONS,
+        # and without this the guest build renders every rank badge unhighlighted
+        # while the buy-band cut line is drawn right below the fourth row.
+        # `setup` is still withheld from guests, immediately below.
+        _compute_setup(row, _default_horizon)
         if badges_gated:
             row["setup"] = None
-        else:
-            _compute_setup(row, _default_horizon)
-            if row["unbuyable"] and row["setup"] == "entry":
-                row["setup"] = None
+        elif row["unbuyable"] and row["setup"] == "entry":
+            row["setup"] = None
         mask = (
             (latest_scores["region"]      == row["region"]) &
             (latest_scores["gics_sector"] == row["sector"])

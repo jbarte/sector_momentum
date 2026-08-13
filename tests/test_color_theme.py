@@ -265,7 +265,7 @@ def test_no_raw_ramp_references_outside_foundation():
         assert not hits, f"{path.name} references a raw ramp directly: {hits}"
 
 
-# Hardcoded hex values for the tokens `.rank-badge.top3` resolves against, in
+# Hardcoded hex values for the tokens `.rank-badge.in-buy-band` resolves against, in
 # both themes. These MUST be kept in sync with `_foundation.css.j2` if
 # `--bg-raised` or `--up` ever change — a CSS-parsing test would track the
 # source of truth automatically and be more robust, but is out of scope for
@@ -275,8 +275,8 @@ _BG_RAISED_DARK = "#262218"
 _UP_LIGHT = "#5A6F49"
 _UP_DARK = "#A9C48E"
 
-def _rank_badge_top3_tint_pct() -> int:
-    """`.rank-badge.top3`'s tint percentage in the color-mix idiom, read
+def _rank_badge_in_buy_band_tint_pct() -> int:
+    """`.rank-badge.in-buy-band`'s tint percentage in the color-mix idiom, read
     straight from the source CSS so this test tracks the real rule instead
     of a copy-pasted number:
       background: color-mix(in srgb, var(--up) <PCT>%, transparent);
@@ -286,18 +286,18 @@ def _rank_badge_top3_tint_pct() -> int:
     background override, so the tint composites against `--bg-raised` in
     practice."""
     text = _CSS_DIR.joinpath("_tables.css.j2").read_text()
-    block = _block(text, ".rank-badge.top3 {")
+    block = _block(text, ".rank-badge.in-buy-band {")
     m = re.search(r"color-mix\(in srgb, var\(--up\) (\d+)%, transparent\)", block)
-    assert m, ".rank-badge.top3 background is not the expected color-mix(var(--up) N%) idiom"
+    assert m, ".rank-badge.in-buy-band background is not the expected color-mix(var(--up) N%) idiom"
     return int(m.group(1))
 
 
-def test_rank_badge_top3_contrast_meets_wcag_aa():
-    """`.rank-badge.top3` text (var(--up), opaque) on its tinted background
+def test_rank_badge_in_buy_band_contrast_meets_wcag_aa():
+    """`.rank-badge.in-buy-band` text (var(--up), opaque) on its tinted background
     (color-mix(in srgb, var(--up) N%, transparent) composited over the
     table's real container background, --bg-raised) must clear the 4.5:1
     WCAG AA minimum for normal-size text, in both themes."""
-    pct = _rank_badge_top3_tint_pct()
+    pct = _rank_badge_in_buy_band_tint_pct()
     light_bg = _mix_over(_UP_LIGHT, pct, _BG_RAISED_LIGHT)
     dark_bg = _mix_over(_UP_DARK, pct, _BG_RAISED_DARK)
 
@@ -305,11 +305,11 @@ def test_rank_badge_top3_contrast_meets_wcag_aa():
     dark_ratio = _contrast_ratio(_UP_DARK, dark_bg)
 
     assert light_ratio >= 4.5, (
-        f".rank-badge.top3 light-theme contrast is {light_ratio:.2f}:1 "
+        f".rank-badge.in-buy-band light-theme contrast is {light_ratio:.2f}:1 "
         f"at {pct}% tint, below the 4.5:1 AA minimum"
     )
     assert dark_ratio >= 4.5, (
-        f".rank-badge.top3 dark-theme contrast is {dark_ratio:.2f}:1 "
+        f".rank-badge.in-buy-band dark-theme contrast is {dark_ratio:.2f}:1 "
         f"at {pct}% tint, below the 4.5:1 AA minimum"
     )
 
@@ -324,11 +324,11 @@ _FG4_DARK = "#A59A80"
 def _traj_flat_tint_pct() -> int:
     """`.traj-badge.traj-flat`'s tint percentage in the color-mix idiom, read
     from the source CSS rather than copy-pasted, mirroring
-    `_rank_badge_top3_tint_pct`:
+    `_rank_badge_in_buy_band_tint_pct`:
       color: var(--fg4);
       background: color-mix(in srgb, var(--fg4) <PCT>%, transparent);
     Sits in the same `.table-wrap` (`--bg-raised`) container as
-    `.rank-badge.top3`, so the tint composites against `--bg-raised` too."""
+    `.rank-badge.in-buy-band`, so the tint composites against `--bg-raised` too."""
     text = _CSS_DIR.joinpath("_tables.css.j2").read_text()
     m = re.search(
         r"\.traj-badge\.traj-flat\s*\{[^}]*color-mix\(in srgb, var\(--fg4\) (\d+)%, transparent\)",
@@ -371,7 +371,7 @@ def _tint_pct(css_filename: str, selector: str, var_name: str) -> int:
     """Read a badge's tint percentage straight from its source CSS, for any
     rule shaped `color: var(<var_name>); background: color-mix(in srgb,
     var(<var_name>) <PCT>%, transparent);` — generalizes
-    `_rank_badge_top3_tint_pct`/`_traj_flat_tint_pct` above across the five
+    `_rank_badge_in_buy_band_tint_pct`/`_traj_flat_tint_pct` above across the five
     same-idiom badges the 2026-08-11 audit flagged, so each test tracks its
     real rule instead of a copy-pasted number."""
     text = _CSS_DIR.joinpath(css_filename).read_text()

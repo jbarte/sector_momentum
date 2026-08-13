@@ -193,7 +193,7 @@
             data-rank="{{ row.rank }}"
             tabindex="0">
           <td class="rank-cell">
-            <span class="rank-badge{% if row.rank is number and row.rank <= 3 %} top3{% endif %}">{{ row.rank }}</span>
+            <span class="rank-badge{% if row.in_buy_band %} in-buy-band{% endif %}">{{ row.rank }}</span>
             <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
           </td>
           {#- Never "hold": the build has no reader and so no holdings. When the
@@ -503,6 +503,17 @@ function applyHorizonBadges() {
   Array.prototype.forEach.call(rows, function (tr) {
     var kind = null;
     var rank = parseFloat(tr.dataset.rank);
+    // Rows rebuilt by scan-history.js for a PAST scan carry no data-rank
+    // ATTRIBUTE at all: that view deliberately shows no action badges, because a
+    // ranking from three weeks ago is not something to act on today. Leave those
+    // rows alone — otherwise this pass strips their rank-badge highlight, which
+    // the old hardcoded class survived only because nothing ever rewrote it.
+    // scan-history.js writes that highlight itself, from the active horizon.
+    //
+    // Tested on the attribute, not on isNaN(rank): auth.js sets data-rank=""
+    // for a row whose rank is null, and those rows must keep going through the
+    // pass below so any stale badge is cleared, exactly as before.
+    if (!tr.hasAttribute('data-rank')) { return; }
     if (visible && window.Rescore && window.Rescore.badgeFor) {
       kind = window.Rescore.badgeFor(
         rank, h, holdings, holdings === 'ready' && pos.isHeld(tr),
@@ -514,6 +525,17 @@ function applyHorizonBadges() {
     // previous pass happened to leave. Only when holdings are known, though:
     // in the band fallback an Exit badge says nothing about ownership.
     tr.classList.toggle('position-warn', kind === 'exit' && holdings === 'ready');
+
+    // The highlighted rank badge follows the ACTIVE horizon's top_n. Written
+    // here rather than in applyBandBoundaries() because it is a per-row property,
+    // not a boundary: it must stay correct when the table is sorted by Theme or
+    // Composite, where the cut lines are deliberately withdrawn. Ungated on
+    // purpose — it marks where a rank sits, which top_n already makes public,
+    // rather than telling a signed-in reader what to do.
+    var rankBadge = tr.cells[0] ? tr.cells[0].querySelector('.rank-badge') : null;
+    if (rankBadge && window.Rescore && window.Rescore.inBuyBand) {
+      rankBadge.classList.toggle('in-buy-band', window.Rescore.inBuyBand(rank, h));
+    }
 
     var nameCell = tr.cells[1];
     if (!nameCell) return;
@@ -618,6 +640,11 @@ function switchHorizon(key) {
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
   renderHorizonStats(key);
   applyHorizonBadges();
+  // A past scan's rows bake their band highlight at render time and are skipped
+  // by applyHorizonBadges (no data-rank), so re-render to pick up the new band.
+  if (window.SM_ACTIVE_SCAN_ID != null && typeof window.showScan === 'function') {
+    window.showScan(window.SM_ACTIVE_SCAN_ID);
+  }
   // Highlight the matching backtest row and redraw its curve.
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
     tr.classList.toggle('active', tr.dataset.horizon === key);
@@ -1023,7 +1050,9 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
       var r = scored[tr.getAttribute("data-sector-key")];
       if (!r) { return; }
       var badge = tr.querySelector(".rank-cell .rank-badge");
-      if (badge) { badge.textContent = r.rank; badge.classList.toggle("top3", r.rank <= 3); }
+      // The highlight is applyHorizonBadges()'s to write (it runs at the end
+      // of this function and knows the active horizon); only the number here.
+      if (badge) { badge.textContent = r.rank; }
       var compCell = tr.querySelector(".composite-cell");
       if (compCell) { compCell.textContent = fmt(r.composite, 3); }
       var deltaCell = tr.querySelector(".delta-cell");

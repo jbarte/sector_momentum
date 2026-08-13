@@ -262,3 +262,57 @@ def test_setup_band_is_independent_of_momentum():
     assert js["US|Down"]["setup"] == "entry"
 
 
+
+
+# ---------------------------------------------------------------------------
+# inBuyBand — the highlighted rank badge
+# ---------------------------------------------------------------------------
+# Was a literal `rank <= 3` copied into the server bake, the sentiment rescore,
+# the signed-in rebuild and the scan-history rebuild, none of which knew the
+# horizon. With `medium` at top_n 4 the highlight disagreed with the buy-band
+# cut line by a row, and with `long` at 5 by two. One rule now, tested on both
+# sides of the language boundary like every other shared rule in this file.
+
+def _run_js_in_buy_band(cases):
+    """cases: list of [rank, top_n]. Returns list of booleans from rescore.js."""
+    script = f"""
+        const R = require({json.dumps(str(_RESCORE_JS))});
+        const cases = {json.dumps(cases)};
+        process.stdout.write(JSON.stringify(
+            cases.map(c => R.inBuyBand(c[0], {{top_n: c[1], buffer: 99}}))));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout)
+
+
+def test_in_buy_band_matches_python_across_the_boundary():
+    cases = [[r, n] for n in (3, 4, 5) for r in (1, 2, 3, 4, 5, 6, 20)]
+    expected = [r <= n for r, n in cases]
+    assert _run_js_in_buy_band(cases) == expected
+
+
+def test_in_buy_band_handles_the_shipped_horizon():
+    """The literal it replaced was 3; the shipped default is not."""
+    n = _H.top_n
+    cases = [[n, n], [n + 1, n]]
+    assert _run_js_in_buy_band(cases) == [True, False]
+
+
+def test_in_buy_band_accepts_average_ranks():
+    """rankAverage yields .5 ranks on ties, and the badge must not flicker on
+    them — 4.5 is outside a top_n of 4, inside a top_n of 5."""
+    assert _run_js_in_buy_band([[4.5, 4], [4.5, 5]]) == [False, True]
+
+
+def test_in_buy_band_is_false_for_missing_ranks():
+    """A row with no rank (the signed-in rebuild renders "—") must not light up.
+    Guarded because `null <= 4` is TRUE in JavaScript."""
+    script = f"""
+        const R = require({json.dumps(str(_RESCORE_JS))});
+        const h = {{top_n: 4, buffer: 5}};
+        process.stdout.write(JSON.stringify(
+            [R.inBuyBand(null, h), R.inBuyBand(undefined, h), R.inBuyBand(NaN, h),
+             R.inBuyBand(2, null)]));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    assert json.loads(res.stdout) == [False, False, False, False]

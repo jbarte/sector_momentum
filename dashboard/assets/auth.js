@@ -190,7 +190,6 @@
         tr.dataset.sector = r.gics_sector;
         tr.dataset.sectorId = region + "-" + r.gics_sector.replace(/ /g, "_");
         var rank = (r.rank === null || isNaN(r.rank)) ? "—" : Math.round(r.rank);
-        var top3 = (typeof rank === "number" && rank <= 3) ? " top3" : "";
         var m = meta[r.region + "|" + r.gics_sector] || {};
         // The same filter attributes the static build emits, so the filter bar
         // works on signed-in rows too — minus data-setup. That one is written
@@ -219,7 +218,10 @@
           ? '<span class="traj-badge traj-' + m.trajectory_state + '">' + m.trajectory_label + "</span>"
           : "—";
         tr.innerHTML =
-          '<td class="rank-cell"><span class="rank-badge' + top3 + '">' + rank + "</span></td>" +
+          // No band class here: this rebuild ends by dispatching
+          // sm:leaderboard-upgraded, and applyHorizonBadges() writes the
+          // highlight from the active horizon.
+          '<td class="rank-cell"><span class="rank-badge">' + rank + "</span></td>" +
           "<td>" + r.gics_sector + (unbuyable ? UNBUYABLE_BADGE : "") + "</td>" +
           '<td class="composite-cell">' + Rescore.compositeBar(r.composite) + "</td>" +
           "<td>" + fmtScore(r.level_score) + "</td>" +
