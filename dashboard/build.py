@@ -46,10 +46,6 @@ from dashboard.breakdown import (                   # noqa: E402, F401
     _SIGNAL_META,
 )
 from src.universe import is_unbuyable, unbuyable_names   # noqa: E402
-from dashboard.feed import (                         # noqa: E402, F401
-    build_feed_entries,
-    feed_updated_timestamp,
-)
 from dashboard.figures import (                      # noqa: E402, F401
     _SCORE_SIGNAL_COLORS,
     _WARM_PALETTE,
@@ -335,7 +331,7 @@ def main() -> None:
     _default_horizon = default_horizon()
     _round_trip_bps = round_trip_bps()
 
-    # The scan index, per-scan reports and Atom feed used to need a sector-only
+    # The scan index and per-scan reports used to need a sector-only
     # slice of all_scores_df, because that frame was widened to carry THEME
     # alongside US/EU and those surfaces were sector-only. Both halves of that
     # are gone: readers are THEME-scoped by default, and themes are the only
@@ -556,29 +552,6 @@ def main() -> None:
         out_path=out_dir / "sentiment.html",
         context=sentiment_ctx,
     )
-
-    # 6. Atom feed
-    logger.info("Building Atom feed …")
-    feed_entries = build_feed_entries(all_scores_df, n_entries=30)
-    dashboard_url = "https://jbarte.github.io/sector_momentum/"
-    feed_url = dashboard_url + "feed.xml"
-
-    from jinja2 import Environment, FileSystemLoader
-    feed_env = Environment(
-        loader=FileSystemLoader(str(template_dir)),
-        autoescape=False,
-        keep_trailing_newline=True,
-    )
-    feed_template = feed_env.get_template("feed.xml.j2")
-    feed_xml = feed_template.render(
-        entries=feed_entries,
-        feed_updated=feed_updated_timestamp(feed_entries),
-        dashboard_url=dashboard_url,
-        feed_url=feed_url,
-    )
-    feed_path = out_dir / "feed.xml"
-    feed_path.write_text(feed_xml, encoding="utf-8")
-    logger.info("Feed written to %s (%d entries)", feed_path, len(feed_entries))
 
     # 6b. Machine-readable data export (fail-open — never breaks the HTML build)
     try:

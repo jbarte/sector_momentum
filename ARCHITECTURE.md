@@ -289,7 +289,7 @@ and embedded **Plotly** figures. Self-contained and offline-capable.
 Split into focused modules: `rows.py` (leaderboard rows + badges),
 `figures.py` (Plotly), `breakdown.py` (drill-down panel), `correlation.py`
 (heatmap), `sentiment.py`, `macro.py`, `health.py`, `validation.py`,
-`badges.py` (scorecard), `gating.py`, `feed.py` (Atom), `reports.py`,
+`badges.py` (scorecard), `gating.py`, `reports.py`,
 `data_export.py`.
 
 ### Pages
