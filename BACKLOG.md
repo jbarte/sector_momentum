@@ -21,50 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Header context chips don't say what they mean or what to do with them
-
-The `SPY +9.9%` / `VIX 15.3` / `Live` chips in the command bar are the first
-thing on the page and the least explained. Reading them off the header alone,
-it is not clear what they measure, what the colour asserts, or what a reader is
-supposed to *do* differently because of them.
-
-**What exists today**
-
-- `SPY +9.9%` — distance from the 200-day average; green above, red below.
-  Tooltip is `vs 200-DMA — above`, which restates the mechanic and stops there.
-- `VIX 15.3` — banded Calm (<15) / Elevated (15–25) / Stressed (>25). Tooltip
-  is the band word alone (`Calm`), i.e. a synonym for the colour.
-- `Live` — injected by `auth.js` when the signed-in leaderboard upgrades to the
-  latest scan. **No tooltip at all, no explanatory copy anywhere, and a
-  hardcoded English string** (stays "Live" in Swedish).
-
-Good explanatory copy *does* exist — the "Market context chips" section of the
-leaderboard tab guide covers SPY and VIX, and lands the actually-useful framing:
-*"They change no scores. They tell you how much to trust the board."* The
-problem is that it lives behind a guide modal, so the reader has to already
-suspect there is something to learn.
-
-**Why the tooltips are not the fix**
-
-`title` attributes do not exist on touch. After the mobile work (2026-08-12) the
-board is usable on a phone, where these three chips are permanently
-unexplained.
-
-**Worth encoding, not just explaining:** the project *measured* SPY-vs-200-DMA
-as a scoring input and **parked** it — no regime-conditional scheme beat the
-fixed 50/50 split in both regions (regime research, 2026-07-22). So "context
-only, deliberately not acted on" is an evidence-backed stance, not a hedge, and
-the UI can say so plainly rather than leaving the reader to guess whether the
-chip is a signal.
-
-**Shape of a fix** (not decided): surface the trust-the-board framing at the
-point of display rather than only in a guide — e.g. make the cluster a labelled,
-tappable control that opens the existing explanation, and give `Live` a tooltip,
-i18n and a one-line meaning ("showing the latest scan, not the public delayed
-one"). Decide whether the chips earn their prime position at all, or belong
-next to the data they qualify.
-
-
 ## Remove the RSS/Atom feed
 
 Nobody is known to subscribe, and it is a second public surface that has to stay
@@ -505,6 +461,55 @@ source-only and tight:
 ---
 
 # Done
+
+- **Market-context chips are now one tappable control with a shared
+  explanation** — `Live` / `SPY` / `VIX` were the first thing on the page and the
+  least explained: a reader could not tell what they measured, what the colour
+  asserted, or what to do differently because of them.
+
+  The good framing already existed — *"They change no scores. They tell you how
+  much to trust the board"* — but it was buried in the leaderboard tab guide,
+  behind a modal, on one page only, reachable only if you already suspected there
+  was something to learn. And the chips' `title` tooltips **do not exist on
+  touch**, so since the mobile work shipped they were permanently unexplained on
+  a phone. That is why this became a tap target rather than better tooltip copy.
+
+  - The three chips are now a single `<button>` opening a dedicated
+    `guide_body_market_context`, in a **shared partial** included by both pages —
+    the header is shared, so the explanation had to be too. The leaderboard guide
+    keeps a one-line pointer instead of a second copy.
+  - The guide states what the old copy did not: what `Live` means (you are seeing
+    the latest scan, not the delayed public snapshot), that rank is *relative*,
+    and **why these are context and not signals** — SPY-vs-200-DMA was measured
+    as a scoring input in July 2026 and deliberately parked, because no
+    regime-conditional scheme beat the fixed 50/50 split in both regions. An
+    evidence-backed decision not to act, rather than an omission.
+  - `Live` was a hardcoded English word with no tooltip and no explanation
+    anywhere. It now carries `data-i18n`/`data-i18n-title` and is inserted into
+    the control rather than loose in the meta cluster.
+  - Listed in the `pointer: coarse` 44px rule. It already measured 44px from the
+    flex row; now that is guaranteed rather than incidental.
+
+  **Two bugs caught by checking in the browser rather than trusting the diff:**
+
+  1. The dialog heading became **"SPY +10.1% VIX 14.6 ⓘ"** — the shared guide
+     dispatch titles the modal from the trigger's `textContent`, which here is
+     live data. The dispatch now prefers an explicit `.cc-label`, a
+     visually-clipped span that the existing `[data-i18n]` pass translates for
+     free. Verified every other guide button still mirrors its own wording.
+  2. **Two invented `data-i18n-*` attributes were nearly shipped dead.**
+     `data-i18n-label` and `data-i18n-guide-label` are not implemented by
+     `_i18n.html.j2`, so they do nothing — no error, the string just stays English
+     for Swedish readers. Fixed by adding generic `data-i18n-aria` support
+     (mirroring the existing title arm) and moving the heading into the span
+     above.
+
+  `tests/test_market_context_chips.py` (15 tests) pins all of it, including a
+  general guard that **enumerates the attributes `_i18n.html.j2` implements and
+  fails on any `data-i18n-*` in use that is not among them** — mutation-checked
+  with a fake attribute. That is the test that would have caught (2) on its own,
+  and it now protects every future control. Verified in both languages, on both
+  pages, at desktop and 375px. 742 tests pass. *(2026-08-14)*
 
 - **Union-merge resurrections in `BACKLOG.md` now have a named check on both
   sides of a merge** — `merge=union` (`.gitattributes`) keeps both sides' lines,

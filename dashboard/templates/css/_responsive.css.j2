@@ -107,6 +107,11 @@
   .segment-btn,
   .lag-banner-btn,
   .footer-link,
+  /* The market-context chips are a tap target on touch by design — `title`
+     tooltips do not exist there, so tapping is the ONLY way to reach their
+     explanation. It measured 44px from the flex row already; listed here so the
+     size is guaranteed rather than incidental. */
+  .context-chips,
   #horizon-select { min-height: 44px; }
 
   /* Footer anchors are plain links, not .footer-link buttons. */

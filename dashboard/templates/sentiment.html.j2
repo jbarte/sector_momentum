@@ -121,6 +121,7 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
     <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
     {% include "_guide_illo.html.j2" %}
     <h2 id="guide-modal-title" data-i18n="guide_summary">How to read this tab</h2>
+    {% include "_guide_market_context.html.j2" %}
     <div class="tab-guide-body" data-guide-body="guide_body_sentiment" hidden data-i18n-html="guide_body_sentiment">
           <h4>Source — FinBERT news sentiment</h4>
           <p>The <strong>sentiment score</strong> is built from recent financial
@@ -186,7 +187,15 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
     var btn = e.target.closest ? e.target.closest(".tab-guide-btn") : null;
     if (!btn) { return; }
     e.preventDefault();
-    show(btn.getAttribute("data-guide"), (btn.textContent || "").trim());
+    // data-guide-label wins over the trigger's text: the market-context chips
+    // are a trigger whose visible text is live data ("SPY +10.1% VIX 14.6"),
+    // which made a nonsense dialog heading. Text remains the default so every
+    // existing "How to read this tab" / "How is the sentiment score
+    // calculated?" button keeps mirroring its own wording.
+    var labelEl = btn.querySelector ? btn.querySelector(".cc-label") : null;
+    var label = labelEl ? labelEl.textContent.trim()
+                        : (btn.textContent || "").trim();
+    show(btn.getAttribute("data-guide"), label);
   });
 })();
 </script>

@@ -1,0 +1,38 @@
+{#- The market-context chips' own guide body.
+    ------------------------------------------
+    Its own partial, and its own `data-guide` key, for two reasons:
+
+    1. The chips render in `_header.html.j2`, which BOTH pages include, so the
+       explanation has to be reachable from both. It used to live inside
+       `guide_body_leaderboard`, which exists only on index.html.
+    2. `title` tooltips do not exist on touch, so on a phone these three chips
+       were permanently unexplained — the reason this became a tappable control
+       rather than better tooltip copy.
+
+    Included inside each page's #guide-modal (not cloned on demand) so the i18n
+    pass finds this [data-i18n-html] node at load and can swap EN/SV on it. -#}
+<div class="tab-guide-body" data-guide-body="guide_body_market_context" hidden data-i18n-html="guide_body_market_context">
+  <p>These chips describe <strong>the whole market</strong>, not any single
+     theme. They change no scores and move no rankings &mdash; they tell you
+     <strong>how much to trust the board</strong>.</p>
+  <ul>
+    <li><strong>Live</strong> &mdash; you are seeing the latest scan. Signed
+        out, the board is a delayed public snapshot, so the chip is absent.</li>
+    <li><strong>SPY vs 200-DMA</strong> &mdash; the US market&rsquo;s distance
+        from its 200-day average. <span class="signal-hi">Positive</span> =
+        long-term uptrend; <span class="signal-lo">negative</span> =
+        downtrend.</li>
+    <li><strong>VIX</strong> &mdash; how much volatility traders expect. Calm
+        (&lt;&nbsp;15), Elevated (15&ndash;25), Stressed (&gt;&nbsp;25).</li>
+  </ul>
+  <p>The same top-ranked theme means different things in a calm uptrend and in a
+     stressed, falling market, where even the strongest theme is probably also
+     falling. Rank is <em>relative</em>: it says a theme is beating the others,
+     never that it is going up.</p>
+  <p><strong>Why these are context and not signals.</strong> SPY-vs-200-DMA was
+     measured as a scoring input in July 2026 and deliberately
+     <strong>parked</strong>: no regime-conditional weighting scheme beat the
+     fixed 50/50 Level/Change split in both regions. So this is an
+     evidence-backed decision not to act on them automatically, not an
+     omission &mdash; the judgement is left to you, on purpose.</p>
+</div>
