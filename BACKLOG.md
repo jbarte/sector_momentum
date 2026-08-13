@@ -139,57 +139,6 @@ the footer, puts the control where its sibling controls already live, and
 inherits a modal implementation that is already accessible rather than adding
 a third bespoke one.
 
-## Fund costs (TER) — the wrapper differential is ~zero; only the holdings question remains
-
-**Researched 2026-08-14. The original framing of this item was wrong and the
-modelling change it proposed would have made the backtest LESS accurate.**
-
-It asked for "a flat annual haircut of roughly 0.5% applied to strategy
-returns", plus a smaller one on the benchmark. That double-counts: an ETF's
-price series is already **net of the fund's expenses** — NAV is struck after
-fees — so the backtest's CAGR carries the US fund's TER, and ACWI's series
-carries ACWI's. Charging a full TER on top subtracts the same cost twice.
-
-The correct quantity is the **differential**: the UCITS fund actually bought
-minus the US fund whose price series is modelled. Measured over 9 of the 17
-themes with a recorded UCITS equivalent:
-
-| theme | US | US TER | UCITS | UCITS TER | differential |
-|---|---|---|---:|---|---:|
-| AI & Robotics | BOTZ | 0.68% | XAIX | 0.35% | **−0.33pp** |
-| Semiconductors | SOXX | 0.33% | VVSM | 0.35% | +0.02pp |
-| Cybersecurity | CIBR | 0.59% | W1TB | 0.45% | −0.14pp |
-| Clean Energy | ICLN | 0.39% | IQQH | 0.65% | **+0.26pp** |
-| Defense | ITA | 0.38% | DFEN | 0.55% | +0.17pp |
-| Blockchain & Crypto | BLOK | 0.73% | DAVV | 0.65% | −0.08pp |
-| Quantum Computing | QTUM | 0.40% | QUTM | 0.55% | +0.15pp |
-| Lithium & Battery | LIT | 0.75% | LI7U | 0.60% | −0.15pp |
-| Gold & Precious Miners | GDX | 0.51% | G2X | 0.53% | +0.02pp |
-
-**Mean differential: −0.01pp. Mixed sign, and zero on average.** The item's
-premise that the UCITS wrapper is "usually higher" does not hold — US thematic
-ETFs are frequently the more expensive one. So there is **no systematic drag to
-model**, and no code change is proposed. Modelling a per-theme differential
-would move the headline CAGR by a rounding error while adding a maintenance
-burden (TERs change; the table above is a 2026-08-14 snapshot from public fund
-pages, not a live feed).
-
-**What genuinely remains, and only Jonas can answer:** whether the UCITS funds
-recorded in `config/themes.yaml` are the ones actually held. The Avanza
-disclosure that prompted this item showed **L&G ROBO Global Robotics**
-(*Löpande avgifter 0.8%/yr* + *Transaktionsavgifter 0.03%/yr*) for the AI &
-Robotics exposure, while the config records **XAIX at 0.35%**. If the real
-holding is the 0.8% fund, that theme carries ~0.45pp more drag than recorded,
-the `match: close` quality is describing a different instrument, and the
-differential for it flips from −0.33pp to **+0.12pp**.
-
-That is a **data-accuracy** question about 17 config entries, not a modelling
-one. Worth an audit pass against the actual Avanza holdings; not worth a
-backtest change until it turns up a real mismatch.
-
-Also still true and untouched by the above: `Shipping` has no UCITS entry at
-all, which is consistent with it being flagged unbuyable.
-
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
