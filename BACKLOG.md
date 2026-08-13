@@ -180,38 +180,25 @@ Fix is the same shape: fetch from a fixed `FETCH_START`, thread `since=` down
 to `replay.rebalance_dates` (the parameter already exists and is tested). The
 threading through `run_theme_track` is the only real work.
 
-## Horizon selector has no visible effect on a typical portfolio
+## The gold rank badge highlights top 3, but the buy band is top 4
 
-The Horizon dropdown is labelled "Sets the Enter/Exit band", but on 2026-08-13,
-signed in with four holdings at ranks 1–4, all three presets rendered
-**byte-identical badges** — four `Hold`, nothing else. Verified against the
-live rule, not inferred.
+`.rank-badge.top3` is applied to ranks 1–3 and has nothing to do with the active
+horizon — it is baked server-side in `index.html.j2` (`row.rank <= 3`) and
+re-derived in `dashboard/assets/scan-history.js` (`sc.rank <= 3`). `medium`'s
+`top_n` is 4.
 
-Two causes combining:
+Harmless while nothing else marked the band. Now that the band cut lines ship
+(2026-08-14, see Done) the two disagree *visibly*: three highlighted rank badges
+sit above a buy-band line drawn after the fourth row, which reads as one of them
+being wrong. Switching to `long` (top 5) widens the gap to two rows.
 
-1. `Hold` deliberately spans the whole band, rank 1 through `top_n + buffer`
-   ([`rescore.js:148`](dashboard/assets/rescore.js)), so a holding comfortably
-   inside every preset's band is `Hold` under all of them. The tightest exit
-   rank across the presets is 8; the holdings sat at 1–4.
-2. The one row that *would* have differed — rank 5 under `medium`'s top-5 band
-   — was Shipping, which is `unbuyable`, so its `Enter` is suppressed by
-   design.
-
-So the control changes only the grey stats strip beside it, which is not where
-the eye goes. Not a bug in `switchHorizon` — that pass was verified correct.
-
-**Still true after the 2026-08-14 cut to two presets, and now hiding a bigger
-difference.** Re-checked against the same book: `medium` (top 4, exit >9) and
-`long` (top 5, exit >13) also render byte-identical badges, and still would if
-five names were held. The gap between the two bands is now four ranks rather
-than one, so the selector conceals more than it used to, not less. It surfaces
-only when a holding actually falls past rank 9 — which is exactly the moment the
-reader most needs to know the two presets disagree.
-
-Proposed fix: **draw the band boundaries in the leaderboard itself** — a rule
-after `top_n` and another after `top_n + buffer` — so switching preset visibly
-moves the lines whether or not any badge changes. Cheap, and it makes the
-control honest for every portfolio rather than only for ones near a boundary.
+Fix: drive the highlight from the active horizon's `top_n` rather than a literal
+3, updated in `applyBandBoundaries()` (which already walks every row and knows
+the horizon). Needs the class renamed off `top3` — it is referenced in the
+template, the CSS, and the scan-history rebuild path, and a name asserting "3"
+is what let it drift in the first place. Historical scans rendered by
+scan-history.js have no horizon selector, so they should keep highlighting a
+fixed count; pass it explicitly rather than leaving a second literal behind.
 
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
@@ -526,6 +513,47 @@ source-only and tight:
 ---
 
 # Done
+
+- **Band boundaries drawn in the leaderboard, so the Horizon control is
+  visibly doing something** — the selector claimed to "set the Enter/Exit band"
+  while rendering byte-identical badges for any book held at the top of the
+  table, because `Hold` spans the whole band and every preset contained those
+  ranks. The band was always real; nothing drew it. Two solid rules now mark the
+  cuts: after the last row inside the buy band (`top_n`) and after the last row
+  still held (`top_n + buffer`), with a small legend beside the selector.
+  Switching preset moves both lines — Medium cuts after ranks 4 and 9, Long
+  after 5 and 13.
+
+  Solid, because rows already carry a dashed separator: a dashed cut would have
+  read as one more row divider.
+
+  **Anchored to the last qualifying VISIBLE row, not to a fixed rank.** Ranks
+  tie (`rankAverage` yields 4.5, so `rank === top_n` can match nothing), and
+  filters hide rows, which would strand a line on a hidden row. Anchoring to the
+  last visible row in the band keeps "everything above this line is inside the
+  band" true under every filter — verified by hiding ranks 3–4 and watching the
+  buy cut move to rank 2, and by hiding every row and watching both lines and
+  the legend disappear rather than linger.
+
+  Two rendering traps, both caught by checking rather than assuming:
+
+  1. **The pinned columns swallowed the line on mobile.** Below 600px the first
+     two cells are `position: sticky` with an opaque background stacked above
+     the row, so a `border-bottom` on the `<tr>` is hidden behind them — the cut
+     would have started one column in. Redrawn as an inset shadow on those
+     cells, the same workaround the file already used for the vertical edge.
+  2. **The fix then lost the cascade on column 2 only.** The existing right-edge
+     rule is `#leaderboard-table td:nth-child(2)`, and an ID outranks any number
+     of classes, so the class-only override was silently discarded on exactly
+     one cell. All four rules now carry the `#leaderboard-table` prefix.
+
+  Verified in the browser at desktop and 375px, in light and dark: the cuts
+  render in both themes, the legend is hidden when no lines are drawn, and the
+  colours are distinct (sage `--up` for the buy cut, terracotta `--down` at
+  heavier weight for the exit cut, which is the more consequential of the two).
+  Shown regardless of badge gating — `top_n`/`buffer` are already public in the
+  page's `HORIZONS`, so the lines leak nothing, and a guest gets a selector that
+  visibly does something. 698 tests pass. *(2026-08-14)*
 
 - **Cut from three horizon presets to two: `medium` → M/4/5, `long` → M/5/8,
   `short` removed** — the lineup is now **one cadence, two band widths**. The

@@ -101,6 +101,13 @@
       <span class="hz-stat"><b id="hz-trades">—</b> <span data-i18n="hz_trades">trades/yr</span></span>
     </span>
     <span class="horizon-note" data-i18n="horizon_note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
+    {#- Legend for the two cut lines drawn in the table by applyBandBoundaries().
+        Hidden until those lines exist, so it never describes something absent —
+        e.g. when the leaderboard is showing a past scan rebuilt without ranks. -#}
+    <span class="band-legend" id="band-legend" hidden>
+      <span class="bl-item"><span class="bl-swatch buy"></span><span data-i18n="band_buy">buy band</span></span>
+      <span class="bl-item"><span class="bl-swatch exit"></span><span data-i18n="band_exit">sell below</span></span>
+    </span>
   </div>
   <div class="utility-row">
     <div class="filter-bar" id="leaderboard-filter-bar">
@@ -429,6 +436,60 @@ function badgesVisible() {
   return !BADGES_GATED || window.SM_SIGNED_IN === true;
 }
 
+// Draw the active horizon's two cut lines into the leaderboard.
+//
+// Why this exists: the Horizon control is labelled "sets the Enter/Exit band",
+// but the badges only differ between presets when a row actually sits between
+// two presets' thresholds. On a book held at the top of the table, every preset
+// renders identical badges and the selector looks broken. The band is real
+// either way — this draws it.
+//
+// Attached to the LAST QUALIFYING VISIBLE ROW rather than to a fixed rank, for
+// two reasons:
+//   - ranks tie (rankAverage yields 4.5), so `rank === top_n` can match nothing;
+//   - filters hide rows, and a line anchored to a hidden row would vanish.
+// Reading "everything above this line is inside the band" stays true under any
+// filter, which a fixed-rank line would not.
+//
+// Per region: cohorts are ranked independently, so each gets its own pair.
+function applyBandBoundaries() {
+  var h = currentHorizon();
+  var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row');
+  // A cut line only means anything while the table is in rank order. Sort by
+  // Theme or by Composite descending and the band stops being contiguous — the
+  // rows inside it scatter, so a single line cannot separate "in" from "out"
+  // and would just be a rule under an arbitrary row. Column 0 ascending is the
+  // rank sort (see _sortCol/_sortDir defaults).
+  var rankOrder = (typeof _sortCol === 'undefined') || (_sortCol === 0 && _sortDir === 1);
+  var lastBuy = {}, lastHold = {};
+  Array.prototype.forEach.call(rows, function (tr) {
+    tr.classList.remove('band-edge-buy', 'band-edge-hold');
+    if (!rankOrder || tr.style.display === 'none') { return; }
+    var rank = parseFloat(tr.dataset.rank);
+    if (isNaN(rank)) { return; }
+    var region = tr.dataset.region || '';
+    if (rank <= h.top_n) { lastBuy[region] = tr; }
+    if (rank <= h.top_n + h.buffer) { lastHold[region] = tr; }
+  });
+  var drew = false;
+  Object.keys(lastBuy).forEach(function (r) {
+    lastBuy[r].classList.add('band-edge-buy'); drew = true;
+  });
+  Object.keys(lastHold).forEach(function (r) {
+    // Only a cut if something is actually below it; a line under the final row
+    // separates nothing and reads as a stray border.
+    var tr = lastHold[r];
+    var next = tr.nextElementSibling;
+    while (next && (next.style.display === 'none'
+                    || !next.classList.contains('leaderboard-row'))) {
+      next = next.nextElementSibling;
+    }
+    if (next) { tr.classList.add('band-edge-hold'); drew = true; }
+  });
+  var legend = document.getElementById('band-legend');
+  if (legend) { legend.hidden = !drew; }
+}
+
 function applyHorizonBadges() {
   var h = currentHorizon();
   var visible = badgesVisible();
@@ -471,6 +532,8 @@ function applyHorizonBadges() {
     // carry data-en="▲ Enter" and snap back to Enter on the next EN pass.
     badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);
   });
+
+  applyBandBoundaries();
 
   var setupFilters = document.getElementById('filter-group-setup');
   if (setupFilters && setupFilters.hidden !== !visible) {
@@ -815,6 +878,9 @@ function applyFilters() {
     r.style.display = ok ? '' : 'none';
     if (ok) { shown++; } else { _collapseBreakdown(r.dataset.sectorId); }
   });
+  // The cut lines anchor to the last VISIBLE row inside each band, so they have
+  // to be redrawn whenever visibility changes or they stay on a hidden row.
+  if (typeof applyBandBoundaries === 'function') { applyBandBoundaries(); }
   _updateFilterCount(shown, rows.length);
   var nm = document.getElementById('filter-no-match');
   if (nm) nm.style.display = (shown === 0 && rows.length > 0) ? '' : 'none';
@@ -909,6 +975,12 @@ function sortTable(col) {
       if (bd) tbody.appendChild(bd);
     }
   });
+
+  // The rows just moved. Without this the band cut lines stay on whichever rows
+  // happened to hold them before the sort, landing mid-table under arbitrary
+  // themes; applyBandBoundaries() also clears them entirely once the order is
+  // no longer by rank.
+  if (typeof applyBandBoundaries === 'function') { applyBandBoundaries(); }
 }
 
 // Keyboard support for interactive table elements
@@ -1009,6 +1081,11 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
       tbody.querySelectorAll('tr.leaderboard-row'));
     updateRows(rows, scored);
     sortVisibleByRank(rows, scored, tbody);
+    // AFTER the re-sort, not before: updateRows() -> applyHorizonBadges() has
+    // already drawn the cuts once, but against the pre-rescore DOM order. The
+    // rows then move underneath them, so without this pass the lines sit on the
+    // wrong themes until some unrelated event happens to redraw them.
+    if (typeof applyBandBoundaries === 'function') { applyBandBoundaries(); }
   }
 
   // Init from persisted state.

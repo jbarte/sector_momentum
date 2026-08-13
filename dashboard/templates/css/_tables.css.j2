@@ -357,6 +357,53 @@ tbody td:nth-child(n+4) {
   outline-offset: 2px;
   border-radius: 3px;
 }
+/* Band boundaries — where the active horizon cuts the leaderboard.
+   ---------------------------------------------------------------
+   The Horizon selector claims to "set the Enter/Exit band", but on a book held
+   at the top of the table every preset renders the same badges, so the control
+   looked inert (see BACKLOG). These two rules make the band itself visible, so
+   switching preset always moves something the eye can see.
+
+   Rows already carry a DASHED separator, so these are SOLID to read as cut
+   lines rather than as another row divider. Both sit on the row ABOVE the cut:
+   everything down to the solid line is a buy candidate; everything down to the
+   second line is still held; below it is out. */
+.leaderboard-row.band-edge-buy {
+  border-bottom: 2px solid color-mix(in srgb, var(--up) 45%, transparent);
+}
+.leaderboard-row.band-edge-hold {
+  border-bottom: 2px solid color-mix(in srgb, var(--down) 60%, transparent);
+}
+/* A row can be both edges at once when the buffer leaves no gap between them
+   (or when filtering hides everything in between). The exit cut is the more
+   consequential of the two, so it wins. */
+.leaderboard-row.band-edge-buy.band-edge-hold {
+  border-bottom: 2px solid color-mix(in srgb, var(--down) 60%, transparent);
+}
+/* The legend beside the horizon selector. Swatches mirror the two line colours
+   so the mapping needs no words beyond the labels themselves. */
+.band-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--fg4);
+}
+/* An author `display` beats the UA sheet's `[hidden] { display: none }`, so the
+   `hidden` property set in applyBandBoundaries() would do nothing without this
+   — the legend would keep describing cut lines that are not drawn. Same trap
+   the filter-group rules below already document. */
+.band-legend[hidden] { display: none; }
+.band-legend .bl-item { display: inline-flex; align-items: center; gap: 4px; }
+.band-legend .bl-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--border);
+}
+.band-legend .bl-swatch.buy { border-top-color: color-mix(in srgb, var(--up) 45%, transparent); }
+.band-legend .bl-swatch.exit { border-top-color: color-mix(in srgb, var(--down) 60%, transparent); }
+
 .leaderboard-row.position-held {
   background: color-mix(in srgb, var(--brand-strong) 7%, transparent);
 }
