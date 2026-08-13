@@ -241,14 +241,25 @@
    * dashboard/templates/), so this only adds the Live chip — no
    * scan-date text update. */
   function markLive() {
-    var host = document.querySelector(".command-bar .meta-cluster");
-    if (host && !document.getElementById("live-chip")) {
-      var chip = document.createElement("span");
-      chip.id = "live-chip";
-      chip.className = "chip chip-up";
-      chip.textContent = "Live";
-      host.insertBefore(chip, host.firstChild);
-    }
+    if (document.getElementById("live-chip")) { return; }
+    // Prefer the market-context control, so Live sits with the chips it belongs
+    // to and inherits their tap-for-explanation affordance. It used to go
+    // straight into .meta-cluster, where it was a bare hardcoded English word
+    // with no tooltip and no explanation anywhere on the site.
+    var host = document.getElementById("context-chips")
+            || document.querySelector(".command-bar .meta-cluster");
+    if (!host) { return; }
+    var chip = document.createElement("span");
+    chip.id = "live-chip";
+    chip.className = "chip chip-up";
+    chip.textContent = "Live";
+    // data-i18n so a Swedish reader is not left with an English word; applyLang()
+    // captures data-en from textContent on its first pass, and this function runs
+    // before the applyLang() call in the upgrade path below.
+    chip.setAttribute("data-i18n", "chip_live");
+    chip.setAttribute("data-i18n-title", "chip_live_tip");
+    chip.setAttribute("title", "Showing the latest scan");
+    host.insertBefore(chip, host.firstChild);
   }
 
   signinBtn.addEventListener("click", function () {

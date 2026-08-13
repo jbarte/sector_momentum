@@ -1162,6 +1162,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
     {% include "_guide_illo.html.j2" %}
     <h2 id="guide-modal-title" data-i18n="guide_summary">How to read this tab</h2>
+    {% include "_guide_market_context.html.j2" %}
     <div class="tab-guide-body" data-guide-body="guide_body_leaderboard" hidden data-i18n-html="guide_body_leaderboard">
             <p>Themes are ranked strongest to weakest. Everything is measured
                <strong>against the other themes today</strong>, not against zero — so
@@ -1233,20 +1234,16 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
                Hold plus ↓↓ is one on its way out that has not fallen far enough to
                trigger an Exit yet.</p>
 
+            {#- The "Market context chips" section moved to
+                _guide_market_context.html.j2 on 2026-08-14: the chips render in the
+                shared header, so their explanation had to be reachable from the
+                Sentiment page too, and it is now opened by tapping the chips
+                themselves. Kept as a pointer rather than duplicated copy. -#}
             <h4>Market context chips</h4>
-            <p>The SPY and VIX chips in the header describe the whole market, not any
-               theme:</p>
-            <ul>
-              <li><strong>SPY vs 200-DMA</strong> — the US market's distance from its
-                  200-day average. <span class="signal-hi">Positive</span> = long-term
-                  uptrend; <span class="signal-lo">negative</span> = downtrend.</li>
-              <li><strong>VIX</strong> — how much volatility traders expect. Calm
-                  (&lt; 15), Elevated (15–25), Stressed (&gt; 25).</li>
-            </ul>
-            <p>They change no scores. They tell you how much to trust the board: the same
-               top-ranked theme means something different in a calm uptrend than in a
-               stressed, falling market, where even the strongest theme is likely falling
-               too.</p>
+            <p>The <strong>Live</strong>, <strong>SPY</strong> and <strong>VIX</strong>
+               chips in the header describe the whole market, not any theme. They change
+               no scores &mdash; they tell you how much to trust the board.
+               <strong>Tap them</strong> for the full explanation.</p>
 
             <h4>Getting more detail</h4>
             <p>Click any row to expand it — you get every underlying signal, and the
@@ -1422,7 +1419,15 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     var btn = e.target.closest ? e.target.closest(".tab-guide-btn") : null;
     if (!btn) { return; }
     e.preventDefault();
-    show(btn.getAttribute("data-guide"), (btn.textContent || "").trim());
+    // data-guide-label wins over the trigger's text: the market-context chips
+    // are a trigger whose visible text is live data ("SPY +10.1% VIX 14.6"),
+    // which made a nonsense dialog heading. Text remains the default so every
+    // existing "How to read this tab" / "How is the sentiment score
+    // calculated?" button keeps mirroring its own wording.
+    var labelEl = btn.querySelector ? btn.querySelector(".cc-label") : null;
+    var label = labelEl ? labelEl.textContent.trim()
+                        : (btn.textContent || "").trim();
+    show(btn.getAttribute("data-guide"), label);
   });
 })();
 </script>

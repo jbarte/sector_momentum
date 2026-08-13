@@ -28,6 +28,19 @@
       var key = el.getAttribute("data-i18n-html");
       el.innerHTML = (lang === "sv" && SV_HTML[key] != null) ? SV_HTML[key] : enHtml.get(el);
     });
+    // aria-label, for controls whose accessible name is not their text. Added
+    // 2026-08-14 for the market-context chips, whose visible content is live
+    // numbers. Same shape as the title arm below; without it a data-i18n-*
+    // attribute is silently inert, which is how two of them were nearly shipped
+    // dead.
+    document.querySelectorAll("[data-i18n-aria]").forEach(function (el) {
+      if (!el.getAttribute("data-en-aria")) {
+        el.setAttribute("data-en-aria", el.getAttribute("aria-label") || "");
+      }
+      var akey = el.getAttribute("data-i18n-aria");
+      el.setAttribute("aria-label",
+        (lang === "sv" && SV[akey] != null) ? SV[akey] : el.getAttribute("data-en-aria"));
+    });
     document.querySelectorAll("[data-i18n-title]").forEach(function (el) {
       if (!el.getAttribute("data-en-title")) el.setAttribute("data-en-title", el.getAttribute("title") || "");
       var key = el.getAttribute("data-i18n-title");
