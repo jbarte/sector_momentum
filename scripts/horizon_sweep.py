@@ -46,10 +46,52 @@ TOP_N = [3, 4, 5]
 BUFFERS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 BACKTEST_CACHE = "data/backtest_cache"
 
+# History is ALWAYS fetched from here, whatever --start says. --start bounds the
+# evaluation window only. Fetching from --start instead is a trap this script
+# fell into until 2026-08-13: signals with a trailing window return NaN until
+# their lookback fills (compute_ma_structure needs 200 bars for above_200dma),
+# so a `--start 2008-01-01` run scored the whole 2008 crash on a degraded signal
+# set. It was enough to invert the ranking of the horizon presets — `M/5/7`
+# beat `M/5/4` by 1.9pp CAGR starved, and lost to it by 0.8pp warm.
+FETCH_START = "2003-01-01"
+
+# How much history an evaluation window must leave behind its first date.
+# above_200dma needs 200 TRADING bars; a calendar year is ~252 of them, so a
+# year of margin clears it without needing a trading calendar here.
+WARMUP_DAYS = 365
+
+# Deliberately NOT FETCH_START. Defaulting the evaluation start to the fetch
+# start would leave the bare `python3 scripts/horizon_sweep.py` — the run that
+# actually picks the presets — evaluating from the first fetched bar, i.e. the
+# exact defect this separation exists to remove.
+DEFAULT_START = "2004-01-01"
+
+
+def _validate_start(start: str) -> pd.Timestamp:
+    """Parse an evaluation start, rejecting one that would evaluate cold.
+
+    Raises rather than clamping: a silently-moved window is what produced a
+    report header claiming a start the run never used.
+    """
+    ts = pd.Timestamp(start)
+    earliest = pd.Timestamp(FETCH_START) + pd.Timedelta(days=WARMUP_DAYS)
+    if ts < earliest:
+        raise ValueError(
+            f"--start {ts.date()} leaves too little history to warm the signals: "
+            f"prices are fetched from {FETCH_START}, and evaluation must begin no "
+            f"earlier than {earliest.date()} ({WARMUP_DAYS} days later) so "
+            f"above_200dma is populated on the first evaluated date."
+        )
+    return ts
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--start", default="2003-01-01")
+    p.add_argument("--start", default=DEFAULT_START,
+                   help="Start of the EVALUATION window. Price history is always "
+                        f"fetched from {FETCH_START}, and this must be at least "
+                        f"{WARMUP_DAYS} days later so trailing-window signals are "
+                        "warm on the first evaluated date.")
     p.add_argument("--cost-bps", type=float, default=None,
                    help="Round-trip cost in bps applied on turnover. Defaults to "
                         "costs.round_trip_bps in config/weights.yaml. Sweeping at 0 "
@@ -99,6 +141,12 @@ def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
 def main() -> int:
     args = _parse_args()
 
+    try:
+        _validate_start(args.start)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        return 1
+
     if args.cost_bps is None:
         from src.horizons import round_trip_bps
         args.cost_bps = round_trip_bps()
@@ -110,8 +158,10 @@ def main() -> int:
     tickers = sorted(set(instrument_of.values()) | {themes_cfg.get("benchmark", "ACWI"), "SPY"})
     end = date.today().strftime("%Y-%m-%d")
 
-    logger.info("Fetching %d tickers %s → %s …", len(tickers), args.start, end)
-    prices = fetch_prices(tickers=tickers, start=args.start, end=end, cache_dir=BACKTEST_CACHE)
+    logger.info("Fetching %d tickers %s → %s (evaluating from %s) …",
+                len(tickers), FETCH_START, end, args.start)
+    prices = fetch_prices(tickers=tickers, start=FETCH_START, end=end,
+                          cache_dir=BACKTEST_CACHE)
 
     benchmark = engine.resolve_benchmark(themes_cfg, prices)
     if benchmark is None:
@@ -120,7 +170,8 @@ def main() -> int:
 
     rows: list[dict] = []
     for freq in CADENCES:
-        calendar = replay.rebalance_dates(prices[benchmark].index, freq)
+        calendar = replay.rebalance_dates(prices[benchmark].index, freq,
+                                          since=args.start)
         if len(calendar) < 3:
             logger.warning("%s: fewer than 3 rebalance dates — skipping", freq)
             continue
@@ -160,7 +211,8 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
     lines = [
         "# Rebalance horizon sweep",
         "",
-        f"- start `{args.start}`, cost `{args.cost_bps:.0f}` bps, benchmark `{benchmark}`",
+        f"- evaluated from `{args.start}` (history fetched from `{FETCH_START}`), "
+        f"cost `{args.cost_bps:.0f}` bps, benchmark `{benchmark}`",
         f"- benchmark CAGR `{fmt(rows[0]['bench_cagr'], pct=True)}` "
         "(varies slightly by cadence — each cadence measures it on its own calendar)",
         "",

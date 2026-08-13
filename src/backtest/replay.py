@@ -29,12 +29,27 @@ REBALANCE_FREQS: dict[str, tuple[str, int]] = {
 }
 
 
-def rebalance_dates(index: pd.DatetimeIndex, freq: str = "M") -> list[pd.Timestamp]:
+def rebalance_dates(index: pd.DatetimeIndex, freq: str = "M",
+                    since: pd.Timestamp | str | None = None) -> list[pd.Timestamp]:
     """Last trading day of each period in `index`, for the given cadence.
 
     freq is one of REBALANCE_FREQS ("W", "2W", "M", "2M", "Q"). The default "M"
     reproduces month_end_dates exactly, which is the regression gate for adding
     cadence at all.
+
+    `since` bounds the returned calendar without bounding the price history it
+    was derived from. This is the difference between "evaluate from 2008" and
+    "have no data before 2008": signals with a trailing window (above_200dma
+    needs 200 bars) return NaN until their lookback fills, so evaluating from
+    the first available bar scores the opening months on a degraded signal set.
+    Callers should fetch full history and pass `since`, never truncate the
+    fetch.
+
+    Filtering happens AFTER the period grouping on purpose. Multi-period
+    cadences ("2M") take every Nth period end counting from the start of
+    `index`, so slicing the index first would shift which months are review
+    months — the caller would silently evaluate a different calendar than the
+    one the presets were picked on.
     """
     if freq not in REBALANCE_FREQS:
         raise ValueError(
@@ -48,7 +63,11 @@ def rebalance_dates(index: pd.DatetimeIndex, freq: str = "M") -> list[pd.Timesta
     # group by period, take the max (last) trading day in each
     last_per_period = s.groupby(index.to_period(period)).max()
     dates = [pd.Timestamp(d) for d in last_per_period.tolist()]
-    return dates[::step]
+    dates = dates[::step]
+    if since is not None:
+        cutoff = pd.Timestamp(since)
+        dates = [d for d in dates if d >= cutoff]
+    return dates
 
 
 def month_end_dates(index: pd.DatetimeIndex) -> list[pd.Timestamp]:
