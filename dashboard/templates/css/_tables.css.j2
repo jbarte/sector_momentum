@@ -389,6 +389,11 @@ tbody td:nth-child(n+4) {
   font-size: 11px;
   color: var(--fg4);
 }
+/* An author `display` beats the UA sheet's `[hidden] { display: none }`, so the
+   `hidden` property set in applyBandBoundaries() would do nothing without this
+   — the legend would keep describing cut lines that are not drawn. Same trap
+   the filter-group rules below already document. */
+.band-legend[hidden] { display: none; }
 .band-legend .bl-item { display: inline-flex; align-items: center; gap: 4px; }
 .band-legend .bl-swatch {
   display: inline-block;

@@ -180,6 +180,26 @@ Fix is the same shape: fetch from a fixed `FETCH_START`, thread `since=` down
 to `replay.rebalance_dates` (the parameter already exists and is tested). The
 threading through `run_theme_track` is the only real work.
 
+## The gold rank badge highlights top 3, but the buy band is top 4
+
+`.rank-badge.top3` is applied to ranks 1–3 and has nothing to do with the active
+horizon — it is baked server-side in `index.html.j2` (`row.rank <= 3`) and
+re-derived in `dashboard/assets/scan-history.js` (`sc.rank <= 3`). `medium`'s
+`top_n` is 4.
+
+Harmless while nothing else marked the band. Now that the band cut lines ship
+(2026-08-14, see Done) the two disagree *visibly*: three highlighted rank badges
+sit above a buy-band line drawn after the fourth row, which reads as one of them
+being wrong. Switching to `long` (top 5) widens the gap to two rows.
+
+Fix: drive the highlight from the active horizon's `top_n` rather than a literal
+3, updated in `applyBandBoundaries()` (which already walks every row and knows
+the horizon). Needs the class renamed off `top3` — it is referenced in the
+template, the CSS, and the scan-history rebuild path, and a name asserting "3"
+is what let it drift in the first place. Historical scans rendered by
+scan-history.js have no horizon selector, so they should keep highlighting a
+fixed count; pass it explicitly rather than leaving a second literal behind.
+
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
 The horizon-preset spec (`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`)
