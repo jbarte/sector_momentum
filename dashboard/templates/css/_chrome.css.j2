@@ -508,3 +508,22 @@ thead th[tabindex="0"]:focus-visible {
   outline: 2px solid var(--brand-strong);
   outline-offset: -2px;
 }
+
+/* "alpha" marker on the Sentiment segment and its page note. Deliberately the
+   quietest thing in the command bar — it qualifies a nav item, it should not
+   compete with it. */
+.alpha-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg4);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  vertical-align: 1px;
+}
+.alpha-note { border-left: 3px solid var(--border); padding-left: 10px; }

@@ -136,6 +136,12 @@
     {#- Visible text rather than aria-label on a bare glyph: an aria-label would
         override the visible name for AT, and a control that silently re-ranks
         the board should say so on its face. -#}
+    {#- Sentiment is alpha, so the control that blends it into the ranking is not
+        rendered at all (build.SENTIMENT_RANKING_ENABLED). Not merely hidden: the
+        wiring below early-returns when the control is absent, which is what
+        stops a reader who once enabled it from having it silently re-applied
+        from localStorage. A `display:none` would leave that path live. -#}
+    {% if sentiment_ranking_enabled %}
     <details class="rank-settings">
       <summary><span class="rs-glyph" aria-hidden="true">⚙</span><span data-i18n="rank_settings">Ranking</span></summary>
       <div id="sentiment-control" class="sentiment-control">
@@ -147,6 +153,7 @@
         </span>
       </div>
     </details>
+    {% endif %}
     <button type="button" class="tab-guide-btn" data-guide="guide_body_leaderboard" data-i18n="guide_summary">How to read this tab</button>
   </div>
   <div id="scan-digest-banner" class="digest-collapsed" style="display:none">

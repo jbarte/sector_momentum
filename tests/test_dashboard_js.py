@@ -315,8 +315,14 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
     html = out.read_text()
     assert "var RESCORE_DATA =" in html
     assert 'assets/rescore.js' in html
-    assert 'id="sentiment-toggle"' in html
-    assert 'id="sentiment-weight"' in html
+    # The blend control is gated on sentiment_ranking_enabled, which this context
+    # does not set — so it renders absent, and Undefined is falsy. RESCORE_DATA
+    # and rescore.js stay unconditional: the sentiment slider is only one of
+    # their consumers (the badge rules and the trajectory maths are the others),
+    # so gating the control must not strip the data or the module.
+    # tests/test_sentiment_alpha_gate.py covers both directions of the flag.
+    assert 'id="sentiment-toggle"' not in html
+    assert 'id="sentiment-weight"' not in html
     # no empty JS var assignments
     assert not re.compile(r"var\s+\w+\s*=\s*;").findall(html)
 
