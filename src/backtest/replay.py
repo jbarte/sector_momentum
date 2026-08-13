@@ -29,6 +29,53 @@ REBALANCE_FREQS: dict[str, tuple[str, int]] = {
 }
 
 
+# Fetch window vs evaluation window
+# --------------------------------
+# Price history is ALWAYS fetched from FETCH_START, whatever window a caller
+# wants to evaluate; the window is applied afterwards via `rebalance_dates(...,
+# since=)`. Passing the evaluation start to fetch_prices instead is a trap both
+# entry points fell into: signals with a trailing lookback return NaN until it
+# fills (compute_ma_structure needs 200 bars for above_200dma), so evaluation
+# beginning on the first fetched bar scores its opening months on a degraded
+# signal set. On a 2008 start that is the whole crash, and in the sweep it was
+# enough to INVERT the horizon preset ranking — `M/5/7` beat `M/5/4` by 1.9pp
+# CAGR starved and lost to it by 0.8pp warm.
+#
+# These live here, next to `since`, rather than in each CLI: two copies of a
+# safety constant is how the sweep and backtest.py came to disagree in the
+# first place.
+FETCH_START = "2003-01-01"
+
+# How much history an evaluation window must leave behind its first date.
+# above_200dma needs 200 TRADING bars; a calendar year is ~252 of them, so a
+# year of margin clears it without needing a trading calendar here.
+WARMUP_DAYS = 365
+
+# Deliberately NOT FETCH_START: defaulting the evaluation start to the fetch
+# start leaves the bare, default invocation — the one that produces the shipped
+# figures — evaluating from the first fetched bar, i.e. the exact defect this
+# separation exists to remove.
+DEFAULT_EVAL_START = "2004-01-01"
+
+
+def validate_eval_start(start: str) -> pd.Timestamp:
+    """Parse an evaluation start, rejecting one that would evaluate cold.
+
+    Raises rather than clamping: a silently-moved window is what produced a
+    report header naming a start the run never used.
+    """
+    ts = pd.Timestamp(start)
+    earliest = pd.Timestamp(FETCH_START) + pd.Timedelta(days=WARMUP_DAYS)
+    if ts < earliest:
+        raise ValueError(
+            f"--start {ts.date()} leaves too little history to warm the signals: "
+            f"prices are fetched from {FETCH_START}, and evaluation must begin no "
+            f"earlier than {earliest.date()} ({WARMUP_DAYS} days later) so "
+            f"above_200dma is populated on the first evaluated date."
+        )
+    return ts
+
+
 def rebalance_dates(index: pd.DatetimeIndex, freq: str = "M",
                     since: pd.Timestamp | str | None = None) -> list[pd.Timestamp]:
     """Last trading day of each period in `index`, for the given cadence.
