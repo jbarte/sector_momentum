@@ -101,6 +101,13 @@
       <span class="hz-stat"><b id="hz-trades">—</b> <span data-i18n="hz_trades">trades/yr</span></span>
     </span>
     <span class="horizon-note" data-i18n="horizon_note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
+    {#- Legend for the two cut lines drawn in the table by applyBandBoundaries().
+        Hidden until those lines exist, so it never describes something absent —
+        e.g. when the leaderboard is showing a past scan rebuilt without ranks. -#}
+    <span class="band-legend" id="band-legend" hidden>
+      <span class="bl-item"><span class="bl-swatch buy"></span><span data-i18n="band_buy">buy band</span></span>
+      <span class="bl-item"><span class="bl-swatch exit"></span><span data-i18n="band_exit">sell below</span></span>
+    </span>
   </div>
   <div class="utility-row">
     <div class="filter-bar" id="leaderboard-filter-bar">
@@ -429,6 +436,54 @@ function badgesVisible() {
   return !BADGES_GATED || window.SM_SIGNED_IN === true;
 }
 
+// Draw the active horizon's two cut lines into the leaderboard.
+//
+// Why this exists: the Horizon control is labelled "sets the Enter/Exit band",
+// but the badges only differ between presets when a row actually sits between
+// two presets' thresholds. On a book held at the top of the table, every preset
+// renders identical badges and the selector looks broken. The band is real
+// either way — this draws it.
+//
+// Attached to the LAST QUALIFYING VISIBLE ROW rather than to a fixed rank, for
+// two reasons:
+//   - ranks tie (rankAverage yields 4.5), so `rank === top_n` can match nothing;
+//   - filters hide rows, and a line anchored to a hidden row would vanish.
+// Reading "everything above this line is inside the band" stays true under any
+// filter, which a fixed-rank line would not.
+//
+// Per region: cohorts are ranked independently, so each gets its own pair.
+function applyBandBoundaries() {
+  var h = currentHorizon();
+  var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row');
+  var lastBuy = {}, lastHold = {};
+  Array.prototype.forEach.call(rows, function (tr) {
+    tr.classList.remove('band-edge-buy', 'band-edge-hold');
+    if (tr.style.display === 'none') { return; }
+    var rank = parseFloat(tr.dataset.rank);
+    if (isNaN(rank)) { return; }
+    var region = tr.dataset.region || '';
+    if (rank <= h.top_n) { lastBuy[region] = tr; }
+    if (rank <= h.top_n + h.buffer) { lastHold[region] = tr; }
+  });
+  var drew = false;
+  Object.keys(lastBuy).forEach(function (r) {
+    lastBuy[r].classList.add('band-edge-buy'); drew = true;
+  });
+  Object.keys(lastHold).forEach(function (r) {
+    // Only a cut if something is actually below it; a line under the final row
+    // separates nothing and reads as a stray border.
+    var tr = lastHold[r];
+    var next = tr.nextElementSibling;
+    while (next && (next.style.display === 'none'
+                    || !next.classList.contains('leaderboard-row'))) {
+      next = next.nextElementSibling;
+    }
+    if (next) { tr.classList.add('band-edge-hold'); drew = true; }
+  });
+  var legend = document.getElementById('band-legend');
+  if (legend) { legend.hidden = !drew; }
+}
+
 function applyHorizonBadges() {
   var h = currentHorizon();
   var visible = badgesVisible();
@@ -471,6 +526,8 @@ function applyHorizonBadges() {
     // carry data-en="▲ Enter" and snap back to Enter on the next EN pass.
     badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);
   });
+
+  applyBandBoundaries();
 
   var setupFilters = document.getElementById('filter-group-setup');
   if (setupFilters && setupFilters.hidden !== !visible) {
@@ -815,6 +872,9 @@ function applyFilters() {
     r.style.display = ok ? '' : 'none';
     if (ok) { shown++; } else { _collapseBreakdown(r.dataset.sectorId); }
   });
+  // The cut lines anchor to the last VISIBLE row inside each band, so they have
+  // to be redrawn whenever visibility changes or they stay on a hidden row.
+  if (typeof applyBandBoundaries === 'function') { applyBandBoundaries(); }
   _updateFilterCount(shown, rows.length);
   var nm = document.getElementById('filter-no-match');
   if (nm) nm.style.display = (shown === 0 && rows.length > 0) ? '' : 'none';
