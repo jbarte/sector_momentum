@@ -595,6 +595,42 @@ source-only and tight:
   absence, with a note that `RESCORE_DATA` and `rescore.js` stay unconditional —
   the slider is only one of their consumers, the badge rules and trajectory
   maths are the others. 727 tests pass. Restoring it is queued. *(2026-08-14)*
+- **Fund costs (TER): closed with no model change — the item's premise was
+  wrong, and the holdings question is answered** — filed on the reasoning that
+  the backtest ignores an annual drag and should take "a flat annual haircut of
+  roughly 0.5%", plus a smaller one on the benchmark.
+
+  **That would have double-counted.** An ETF's price series is already net of the
+  fund's expenses — NAV is struck after fees — so the modelled CAGR carries the
+  US fund's TER and ACWI's series carries ACWI's. Subtracting a full TER on top
+  removes the same cost twice. It would have looked like prudence and been an
+  error, which is the reason this is recorded rather than quietly dropped.
+
+  The correct quantity is the **UCITS-minus-US differential**. Measured across 9
+  of the 17 themes with a recorded equivalent (public fund pages, 2026-08-14
+  snapshot): BOTZ→XAIX −0.33pp, ICLN→IQQH +0.26pp, ITA→DFEN +0.17pp,
+  QTUM→QUTM +0.15pp, LIT→LI7U −0.15pp, CIBR→W1TB −0.14pp, BLOK→DAVV −0.08pp,
+  SOXX→VVSM +0.02pp, GDX→G2X +0.02pp. **Mean −0.01pp, mixed sign.** The
+  assumption that the UCITS wrapper costs more does not hold — US thematic ETFs
+  are frequently the pricier side. Nothing systematic to model, so no code
+  changed.
+
+  **The data question is answered (2026-08-14): the recorded UCITS entries ARE
+  what is held.** Jonas buys the fund named on each leaderboard entry, so the
+  differential table describes real costs and the queued config audit is
+  unnecessary.
+
+  One legacy exception, deliberately not acted on: the AI & Robotics exposure is
+  **L&G ROBO Global Robotics** (0.8%/yr ongoing + 0.03% transaction), predating
+  the project, where the config records **XAIX at 0.35%**. That flips this
+  theme's differential from −0.33pp to about +0.12pp — roughly 0.45pp more drag
+  than recorded on one of four or five equal-weight positions, so ~0.1pp of
+  portfolio per year (~300 SEK on 300k). It **retires itself**: the next time AI
+  & Robotics leaves the band, the replacement is the recorded XAIX. Not worth a
+  config exception for a position that resolves on its own next Exit.
+
+  Still true and untouched: `Shipping` has no UCITS entry, consistent with it
+  being flagged unbuyable. *(2026-08-14)*
 
 - **README and ARCHITECTURE brought back in line with the code, with tests so
   they cannot drift silently again** — both were rewritten 2026-08-09 and were
