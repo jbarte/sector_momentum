@@ -139,3 +139,44 @@ def test_dashboard_context_surfaces_the_theme_track(tmp_path):
     assert ctx["has_backtest"] is True
     assert "THEME" in json.loads(ctx["backtest_json"])
     assert [r["region"] for r in ctx["backtest_metrics"]] == ["THEME"]
+
+
+# ---------------------------------------------------------------------------
+# Evaluation window vs fetch window
+# ---------------------------------------------------------------------------
+# backtest.py used to pass --start straight to fetch_prices, so a windowed run
+# began scoring on its first fetched bar with no history behind it and
+# above_200dma was NaN for the opening ~200 bars. The same defect in
+# scripts/horizon_sweep.py inverted the horizon preset ranking (fixed
+# 2026-08-13); this is its twin, and the guard belongs at the engine boundary
+# where the calendar is actually derived.
+
+def test_run_theme_track_bounds_the_calendar_with_since():
+    prices = _prices()
+    full = engine.run_theme_track(_themes_cfg(), prices, top_n=2)
+    assert full is not None
+    all_dates = [pt["date"] for pt in full["equity_curve"]]
+    cut = all_dates[len(all_dates) // 2]
+
+    bounded = engine.run_theme_track(_themes_cfg(), prices, top_n=2, since=cut)
+    assert bounded is not None
+    kept = [pt["date"] for pt in bounded["equity_curve"]]
+    assert kept, "bounding must not empty the track"
+    assert min(kept) >= cut
+    assert len(kept) < len(all_dates), "since did not bound anything"
+
+
+def test_run_theme_track_since_none_is_the_old_behaviour():
+    """The parameter is opt-in: every existing caller must be unaffected."""
+    prices = _prices()
+    a = engine.run_theme_track(_themes_cfg(), prices, top_n=2)
+    b = engine.run_theme_track(_themes_cfg(), prices, top_n=2, since=None)
+    assert [p["date"] for p in a["equity_curve"]] == [p["date"] for p in b["equity_curve"]]
+
+
+def test_run_theme_track_since_past_the_data_returns_none():
+    """Fewer than 3 rebalance dates is already the "not enough data" path; an
+    over-late window must take it rather than raising."""
+    prices = _prices()
+    assert engine.run_theme_track(_themes_cfg(), prices, top_n=2,
+                                  since="2099-01-01") is None

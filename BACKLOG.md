@@ -163,23 +163,6 @@ XAIX (Xtrackers AI & Big Data, 0.35%). If the position actually held differs
 from the recorded UCITS equivalent, the recorded TERs are not the ones being
 paid, and the `match` quality field is describing the wrong instrument.
 
-## `backtest.py --start` starves the warm-up, same bug as the sweep
-
-`backtest.py:90` passes `args.start` straight to `fetch_prices`, and
-`engine.run_theme_track:66` then derives the rebalance calendar from that
-truncated index — the identical defect fixed in `scripts/horizon_sweep.py` on
-2026-08-13 (see Done). Any `python3 backtest.py --start 2015-01-01` scores its
-opening months on NaN `above_200dma` and reports figures that can invert a
-preset ranking.
-
-Latent, not live: CI and every scheduled run use the default `2003-01-01`, so
-`backtests/summary.json` is correct today. It bites the next person who runs a
-windowed backtest by hand.
-
-Fix is the same shape: fetch from a fixed `FETCH_START`, thread `since=` down
-to `replay.rebalance_dates` (the parameter already exists and is tested). The
-threading through `run_theme_track` is the only real work.
-
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
 The horizon-preset spec (`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`)
@@ -493,6 +476,59 @@ source-only and tight:
 ---
 
 # Done
+
+- **`backtest.py --start` no longer starves the warm-up — and the two harnesses
+  now agree** — the twin of the sweep bug fixed on 2026-08-13. `backtest.py`
+  passed `args.start` straight to `fetch_prices`, and `run_theme_track` then
+  derived the rebalance calendar from that truncated index, so any windowed run
+  scored its opening ~200 bars on a NaN `above_200dma`.
+
+  Latent rather than live — CI and every scheduled run use the default — but it
+  is the same defect that inverted the horizon preset ranking when it bit the
+  sweep, so it would have misled the next person to run a windowed backtest by
+  hand.
+
+  **Fixed by moving the shared rule into `src/backtest/replay.py`** rather than
+  copying the sweep's constants into a second file: `FETCH_START`,
+  `WARMUP_DAYS`, `DEFAULT_EVAL_START` and `validate_eval_start()` now live next
+  to `rebalance_dates`, where `since=` already lived, and
+  `scripts/horizon_sweep.py` imports them under the names it already used. Two
+  copies of a safety constant is exactly how these two entry points came to
+  disagree about which window they were running.
+
+  `run_theme_track` gained `since=None` — opt-in, so every existing caller is
+  unaffected — threaded down to `rebalance_dates`, and `backtest.py` now fetches
+  from `FETCH_START` while `--start` bounds evaluation only. A window inside the
+  warm-up is rejected with exit 1 rather than silently filtering nothing.
+
+  Verified end to end, not assumed:
+
+  - the default run reproduces the committed `backtests/summary.json` exactly,
+    metric for metric and window for window (the data begins 2008-03, so the
+    default calendar was never affected);
+  - `--start 2003-06-01` exits 1 with the reason;
+  - **`--start 2015-01-01` now matches `scripts/horizon_sweep.py` at the same
+    window and cost to the decimal** — medium 17.6%/0.90/−24.1%, long
+    15.5%/0.83/−32.8%. The two harnesses disagreeing by 2.1pp on an identical
+    cell is what exposed the original bug; they now agree.
+
+  **Two guards added in review, both hazards this fix itself introduced** by
+  making windowed runs useful for the first time:
+
+  - `--out` defaults to the git-tracked `backtests/`, so an exploratory
+    `--start 2015-01-01` would have replaced the *published* curve with a
+    windowed one and exited 0. A non-default window writing to the default
+    directory is now refused, with the escape (`--out`) named in the message.
+  - An over-late `--start` left every track `None`, and `write_results` happily
+    wrote `{"tracks": {"medium": null, "long": null}}` over a good artifact and
+    returned 0. An all-empty result now fails without writing.
+
+  Ten tests, all offline: three pin `since` at the engine boundary (it bounds
+  the curve, `since=None` is byte-identical to the old behaviour, an over-late
+  window takes the existing "not enough data" path rather than raising), and six
+  cover the CLI by replacing `fetch_prices` with a probe — including the direct
+  assertion that **`--start` never reaches `fetch_prices`**, which is the bug
+  itself. 712 pass. *(2026-08-14)*
 
 - **The highlighted rank badge follows the active horizon instead of a
   hardcoded 3** — `.rank-badge.top3` marked ranks 1-3 from a literal that knew

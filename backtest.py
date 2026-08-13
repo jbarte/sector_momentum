@@ -25,15 +25,28 @@ logging.basicConfig(level=logging.INFO,
                     datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger("backtest")
 
-DEFAULT_START = "2003-01-01"
+# Fetch window, evaluation window and the warm-up rule they must respect all
+# live in src.backtest.replay, shared with scripts/horizon_sweep.py. Two
+# copies of these is how this file and the sweep came to disagree.
+from src.backtest.replay import (  # noqa: E402
+    DEFAULT_EVAL_START, FETCH_START, validate_eval_start,
+)
+
 BACKTEST_CACHE = "data/backtest_cache"
+
+# Git-tracked and rendered by the dashboard, so it is guarded above: only a
+# default-window run may write here.
+DEFAULT_OUT = "backtests"
 
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Sector-momentum strategy backtest.")
     p.add_argument("--top-n", type=int, default=5, help="Number of sectors to hold (default 5).")
-    p.add_argument("--start", default=DEFAULT_START, help="History start date (YYYY-MM-DD).")
-    p.add_argument("--out", default="backtests", help="Output directory.")
+    p.add_argument("--start", default=DEFAULT_EVAL_START,
+                   help="Start of the EVALUATION window (YYYY-MM-DD). Price history "
+                        "is always fetched from " + FETCH_START + ", so trailing-window "
+                        "signals are warm on the first evaluated date.")
+    p.add_argument("--out", default=DEFAULT_OUT, help="Output directory.")
     p.add_argument("--cost-bps", type=float, default=None,
                    help="Round-trip transaction cost in basis points, applied on turnover. "
                         "Defaults to costs.round_trip_bps in config/weights.yaml. "
@@ -74,6 +87,25 @@ def run(args: argparse.Namespace) -> int:
     from src.backtest.results import write_results
     from src.horizons import horizons, round_trip_bps
 
+    try:
+        validate_eval_start(args.start)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        return 1
+
+    # A non-default window must not silently overwrite the SHIPPED artifact.
+    # `backtests/` is git-tracked and the dashboard's Backtest tab renders it, so
+    # an exploratory `--start 2015-01-01` would replace the published curve with
+    # a windowed one and say nothing. Refuse instead, and name the way out.
+    # Windowed runs only became useful with this fix, so the hazard arrived with
+    # it.
+    if args.start != DEFAULT_EVAL_START and args.out == DEFAULT_OUT:
+        logger.error(
+            "refusing to overwrite the committed artifact in %s/ with a windowed "
+            "run (--start %s). Pass --out somewhere else, e.g. --out /tmp/bt.",
+            DEFAULT_OUT, args.start)
+        return 1
+
     # None (not 0) means "unset" so an explicit `--cost-bps 0` still works for
     # reproducing the historical cost-free figures.
     if args.cost_bps is None:
@@ -86,8 +118,10 @@ def run(args: argparse.Namespace) -> int:
 
     end = date.today().strftime("%Y-%m-%d")
 
-    logger.info("Fetching %d tickers %s → %s (cache=%s) …", len(tickers), args.start, end, BACKTEST_CACHE)
-    prices = fetch_prices(tickers=tickers, start=args.start, end=end, cache_dir=BACKTEST_CACHE)
+    logger.info("Fetching %d tickers %s → %s (evaluating from %s, cache=%s) …",
+                len(tickers), FETCH_START, end, args.start, BACKTEST_CACHE)
+    prices = fetch_prices(tickers=tickers, start=FETCH_START, end=end,
+                          cache_dir=BACKTEST_CACHE)
     logger.info("Got %d / %d tickers", len(prices), len(tickers))
 
     # One track per horizon preset, keyed by preset. The dashboard's Backtest
@@ -101,7 +135,7 @@ def run(args: argparse.Namespace) -> int:
                     args.theme_top_n, args.rebalance, args.buffer)
         tracks = {"custom": run_theme_track(
             themes_cfg, prices, top_n=args.theme_top_n, cost_bps=args.cost_bps,
-            rebalance_freq=args.rebalance, buffer=args.buffer)}
+            rebalance_freq=args.rebalance, buffer=args.buffer, since=args.start)}
     else:
         tracks = {}
         for h in horizons():
@@ -109,7 +143,16 @@ def run(args: argparse.Namespace) -> int:
                         h.key, h.rebalance, h.top_n, h.buffer)
             tracks[h.key] = run_theme_track(
                 themes_cfg, prices, top_n=h.top_n, cost_bps=args.cost_bps,
-                rebalance_freq=h.rebalance, buffer=h.buffer)
+                rebalance_freq=h.rebalance, buffer=h.buffer, since=args.start)
+
+    # Every track empty means the run produced nothing — an over-late --start,
+    # or a universe with no usable prices. Writing that out replaces a good
+    # artifact with `{"tracks": {"medium": null, ...}}` and exits 0, which reads
+    # as success. Fail instead, leaving whatever was there intact.
+    if not any(tracks.values()):
+        logger.error("no track produced a result (evaluating from %s) — nothing "
+                     "written; %s/ left unchanged", args.start, args.out)
+        return 1
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 

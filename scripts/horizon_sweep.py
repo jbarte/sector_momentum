@@ -26,6 +26,9 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.backtest import engine, metrics, replay, strategy
+from src.backtest.replay import (
+    DEFAULT_EVAL_START, FETCH_START, WARMUP_DAYS, validate_eval_start,
+)
 from src.data.prices import fetch_prices
 
 logging.basicConfig(level=logging.INFO,
@@ -46,43 +49,14 @@ TOP_N = [3, 4, 5]
 BUFFERS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 BACKTEST_CACHE = "data/backtest_cache"
 
-# History is ALWAYS fetched from here, whatever --start says. --start bounds the
-# evaluation window only. Fetching from --start instead is a trap this script
-# fell into until 2026-08-13: signals with a trailing window return NaN until
-# their lookback fills (compute_ma_structure needs 200 bars for above_200dma),
-# so a `--start 2008-01-01` run scored the whole 2008 crash on a degraded signal
-# set. It was enough to invert the ranking of the horizon presets — `M/5/7`
-# beat `M/5/4` by 1.9pp CAGR starved, and lost to it by 0.8pp warm.
-FETCH_START = "2003-01-01"
-
-# How much history an evaluation window must leave behind its first date.
-# above_200dma needs 200 TRADING bars; a calendar year is ~252 of them, so a
-# year of margin clears it without needing a trading calendar here.
-WARMUP_DAYS = 365
-
-# Deliberately NOT FETCH_START. Defaulting the evaluation start to the fetch
-# start would leave the bare `python3 scripts/horizon_sweep.py` — the run that
-# actually picks the presets — evaluating from the first fetched bar, i.e. the
-# exact defect this separation exists to remove.
-DEFAULT_START = "2004-01-01"
-
-
-def _validate_start(start: str) -> pd.Timestamp:
-    """Parse an evaluation start, rejecting one that would evaluate cold.
-
-    Raises rather than clamping: a silently-moved window is what produced a
-    report header claiming a start the run never used.
-    """
-    ts = pd.Timestamp(start)
-    earliest = pd.Timestamp(FETCH_START) + pd.Timedelta(days=WARMUP_DAYS)
-    if ts < earliest:
-        raise ValueError(
-            f"--start {ts.date()} leaves too little history to warm the signals: "
-            f"prices are fetched from {FETCH_START}, and evaluation must begin no "
-            f"earlier than {earliest.date()} ({WARMUP_DAYS} days later) so "
-            f"above_200dma is populated on the first evaluated date."
-        )
-    return ts
+# Fetch window, evaluation window and the warm-up rule are defined once in
+# src.backtest.replay and shared with backtest.py. They were duplicated here
+# until 2026-08-14; a safety constant with two copies is precisely how this
+# script and backtest.py came to disagree about which window they were running.
+# Re-exported under the names this module already used so callers and tests are
+# unaffected.
+DEFAULT_START = DEFAULT_EVAL_START
+_validate_start = validate_eval_start
 
 
 def _parse_args() -> argparse.Namespace:

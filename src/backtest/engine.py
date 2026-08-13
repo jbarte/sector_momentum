@@ -58,12 +58,22 @@ def run_theme_track(
     cost_bps: float = 0.0,
     rebalance_freq: str = "M",
     buffer: int = 0,
+    since=None,
 ) -> dict | None:
+    """`since` bounds the EVALUATION window without bounding `prices`.
+
+    Callers should fetch full history (from `replay.FETCH_START`) and pass the
+    window here. Truncating the fetch instead starves the trailing-window
+    signals on the opening months — see the note on FETCH_START in replay.py.
+    Defaults to None, which evaluates everything the prices cover, so existing
+    callers are unaffected.
+    """
     benchmark = resolve_benchmark(themes_cfg, prices)
     if benchmark is None:
         return None
 
-    calendar = replay.rebalance_dates(prices[benchmark].index, rebalance_freq)
+    calendar = replay.rebalance_dates(prices[benchmark].index, rebalance_freq,
+                                      since=since)
     if len(calendar) < 3:
         return None
 
