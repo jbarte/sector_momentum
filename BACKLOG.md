@@ -163,51 +163,6 @@ XAIX (Xtrackers AI & Big Data, 0.35%). If the position actually held differs
 from the recorded UCITS equivalent, the recorded TERs are not the ones being
 paid, and the `match` quality field is describing the wrong instrument.
 
-## Re-pick the horizon presets at realistic cost
-
-**Every number this item previously carried was wrong** — produced by the
-sweep's warm-up bug, fixed 2026-08-13 (see Done). The old tables claimed all
-three cells were off the frontier and that `M/5/7` beat `M/5/4` by ~1.9pp CAGR.
-Re-run on warm history, `M/5/4` *wins* by 0.8pp. The claim inverted, so the
-tables are deleted rather than annotated.
-
-**Where it actually stands**, sweep at 100 bps (config `costs.round_trip_bps`),
-history fetched from 2003 so trailing-window signals are warm:
-
-| preset | cell | 2008– CAGR/Sharpe/tr | 2015– CAGR/Sharpe/tr |
-|---|---|---|---|
-| short | W/3/5 (current) | 14.4% / 0.68 / 21.4 | 15.9% / 0.72 / — |
-| short | `W/3/6` | 14.3% / 0.68 / **15.7** | 17.1% / 0.76 / — |
-| medium | M/5/4 (current) | **15.0% / 0.84** / 16.8 | **17.1% / 0.90** / — |
-| medium | `M/5/7` | 14.2% / 0.78 / **8.0** | 15.9% / 0.83 / — |
-| long | 2M/4/6 (current) | 14.1% / 0.73 / 7.4 | 15.8% / 0.73 / — |
-
-What remains to decide:
-
-- **`short` → `W/3/6`?** Return and Sharpe are a wash on 2008– and better on
-  2015–, with **27% fewer trades**. Defensible on churn alone, since churn is
-  cost actually paid. This is the one candidate still standing.
-- **`medium`: leave at M/5/4.** `M/5/7` costs 0.8pp CAGR and 0.06 Sharpe in
-  both windows to halve modelled churn. Only worth revisiting if the
-  cadence-blind badge problem (see the actionable-day item below) is quantified
-  well enough to show the unmodelled churn exceeds that give-up — measured at
-  29 trades/yr acting weekly against 18 modelled.
-- **`long`: no change.** Nothing beat it in either window.
-
-Discipline to keep: confirm on 2008– *and* 2015– before adopting (this repo has
-had single-cell results reverse under a subperiod check three times now,
-counting this one), and read the band fraction `(top_n + buffer) / n_themes`
-rather than the absolute buffer, since the universe keeps moving.
-
-**Cost input is settled and does not change the answer.** Researched Avanza's
-schedule against Jonas's account (ISK — no capital-gains drag, no access to the
-cheaper KF Valutakonto — 150k–500k SEK): real round-trip is **~65–80bps**, not
-100, with the FX leg (0.5% round-trip) dominating courtage at these sizes. The
-sweep was run at both 70 and 100 bps and picks the same cells at each, so the
-shipped 100 is merely conservative. Full fee research and sources:
-[`sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md`](/Users/jonasbarte/AI%20Projects/sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md)
-(§ Thread A).
-
 ## `backtest.py --start` starves the warm-up, same bug as the sweep
 
 `backtest.py:90` passes `args.start` straight to `fetch_prices`, and
@@ -563,6 +518,39 @@ source-only and tight:
 ---
 
 # Done
+
+- **Horizon presets re-picked at realistic cost — `short` → `W/3/6`, the other
+  two deliberately unchanged** — closes the item filed after the 0 bps sweep
+  was found to have picked all three cells under free-trading assumptions. Run
+  on warm history (post-fix sweep, above) at 100 bps, and again at the ~70 bps
+  an ISK account really pays, requiring a challenger to beat the incumbent on
+  CAGR *and* Sharpe in both 2008– and 2015–:
+
+  | preset | outcome |
+  |---|---|
+  | `short` | **W/3/5 → W/3/6.** 14.3%/0.68 vs 14.4%/0.68 on 2008–, 17.1%/0.76 vs 15.9%/0.72 on 2015–; trades/yr **21.4 → 15.7** |
+  | `medium` | **unchanged (M/5/4).** Beats every challenger on both metrics in both windows; `M/5/7` costs 0.8pp CAGR and 0.06 Sharpe to halve modelled churn |
+  | `long` | **unchanged (2M/4/6).** Nothing beat it in either window |
+
+  `short` ships on **churn alone, not return** — the CAGR and Sharpe difference
+  is inside noise, and 27% fewer trades is cost actually paid. Same winners at
+  70 and 100 bps, so the choice doesn't hinge on the cost input; the shipped 100
+  is conservative for this account.
+
+  **`short` now trades less per year than `medium` (15.7 vs 16.8), by design.**
+  The presets are ordered by holding period (63 / 94 / 182 days), which still
+  holds. trades/yr is a consequence of band width, not the definition: a wide
+  band on a weekly cadence churns less than a narrow band on a monthly one while
+  still turning over faster. `test_presets_are_ordered_by_holding_period` was
+  relaxed accordingly — it now asserts the holding-period ordering plus both
+  presets trading more than `long`, which is the comparison that would actually
+  mislead if it broke.
+
+  Config-only: `config/weights.yaml` plus the regenerated `backtests/` artifact.
+  Verified in the built dashboard — the stats strip reads `3 / ~63d / 16` and the
+  exit rank moves 8 → 9. A reader holding ranks 1–4 sees **no badge change**;
+  the effect is on when a holding is told to leave, not on today's board.
+  696 tests pass. *(2026-08-13)*
 
 - **Horizon sweep starved its own warm-up, inverting the preset ranking** —
   `scripts/horizon_sweep.py` passed `--start` straight to `fetch_prices`, then

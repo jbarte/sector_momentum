@@ -87,12 +87,23 @@ def test_every_preset_names_a_real_cadence():
 
 
 def test_presets_are_ordered_by_holding_period():
-    """Short holds briefest and trades most; Long the reverse. If this inverts,
-    the labels lie about what the reader is choosing."""
+    """Short holds briefest, Long the longest. If this inverts, the labels lie
+    about what the reader is choosing.
+
+    HOLDING PERIOD is the ordering that defines the presets. trades/yr is only a
+    consequence of band width, and it is NOT required to order with them: since
+    `short` widened to W/3/6 on 2026-08-13 it trades 15.7/yr against `medium`'s
+    16.8. That is not an inversion of the labels — a wide band on a weekly
+    cadence genuinely churns less than a narrow band on a monthly one, while
+    still turning positions over in 63 days rather than 94. Long remains the
+    quietest by both measures, which is the comparison that would actually
+    mislead if it broke.
+    """
     by_key = {h.key: h for h in horizons()}
     s, m, l = by_key["short"], by_key["medium"], by_key["long"]
     assert s.median_holding_days < m.median_holding_days < l.median_holding_days
-    assert s.trades_per_year > m.trades_per_year > l.trades_per_year
+    assert s.trades_per_year > l.trades_per_year
+    assert m.trades_per_year > l.trades_per_year
 
 
 def test_default_is_one_of_the_presets():
