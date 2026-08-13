@@ -139,29 +139,87 @@ the footer, puts the control where its sibling controls already live, and
 inherits a modal implementation that is already accessible rather than adding
 a third bespoke one.
 
-## Ongoing fund costs (TER) are not modelled anywhere
+## Fund costs (TER) — the wrapper differential is ~zero; only the holdings question remains
 
-`costs.round_trip_bps` covers per-trade cost only. The backtest has no concept
-of an **annual** drag, and two real ones exist:
+**Researched 2026-08-14. The original framing of this item was wrong and the
+modelling change it proposed would have made the backtest LESS accurate.**
 
-- **The fund's TER.** Avanza's disclosure for L&G ROBO Global Robotics shows
-  *Löpande avgifter 0.8%/yr* plus *Transaktionsavgifter 0.03%/yr*. Against a
-  13.9% modelled CAGR that is not a rounding error.
-- **The US-vs-UCITS TER gap.** The backtest runs on US-listed ETF price series,
-  which are already net of the *US* fund's TER. The instrument actually bought
-  is the UCITS equivalent with its own, usually higher, TER. So the modelled
-  return silently assumes the cheaper wrapper.
+It asked for "a flat annual haircut of roughly 0.5% applied to strategy
+returns", plus a smaller one on the benchmark. That double-counts: an ETF's
+price series is already **net of the fund's expenses** — NAV is struck after
+fees — so the backtest's CAGR carries the US fund's TER, and ACWI's series
+carries ACWI's. Charging a full TER on top subtracts the same cost twice.
 
-Recorded UCITS TERs in `config/themes.yaml` average 0.46% (max 0.65%), so a
-first cut is a flat annual haircut of roughly 0.5% applied to strategy returns —
-but note it should apply to the **benchmark** too, or the comparison tilts the
-wrong way (ACWI trackers are cheap, ~0.12–0.20%).
+The correct quantity is the **differential**: the UCITS fund actually bought
+minus the US fund whose price series is modelled. Measured over 9 of the 17
+themes with a recorded UCITS equivalent:
 
-Worth checking while doing this: the fund in that Avanza screenshot (L&G ROBO)
-is **not** the one `themes.yaml` lists for AI & Robotics — the config records
-XAIX (Xtrackers AI & Big Data, 0.35%). If the position actually held differs
-from the recorded UCITS equivalent, the recorded TERs are not the ones being
-paid, and the `match` quality field is describing the wrong instrument.
+| theme | US | US TER | UCITS | UCITS TER | differential |
+|---|---|---|---:|---|---:|
+| AI & Robotics | BOTZ | 0.68% | XAIX | 0.35% | **−0.33pp** |
+| Semiconductors | SOXX | 0.33% | VVSM | 0.35% | +0.02pp |
+| Cybersecurity | CIBR | 0.59% | W1TB | 0.45% | −0.14pp |
+| Clean Energy | ICLN | 0.39% | IQQH | 0.65% | **+0.26pp** |
+| Defense | ITA | 0.38% | DFEN | 0.55% | +0.17pp |
+| Blockchain & Crypto | BLOK | 0.73% | DAVV | 0.65% | −0.08pp |
+| Quantum Computing | QTUM | 0.40% | QUTM | 0.55% | +0.15pp |
+| Lithium & Battery | LIT | 0.75% | LI7U | 0.60% | −0.15pp |
+| Gold & Precious Miners | GDX | 0.51% | G2X | 0.53% | +0.02pp |
+
+**Mean differential: −0.01pp. Mixed sign, and zero on average.** The item's
+premise that the UCITS wrapper is "usually higher" does not hold — US thematic
+ETFs are frequently the more expensive one. So there is **no systematic drag to
+model**, and no code change is proposed. Modelling a per-theme differential
+would move the headline CAGR by a rounding error while adding a maintenance
+burden (TERs change; the table above is a 2026-08-14 snapshot from public fund
+pages, not a live feed).
+
+**What genuinely remains, and only Jonas can answer:** whether the UCITS funds
+recorded in `config/themes.yaml` are the ones actually held. The Avanza
+disclosure that prompted this item showed **L&G ROBO Global Robotics**
+(*Löpande avgifter 0.8%/yr* + *Transaktionsavgifter 0.03%/yr*) for the AI &
+Robotics exposure, while the config records **XAIX at 0.35%**. If the real
+holding is the 0.8% fund, that theme carries ~0.45pp more drag than recorded,
+the `match: close` quality is describing a different instrument, and the
+differential for it flips from −0.33pp to **+0.12pp**.
+
+That is a **data-accuracy** question about 17 config entries, not a modelling
+one. Worth an audit pass against the actual Avanza holdings; not worth a
+backtest change until it turns up a real mismatch.
+
+Also still true and untouched by the above: `Shipping` has no UCITS entry at
+all, which is consistent with it being flagged unbuyable.
+
+## Documentation has drifted from the current structure and functionality
+
+`README.md` and `ARCHITECTURE.md` were rewritten 2026-08-09 for the
+theme-era system and were accurate then. A week of changes has moved past them,
+and nothing checks it.
+
+Known-stale as of 2026-08-14:
+
+- **`README.md:31` still says "A horizon preset (Short / Medium / Long)".**
+  There are two presets, Medium and Long, both monthly — `short` was removed
+  2026-08-14 (see Done). This is the most misleading line in either document:
+  it describes a control the reader will not find.
+- **The preset cells and their figures are unstated or stale** wherever the
+  documents quote strategy numbers. Current: `medium` M/4/5 (15.6% / 0.85 /
+  12.9 trades per year / 120-day median hold), `long` M/5/8 (14.0% / 0.78 /
+  6.9 / 183).
+- **The band cut lines in the leaderboard are undocumented** — shipped
+  2026-08-14, and they are now the main thing the Horizon control visibly does.
+- **The fetch-window vs evaluation-window split is undocumented.** `--start`
+  bounds evaluation only; history always comes from `replay.FETCH_START`. This
+  is a trap that has already produced one wrong analysis, so it belongs in
+  ARCHITECTURE rather than only in code comments.
+
+Scope: a read-through of both files against the current code, not a rewrite —
+they are structurally sound. Worth doing as its own pass rather than folded into
+a feature branch, since it spans changes from several PRs.
+
+Worth considering while there: neither document has anything that fails when it
+goes stale. A test asserting that the horizon preset names in `README.md` match
+`config/weights.yaml` would have caught the line above the day it broke.
 
 ## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
 
