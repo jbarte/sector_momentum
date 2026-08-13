@@ -200,6 +200,14 @@ Two causes combining:
 So the control changes only the grey stats strip beside it, which is not where
 the eye goes. Not a bug in `switchHorizon` — that pass was verified correct.
 
+**Still true after the 2026-08-14 cut to two presets, and now hiding a bigger
+difference.** Re-checked against the same book: `medium` (top 4, exit >9) and
+`long` (top 5, exit >13) also render byte-identical badges, and still would if
+five names were held. The gap between the two bands is now four ranks rather
+than one, so the selector conceals more than it used to, not less. It surfaces
+only when a holding actually falls past rank 9 — which is exactly the moment the
+reader most needs to know the two presets disagree.
+
 Proposed fix: **draw the band boundaries in the leaderboard itself** — a rule
 after `top_n` and another after `top_n + buffer` — so switching preset visibly
 moves the lines whether or not any badge changes. Cheap, and it makes the
@@ -518,6 +526,50 @@ source-only and tight:
 ---
 
 # Done
+
+- **Cut from three horizon presets to two: `medium` → M/4/5, `long` → M/5/8,
+  `short` removed** — the lineup is now **one cadence, two band widths**. The
+  reader's only dial is how far a holding may fall before it is sold (50% of the
+  universe vs 72%).
+
+  | preset | was | now | CAGR | Sharpe | trades/yr | hold | max DD |
+  |---|---|---|---|---|---|---|---|
+  | `medium` | M/5/4 | **M/4/5** | 15.0 → **15.6%** | 0.84 → **0.85** | 16.8 → **12.9** | 94 → 120d | −35.4 → **−30.8%** |
+  | `long` | 2M/4/6 | **M/5/8** | 14.1 → 14.0% | 0.73 → **0.78** | 7.4 → **6.9** | 182 → 183d | −31.4 → −35.4% |
+  | `short` | W/3/6 | removed | | | | | |
+
+  `M/4/5` is the best cell in the whole grid on both windows — top Sharpe *and*
+  shallowest drawdown — and beats the cell it replaces on return, churn and
+  drawdown at once. `M/5/8` delivers what `long` existed for without needing a
+  slower cadence, and beats the 2M cell it replaces on Sharpe in both windows.
+
+  **`short` was removed rather than re-tuned** because it was a *cadence* choice,
+  and the warm sweep says cadence is not where the return is: every weekly cell
+  was dominated, and the five best cells overall are monthly or bi-weekly with a
+  50–67% band. Its last incarnation (W/3/6, shipped 2026-08-13) had already
+  drifted to trading *less* per year than `medium`, which made a three-way
+  Short/Medium/Long lineup actively misleading.
+
+  **Corrects the entry below**, which recorded `long` as unchanged "because
+  nothing beat it in either window". That check had been run on starved data.
+  Re-run warm, 2M/4/6 is beaten in both windows by six cells. Done is
+  append-only, so the error stands there and is corrected here.
+
+  Two invariant tests changed, both deliberately:
+  `test_presets_are_ordered_by_holding_period` regained its trade-count
+  assertion (relaxed a day earlier for `short`; with one cadence, holding period
+  and churn order together again), and `test_long_holds_fewer_names_than_medium`
+  became `test_long_tolerates_more_drift_than_medium` — `long` now holds one name
+  *more*, because concentration is a risk choice while holding period is a
+  horizon choice, and the old lineup conflated them. A new
+  `test_presets_share_one_cadence` pins the design so a future preset cannot
+  quietly reintroduce the cadence dimension.
+
+  Copy rewritten in both languages (three horizons → two, and "Long is not
+  slower to react, it is more forgiving"). Orphaned `equity_short.csv` /
+  `holdings_short.csv` deleted. A stale `sm_horizon=short` in `localStorage`
+  falls back to the default — verified in the browser, not assumed. 697 tests
+  pass. *(2026-08-14)*
 
 - **Horizon presets re-picked at realistic cost — `short` → `W/3/6`, the other
   two deliberately unchanged** — closes the item filed after the 0 bps sweep

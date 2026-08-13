@@ -1073,13 +1073,13 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             <p>The <strong>Horizon</strong> selector at the top decides how patient the
                dashboard is. It changes which themes get flagged; it never changes the
                scores or the order.</p>
-            <p>Each option shows what it historically cost in trading: pick
-               <strong>Short</strong> and you react faster, turning positions over in
-               about two months; pick <strong>Long</strong> and you may go months
-               without doing anything. The trades/yr figure beside the selector is
-               the one to compare — it is not simply highest on Short, because a wide
-               band on a fast cadence can churn less than a narrow one on a slow
-               cadence. If you are unsure, leave it on Medium.</p>
+            <p>Both options review monthly; they differ in how much drift they
+               tolerate. <strong>Medium</strong> holds 4 themes and sells once one
+               leaves the top half of the universe. <strong>Long</strong> holds 5 and
+               tolerates a much deeper fall before selling, so it trades about half as
+               often — roughly 13 trades a year against 7. Long is not slower to react;
+               it is more forgiving, and slightly more spread out. If you are unsure,
+               leave it on Medium.</p>
 
             <h4>Enter, Hold, Exit — and no badge at all</h4>
             <p><strong>Badges are a signed-in feature.</strong> They combine the band with
@@ -1193,10 +1193,10 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
           <p>It only ever uses information that existed on the day &mdash; no peeking at
              what came next.</p>
 
-          <h4>The three rows</h4>
-          <p>Each row is one horizon. Read the <strong>Trades/yr</strong> and
+          <h4>The two rows</h4>
+          <p>Each of the two rows is one horizon. Read the <strong>Trades/yr</strong> and
              <strong>Median hold</strong> columns next to the return, never on their own
-             &mdash; a higher return that requires trading three times as often is not
+             &mdash; a higher return that requires trading twice as often is not
              obviously better, and every trade costs something.</p>
           <ul>
             <li><strong>Strategy CAGR</strong> &mdash; the annual growth rate the rules
@@ -1233,7 +1233,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
                 rebalances never missed, no second-guessing during a 38% drawdown.</li>
           </ul>
           <p>The honest use of this tab is <strong>comparing the horizons to each
-             other</strong> &mdash; that comparison is fair, because all three ran on the
+             other</strong> &mdash; that comparison is fair, because both ran on the
              same data with the same biases. Treat the absolute returns as optimistic.</p>
         </div>
     <div class="tab-guide-body" data-guide-body="guide_body_correlation" hidden data-i18n-html="guide_body_correlation">

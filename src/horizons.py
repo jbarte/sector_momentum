@@ -21,20 +21,25 @@ import yaml
 
 _DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config" / "weights.yaml"
 
-# Used when config carries no horizons block at all. Matches the "medium"
-# preset, i.e. the cell the 2026-08-08 sweep put on the frontier at roughly a
-# two-month hold. A missing config should degrade to a sane strategy, not to
-# top_n=0 (hold nothing) or buffer=0 (maximum churn).
+# Used when config carries no horizons block at all. Mirrors the shipped
+# "medium" preset (M/4/5, ~120-day hold) so a config-less run holds the same
+# book and the same band as the default it claims to copy. It drifted out of
+# step once already — it stayed at 5/3 through two preset retunes, quietly
+# handing a missing-config run a different strategy from the documented one —
+# so update it whenever `medium` moves in config/weights.yaml.
+#
+# The point is to degrade to a sane strategy rather than to top_n=0 (hold
+# nothing) or buffer=0 (maximum churn).
 _FALLBACK = {
     "key": "medium", "label": "Medium", "rebalance": "M",
-    "top_n": 5, "buffer": 3,
+    "top_n": 4, "buffer": 5,
     "cagr": None, "trades_per_year": None, "median_holding_days": None,
 }
 
 
 @dataclass(frozen=True)
 class Horizon:
-    key: str                    # "short" | "medium" | "long"
+    key: str                    # "medium" | "long"
     label: str                  # human-readable, e.g. "Medium"
     rebalance: str              # a src.backtest.replay REBALANCE_FREQS key
     top_n: int                  # positions held

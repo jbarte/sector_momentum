@@ -88,14 +88,22 @@
          idea &mdash; keeping what you own until it has clearly fallen out, rather
          than the instant it stops being best &mdash; cuts trading roughly in half
          in testing without giving up return.</p>
-      <p>Three horizons are offered. Each shows its historical trading frequency
-         next to its return, so the cost of the faster ones is visible:</p>
+      <p>Two horizons are offered. Both review monthly; what separates them is
+         <strong>how much drift they tolerate</strong> before selling. Each shows
+         its historical trading frequency next to its return, so the cost of the
+         more active one is visible:</p>
       <ul>
-        <li><strong>Short</strong> &mdash; reacts quickest, turning positions
-            over in about two months.</li>
-        <li><strong>Medium</strong> &mdash; the default.</li>
-        <li><strong>Long</strong> &mdash; holds longest, trades least.</li>
+        <li><strong>Medium</strong> &mdash; the default. Holds 4 themes and sells
+            once one leaves the top half of the universe, turning positions over
+            in about four months.</li>
+        <li><strong>Long</strong> &mdash; holds 5 and tolerates a much deeper fall
+            before selling, roughly halving the trading and holding about six
+            months.</li>
       </ul>
+      <p>A third, faster horizon was offered until August 2026 and was removed:
+         testing across two independent periods found that the rebalance cadence
+         contributes little, while the width of that tolerance band does nearly
+         all the work.</p>
       <p>Switching horizon re-labels the leaderboard instantly. It changes which
          themes are flagged, never the underlying scores or the ranking.</p>
 
