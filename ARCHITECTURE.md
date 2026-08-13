@@ -153,12 +153,30 @@ it NULL for that scan.
 A horizon preset is a `(rebalance cadence, top_n, buffer)` triple. `buffer` is
 a hysteresis band **in ranks**: a holding is kept while `rank <= top_n + buffer`.
 
+**Two presets ship, both on a monthly cadence**, differing only in band width:
+`medium` = M/4/5 (band 50% of the universe) and `long` = M/5/8 (72%). A third,
+weekly preset was removed 2026-08-14: swept on two independent windows, every
+weekly cell was dominated, and the five best cells overall were monthly or
+bi-weekly with a 50-67% band. Cadence contributes little; band width does the
+work. `tests/test_horizons.py` asserts the presets share one cadence, so
+re-introducing that dimension fails a test rather than going unnoticed.
+
+Note `long` holds *more* names than `medium` (5 vs 4), which is deliberate:
+concentration is a risk choice and holding period is a horizon choice, and the
+old three-preset lineup conflated them.
+
 This module is the single source read by three places that must agree, or the
 dashboard would describe a strategy the backtest never ran:
 
 - `backtest.py` — replays every preset into `backtests/`
-- `dashboard/rows.py` — derives the server-rendered Entry/Exit badge
-- `dashboard/assets/rescore.js` — re-derives that badge client-side on switch
+- `dashboard/rows.py` — derives the server-rendered band state
+- `dashboard/assets/rescore.js` — re-derives it client-side on switch
+
+Client-side, `applyHorizonBadges()` in `index.html.j2` is the **single writer**
+of every leaderboard badge; `Rescore.setupForRank` / `badgeForRank` /
+`inBuyBand` are the shared rules it and every rebuild path call. Four separate
+copies of `rank <= 3` for the highlighted rank badge had already drifted out of
+step with `top_n` before they were collapsed into `inBuyBand`.
 
 `round_trip_bps()` reads `costs.round_trip_bps` from the same file. `backtest.py`
 and `scripts/horizon_sweep.py` both default from it, so the figures shown beside
@@ -218,13 +236,35 @@ signing out reloads the baked page, which *is* the gated state.
 Replays the scoring pipeline as-of each rebalance date, selects top-N under the
 hysteresis rule, and compares to the benchmark.
 
-- `replay.py` — rebalance calendars (`W`/`2W`/`M`/`2M`/`Q`) and as-of scoring
+- `replay.py` — rebalance calendars (`W`/`2W`/`M`/`2M`/`Q`), as-of scoring, and
+  the fetch-versus-evaluation window split described below
 - `strategy.py` — selection with hysteresis, turnover, transaction cost, churn stats
 - `metrics.py` — CAGR, Sharpe, drawdown, hit rate. `periods_per_year()` is
   derived from the actual date spacing; leaving it at the monthly default would
   treble a quarterly track's CAGR
 - `engine.py` — per-track orchestration
 - `results.py` — persistence to `backtests/`
+
+### Fetch window vs evaluation window
+
+**Price history is always fetched from `replay.FETCH_START`; `--start` bounds
+only which dates are evaluated**, via `rebalance_dates(..., since=)`. The two
+are separate because signals with a trailing lookback are NaN until it fills —
+`compute_ma_structure` needs 200 bars for `above_200dma` — so evaluation
+beginning on the first fetched bar scores its opening months on a degraded
+signal set.
+
+This is not hypothetical. Both entry points passed the evaluation start
+straight to `fetch_prices`, and in `scripts/horizon_sweep.py` it **inverted the
+horizon preset ranking**: starved, `M/5/7` beat `M/5/4` by 1.9pp CAGR; warm, it
+lost by 0.8pp. The two harnesses disagreed by 2.1pp on an identical cell, which
+is how the bug was found. `validate_eval_start()` now rejects a window that
+starts inside the warm-up, and the filtering happens *after* period grouping so
+a `2M` calendar cannot silently shift onto the other month parity.
+
+`backtest.py` additionally refuses to overwrite the committed `backtests/`
+artifact with a windowed run, and refuses to write at all when every track came
+back empty — that used to replace a good artifact with nulls and exit 0.
 
 Read the results with the caveats the dashboard states: today's universe is
 replayed backwards (several ETFs did not exist in 2008), and the presets were

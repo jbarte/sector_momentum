@@ -28,10 +28,24 @@ composite of +1.0 means "roughly better than 5 of 6 themes today" — it says
 nothing about whether the group as a whole is going up. Ranking is the composite
 sorted best to worst.
 
-A **horizon** preset (Short / Medium / Long) turns that ranking into
-Entry / Exit badges using a hysteresis band: a holding is kept while its rank
-stays inside `top_n + buffer`, so a one-rank wobble is not a trade. Most themes,
-most days, sit silently inside the band — that is the intended state.
+A **horizon** preset turns that ranking into Enter / Hold / Exit badges using a
+hysteresis band: a holding is kept while its rank stays inside `top_n + buffer`,
+so a one-rank wobble is not a trade. Most themes, most days, sit silently inside
+the band — that is the intended state.
+
+There are **two presets, both reviewing monthly**, differing only in how far a
+holding may fall before it is sold: `Medium` (hold 4, sell past rank 9) and
+`Long` (hold 5, sell past rank 13). A third, faster preset existed until
+2026-08-14 and was removed — sweeping across two independent windows found the
+rebalance *cadence* contributes little while the width of that band does nearly
+all the work. The leaderboard draws both band edges as horizontal cut lines, so
+switching preset visibly moves them. They appear only while the table is sorted
+by rank — under any other sort the band is not contiguous, so a single line
+could not separate in-band from out.
+
+The badges themselves are a **signed-in feature** and combine the band with the
+holdings you have marked: `Enter` only for something you do not own, `Hold` for
+anything you own that is still inside the band, `Exit` once it leaves.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline, or the
 **Methodology** link in the dashboard footer for the reader-facing version.
@@ -69,6 +83,18 @@ pytest
 cost-free figures — sweeping at zero systematically favours whichever cadence
 trades most.
 
+**`--start` bounds the evaluation window, not the price fetch.** History always
+comes from `replay.FETCH_START`, so the trailing-window signals are warm on the
+first evaluated date; `above_200dma` needs 200 bars and is NaN before that.
+Truncating the fetch instead is a trap that has already produced one wrong
+analysis — it inverted the horizon preset ranking. A window that starts inside
+the warm-up is rejected, and a windowed run refuses to overwrite the committed
+`backtests/` artifact, so pass `--out` when exploring.
+
+`scripts/horizon_sweep.py` is the tool that *chooses* the presets: it sweeps
+cadence x top_n x buffer and prints the return-versus-churn frontier. It shares
+the fetch/evaluation split and the cost assumption with `backtest.py`.
+
 ## Project structure
 
 ```
@@ -81,6 +107,11 @@ config/
   weights.yaml           # pillar split, signal params, horizon presets, trading cost
   universe.yaml          # scan-wide settings (price lookback)
 
+scripts/
+  horizon_sweep.py       # cadence x top_n x buffer sweep -> the preset frontier
+  signal_correlation.py  # signal redundancy audit
+  *.sql                  # one-off Postgres migrations
+
 src/
   data/prices.py         # yfinance fetch, parquet cache, cohort as-of alignment
   data/news_sentiment.py # GDELT headlines -> FinBERT polarity (info-only)
@@ -91,7 +122,7 @@ src/
   horizons.py            # horizon presets + trading cost, read by everything
   cohorts.py             # cohort definition (one: THEME)
   state.py               # Postgres DDL, read/write, deltas
-  backtest/              # replay, strategy, metrics, results
+  backtest/              # replay, strategy, metrics, results, fetch/eval window
   alerts.py              # band-crossing detection
   personal_alerts.py     # per-user alert routing
 
