@@ -34,6 +34,10 @@ from src.backtest.replay import (  # noqa: E402
 
 BACKTEST_CACHE = "data/backtest_cache"
 
+# Git-tracked and rendered by the dashboard, so it is guarded above: only a
+# default-window run may write here.
+DEFAULT_OUT = "backtests"
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Sector-momentum strategy backtest.")
@@ -42,7 +46,7 @@ def _parse_args() -> argparse.Namespace:
                    help="Start of the EVALUATION window (YYYY-MM-DD). Price history "
                         "is always fetched from " + FETCH_START + ", so trailing-window "
                         "signals are warm on the first evaluated date.")
-    p.add_argument("--out", default="backtests", help="Output directory.")
+    p.add_argument("--out", default=DEFAULT_OUT, help="Output directory.")
     p.add_argument("--cost-bps", type=float, default=None,
                    help="Round-trip transaction cost in basis points, applied on turnover. "
                         "Defaults to costs.round_trip_bps in config/weights.yaml. "
@@ -83,14 +87,27 @@ def run(args: argparse.Namespace) -> int:
     from src.backtest.results import write_results
     from src.horizons import horizons, round_trip_bps
 
-    # None (not 0) means "unset" so an explicit `--cost-bps 0` still works for
-    # reproducing the historical cost-free figures.
     try:
         validate_eval_start(args.start)
     except ValueError as exc:
         logger.error("%s", exc)
         return 1
 
+    # A non-default window must not silently overwrite the SHIPPED artifact.
+    # `backtests/` is git-tracked and the dashboard's Backtest tab renders it, so
+    # an exploratory `--start 2015-01-01` would replace the published curve with
+    # a windowed one and say nothing. Refuse instead, and name the way out.
+    # Windowed runs only became useful with this fix, so the hazard arrived with
+    # it.
+    if args.start != DEFAULT_EVAL_START and args.out == DEFAULT_OUT:
+        logger.error(
+            "refusing to overwrite the committed artifact in %s/ with a windowed "
+            "run (--start %s). Pass --out somewhere else, e.g. --out /tmp/bt.",
+            DEFAULT_OUT, args.start)
+        return 1
+
+    # None (not 0) means "unset" so an explicit `--cost-bps 0` still works for
+    # reproducing the historical cost-free figures.
     if args.cost_bps is None:
         args.cost_bps = round_trip_bps()
     logger.info("Transaction cost: %.0f bps round-trip", args.cost_bps)
@@ -127,6 +144,15 @@ def run(args: argparse.Namespace) -> int:
             tracks[h.key] = run_theme_track(
                 themes_cfg, prices, top_n=h.top_n, cost_bps=args.cost_bps,
                 rebalance_freq=h.rebalance, buffer=h.buffer, since=args.start)
+
+    # Every track empty means the run produced nothing — an over-late --start,
+    # or a universe with no usable prices. Writing that out replaces a good
+    # artifact with `{"tracks": {"medium": null, ...}}` and exits 0, which reads
+    # as success. Fail instead, leaving whatever was there intact.
+    if not any(tracks.values()):
+        logger.error("no track produced a result (evaluating from %s) — nothing "
+                     "written; %s/ left unchanged", args.start, args.out)
+        return 1
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 

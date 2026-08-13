@@ -512,10 +512,23 @@ source-only and tight:
     15.5%/0.83/−32.8%. The two harnesses disagreeing by 2.1pp on an identical
     cell is what exposed the original bug; they now agree.
 
-  707 tests pass, including three new ones pinning `since` at the engine
-  boundary: that it bounds the curve, that `since=None` is byte-identical to the
-  old behaviour, and that an over-late window takes the existing
-  "not enough data" path rather than raising. *(2026-08-14)*
+  **Two guards added in review, both hazards this fix itself introduced** by
+  making windowed runs useful for the first time:
+
+  - `--out` defaults to the git-tracked `backtests/`, so an exploratory
+    `--start 2015-01-01` would have replaced the *published* curve with a
+    windowed one and exited 0. A non-default window writing to the default
+    directory is now refused, with the escape (`--out`) named in the message.
+  - An over-late `--start` left every track `None`, and `write_results` happily
+    wrote `{"tracks": {"medium": null, "long": null}}` over a good artifact and
+    returned 0. An all-empty result now fails without writing.
+
+  Ten tests, all offline: three pin `since` at the engine boundary (it bounds
+  the curve, `since=None` is byte-identical to the old behaviour, an over-late
+  window takes the existing "not enough data" path rather than raising), and six
+  cover the CLI by replacing `fetch_prices` with a probe — including the direct
+  assertion that **`--start` never reaches `fetch_prices`**, which is the bug
+  itself. 712 pass. *(2026-08-14)*
 
 - **The highlighted rank badge follows the active horizon instead of a
   hardcoded 3** — `.rank-badge.top3` marked ranks 1-3 from a literal that knew
