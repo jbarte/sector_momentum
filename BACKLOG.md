@@ -21,38 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Remove the RSS/Atom feed
-
-Nobody is known to subscribe, and it is a second public surface that has to stay
-correct as the product changes — it already survived the sector→theme migration
-and the rebrand without anyone reading it. Delete rather than maintain.
-
-**Footprint** (checked 2026-08-12):
-
-- Delete `dashboard/feed.py` (122 lines: `build_feed_entries`,
-  `feed_updated_timestamp`) and `dashboard/templates/feed.xml.j2`.
-- `dashboard/build.py` — drop the import block (~line 49) and section 6
-  "Atom feed" (~lines 536-556), which renders and writes `docs/feed.xml`.
-  `dashboard_url` and `feed_url` are defined inside that block and used nowhere
-  else, so they go with it — nothing is stranded.
-- `dashboard/templates/_footer.html.j2` — the `<a href="feed.xml">RSS</a>` link.
-- `dashboard/templates/index.html.j2` and `sentiment.html.j2` — the
-  `<link rel="alternate" type="application/atom+xml">` tag in each `<head>`.
-- `ARCHITECTURE.md` — the `feed.py (Atom)` mention in the module list.
-
-**No tests reference the feed**, so nothing to remove there — but that is also
-why its removal needs a careful build check rather than a green suite: run
-`python3 dashboard/build.py` and confirm it completes and no longer emits
-`docs/feed.xml`.
-
-**Watch for:** `docs/` is a gitignored build output, so a stale `feed.xml` can
-linger in a local `docs/` after the code is gone. CI rebuilds from scratch, so
-the deployed site drops it on the next run — but GitHub Pages will keep serving
-the old URL until then, and any existing subscriber silently gets a frozen feed
-rather than a 404. If that matters, decide whether to ship a final entry saying
-the feed is retired before deleting the generator.
-
-
 ## Alerts section should be a modal, opened from a footer link
 
 The alerts/notifications UI (`_footer.html.j2`, `<section id="alert-prefs">`)
@@ -461,6 +429,37 @@ source-only and tight:
 ---
 
 # Done
+
+- **RSS/Atom feed removed** — a second public surface that had to stay correct as
+  the product changed, with no known subscriber. It had already survived the
+  sector→theme migration and the rebrand without anyone reading it. Deleted
+  rather than maintained.
+
+  Removed: `dashboard/feed.py` (122 lines) and `dashboard/templates/feed.xml.j2`;
+  `build.py`'s import block and section 6, which rendered and wrote
+  `docs/feed.xml`; the footer `RSS` link; the `<link rel="alternate">` tag in
+  both page heads; and the `feed.py (Atom)` entry in ARCHITECTURE's module list.
+  `dashboard_url` and `feed_url` lived inside section 6 and are used nowhere
+  else, so nothing was stranded.
+
+  One thing the queued footprint missed: a comment above the scan-index build
+  named the feed as one of three consumers of `all_scores_df`. Corrected to two
+  rather than left describing a module that no longer exists.
+
+  **No tests referenced the feed**, which is exactly why this needed a build
+  check rather than a green suite. Verified by deleting `docs/` entirely and
+  rebuilding from scratch — the item warns that a stale `feed.xml` lingers in a
+  gitignored local `docs/` and would mask the change. The fresh build completes,
+  logs nothing about a feed, emits no `feed.xml`, and neither built page contains
+  the string. Footer renders `Analytical tooling, not investment advice.
+  Methodology`, the Methodology modal still works, and the console is clean.
+  742 tests pass.
+
+  **Accepted consequence:** GitHub Pages keeps serving the last-deployed
+  `feed.xml` until the next CI run, and any subscriber that does exist then gets
+  a frozen feed rather than a 404. Shipping a final "feed retired" entry first
+  was considered and declined — nobody subscribes, and it is ceremony that would
+  itself need the generator kept alive to publish. *(2026-08-14)*
 
 - **Market-context chips are now one tappable control with a shared
   explanation** — `Live` / `SPY` / `VIX` were the first thing on the page and the
