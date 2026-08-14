@@ -643,6 +643,12 @@ if (document.readyState === 'loading') {
 
 function switchHorizon(key) {
   activeHorizon = key;
+  // Keep the control in step. The usual path is the <select>'s own onchange, so
+  // it already matches — but a programmatic call (a deep link, a test) would
+  // otherwise leave the dropdown displaying one horizon while the board, the
+  // stats strip, the band lines and the alerts notice all describe another.
+  var _sel = document.getElementById('horizon-select');
+  if (_sel && _sel.value !== key) { _sel.value = key; }
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
   renderHorizonStats(key);
   applyHorizonBadges();

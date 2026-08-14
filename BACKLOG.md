@@ -415,7 +415,14 @@ source-only and tight:
   terminated it early and **leaked a sentence of explanatory prose into the
   modal**. The last one is now a test that scans every template for comments
   containing comment delimiters — mutation-verified, and it would have caught the
-  leak on its own. 757 tests pass. *(2026-08-14)*
+  leak on its own.
+
+  **A fourth bug, found while testing the finished feature:** `switchHorizon()`
+  never synced the `<select>` — it is only set at init. The usual path is the
+  select's own `onchange`, so it already matches, but any programmatic call (a
+  deep link, a test) left the dropdown displaying one horizon while the stats
+  strip, the band cut lines and this new alerts notice all described another.
+  One line, and verified both ways round. 757 tests pass. *(2026-08-14)*
 
 - **Alerts moved into a modal opened from the footer** — it had been a
   permanently-rendered block appended *below* the site footer, after the
