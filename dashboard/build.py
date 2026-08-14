@@ -475,6 +475,25 @@ def main() -> None:
 
     # Compute cross-page contexts once (macro makes a network call)
     logger.info("Fetching macro regime data …")
+    # Hoisted so BOTH pages get them: the leaderboard needs them for its
+    # selector, and the SHARED footer's alerts modal states which band alerts
+    # actually use. `horizon_default_json` is the config default, and the config
+    # default is exactly what alerts evaluate on — `detect_badge_events` calls
+    # `_compute_setup(row)` with no horizon, which falls back to
+    # `default_horizon()`. If that ever stops being true the modal starts lying,
+    # which is why tests/test_alerts_horizon_notice.py pins it.
+    _horizons_json = _json.dumps([
+        {"key": h.key, "label": h.label, "rebalance": h.rebalance,
+         "top_n": h.top_n, "buffer": h.buffer,
+         "trades_per_year": h.trades_per_year,
+         "median_holding_days": h.median_holding_days}
+        for h in horizon_list
+    ])
+    _horizon_default_json = _json.dumps({
+        "key": _default_horizon.key, "label": _default_horizon.label,
+        "top_n": _default_horizon.top_n, "buffer": _default_horizon.buffer,
+    })
+
     macro_page_ctx = _macro_ctx(shared)
 
     # --- Sectors page ---
@@ -488,17 +507,8 @@ def main() -> None:
         "horizon_list": horizon_list,
         "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
         "round_trip_bps": _round_trip_bps,
-        "horizons_json": _json.dumps([
-            {"key": h.key, "label": h.label, "rebalance": h.rebalance,
-             "top_n": h.top_n, "buffer": h.buffer,
-             "trades_per_year": h.trades_per_year,
-             "median_holding_days": h.median_holding_days}
-            for h in horizon_list
-        ]),
-        "horizon_default_json": _json.dumps({
-            "key": _default_horizon.key, "label": _default_horizon.label,
-            "top_n": _default_horizon.top_n, "buffer": _default_horizon.buffer,
-        }),
+        "horizons_json": _horizons_json,
+        "horizon_default_json": _horizon_default_json,
         "cohorts_json": cohorts_json,
         # The signed-in rebuild (auth.js) sources rows from v_recent_scores,
         # which knows nothing about buyability — without this the marker and the
@@ -508,7 +518,6 @@ def main() -> None:
         # breakdown.unbuyable_names().
         "unbuyable_json": _json.dumps(unbuyable_names(_themes_cfg)),
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
-        "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
         "has_any_rows": bool(leaderboard_rows),
         "badges_gated": badges_gated,
         "plotly_bundle": plotly_bundle_rel,
@@ -542,6 +551,11 @@ def main() -> None:
         # render on an Undefined, even though it shows no backtest itself.
         "round_trip_bps": _round_trip_bps,
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
+        # Was relying on an undefined Jinja variable being falsy here. Explicit
+        # now — the CSS that hides the sentiment column reads it.
+        "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
+        "horizons_json": _horizons_json,
+        "horizon_default_json": _horizon_default_json,
     }
     sentiment_ctx.update(_sentiment_ctx(shared))
     sentiment_ctx.update(macro_page_ctx)

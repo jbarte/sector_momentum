@@ -559,3 +559,17 @@ thead th[tabindex="0"]:focus-visible {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Which band alerts run on. The agreement line is a quiet confirmation; the
+   disagreement one has to be noticed, so it gets the warning colour and a rule
+   rather than being another paragraph of grey. */
+.alerts-hz-note { margin: 0 0 12px; color: var(--fg4); font-size: 0.78rem; }
+.alerts-hz-warn {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--down);
+  background: color-mix(in srgb, var(--down) 6%, transparent);
+  color: var(--fg2);
+  font-size: 0.78rem;
+}
+.alerts-hz-warn b { color: var(--fg1); }

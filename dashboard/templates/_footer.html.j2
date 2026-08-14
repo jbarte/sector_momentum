@@ -64,6 +64,37 @@
     <h2 id="alerts-title" data-i18n="alerts_title">Alerts</h2>
 <section id="alert-prefs" class="alert-prefs" hidden>
   <p class="alert-prefs-intro" data-i18n="alerts_intro">Get a push notification after each scan: Exit signals for themes you hold, plus new Enter signals.</p>
+  {#- Which band alerts actually evaluate, and a warning when that is not the
+      band the reader is looking at.
+
+      Alerts run on the CONFIG DEFAULT horizon: detect_badge_events calls
+      _compute_setup(row) with no horizon, which falls back to default_horizon().
+      The selector's choice lives in localStorage and does not reach the scan, so
+      switching horizon silently changes the board without changing the inbox.
+
+      Numbers are written by script into their own nodes, with the surrounding
+      words carrying data-i18n. Interpolating a whole sentence would have it
+      wiped on the first language switch — applyLang() rewrites textContent from
+      the SV bundle, which is why renderHorizonStats() is built the same way. -#}
+  <p class="alerts-hz-note" id="alerts-hz-agree" hidden>
+    <span data-i18n="alerts_hz_pre">Alerts use the</span>
+    <b id="alerts-hz-name"></b>
+    <span data-i18n="alerts_hz_post">band — the same one the board is showing.</span>
+  </p>
+  <p class="alerts-hz-warn" id="alerts-hz-differ" hidden>
+    <span data-i18n="alerts_hz_warn_pre">Your board is set to</span>
+    <b id="alerts-hz-sel"></b><span data-i18n="alerts_hz_warn_mid">, but alerts use</span>
+    <b id="alerts-hz-alert"></b><span data-i18n="alerts_hz_warn_exit">. Alerts flag Exit past rank</span>
+    <b id="alerts-hz-alert-exit"></b><span data-i18n="alerts_hz_warn_vs">, where your board waits until</span>
+    <b id="alerts-hz-sel-exit"></b><span data-i18n="alerts_hz_warn_entry">, and Enter within the top</span>
+    {# This fragment begins with a word, not punctuation, so it needs the space
+       the newline below provides. Use the PLAIN comment delimiters here, never
+       the whitespace-stripping variant: that form eats the very space being
+       preserved, which is how "top4 against" shipped in the first draft. #}
+    <b id="alerts-hz-alert-top"></b>
+    <span data-i18n="alerts_hz_warn_vs2">against your board's</span>
+    <b id="alerts-hz-sel-top"></b>.
+  </p>
   <div id="alert-prefs-off" hidden>
     <button type="button" id="alert-prefs-enable" class="lang-toggle" data-i18n="alerts_enable">Enable alerts</button>
   </div>
@@ -100,11 +131,49 @@
   // until then.
   window.SMAlertsModal = modal;
 
+  /* Alerts evaluate the CONFIG DEFAULT horizon; the selector's choice lives in
+     localStorage and never reaches the scan. Say which band is in force, and
+     spell out the disagreement when the reader has switched. */
+  var ALERT_HZ = {{ horizon_default_json | js_json }};
+  var ALL_HZ = {{ horizons_json | js_json }};
+
+  function renderHorizonNote() {
+    var selKey = ALERT_HZ.key;
+    try {
+      var saved = localStorage.getItem("sm_horizon");
+      if (saved && ALL_HZ.some(function (h) { return h.key === saved; })) { selKey = saved; }
+    } catch (e) { /* private mode: assume the default */ }
+    var sel = ALL_HZ.filter(function (h) { return h.key === selKey; })[0] || ALERT_HZ;
+    var agree = document.getElementById("alerts-hz-agree");
+    var differ = document.getElementById("alerts-hz-differ");
+    if (!agree || !differ) { return; }
+    function put(id, v) { var el = document.getElementById(id); if (el) { el.textContent = v; } }
+    if (sel.key === ALERT_HZ.key) {
+      put("alerts-hz-name", ALERT_HZ.label);
+      agree.hidden = false; differ.hidden = true;
+      return;
+    }
+    put("alerts-hz-sel", sel.label);
+    put("alerts-hz-alert", ALERT_HZ.label);
+    put("alerts-hz-alert-exit", ALERT_HZ.top_n + ALERT_HZ.buffer);
+    put("alerts-hz-sel-exit", sel.top_n + sel.buffer);
+    put("alerts-hz-alert-top", ALERT_HZ.top_n);
+    put("alerts-hz-sel-top", sel.top_n);
+    agree.hidden = true; differ.hidden = false;
+  }
+
   function bindTrigger() {
     var link = document.getElementById("alerts-link");
     if (link) {
-      link.addEventListener("click", function (e) { e.preventDefault(); modal.open(); });
+      link.addEventListener("click", function (e) {
+        e.preventDefault();
+        // Recomputed on open, not once at load: the reader may switch horizon
+        // and then open this without a page reload.
+        renderHorizonNote();
+        modal.open();
+      });
     }
+    renderHorizonNote();
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bindTrigger);

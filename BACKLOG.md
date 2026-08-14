@@ -157,21 +157,6 @@ Any future signal added to Level should be checked for correlation against
 `above_50dma` and `rs_ratio` first; adding a ninth correlated signal buys
 almost nothing.
 
-## Per-user horizon for alerts (level 3)
-
-The Short/Medium/Long selector drives the backtest curves and the leaderboard
-badges, but **alerts stay on the configured default** (`horizons.default` in
-`config/weights.yaml`). Making them per-user needs:
-
-- a horizon column on the alert-prefs table (`dashboard/assets/alert-prefs.js`,
-  `src/personal_alerts.py` already carry per-user rows)
-- band-crossing evaluated per user in the scan rather than once globally —
-  `src/alerts.py:detect_badge_events` currently computes one set of crossings
-  from the default horizon
-
-Deferred because it touches the path that reaches Jonas's inbox, and because
-one shared default is defensible until more than one person uses the dashboard.
-
 ## Sector-era naming in the data layer (`region`, `gics_sector`)
 
 Cosmetic only, and **not obviously worth doing** — recorded so the question
@@ -387,6 +372,50 @@ source-only and tight:
 ---
 
 # Done
+
+- **Alerts now state which band they run on, and warn when it is not yours —
+  instead of the per-user horizon column that was filed** — the queued item
+  proposed a `horizon` column on `alert_prefs` plus per-user band-crossing
+  evaluation in the scan. Checked before building, and the premise did not hold
+  up well enough to justify it:
+
+  - **The impact today is zero.** `horizons.default` is `medium` and Jonas runs
+    Medium, so alerts and board already agree. The plumbing would have changed
+    nothing that reaches the inbox.
+  - **The item's own deferral rationale still stands** — *"one shared default is
+    defensible until more than one person uses the dashboard"* — and it is still
+    one person. A schema migration plus per-user evaluation is multi-user
+    machinery for a single user, on the one code path where a bug means a missed
+    or spurious email.
+  - **The item was also wrong about where the behaviour lives.**
+    `src/alerts.py` never names a horizon; `detect_badge_events` calls
+    `_compute_setup(row)` with no horizon and that falls back to
+    `default_horizon()`. Right conclusion, wrong location.
+
+  The real risk is not multi-user, it is the single user's UI selection silently
+  disagreeing with their alerts — the selector persists to `localStorage` and
+  never reaches the scan. So the alerts modal now says which band is in force,
+  and spells out the disagreement concretely when the reader has switched:
+  running Long against Medium alerts, *"Alerts flag Exit past rank 9, where your
+  board waits until 13, and Enter within the top 4 against your board's 5."*
+
+  Recomputed on open, not once at load, since the reader can switch and reopen
+  without a reload. Numbers live in their own nodes with the words carrying
+  `data-i18n` — interpolating a whole sentence would be wiped on the first
+  language switch, the same reason `renderHorizonStats()` is built that way.
+
+  Fixed in passing: `sentiment_ranking_enabled` was **duplicated** in the sectors
+  context and **absent** from the sentiment one, where it had been working only
+  because an undefined Jinja variable is falsy.
+
+  **Three self-inflicted bugs, all whitespace or comment handling, all caught in
+  the browser rather than by reading the diff:** a fragment beginning with a word
+  rendered as `top4 against`; the fix's `{#- -#}` comment stripped the very space
+  it was preserving; and rewriting that comment to quote the delimiters
+  terminated it early and **leaked a sentence of explanatory prose into the
+  modal**. The last one is now a test that scans every template for comments
+  containing comment delimiters — mutation-verified, and it would have caught the
+  leak on its own. 757 tests pass. *(2026-08-14)*
 
 - **Alerts moved into a modal opened from the footer** — it had been a
   permanently-rendered block appended *below* the site footer, after the
