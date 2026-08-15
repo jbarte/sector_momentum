@@ -74,83 +74,6 @@ block in `_sentiment.css.j2`, deliberately a `display:none` rather than a remova
 so the positional column indices stay aligned), and drop the `alpha` badge from
 the Sentiment nav and page note.
 
-## Badges don't say whether today is an actionable day (unfinished half of the 2026-08-07 horizon spec)
-
-The horizon-preset spec (`sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md`)
-named this in advance as "the daily-signal mismatch" and planned a three-part
-fix. Two parts shipped — rank-band badges (2026-08-10) and alert gating to band
-crossings. **The third never did: "the dashboard states the next rebalance date
-and whether today is one... badges are informational [between rebalances]; the
-copy should say so rather than implying 'act now'."** Confirmed 2026-08-12: no
-`next_rebalance`/`is_rebalance_day` concept exists anywhere in `dashboard/` or
-`src/`.
-
-**Consequence, measured 2026-08-12** against the then-current `medium` (`M/5/4`):
-a reader who checks more often than their preset's intended cadence sees
-materially more badge crossings than the preset was tuned for. Checking that
-band weekly rather than monthly cost ~1.9pp CAGR and 0.19 Sharpe in a real
-backtest comparison (`backtest.py --rebalance`/`--buffer`/`--theme-top-n`/
-`--cost-bps`, at ~70bps). The "switch to Short instead" escape route named here
-originally is gone — `short` was removed on 2026-08-14.
-
-**Still worth roughly what it was, on the preset that actually shipped.**
-Trades/yr measured over 2023-01 → 2026-08, acting on every badge change:
-
-| cell | acting weekly | modelled at cadence | gap |
-|---|---|---|---|
-| `M/5/4` (old medium) | 29 | 18 | 11 |
-| `M/4/5` (**shipped** medium) | 22 | 12 | **10** |
-| `M/5/7` (candidate, not shipped) | 16 | 12 | 4 |
-
-Earlier notes in this repo claimed the gap had narrowed to 4 after the preset
-re-pick. That was `M/5/7`, which was **not** adopted — `M/4/5` was. The gap is
-~10, so this item's value is close to its original sizing, not a quarter of it.
-
-This isn't a new problem — it's the one committed piece of an already-approved
-design that shipping stopped short of. Options (rebalance-date UI awareness vs.
-a lighter preset-cadence nudge vs. leaving it to the tab guide's existing copy)
-are laid out in
-[`sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md`](/Users/jonasbarte/AI%20Projects/sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md)
-(§ Thread B).
-
-**Direction chosen 2026-08-13** (option B1, rebalance-date awareness in the UI);
-design agreed in conversation but not yet written up as a spec, so recorded here
-so it isn't lost:
-
-- **Mute, don't hide.** Between reviews, `Enter`/`Exit` render de-emphasised
-  (drop the background tint, keep the border) rather than disappearing. `Hold`
-  does not mute — it means "do nothing", so there is no action to hold back.
-  Badge *text* stays constant across states: the span is reused across kinds and
-  `applyLang()` restores English from `data-en`, so making text state-dependent
-  as well as kind-dependent is how that breaks. Words live in a chip and a
-  tooltip; the badge carries styling only.
-- **A review stays due until acknowledged**, not for a fixed grace period. Once
-  the review date passes, badges are actionable until a `Done ✓` click, stored
-  per preset in `localStorage`, or the next review date arrives. A strict
-  single-day window would be missed most months by anyone reviewing weekly.
-- **Server generates the calendar, client decides "today".** `build.py` embeds
-  the next ~6 review dates per preset in the existing `horizons_json`; the
-  browser picks the first date ≥ its own clock. Baking `is_review_day` at build
-  time would state yesterday's truth on a static page; deriving the cadence rule
-  in JS would duplicate it away from `replay.rebalance_dates`.
-- **Forward dates use last *weekday*, not last trading day** — future market
-  holidays aren't knowable from price data. They diverge rarely but really
-  (2024-03-29 was both the last weekday of March and Good Friday). Under
-  due-until-dismissed the cost is a review falling due one day early, which is
-  not worth a holiday-calendar dependency.
-- **Pin the `2M` parity explicitly.** `rebalance_dates` takes every 2nd period
-  end counting from the start of the index, so the `long` preset's review months
-  are an artifact of where the price history begins (odd months, given a January
-  start). A forward calendar must hardcode that parity with a test asserting it
-  still matches `replay.rebalance_dates` over the real index, or the UI will
-  name review dates the backtest never simulated.
-- **Alerts unchanged** — crossing-gated, single default horizon.
-
-Sizing: scoped against an 11-trade/yr gap, and the shipped `medium` still has
-~10. Re-measure if `medium` moves to a materially wider band — the candidate
-`M/5/7` would have cut it to 4, which is the case where this stops paying for
-itself.
-
 ## Composite structure — 4.2 effective signals of 8
 
 Same measurement run. Worth recording so the question is not re-opened from
@@ -391,6 +314,68 @@ source-only and tight:
 ---
 
 # Done
+
+- **Badges mute between reviews instead of firing on every scan** (2026-08-15).
+  Ships the one committed piece of the 2026-08-07 horizon spec that shipping
+  stopped short of — "the dashboard states the next rebalance date and whether
+  today is one" — using the design agreed 2026-08-13 (option B1) and recorded
+  in `sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md`
+  § Thread B.
+
+  **Server: a forward review calendar with no price data to derive it from.**
+  `src.backtest.replay.forward_rebalance_dates` — last *weekday* of each period
+  (pandas' business-day aliases), not last *trading* day: a future market
+  holiday calendar doesn't exist to consult, and the design accepted that
+  divergence (2024-03-29 was both the last weekday of March and Good Friday) as
+  cheaper than a holiday-calendar dependency, given `due-until-acknowledged`
+  only costs a review surfacing one day early. `since` is inclusive — a build
+  running ON a review day says so rather than skipping to next period, verified
+  by test. `src.horizons.review_dates()` wraps it per-preset and feeds
+  `build.py`'s `horizons_json` (next 6 dates, ISO strings).
+
+  **One design bullet turned out moot, not a mistake to carry forward:** "pin
+  the `2M` parity explicitly" assumed a preset on a 2-month cadence, which
+  existed when that direction was chosen (2026-08-13) but was gone by the time
+  this shipped — the 2026-08-14 preset cut left both `medium` and `long` on one
+  monthly cadence, a property `test_presets_share_one_cadence` already
+  enforces. `forward_rebalance_dates` still supports `2M`/`Q`/etc. generally
+  (tested), but nothing live exercises the parity concern that motivated the
+  bullet.
+
+  **Client: `Rescore.reviewStatus`** (Node-tested, no DOM) decides due vs.
+  muted from the calendar + the reader's own clock + a per-preset
+  `localStorage` acknowledgment — never baked, so it stays correct on a page
+  built days ago. Between-reviews (no calendar date has come due yet) is the
+  *expected* state on most days of the month and mutes correctly, not a
+  failure; only genuinely missing/malformed input fails open to the
+  pre-existing always-on behaviour, on the reasoning that a board stuck
+  permanently quiet is a worse failure than one that never mutes.
+  `applyHorizonBadges()` toggles a `.muted` class on `entry`/`exit` badges
+  only — `Hold` never mutes ("do nothing" has no action to hold back) — and
+  badge *text* is untouched, matching "mute, don't hide."
+
+  **`.muted` drops the tinted background, keeps the border and text colour** —
+  found, while implementing, that this makes contrast *better* than the active
+  state, not worse: tinting a badge's background toward its own text colour
+  (the idiom several 2026-08-11/12 WCAG fixes had to correct) always reduces
+  contrast, so the muted state beats its own active state in both themes:
+  entry 5.16:1/8.29:1 muted vs. 4.53:1/6.76:1 active, exit 4.76:1/6.06:1 muted
+  vs. 4.53:1/5.72:1 active (light/dark). Pinned as a regression test, not just
+  asserted.
+
+  New UI: a "Review due [Done ✓]" / "Next review: <date>" chip beside the
+  horizon note, i18n'd (Swedish was the exact bug class that shipped once
+  already on `horizon_label`/`horizon_note` — added and tested this time, not
+  discovered after the fact).
+
+  25 new tests across 4 files (`test_rebalance_horizon.py`, `test_horizons.py`,
+  `test_review_due.py`, `test_color_theme.py`); `test_dashboard_js.py`'s
+  existing `horizons_json` fixture was also updated — its own docstring
+  requires staying in step with `build.py`'s real construction, and it would
+  otherwise have silently stopped catching a missing `review_dates` key. Two
+  of the new tests sabotage-verified live in this session (the fail-open
+  default, and the `.muted` CSS rule) — both caught their reverted bug and
+  passed clean restored.
 
 - **Preset provenance corrected in two places, both pointing at superseded
   evidence** — found by asking what is written down that a newcomer would trust
