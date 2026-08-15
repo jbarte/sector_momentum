@@ -116,6 +116,25 @@ def horizons(path: str | Path | None = None) -> list[Horizon]:
     return out
 
 
+def review_dates(horizon: Horizon, since: str, count: int = 6) -> list[str]:
+    """This preset's next `count` review dates, as ISO date strings.
+
+    `since` has no default deliberately: this module is pure config -> data
+    with no clock of its own, and a hidden `datetime.now()` here would make
+    every caller's tests non-deterministic. The caller (`dashboard/build.py`,
+    at build/scan time) is the one place "now" should be decided.
+
+    Thin wrapper over `replay.forward_rebalance_dates`, reading the preset's
+    OWN `rebalance` cadence rather than assuming "M" — so a future preset on a
+    different cadence gets its own calendar shape. Returns strings, not
+    `pandas.Timestamp`, because this feeds `dashboard/build.py`'s JSON context
+    directly and a Timestamp is not JSON-serialisable.
+    """
+    from src.backtest.replay import forward_rebalance_dates
+    dates = forward_rebalance_dates(horizon.rebalance, since, count=count)
+    return [d.date().isoformat() for d in dates]
+
+
 def default_horizon(path: str | Path | None = None) -> Horizon:
     """The preset the baked page renders and alerts use.
 

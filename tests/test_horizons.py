@@ -13,7 +13,7 @@ from dashboard.rows import _compute_setup
 from src.backtest.replay import REBALANCE_FREQS
 from src.horizons import (
     _FALLBACK, _FALLBACK_ROUND_TRIP_BPS, Horizon, default_horizon, horizons,
-    round_trip_bps,
+    review_dates, round_trip_bps,
 )
 
 
@@ -240,3 +240,41 @@ def test_long_tolerates_more_drift_than_medium():
     """
     by_key = {h.key: h for h in horizons()}
     assert by_key["long"].exit_rank > by_key["medium"].exit_rank
+
+
+# ---------------------------------------------------------------------------
+# review_dates — the calendar the badge-muting UI reads
+# ---------------------------------------------------------------------------
+
+def test_review_dates_reads_the_presets_own_cadence():
+    """A distinct fixture per preset, not a hardcoded 'M' — a future preset on
+    a different cadence must get its own calendar shape, not medium's."""
+    h = Horizon(key="x", label="X", rebalance="Q", top_n=3, buffer=2)
+    dates = review_dates(h, since="2026-01-15", count=2)
+    assert dates == ["2026-03-31", "2026-06-30"]
+
+
+def test_review_dates_returns_iso_strings_not_timestamps():
+    """This feeds straight into build.py's JSON context — a pandas Timestamp
+    is not JSON-serialisable, and the failure would surface as a build crash
+    far from this function."""
+    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer=2)
+    dates = review_dates(h, since="2026-01-15", count=1)
+    assert dates == ["2026-01-30"]
+    assert all(isinstance(d, str) for d in dates)
+
+
+def test_review_dates_count_defaults_to_six():
+    """Six matches the design note ('next ~6 review dates') and gives the
+    client enough runway that a normal build cadence never runs the calendar
+    out before the next one refreshes it."""
+    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer=2)
+    assert len(review_dates(h, since="2026-01-15")) == 6
+
+
+def test_shipped_presets_agree_on_review_dates():
+    """Both shipped presets share one cadence (test_presets_share_one_cadence)
+    — their calendars must therefore be identical, not just same-shaped."""
+    by_key = {h.key: h for h in horizons()}
+    assert (review_dates(by_key["medium"], since="2026-01-15")
+            == review_dates(by_key["long"], since="2026-01-15"))
