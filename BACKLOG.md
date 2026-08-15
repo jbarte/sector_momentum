@@ -158,12 +158,24 @@ measurement ("a 9.84px arrow") is stale: Trend is now a styled `.traj-badge`.
 Whether the remaining imbalance still misleads is a judgement call and has not
 been re-measured.
 
-**P2 — heading outline is broken** (`h2` → `h4`, no `h3`); no `<main>` and no
-skip link, and `role="tablist"` on the only `<nav>` suppresses the navigation
-landmark, leaving `<footer>` as the page's sole landmark.
+**Both P2 landmark/heading findings are resolved (2026-08-15)** — see Done.
 
-**P2 — 13 icon-only `↗` links have no accessible name**; 474 elements render
-under 12px.
+**The `↗` icon-link finding is stale.** Grepped templates, assets and i18n
+files: zero instances of the glyph anywhere in the codebase. Resolved by an
+unrelated redesign since the 2026-08-09 audit; not itself acted on.
+
+**"474 elements render under 12px" is real but re-scoped, not fixed.**
+Re-measured live in-browser (2026-08-15): **92 elements** under 12px on the
+default leaderboard view alone (table headers, trend/setup badges, chevrons,
+health-panel text, filter chips) — not counting other tabs, modals, or the
+sentiment page, so the true total is plausibly still in the audit's ballpark.
+Deliberately not touched as part of the landmark/heading fix: this is a
+data-dense financial table, and a blanket font-size floor trades off
+information density against legibility across dozens of components at once —
+that is a real design decision (which elements can afford to grow, whether
+table density itself should change), not a mechanical patch. Needs its own
+scoped look, ideally with the actual browser measurement redone across every
+tab and both pages rather than assumed from the leaderboard sample above.
 
 ## Deferred UI/code polish (small, grouped sweep)
 
@@ -314,6 +326,78 @@ source-only and tight:
 ---
 
 # Done
+
+- **P2 landmark and heading-outline findings fixed** (2026-08-15) — the
+  remainder of the 2026-08-09 design review that wasn't already resolved. Both
+  claims re-verified against the code first (the audit's `↗`-link finding
+  turned out stale — see Queued — and the sub-12px finding needed re-scoping
+  rather than a blind fix).
+
+  **Landmarks: `<footer>` was the page's only one.** No `<main>`, no skip
+  link, `<div class="command-bar">` instead of `<header>`, and
+  `<nav role="tablist">` — an explicit ARIA role always overrides an
+  element's implicit one, so a tablist inside `<nav>` can never expose a
+  navigation landmark, and this was the page's *only* `<nav>`. Fixed by
+  demoting the tab bar to a plain `<div role="tablist">` rather than trying
+  to reconcile the two roles (a tablist isn't page navigation in the
+  landmark sense anyway — ARIA's own authoring practices don't nest it in
+  `<nav>`), and adding `<main id="main-content" tabindex="-1">` +
+  `<header class="command-bar">`. Verified in-browser: landmarks are now
+  `HEADER`, `MAIN`, `FOOTER` on both pages (was `FOOTER` alone), and the tab
+  bar's click-to-switch behaviour is unchanged (`.tabs`/`role="tablist"`
+  were always what CSS and JS keyed off, never the tag name).
+
+  **The skip link's target needed `tabindex="-1"`, not just an `id`.**
+  Found by testing the real interaction, not just the markup: clicking a
+  bare `<a href="#main-content">` against a `<main>` with no `tabindex`
+  updates the URL hash and scrolls the viewport, but `document.activeElement`
+  falls back to `<body>` — keyboard focus never actually moves, so a
+  keyboard user would have to tab back through the whole header to reach
+  content, defeating the skip link. `tabindex="-1"` makes the element a
+  valid focus target without adding it to the normal Tab sequence. Verified
+  with a real keyboard `Tab` press (not just `.focus()` — a synthetic
+  `:focus-visible` doesn't always trigger from script) landing on the
+  skip link, then a click moving `activeElement` to `<main>`.
+
+  **Heading outline: `h2 → h4` inside the tab-guide modals, on both pages,
+  and in the Swedish translation.** The guide modal's own title is `h2`;
+  every subsection inside it was `h4` with no `h3` between. Fixed by
+  renaming to `h3` in `index.html.j2`, `sentiment.html.j2` **and**
+  `i18n/_guides.js.j2` — the last one is swapped in wholesale via
+  `data-i18n-html` on language switch, so missing it there would have
+  reintroduced the skip only after switching to Swedish, the exact shape of
+  bug this codebase has shipped before (badge/label i18n gaps, twice).
+
+  **Two more skips found while verifying the audit's literal claim, not
+  named in it:** "Badge scorecard" and "News sentiment" were `h3` with no
+  `h2` before them anywhere on their pages (`h1 → h3`). Promoted both to
+  `h2`, pure tag renames with their original inline styles untouched — no
+  visual change, since both were already using inline `style=` attributes
+  rather than a CSS class that would need a matching selector rename (unlike
+  the modal `h4`s, which did need `.tab-guide-body h4` → `h3` in
+  `_guides.css.j2`).
+
+  10 new tests (`tests/test_a11y_landmarks.py`), including a reusable
+  in-order heading-level-skip checker. Sabotage-verified: reverting any one
+  of the three structural fixes (the heading rename, the nav→div change, or
+  the `tabindex`) independently fails its test with a clear message;
+  restoring passes. Two test bugs caught and fixed during that process — a
+  bare substring check for `"<nav"` (and later a naive tag-boundary regex)
+  both matched this fix's own explanatory HTML comment, which mentions
+  `<nav>` in prose; fixed by stripping HTML comments before searching.
+
+  **Code review caught a real gap in the heading-skip checker's own
+  coverage claim.** It scanned only each page's own raw template text, so a
+  skip introduced inside an *included* partial — `_header.html.j2`'s `<h1>`,
+  `_footer.html.j2`'s Alerts `<h2>`, `_methodology.html.j2`'s `<h2>`/`<h3>`
+  sequence, `_validation.html.j2`'s two `<h3>`s — could not have been caught,
+  despite the checker's own docstring claiming it was "general enough to
+  catch this class of regression anywhere." Fixed with a small recursive
+  `{% include %}` resolver so the test scans the sequence actually rendered
+  on the page. Sabotage-verified against the exact gap: demoting the
+  footer's Alerts `<h2>` to `<h5>` (deep inside a partial, invisible to the
+  pre-fix version of the test) now fails with "heading level jumps from h3
+  to h5 — skips h4"; restoring passes.
 
 - **Badges mute between reviews instead of firing on every scan** (2026-08-15).
   Ships the one committed piece of the 2026-08-07 horizon spec that shipping
