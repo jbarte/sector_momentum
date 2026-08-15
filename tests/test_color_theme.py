@@ -447,6 +447,26 @@ def test_setup_badge_exit_contrast_meets_wcag_aa():
     _assert_badge_contrast(".setup-badge.exit", _DOWN_LIGHT, _DOWN_DARK, pct)
 
 
+def test_muted_badges_have_more_contrast_margin_than_active_ones():
+    """`.muted` drops the tinted background to fully transparent (0% tint) —
+    text renders straight on --bg-raised. Tinting toward the text's own
+    colour always REDUCES contrast (established by every fix above: dropping
+    tint pct raised the ratio each time), so 0% tint must beat every active
+    tint pct already verified. Regression guard: if a future change gives
+    `.muted` its own background colour instead of `transparent`, this is the
+    test that would catch a contrast regression the active-state tests can't
+    see, since they never exercise the muted rule at all."""
+    assert _contrast_ratio(_UP_LIGHT, _BG_RAISED_LIGHT) >= 4.5
+    assert _contrast_ratio(_UP_LIGHT, _BG_RAISED_LIGHT) > _contrast_ratio(
+        _UP_LIGHT, _mix_over(_UP_LIGHT, _tint_pct("_tables.css.j2", ".setup-badge.entry", "--up"), _BG_RAISED_LIGHT))
+    assert _contrast_ratio(_DOWN_LIGHT, _BG_RAISED_LIGHT) >= 4.5
+    assert _contrast_ratio(_DOWN_LIGHT, _BG_RAISED_LIGHT) > _contrast_ratio(
+        _DOWN_LIGHT, _mix_over(_DOWN_LIGHT, _tint_pct("_tables.css.j2", ".setup-badge.exit", "--down"), _BG_RAISED_LIGHT))
+    text = _CSS_DIR.joinpath("_tables.css.j2").read_text()
+    assert re.search(r"\.setup-badge\.entry\.muted,\s*\n\s*\.setup-badge\.exit\.muted\s*\{\s*background:\s*transparent;",
+                      text), ".muted rule no longer sets background: transparent — update this test's assumption"
+
+
 # Hardcoded hex for `--canvas`, in both themes — the container `--ok`/`--warn`/
 # `--err` render directly against (`.health-panel` sets no background of its
 # own, so it inherits `body`'s `--bg` == `--canvas`).
