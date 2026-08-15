@@ -326,10 +326,16 @@ def main() -> None:
 
     cohort_list = cohorts(_themes_cfg)
 
-    from src.horizons import horizons, default_horizon, round_trip_bps
+    from src.horizons import horizons, default_horizon, round_trip_bps, review_dates
     horizon_list = horizons()
     _default_horizon = default_horizon()
     _round_trip_bps = round_trip_bps()
+    # "Now", decided once here rather than inside review_dates (which has no
+    # clock of its own — see its docstring) — every preset's calendar must be
+    # generated from the same instant, or a build straddling midnight could
+    # embed presets that disagree about what day it is.
+    from datetime import datetime, timezone
+    _review_since = datetime.now(timezone.utc).date().isoformat()
 
     # The scan index and per-scan reports used to need a sector-only
     # slice of all_scores_df, because that frame was widened to carry THEME
@@ -486,7 +492,11 @@ def main() -> None:
         {"key": h.key, "label": h.label, "rebalance": h.rebalance,
          "top_n": h.top_n, "buffer": h.buffer,
          "trades_per_year": h.trades_per_year,
-         "median_holding_days": h.median_holding_days}
+         "median_holding_days": h.median_holding_days,
+         # Next ~6 review dates, ISO strings, so the client can say whether
+         # today is one without re-deriving the cadence rule in JS — see
+         # BACKLOG.md "Badges don't say whether today is an actionable day".
+         "review_dates": review_dates(h, since=_review_since)}
         for h in horizon_list
     ])
     _horizon_default_json = _json.dumps({

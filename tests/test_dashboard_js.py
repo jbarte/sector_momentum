@@ -16,7 +16,7 @@ import pandas as pd
 import pytest
 
 from src.horizons import (horizons as _horizons, default_horizon as _default_horizon,
-                          round_trip_bps as _round_trip_bps)
+                          round_trip_bps as _round_trip_bps, review_dates as _review_dates)
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -51,11 +51,15 @@ def _horizon_ctx(dumps=json.dumps):
     return dict(
         horizon_list=hs,
         round_trip_bps=_round_trip_bps(),
+        # since is fixed, not datetime.now(): these fixtures feed deterministic
+        # render tests, and a real clock would make review_dates flake once a
+        # day when "today" crosses a review boundary mid-test-run.
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
              "top_n": h.top_n, "buffer": h.buffer,
              "trades_per_year": h.trades_per_year,
-             "median_holding_days": h.median_holding_days} for h in hs
+             "median_holding_days": h.median_holding_days,
+             "review_dates": _review_dates(h, since="2026-01-15")} for h in hs
         ]),
         horizon_default_json=dumps({
             "key": d.key, "label": d.label, "top_n": d.top_n, "buffer": d.buffer}),
