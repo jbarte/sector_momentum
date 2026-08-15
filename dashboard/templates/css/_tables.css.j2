@@ -10,7 +10,7 @@
 }
 .scan-index { margin-bottom: 20px; }
 .scan-index .active-scan { background: color-mix(in srgb, var(--up) 12%, transparent); }
-.showing-badge { color: var(--up); font-weight: 600; font-size: 0.8em; white-space: nowrap; }
+.showing-badge { color: var(--up); font-weight: 600; font-size: 1em; white-space: nowrap; }
 .scan-index tr[data-scan-id] { cursor: pointer; }
 .scan-index tr[data-scan-id]:not(.active-scan):hover { background: var(--bg-sunken); }
 .scan-index tr[data-scan-id]:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
@@ -289,7 +289,7 @@ tbody td:nth-child(n+4) {
 /* Setup badges (entry / exit) */
 .setup-badge {
   display: inline-block;
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   padding: 1px 6px;
@@ -323,7 +323,7 @@ tbody td:nth-child(n+4) {
 .unbuyable-badge {
   display: inline-block;
   margin-left: 8px;
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   font-weight: 500;
   letter-spacing: 0.03em;
   padding: 1px 6px;
@@ -396,7 +396,7 @@ tbody td:nth-child(n+4) {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg4);
 }
 /* An author `display` beats the UA sheet's `[hidden] { display: none }`, so the
@@ -547,12 +547,12 @@ tbody td:nth-child(n+4) {
   font-weight: 600;
   font-variant-numeric: tabular-nums;   /* numbers must not jitter on switch */
 }
-.horizon-note { color: var(--fg4); font-size: 11px; }
+.horizon-note { color: var(--fg4); font-size: 12px; }
 /* Review-due status. .review-next is deliberately as quiet as .horizon-note —
    it is the common, nothing-to-do state. .review-due stands out a little
    more (fg2, not fg4) because it is the one state actually asking for
    attention, without competing with the Enter/Exit badges themselves. */
-.review-status { font-size: 11px; }
+.review-status { font-size: 12px; }
 .review-next { color: var(--fg4); }
 .review-due { color: var(--fg2); font-weight: 600; }
 .review-done-btn {

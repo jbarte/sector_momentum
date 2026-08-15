@@ -121,6 +121,103 @@ def test_tab_note_meets_floor():
     assert _resolved_px(_rule_font_size(css, ".tab-note")) >= 12
 
 
+def test_cohort_select_label_meets_floor():
+    css = _css("_charts.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".cohort-select-row label")) >= 12
+
+
+def test_drilldown_controls_label_meets_floor():
+    css = _css("_charts.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".drilldown-controls label")) >= 12
+
+
+def test_scan_meta_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".scan-meta")) >= 12
+
+
+def test_auth_form_email_input_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".auth-form input[type=\"email\"]")) >= 12
+
+
+def test_auth_status_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".auth-status")) >= 12
+
+
+def test_lag_banner_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".lag-banner")) >= 12
+
+
+def test_alert_prefs_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".alert-prefs")) >= 12
+
+
+def test_alert_prefs_topic_code_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".alert-prefs-topic code")) >= 12
+
+
+def test_alert_prefs_warn_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".alert-prefs-warn")) >= 12
+
+
+def test_alert_prefs_status_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".alert-prefs-status")) >= 12
+
+
+def test_alerts_hz_note_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".alerts-hz-note")) >= 12
+
+
+def test_alerts_hz_warn_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".alerts-hz-warn")) >= 12
+
+
+def test_methodology_body_code_meets_floor():
+    css = _css("_chrome.css.j2")
+    # em relative to .methodology-body p/li ancestor, measured live at 12.6px
+    assert _resolved_px(_rule_font_size(css, ".methodology-body code"), context_px=12.6) >= 12
+
+
+def test_horizon_note_meets_floor():
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".horizon-note")) >= 12
+
+
+def test_review_status_meets_floor():
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".review-status")) >= 12
+
+
+def test_band_legend_meets_floor():
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".band-legend")) >= 12
+
+
+def test_setup_badge_meets_floor():
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".setup-badge")) >= 12
+
+
+def test_unbuyable_badge_meets_floor():
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".unbuyable-badge")) >= 12
+
+
+def test_showing_badge_meets_floor():
+    css = _css("_tables.css.j2")
+    # em relative to table cell ancestor, measured live at 13px
+    assert _resolved_px(_rule_font_size(css, ".showing-badge"), context_px=13) >= 12
+
+
 # ---------------------------------------------------------------------------
 # Deliberately exempt — pinned, not ignored
 # ---------------------------------------------------------------------------
