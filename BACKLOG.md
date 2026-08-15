@@ -392,6 +392,32 @@ source-only and tight:
 
 # Done
 
+- **`/handover` verification pass — one real gap found and fixed** — ran the new
+  command against merged `main` (60d95ed). State clean: no open PRs, one branch,
+  757 tests passing, dashboard builds.
+
+  **`SUPABASE_PUBLISHABLE_KEY` was missing from README's env-var table** while
+  being read by `dashboard/build.py` and set in both CI workflows. It is in
+  `.env.example`, so the omission was only in the table a newcomer actually
+  reads when setting up — and the failure is **silent**: `_auth_ctx()` returns
+  auth-disabled with no log when the key is absent, so a fresh install gets no
+  sign-in, no badges, no position stars and no alerts, with nothing saying why.
+  Documented, including that symptom, since "the dashboard looks feature-poor"
+  is the shape the bug actually takes.
+
+  Everything else verified correct, which is what makes the above worth
+  trusting: no phantom CLI flags (the `--no-cache` hits are the sentences saying
+  it is gone), every file named in the docs exists, `DATABASE_URL` and
+  `SUPABASE_SERVICE_KEY` are read where claimed, theme count (18), signal count
+  (8) and pillar split (50/50) match config, both presets' sell-past ranks (9 and
+  13) match `top_n + buffer`, no duplicate Queued or Done headings, and the
+  actionable-day item correctly labels `M/4/5` as shipped and `M/5/7` as not
+  adopted.
+
+  The command also caught two false positives in its own sweeps on first run
+  (a missing entry point, and 23 phantom file misses from bare basenames), both
+  fixed in `.claude/commands/handover.md` before it shipped. *(2026-08-14)*
+
 - **Handover sync: docs and backlog audited against the code** — five PRs landed
   after the 2026-08-13 documentation pass, and `CLAUDE.md` had never been
   re-checked at all. Everything below was verified against the code, not
