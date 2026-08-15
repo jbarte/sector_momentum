@@ -100,6 +100,20 @@
       <span class="hz-stat"><b id="hz-trades">—</b> <span data-i18n="hz_trades">trades/yr</span></span>
     </span>
     <span class="horizon-note" data-i18n="horizon_note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
+    {#- Review-due status: which of the two states below is showing is decided
+        entirely client-side (renderReviewStatus(), from Rescore.reviewStatus) —
+        never baked, so it stays correct on a page built days ago. Both start
+        hidden so neither flashes before JS decides which applies. See
+        BACKLOG.md "Badges don't say whether today is an actionable day". -#}
+    <span class="review-status" id="review-status">
+      <span class="review-due" id="review-due" hidden>
+        <span data-i18n="review_due">Review due</span>
+        <button type="button" class="review-done-btn" id="review-done-btn" data-i18n="review_done">Done ✓</button>
+      </span>
+      <span class="review-next" id="review-next" hidden>
+        <span data-i18n="review_next_label">Next review:</span> <b id="review-next-date">—</b>
+      </span>
+    </span>
     {#- Legend for the two cut lines drawn in the table by applyBandBoundaries().
         Hidden until those lines exist, so it never describes something absent —
         e.g. when the leaderboard is showing a past scan rebuilt without ranks. -#}
@@ -425,6 +439,42 @@ function currentHorizon() {
   return HORIZON_DEFAULT;
 }
 
+// Per-preset "I've seen this review" acknowledgment, keyed by horizon key so
+// switching preset does not carry one preset's Done click onto another's
+// calendar. One object rather than one key per preset: HORIZONS can grow
+// without this needing a matching localStorage migration.
+var _REVIEW_ACK_LS = "sm_review_ack";
+
+function getReviewAck(key) {
+  try {
+    var raw = localStorage.getItem(_REVIEW_ACK_LS);
+    var map = raw ? JSON.parse(raw) : {};
+    return map[key] || null;
+  } catch (e) { return null; /* private mode, or corrupt JSON: fail open */ }
+}
+
+function ackReview(key) {
+  try {
+    var raw = localStorage.getItem(_REVIEW_ACK_LS);
+    var map = raw ? JSON.parse(raw) : {};
+    map[key] = window.Rescore.localISODate();
+    localStorage.setItem(_REVIEW_ACK_LS, JSON.stringify(map));
+  } catch (e) { /* private mode: the click still mutes this render, just not
+                   a future page load — acceptable, matches every other
+                   localStorage preference on this page. */ }
+  renderReviewStatus();
+  applyHorizonBadges();
+}
+
+// The active horizon's due/muted state, recomputed fresh on every call —
+// never cached, so it is always correct relative to the reader's actual
+// clock even on a page built days ago.
+function currentReviewStatus() {
+  var h = currentHorizon();
+  return window.Rescore.reviewStatus(
+    h.review_dates, window.Rescore.localISODate(), getReviewAck(h.key));
+}
+
 // The single writer of every leaderboard badge — the horizon switch, the
 // signed-in rebuild, the sentiment rescore and the holdings toggle all end up
 // here. They used to each emit their own badge markup, and they had already
@@ -501,6 +551,12 @@ function applyHorizonBadges() {
   var visible = badgesVisible();
   var pos = window.SMPositions;
   var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row');
+  // Computed once per call, not per row: it depends only on the active
+  // horizon's calendar and the reader's ack, never on a row's own data.
+  // Hold never mutes (see reviewStatus's docstring: "do nothing" has no
+  // action to hold back), so this only ever gates entry/exit below.
+  var reviewDue = window.Rescore && window.Rescore.reviewStatus
+    ? currentReviewStatus().due : true;
   // Whether the badge may be personalised at all. Without holdings the
   // action-aware rule would silently delete every Exit badge (nothing is held,
   // so nothing can be exited) — including on an ungated build, where the server
@@ -551,7 +607,11 @@ function applyHorizonBadges() {
       badge = document.createElement('span');
       nameCell.appendChild(badge);
     }
-    badge.className = 'setup-badge ' + kind;
+    // Mute, don't hide: the badge KIND and TEXT stay exactly what they were —
+    // only the styling class changes. A reader who checks daily still sees
+    // the correct call, just visually quiet until it is actually due.
+    var isMuted = !reviewDue && (kind === 'entry' || kind === 'exit');
+    badge.className = 'setup-badge ' + kind + (isMuted ? ' muted' : '');
     badge.setAttribute('data-i18n', BADGE_I18N[kind]);
     badge.textContent = BADGE_TEXT_EN[kind];
     // data-en must be rewritten, not left to _i18n.html.j2's first-sight
@@ -621,10 +681,30 @@ function renderHorizonStats(key) {
       ? '—' : Math.round(h.trades_per_year));
 }
 
+// Which of "Review due [Done ✓]" / "Next review: <date>" is showing. Reads
+// currentHorizon() itself rather than taking one as a parameter, matching
+// applyHorizonBadges() — both are "recompute from the active horizon" passes
+// callers just invoke after anything that could change it.
+function renderReviewStatus() {
+  var dueEl = document.getElementById('review-due');
+  var nextEl = document.getElementById('review-next');
+  if (!dueEl || !nextEl) { return; }
+  var status = currentReviewStatus();
+  dueEl.hidden = !status.due;
+  nextEl.hidden = status.due;
+  var dateEl = document.getElementById('review-next-date');
+  if (dateEl) { dateEl.textContent = status.nextDate || '—'; }
+}
+
 function initHorizonSelect() {
   var sel = document.getElementById('horizon-select');
   if (sel) { sel.value = activeHorizon; }
   renderHorizonStats(activeHorizon);
+  renderReviewStatus();
+  var doneBtn = document.getElementById('review-done-btn');
+  if (doneBtn) {
+    doneBtn.addEventListener('click', function () { ackReview(currentHorizon().key); });
+  }
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
     tr.classList.toggle('active', tr.dataset.horizon === activeHorizon);
   });
@@ -651,6 +731,7 @@ function switchHorizon(key) {
   if (_sel && _sel.value !== key) { _sel.value = key; }
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
   renderHorizonStats(key);
+  renderReviewStatus();
   applyHorizonBadges();
   // A past scan's rows bake their band highlight at render time and are skipped
   // by applyHorizonBadges (no data-rank), so re-render to pick up the new band.
