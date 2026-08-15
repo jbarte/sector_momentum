@@ -260,11 +260,64 @@
          + '<span class="cbar-val">' + n.toFixed(3) + "</span>";
   }
 
+  // Whether a preset's Enter/Exit badges should render as actionable now or
+  // muted (informational only, nothing new since the last review) — the fix
+  // for "the daily-signal mismatch": badges used to recompute every scan
+  // regardless of the preset's intended review cadence, so a reader checking
+  // more often than that cadence saw far more churn than the preset was
+  // tuned for. See BACKLOG.md "Badges don't say whether today is an
+  // actionable day".
+  //
+  // reviewDates: the server-baked forward calendar for one preset (ISO date
+  // strings, from src.horizons.review_dates via build.py's horizons_json).
+  // todayISO / ackISO: the reader's local "today" and the last date they
+  // acknowledged THIS preset's review (null if never) — both decided
+  // CLIENT-side, never baked, so the muting state is always current even on
+  // a page built days ago.
+  //
+  // due:false ("muted") is the ordinary, expected state on most days of the
+  // month — not a failure mode. due:true ("actionable") only on/after a
+  // review date that has not yet been acknowledged. Missing/malformed input
+  // is the one case that fails toward due:true: it falls back to the
+  // pre-existing always-on behaviour rather than a new, silently-muted one —
+  // a board stuck permanently quiet is a worse failure than one that never
+  // mutes.
+  function reviewStatus(reviewDates, todayISO, ackISO) {
+    if (!reviewDates || !reviewDates.length || !todayISO) {
+      return { due: true, dueDate: null, nextDate: null };
+    }
+    var dates = reviewDates.slice().sort();
+    var dueDate = null, nextDate = null;
+    for (var i = 0; i < dates.length; i++) {
+      if (dates[i] <= todayISO) { dueDate = dates[i]; }
+      else if (nextDate === null) { nextDate = dates[i]; }
+    }
+    if (dueDate === null) {
+      // Every baked date is still ahead of today: between reviews, nothing
+      // has come due within this calendar yet. The common case, not an error.
+      return { due: false, dueDate: null, nextDate: nextDate };
+    }
+    var due = !ackISO || ackISO < dueDate;
+    return { due: due, dueDate: dueDate, nextDate: nextDate };
+  }
+
+  // Local calendar day as YYYY-MM-DD, from the reader's own clock — never
+  // UTC, since "today" must match the day the reader actually sees on their
+  // screen. ISO-format strings compare correctly with plain `<=`/`<`, which
+  // is what reviewStatus relies on, so this never constructs a second Date
+  // object to compare against — string comparison only, no timezone re-entry.
+  function localISODate(d) {
+    d = d || new Date();
+    var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
               inBuyBand: inBuyBand,
               badgeForRank: badgeForRank, badgeFor: badgeFor,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               latestRowMeta: latestRowMeta, compositeBar: compositeBar,
+              reviewStatus: reviewStatus, localISODate: localISODate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
   root.Rescore = api;
