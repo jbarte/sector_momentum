@@ -507,6 +507,28 @@ thead th[tabindex="0"]:focus-visible {
   outline-offset: -2px;
 }
 
+/* Skip link — first focusable element in the body. Off-screen until
+   keyboard focus reaches it (Tab from a fresh load), then pinned to the
+   top-left corner so it never overlaps the command bar. A mouse user never
+   sees it; a screen-reader or keyboard user gets a way past the header/nav
+   chrome straight to <main> without tabbing through every control first. */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  z-index: 1000;
+  padding: 8px 14px;
+  background: var(--bg-raised);
+  color: var(--fg1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  text-decoration: none;
+}
+.skip-link:focus-visible {
+  top: 8px;
+}
+
 /* "alpha" marker on the Sentiment segment and its page note. Deliberately the
    quietest thing in the command bar — it qualifies a nav item, it should not
    compete with it. */
