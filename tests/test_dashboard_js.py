@@ -840,6 +840,59 @@ def test_item_for_row_classifies_by_region_not_dataset_shape():
 
 
 # ---------------------------------------------------------------------------
+# positions.js — ★/☆ toggle's title/aria-label must be translatable
+# ---------------------------------------------------------------------------
+
+def test_position_toggle_tooltips_are_i18n_keyed_not_hardcoded_english():
+    """applyRowState() used to set btn.title / aria-label to a literal English
+    string with no i18n hookup, so the toggle stayed "Held — click to remove"
+    for Swedish readers even after a language switch, unlike every other
+    control on the page. It must carry the same data-i18n-title/-aria pattern
+    auth.js uses for its own dynamically-inserted markup (UNBUYABLE_BADGE)."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/positions.js").read_text()
+    assert 'setAttribute("data-i18n-title", key)' in src
+    assert 'setAttribute("data-i18n-aria", key)' in src
+    assert '"position_held_tip"' in src
+    assert '"position_mark_held_tip"' in src
+
+
+def test_position_toggle_calls_applylangtoel_after_state_changes():
+    """The translation only takes effect once something calls
+    window.applyLangToEl (positions.js has no access to the SV dict itself —
+    it lives in the per-page inline i18n IIFE). Guards against the fix
+    landing half-done: keys set on the element but nothing ever re-running
+    the i18n pass to apply them.
+
+    Scoped, not the page-wide window.applyLang: a full rescan on every star
+    click would also re-run applyLang()'s own applyFilters() side effect for
+    no reason, and this button is the only thing that changed."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/positions.js").read_text()
+    assert "window.applyLangToEl" in src
+    assert "window.applyLang(" not in src, (
+        "positions.js should use the scoped applyLangToEl(), not a "
+        "page-wide applyLang() rescan, for a single button's retranslation"
+    )
+
+
+def test_i18n_pass_exposes_the_scoped_element_translator():
+    """applyLangToEl must exist (positions.js depends on it) and must read
+    data-i18n-title/-aria the same way apply()'s own document-wide passes do,
+    so a key translated by one path is translated identically by the other."""
+    js = (Path(__file__).parent.parent
+          / "dashboard/templates/_i18n.html.j2").read_text()
+    assert "window.applyLangToEl" in js
+    assert 'el.hasAttribute("data-i18n-title")' in js
+    assert 'el.hasAttribute("data-i18n-aria")' in js
+
+
+@pytest.mark.parametrize("key", ["position_held_tip", "position_mark_held_tip"])
+def test_swedish_has_the_position_toggle_strings(key):
+    sv = (Path(__file__).parent.parent
+          / "dashboard/templates/i18n/_core.js.j2").read_text()
+    assert f"{key}:" in sv
+
+
+# ---------------------------------------------------------------------------
 # Leaderboard column structure — three builders must agree
 # ---------------------------------------------------------------------------
 
@@ -993,3 +1046,57 @@ def test_every_aria_modal_dialog_is_bound_to_the_helper():
         src = (root / page).read_text()
         if 'aria-modal="true"' in src:
             assert "_modal.js.j2" in src, f"{page} has a modal but never includes the helper"
+
+
+# ---------------------------------------------------------------------------
+# One shared Supabase client — auth.js / positions.js / alert-prefs.js
+# ---------------------------------------------------------------------------
+
+def test_only_one_file_creates_the_supabase_client():
+    """auth.js, positions.js and alert-prefs.js each used to call
+    window.supabase.createClient() independently — three clients pointed at
+    the same project, which makes Supabase log a 'Multiple GoTrueClient
+    instances detected' console warning for every extra one. Only
+    supabase-client.js may call createClient(); the other three must reuse
+    window.SMSupabase."""
+    root = Path(__file__).parent.parent / "dashboard/assets"
+    consumers = ["auth.js", "positions.js", "alert-prefs.js"]
+
+    creator_src = (root / "supabase-client.js").read_text()
+    assert "window.supabase.createClient(cfg.url, cfg.key)" in creator_src
+    assert "window.SMSupabase =" in creator_src
+
+    for name in consumers:
+        src = (root / name).read_text()
+        assert "createClient" not in src, (
+            f"{name} still calls createClient() itself — should reuse "
+            f"window.SMSupabase from supabase-client.js instead"
+        )
+        assert "window.SMSupabase" in src, (
+            f"{name} does not reference the shared client at all"
+        )
+
+
+def test_supabase_client_script_loads_before_its_consumers():
+    """Load-order matters: window.SMSupabase must exist before auth.js,
+    positions.js or alert-prefs.js run, or their first-load guard sees it
+    unset and fails open (auth silently disabled)."""
+    footer = (Path(__file__).parent.parent
+              / "dashboard/templates/_footer.html.j2").read_text()
+    creator_idx = footer.index('src="assets/supabase-client.js"')
+    for name in ("auth.js", "positions.js", "alert-prefs.js"):
+        consumer_idx = footer.index(f'src="assets/{name}"')
+        assert creator_idx < consumer_idx, (
+            f"supabase-client.js must be loaded before {name}"
+        )
+
+
+def test_supabase_client_asset_is_copied_when_auth_is_configured():
+    """Mirrors the build_assets regression test's own incident (theme.js
+    referenced but never copied, 404 in production) for this specific file —
+    checked directly here too since supabase-client.js is only copied inside
+    the same `if auth_ctx["auth"]:` block as its three consumers, and that
+    block-scoping is easy to get right for the existing three files while
+    missing the new fourth one."""
+    build_py = (Path(__file__).parent.parent / "dashboard/build.py").read_text()
+    assert 'docs_assets / "supabase-client.js"' in build_py

@@ -5,9 +5,9 @@
  * Loaded after auth.js; runs on both the sector page and the themes page. */
 (function () {
   var cfg = window.SUPABASE_CONFIG;
-  if (!cfg || !cfg.url || !cfg.key || !window.supabase) return;
+  if (!cfg || !cfg.url || !cfg.key || !window.SMSupabase) return;
 
-  var sb = window.supabase.createClient(cfg.url, cfg.key);
+  var sb = window.SMSupabase;  // shared client — see assets/supabase-client.js
   var held = null;       // Set of rowKey() strings once loaded, else null
   var signedIn = false;
   var loadPromise = null; // in-flight guard: concurrent callers await one request
@@ -95,8 +95,25 @@
       btn.textContent = isHeld ? "★" : "☆";   // ★ / ☆
       btn.setAttribute("aria-pressed", isHeld ? "true" : "false");
       var label = isHeld ? "Held — click to remove" : "Mark as held";
+      var key = isHeld ? "position_held_tip" : "position_mark_held_tip";
       btn.title = label;
       btn.setAttribute("aria-label", label);   // glyph alone isn't a usable SR name
+      btn.setAttribute("data-i18n-title", key);
+      btn.setAttribute("data-i18n-aria", key);
+      // Reset the cached English fallback so applyLangToEl() below doesn't
+      // translate stale pre-toggle text into the new label — same rule
+      // apply() itself follows, just owned by this call site because this
+      // button (unlike auth.js's insert-once UNBUYABLE_BADGE) is re-labeled
+      // to a DIFFERENT value on every state change.
+      btn.removeAttribute("data-en-title");
+      btn.removeAttribute("data-en-aria");
+      // Scoped translate, not a full-page applyLang() rescan: this button is
+      // the only thing that just changed, and a page-wide rescan would also
+      // needlessly re-run applyFilters() (applyLang()'s own side effect) on
+      // every star click. Also covers sentiment.html.j2, which loads
+      // positions.js but has no sm:positions-changed listener to catch this
+      // any other way.
+      if (window.applyLangToEl) window.applyLangToEl(btn);
     }
   }
 

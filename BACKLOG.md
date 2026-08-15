@@ -177,29 +177,6 @@ table density itself should change), not a mechanical patch. Needs its own
 scoped look, ideally with the actual browser measurement redone across every
 tab and both pages rather than assumed from the leaderboard sample above.
 
-## Deferred UI/code polish (small, grouped sweep)
-
-Minor findings deliberately deferred during code review — none affect
-correctness, all are small. Recorded so they aren't rediscovered from scratch.
-
-- **Position-star tooltips are English-only.** `dashboard/assets/positions.js`
-  sets `title`/`aria-label` on the ★/☆ toggle as literal English strings; the
-  rest of the UI carries EN/SV pairs. Add SV strings (the glyph itself is
-  language-neutral, so this is polish, not a blocker).
-- **`GoTrueClient` multiple-instance console warning.** `auth.js` and
-  `positions.js` each call `createClient`, so Supabase logs a "multiple
-  GoTrueClient instances" warning. Harmless (both share the same persisted
-  session via localStorage) but noisy in the console; could be resolved by
-  exposing one shared client.
-- **Themes-page setup badges are lagged for signed-in users.** The client-side
-  live upgrade only rebuilds the sector table (`#leaderboard-table`), so on the
-  themes page the Exit/Entry badges — and therefore the held+Exit ⚠ cue — reflect
-  the baked (lagged) scan rather than the live one.
-- **Dead guard branches in `scripts/walkforward_weights.py`.** The
-  `bench_returns`/`base_bench` `None`-checks are unreachable, since Phase B is
-  gated on the baseline scheme having succeeded. Reviewed and accepted as
-  harmless; remove if that file is touched again.
-
 ## Rebrand Phase 2 — rename the repo (optional, arguably forever)
 
 Phase 1 shipped 2026-08-09: the product is called **ETF Momentum** everywhere a
@@ -326,6 +303,85 @@ source-only and tight:
 ---
 
 # Done
+
+- **Deferred UI/code polish sweep** (2026-08-15) — the four small,
+  deliberately-deferred findings recorded under "Deferred UI/code polish (small,
+  grouped sweep)". Two were genuine and fixed; two were re-verified against
+  the current code first and turned out already resolved by unrelated work
+  since the finding was written — same "verify before trusting a queued
+  claim" discipline as the P2 a11y pass below.
+
+  **Fixed: position-star tooltips are now translatable.**
+  `dashboard/assets/positions.js`'s ★/☆ toggle set `title`/`aria-label` to a
+  literal English string with no i18n hookup — Swedish readers kept seeing
+  "Held — click to remove" after a language switch, unlike every other
+  control on the page. It now carries `data-i18n-title`/`data-i18n-aria`
+  (new keys `position_held_tip`/`position_mark_held_tip` in
+  `i18n/_core.js.j2`). New `window.applyLangToEl(el, lang?)` in
+  `_i18n.html.j2` translates one element's title/aria-label in place — a
+  scoped counterpart to `apply()`'s four document-wide `querySelectorAll`
+  passes, added after `/code-review` (see below) flagged the first draft's
+  page-wide `window.applyLang()` call as unencapsulated, easy to forget at a
+  future call site, and needlessly re-triggering `apply()`'s own
+  `applyFilters()` side effect on every star click. Verified in-browser: EN
+  ↔ SV both directions, both held states, and confirmed `applyFilters` does
+  *not* fire from the scoped path.
+
+  **Fixed: one shared Supabase client instead of three.** `auth.js`,
+  `positions.js` *and* `alert-prefs.js` — one more caller than the finding
+  named — each called `window.supabase.createClient()` independently,
+  producing Supabase's "Multiple GoTrueClient instances detected" console
+  warning for every extra one (harmless — all three read/write the same
+  localStorage-persisted session — but noisy). New
+  `dashboard/assets/supabase-client.js` creates the one client, exposed as
+  `window.SMSupabase`, loaded right after `supabase.min.js` and before any
+  consumer; the three files now reuse it and no longer call `createClient`
+  themselves. Verified in-browser: the warning is gone and
+  `window.SMSupabase` is the one instance in play. 3 new tests guarding the
+  no-second-caller rule, the script load order, and that `build.py`'s
+  `docs_assets/` copy block (gated the same as its three consumers, under
+  `if auth_ctx["auth"]:`) actually includes the new file — sabotage-verified
+  against all three (`tests/test_build_assets.py`'s existing regression test
+  also independently caught the missing-copy case for free).
+
+  **Stale: "themes-page setup badges are lagged for signed-in users."**
+  Written 2026-07-26 against a since-deleted `themes.html.j2` — a *separate*
+  page from the sector leaderboard with its own table, retired 2026-08-04
+  when every cohort was unified onto one page (`index.html.j2`). The
+  Enter/Hold/Exit badge system itself (`applyHorizonBadges()`, with its
+  `sm:leaderboard-upgraded` listener) didn't exist until 2026-08-10 — *after*
+  both the finding and the unification — and was built explicitly to
+  recompute every row's badge from live data after the sign-in upgrade
+  rebuilds `#leaderboard-table`. Verified live in a browser rather than
+  trusted from the code comments alone: forced a row's `data-rank` from 1
+  (badged `▲ Enter`) to 999 and re-dispatched `sm:leaderboard-upgraded` — the
+  badge correctly disappeared, proving the recompute is live, not lagged.
+
+  **Stale: dead guard branches in `scripts/walkforward_weights.py`.** The
+  file doesn't exist — deleted whole in `1ff80d8` ("retire sector cohort from
+  scan, backtest, reports and config"), the same refactor that produced the
+  above. Confirmed the named `bench_returns`/`base_bench` `None`-guards were
+  genuinely in that deleted version (`git show 1ff80d8~1:scripts/walkforward_weights.py`)
+  before concluding there's nothing left to remove.
+
+  **`/code-review` (8 angles, 6 agents) round:** the `applyLangToEl` rework
+  above came directly from it — three angles independently converged on the
+  same root cause (full-page rescan doing one element's job) from different
+  directions (duplication, coupling risk, wasted work), which is why it's the
+  fix rather than a smaller patch. Also caught: a duplicated 4-line rationale
+  comment pasted into all three shared-client consumers, collapsed to a
+  one-line pointer; and that this branch's name and commit type didn't match
+  CLAUDE.md's `feature:`/`fix:` convention — both real fixes were genuine bug
+  fixes, so `chore/…` and `chore:` became `fix/…` and `fix:`. One finding
+  didn't survive independent verification: a reviewer flagged this entry's
+  test-count line as wrong (794→801/17 skipped, not 795→802/16), measured
+  from a fresh worktree — checked against a from-scratch worktree build of
+  `main` myself and got 795/16, matching the original claim exactly; the
+  reviewer's worktree simply hadn't run `dashboard/build.py`, so
+  `test_unbuyable.py`'s documented "docs/ not built" skip fired once more
+  than it should have. Not a defect in this change.
+
+  795 → 803 tests (8 new, all sabotage-verified); 16 skipped unchanged.
 
 - **P2 landmark and heading-outline findings fixed** (2026-08-15) — the
   remainder of the 2026-08-09 design review that wasn't already resolved. Both

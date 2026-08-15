@@ -460,6 +460,9 @@ def main() -> None:
     if scan_digest_src.exists():
         shutil.copy2(scan_digest_src, docs_assets / "scan-digest.js")
     if auth_ctx["auth"]:
+        supabase_client_src = _ASSETS_DIR / "supabase-client.js"
+        if supabase_client_src.exists():
+            shutil.copy2(supabase_client_src, docs_assets / "supabase-client.js")
         auth_src = _ASSETS_DIR / "auth.js"
         if auth_src.exists():
             shutil.copy2(auth_src, docs_assets / "auth.js")
