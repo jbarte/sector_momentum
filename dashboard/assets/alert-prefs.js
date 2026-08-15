@@ -6,9 +6,9 @@
 (function () {
   var cfg = window.SUPABASE_CONFIG;
   var root = document.getElementById("alert-prefs");
-  if (!cfg || !cfg.url || !cfg.key || !root || !window.supabase) return;
+  if (!cfg || !cfg.url || !cfg.key || !root || !window.SMSupabase) return;
 
-  var sb = window.supabase.createClient(cfg.url, cfg.key);
+  var sb = window.SMSupabase;  // shared client — see assets/supabase-client.js
   var userId = null;
 
   /* `root.hidden` means "alerts are available to this reader", NOT "the dialog

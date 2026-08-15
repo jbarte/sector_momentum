@@ -55,14 +55,52 @@
     if (typeof window.applyFilters === "function") window.applyFilters();
   }
 
+  function currentLang() {
+    try { return localStorage.getItem("lang") || "en"; } catch (e) { return "en"; }
+  }
+
+  // Scoped counterpart to apply(): translates one element's title/aria-label
+  // in place, instead of the four document-wide querySelectorAll passes (plus
+  // the applyFilters() side effect) apply() does. For content that is
+  // inserted once and never re-labeled (auth.js's UNBUYABLE_BADGE, the Live
+  // chip), a data-i18n-* attribute is enough — the next apply() call (a
+  // language toggle) picks it up for free. It exists for the opposite case:
+  // an element whose title/aria-label is reassigned to a DIFFERENT value
+  // repeatedly at runtime (positions.js's ★/☆ toggle, Held <-> Mark as held),
+  // where waiting for the next apply() means staying English until the
+  // reader happens to toggle language, and running the full apply() on every
+  // change is a page-wide rescan for a one-element update.
+  //
+  // Mirrors apply()'s data-en-title/data-en-aria caching exactly (lazy-cache
+  // if absent), so a caller that reassigns the element's live value must
+  // clear that cache itself first (removeAttribute) — same rule as apply(),
+  // just owned by one more call site. Deliberately not merged into apply()'s
+  // loops: those run over a queried set for the WHOLE page every call, this
+  // runs over one already-known element, and a lang argument is optional
+  // (reads currentLang() itself) so callers need no i18n-plumbing of their
+  // own.
+  function applyToEl(el, lang) {
+    if (lang == null) lang = currentLang();
+    if (el.hasAttribute("data-i18n-title")) {
+      if (!el.getAttribute("data-en-title")) el.setAttribute("data-en-title", el.getAttribute("title") || "");
+      var tkey = el.getAttribute("data-i18n-title");
+      el.setAttribute("title", (lang === "sv" && SV[tkey] != null) ? SV[tkey] : el.getAttribute("data-en-title"));
+    }
+    if (el.hasAttribute("data-i18n-aria")) {
+      if (!el.getAttribute("data-en-aria")) {
+        el.setAttribute("data-en-aria", el.getAttribute("aria-label") || "");
+      }
+      var akey = el.getAttribute("data-i18n-aria");
+      el.setAttribute("aria-label",
+        (lang === "sv" && SV[akey] != null) ? SV[akey] : el.getAttribute("data-en-aria"));
+    }
+  }
+
   window.applyLang = apply;
+  window.applyLangToEl = applyToEl;
   window.toggleLang = function () {
-    var cur = "en";
-    try { cur = localStorage.getItem("lang") || "en"; } catch (e) {}
-    apply(cur === "sv" ? "en" : "sv");
+    apply(currentLang() === "sv" ? "en" : "sv");
   };
 
-  var saved = "en";
-  try { saved = localStorage.getItem("lang") || "en"; } catch (e) {}
-  apply(saved);
+  apply(currentLang());
 })();

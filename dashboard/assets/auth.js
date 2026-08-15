@@ -7,9 +7,9 @@
 (function () {
   var cfg = window.SUPABASE_CONFIG;
   var root = document.getElementById("auth-root");
-  if (!cfg || !cfg.url || !cfg.key || !root || !window.supabase) return;
+  if (!cfg || !cfg.url || !cfg.key || !root || !window.SMSupabase) return;
 
-  var sb = window.supabase.createClient(cfg.url, cfg.key);
+  var sb = window.SMSupabase;  // shared client — see assets/supabase-client.js
 
   var signinBtn = document.getElementById("auth-signin");
   var headerForm = document.getElementById("auth-form");
