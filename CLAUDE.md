@@ -39,11 +39,22 @@ Keep the subject line under 72 characters. No body unless the change needs conte
 
 ## Project overview
 
-Sector momentum scanner: US SPDR (GICS 11) + STOXX Europe 600 sectors (14, incl. standalone sub-sectors) → data-pillar signals → composite score → Supabase/Postgres snapshots → static dashboard (GitHub Pages).
+Thematic ETF momentum scanner, published as **ETF Momentum**: 18 thematic and
+niche ETFs (AI & robotics, semiconductors, uranium, space, gold miners, …) →
+data-pillar signals → composite score → Supabase/Postgres snapshots → static
+dashboard (GitHub Pages).
+
+The US/EU **sector** cohorts this started as were retired on 2026-08-05; themes
+are now the only cohort. `region` survives in the schema as the cohort
+discriminator and is always `THEME` — it reads as legacy but is load-bearing,
+since retired sector rows are still in those tables and `region` is the filter
+that keeps them out of every read.
 
 - Entry point: `scan.py`
 - Dashboard build: `dashboard/build.py` → `docs/`
-- Config: `config/` (universe, weights, sector maps)
+- Config: `config/` — `themes.yaml` (the scoring universe + UCITS equivalents),
+  `weights.yaml` (pillar split, signal params, horizon presets, trading cost),
+  `universe.yaml` (scan-wide settings)
 - CI: `.github/workflows/scan.yml` (daily scan → deploys dashboard as a Pages
   artifact), `.github/workflows/build-docs.yml` (rebuilds and redeploys the
   Pages artifact on push to `main` when dashboard source changes)
@@ -153,12 +164,10 @@ The DB is backed up to a **private Supabase Storage bucket `db-backups`** (one
 `SUPABASE_SERVICE_KEY` secret (CI) / env var (local) and the bucket to exist.
 Restore with `python restore.py` (latest) / `--list` / `--local <dir>` (old git backups).
 
-A second private bucket **`trends-cache`** holds the durable Google Trends day-cache
-(`trends_cache_<UTC-date>.json`, one per day) so re-triggered scans reuse
-already-fetched batches instead of re-hitting Google (429 mitigation). Same
-`SUPABASE_SERVICE_KEY` credential as the backups; the cache is **fail-open**, so a
-missing bucket or key only means scans run uncached. Bypass with `python3 scan.py
---no-cache`.
+Google Trends was removed from the pipeline; the `trends-cache` bucket and the
+`--no-cache` flag it used are both gone. Sentiment now comes from GDELT
+headlines scored by FinBERT (`--no-finbert` skips it), and is **alpha** —
+excluded from the composite and from the ranking. See ARCHITECTURE § 4.
 
 ## Dev commands
 

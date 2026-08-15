@@ -47,6 +47,11 @@ The badges themselves are a **signed-in feature** and combine the band with the
 holdings you have marked: `Enter` only for something you do not own, `Hold` for
 anything you own that is still inside the band, `Exit` once it leaves.
 
+A **sentiment** score (FinBERT over GDELT headlines) is computed and shown on
+its own page, but it is **alpha and moves nothing** — it is excluded from the
+composite and from the ranking, and the control that used to blend it into the
+ranking was withdrawn in August 2026 pending validation.
+
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline, or the
 **Methodology** link in the dashboard footer for the reader-facing version.
 
@@ -57,7 +62,7 @@ Copy `.env.example` to `.env` and fill in:
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Supabase Postgres connection string (direct, port 5432) |
-| `SUPABASE_SERVICE_KEY` | Service-role key for the private `db-backups` and `trends-cache` Storage buckets. Optional for local dev — both degrade gracefully without it |
+| `SUPABASE_SERVICE_KEY` | Service-role key for the private `db-backups` Storage bucket. Optional for local dev — backups degrade gracefully without it |
 
 ## Dev commands
 
@@ -76,7 +81,7 @@ pytest
 ```
 
 `scan.py` options: `--dry-run`, `--no-dashboard`, `--no-backup`, `--no-alerts`,
-`--no-finbert`, `--no-cache`.
+`--no-finbert`.
 
 `backtest.py` defaults its transaction cost from `costs.round_trip_bps` in
 `config/weights.yaml`. Pass `--cost-bps 0` only to reproduce historical

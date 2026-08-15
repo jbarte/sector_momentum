@@ -1,6 +1,6 @@
 # ETF Momentum -- Architecture
 
-> Last updated: 2026-08-09. Describes the system as it is actually built.
+> Last updated: 2026-08-14. Describes the system as it is actually built.
 >
 > The US SPDR / STOXX Europe 600 **sector** cohorts this project started as were
 > retired on 2026-08-05. Themes are now the only scoring cohort. If you are
@@ -128,9 +128,18 @@ and is a leftover column.
 GDELT headlines for each theme's own keyword set (up to 250, last 24h), scored
 by FinBERT, reduced to a per-theme mean signed polarity, z-scored across themes.
 Stored as `sentiment_score`, rendered on `docs/sentiment.html`, and **excluded
-from the canonical composite** (`blend_sentiment=False`) — the dashboard offers
-a client-side toggle to blend it at a chosen weight. Unavailable source leaves
-it NULL for that scan.
+from the canonical composite** (`blend_sentiment=False`). Unavailable source
+leaves it NULL for that scan.
+
+**Sentiment is ALPHA (2026-08-14) and currently moves nothing.** Its output has
+not been validated, so `SENTIMENT_RANKING_ENABLED` in `dashboard/build.py` is
+`False`, which means: the "Ranking" cogwheel that blended sentiment into the
+composite client-side is **not rendered** (absent, not hidden — the wiring
+early-returns on a missing control, so a stale `localStorage` preference cannot
+silently re-apply the blend), the leaderboard's Sentiment column is hidden by
+CSS, and the page carries an `alpha` badge. The stored composite was never
+affected either way. Restoring it is one flag, but blocked on validating the
+pipeline — see BACKLOG.
 
 ---
 
@@ -296,8 +305,27 @@ Split into focused modules: `rows.py` (leaderboard rows + badges),
 
 - **`docs/index.html`** — Leaderboard, RRG, Drill-down, Movers, History,
   Backtest, Correlation. EN/SV toggle.
-- **`docs/sentiment.html`** — FinBERT news sentiment (info-only).
+- **`docs/sentiment.html`** — FinBERT news sentiment (info-only, **alpha**).
 - **`docs/reports/report_<scan_id>.md`** — per-scan Markdown snapshots.
+
+### Modals
+
+Every dialog binds `window.SMModal.bind()` from `_modal.js.j2` — focus trap,
+Escape, backdrop close, focus restore. Nothing hand-rolls that: the 2026-08-09
+audit's P1 finding was a modal declaring `aria-modal="true"` and implementing
+none of it, and the fix was to extract this helper. Current users: the
+methodology modal, the tab guides, the market-context chips and the alerts
+panel.
+
+The **market-context chips** (`Live` / `SPY` / `VIX`) in the header are one
+tappable control opening their own guide body, in a shared partial included by
+both pages — `title` tooltips do not exist on touch, so tapping is the only way
+that explanation reaches a phone.
+
+The **alerts panel** is a modal opened from a footer link. Its overlay is a
+separate wrapper around `#alert-prefs`, deliberately: `alert-prefs.js` owns that
+section's `hidden` attribute to mean "alerts are available to this reader",
+which would collide with a modal's meaning of "closed".
 
 ### i18n
 
@@ -313,8 +341,19 @@ visible text.
 `src/alerts.py` detects **band crossings** — a theme entering `rank <= top_n`
 or leaving `rank > top_n + buffer` — not band membership. Membership would
 re-send the same holdings every day. `src/personal_alerts.py` routes events to
-users by their starred positions and preferences. Alerts use the **default**
-horizon; per-user horizon is queued.
+users by their starred positions and preferences.
+
+**Alerts evaluate the CONFIG DEFAULT horizon**, and not by naming it:
+`detect_badge_events` calls `_compute_setup(row)` with no horizon argument,
+which falls back to `default_horizon()`. The leaderboard selector's choice lives
+in `localStorage` and never reaches the scan.
+
+Per-user horizon was considered and **deliberately not built** (2026-08-14): the
+default is `medium` and that is what the one reader runs, so the mismatch is
+currently zero, and a schema column plus per-user crossing evaluation is
+multi-user machinery on the one path where a bug means a missed or spurious
+email. Instead the alerts modal states which band is in force and spells out the
+difference when the reader has switched horizons.
 
 ---
 
@@ -324,9 +363,11 @@ Before each scan, a full zip of all tables is uploaded to the private Supabase
 Storage bucket `db-backups`. Requires `SUPABASE_SERVICE_KEY`. Restore with
 `python restore.py` (latest) / `--list` / `--local <dir>`.
 
-A second private bucket, `trends-cache`, holds a durable day-cache so
-re-triggered scans reuse already-fetched batches. Fail-open: a missing bucket
-or key only means scans run uncached.
+A `trends-cache` bucket used to hold a durable Google Trends day-cache. **Google
+Trends is no longer in the pipeline**, so nothing reads or writes that bucket and
+the `--no-cache` flag that bypassed it is gone. Sentiment comes from GDELT +
+FinBERT now (`--no-finbert` skips it). The bucket may still exist in the
+Supabase project and can be deleted.
 
 ---
 

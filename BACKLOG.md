@@ -85,13 +85,26 @@ copy should say so rather than implying 'act now'."** Confirmed 2026-08-12: no
 `next_rebalance`/`is_rebalance_day` concept exists anywhere in `dashboard/` or
 `src/`.
 
-**Consequence, measured 2026-08-12:** a reader who checks more often than their
-preset's intended cadence sees materially more badge crossings than the preset
-was tuned for — running Medium's band (`M/5/4`, tuned for monthly review) but
-checked weekly costs ~1.9pp CAGR and 0.19 Sharpe versus checking it monthly, in
-a real backtest comparison (this repo, `backtest.py --rebalance`/`--buffer`/
-`--theme-top-n`/`--cost-bps`, at the ~70bps real-cost figure above). Switching
-to Short (built for weekly review) recovers most but not all of that gap.
+**Consequence, measured 2026-08-12** against the then-current `medium` (`M/5/4`):
+a reader who checks more often than their preset's intended cadence sees
+materially more badge crossings than the preset was tuned for. Checking that
+band weekly rather than monthly cost ~1.9pp CAGR and 0.19 Sharpe in a real
+backtest comparison (`backtest.py --rebalance`/`--buffer`/`--theme-top-n`/
+`--cost-bps`, at ~70bps). The "switch to Short instead" escape route named here
+originally is gone — `short` was removed on 2026-08-14.
+
+**Still worth roughly what it was, on the preset that actually shipped.**
+Trades/yr measured over 2023-01 → 2026-08, acting on every badge change:
+
+| cell | acting weekly | modelled at cadence | gap |
+|---|---|---|---|
+| `M/5/4` (old medium) | 29 | 18 | 11 |
+| `M/4/5` (**shipped** medium) | 22 | 12 | **10** |
+| `M/5/7` (candidate, not shipped) | 16 | 12 | 4 |
+
+Earlier notes in this repo claimed the gap had narrowed to 4 after the preset
+re-pick. That was `M/5/7`, which was **not** adopted — `M/4/5` was. The gap is
+~10, so this item's value is close to its original sizing, not a quarter of it.
 
 This isn't a new problem — it's the one committed piece of an already-approved
 design that shipping stopped short of. Options (rebalance-date UI awareness vs.
@@ -133,8 +146,10 @@ so it isn't lost:
   name review dates the backtest never simulated.
 - **Alerts unchanged** — crossing-gated, single default horizon.
 
-Sizing caveat: this was scoped against `M/5/4`'s 11-trade/yr gap. If `medium`
-ever moves to a wider band the gap shrinks and this needs re-justifying.
+Sizing: scoped against an 11-trade/yr gap, and the shipped `medium` still has
+~10. Re-measure if `medium` moves to a materially wider band — the candidate
+`M/5/7` would have cut it to 4, which is the case where this stops paying for
+itself.
 
 ## Composite structure — 4.2 effective signals of 8
 
@@ -200,21 +215,25 @@ turned out to be already fixed or overstated when re-measured against the code:
   the badge/status-token retint. The audit's wider "54 elements below 4.5:1" was
   not re-measured element-by-element and may still hold in places.
 
-**P1 — mobile shows ~35% of the table.** At 375px the wrap is 269px against a
-769px table with no sticky first column, so scrolling right loses rank and
-theme name and `TREND` is unreachable blind. 32 touch targets under 44px; the
-⚙ that changes ranking weights is 7×18px. (Dropping the `DATA` column narrowed
-the table by one, but did not fix this.)
-**P1 — the gate modal declares `aria-modal="true"` and implements none of it.**
-No focus move, no trap, no Escape, no backdrop close; first Tab lands *behind*
-the overlay. `_methodology.html.j2` implements all of it correctly and its
-comment claims it mirrors the gate modal — it is the other way round. Lift the
-working `open/close/onKey` block into a shared helper.
+**Two of the three P1s are resolved** (verified against the code 2026-08-14, not
+inferred from the Done list):
 
-**P1 — badge/trend hierarchy is inverted against the copy.** `▲ Entry` is a
-tinted pill beside the theme name; `Trend` is a 9.84px arrow in the last
-column — but the guide says badges describe *position only* and Trend is the
-health check. A theme can show a loud green Entry next to a red ↓.
+- *Mobile showed ~35% of the table* — fixed 2026-08-12: the first two columns
+  are `position: sticky` and seven `pointer: coarse` rules enforce 44px targets.
+  The bullet also cited "the ⚙ that changes ranking weights is 7×18px"; that
+  control no longer exists at all (withdrawn 2026-08-14 with the sentiment
+  alpha gating).
+- *The gate modal declares `aria-modal="true"` and implements none of it* —
+  fixed: `auth.js` binds `window.SMModal.bind(modal, {closeBtn: continueBtn})`,
+  and every dialog on the site now shares that helper.
+
+**P1 — badge/trend hierarchy is inverted against the copy.** `▲ Enter` is a
+tinted pill beside the theme name, while `Trend` sits in the last column — the
+guide says badges describe *position only* and Trend is the health check, so a
+theme can show a loud green Enter next to a red ↓. The audit's specific
+measurement ("a 9.84px arrow") is stale: Trend is now a styled `.traj-badge`.
+Whether the remaining imbalance still misleads is a judgement call and has not
+been re-measured.
 
 **P2 — heading outline is broken** (`h2` → `h4`, no `h3`); no `<main>` and no
 skip link, and `role="tablist"` on the only `<nav>` suppresses the navigation
@@ -372,6 +391,56 @@ source-only and tight:
 ---
 
 # Done
+
+- **Handover sync: docs and backlog audited against the code** — five PRs landed
+  after the 2026-08-13 documentation pass, and `CLAUDE.md` had never been
+  re-checked at all. Everything below was verified against the code, not
+  inferred from the Done list.
+
+  **`CLAUDE.md` was the worst of it, and it is the first file an agent reads.**
+  Its Project overview still described the sector era — *"US SPDR (GICS 11) +
+  STOXX Europe 600 sectors (14, incl. standalone sub-sectors)"* — for a project
+  that has been 18 themes in a single cohort since 2026-08-05. It also
+  documented a `trends-cache` bucket and a `--no-cache` flag for a **Google
+  Trends pipeline that no longer exists anywhere in the code** (no module, no
+  references, and `scan.py` has no such flag). Both corrected, with `region`'s
+  load-bearing legacy role spelled out.
+
+  **README** lost the same phantom `--no-cache` flag and the `trends-cache`
+  bucket from its env-var table, and gained a line stating sentiment is alpha
+  and moves nothing.
+
+  **ARCHITECTURE**: §4 claimed *"the dashboard offers a client-side toggle to
+  blend it at a chosen weight"* — that control was withdrawn the day before;
+  §11 said per-user alert horizon was "queued" when it had been closed as
+  deliberately-not-built; §12 described the dead `trends-cache` as live. Added
+  the shared-modal note (methodology, tab guides, market-context chips, alerts)
+  and the market-context and alerts-modal designs, and refreshed the stale
+  "Last updated" stamp.
+
+  **Backlog audit — two items were wrong:**
+
+  - *Design review findings (2026-08-09) — P1/P2 remainder* listed two P1s that
+    are fixed: mobile (sticky columns plus seven 44px rules, shipped
+    2026-08-12) and the gate modal (`auth.js` now binds `SMModal`). It also
+    cited "the ⚙ that changes ranking weights is 7×18px" — that control no
+    longer exists. Rewritten to the genuine remainder; both P2s re-verified as
+    still open (no `<main>`, no skip link, and `breakdown.py`'s `↗` link still
+    has no accessible name).
+  - *Badges don't say whether today is an actionable day* **carried a materially
+    wrong number.** Notes in this repo said the cadence gap had narrowed to 4
+    trades/yr after the preset re-pick. That was `M/5/7`, which was **not
+    adopted** — `M/4/5` shipped, and its gap is **10** (22 acting weekly vs 12
+    modelled) against the old preset's 11. The item's value is close to its
+    original sizing, not a quarter of it. Corrected with the measured table.
+
+  The other eleven queued items were checked against the code and are accurate:
+  the sentiment flag is off, the composite still scores 8 signals, `region`/
+  `gics_sector` are still in the schema, `positions.js` still hardcodes English
+  star tooltips, yfinance is still the only price source (the stooq references
+  are comments explaining its removal), the weekend cache grace is still there,
+  and `correlation.py` still does not call `align_cohort_asof`. No union-merge
+  artefacts. 757 tests pass. *(2026-08-14)*
 
 - **Alerts now state which band they run on, and warn when it is not yours —
   instead of the per-user horizon column that was filed** — the queued item
