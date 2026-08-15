@@ -73,9 +73,17 @@ grep -ohE '`[a-z_/]+\.(py|yaml|js|j2|md)`' README.md ARCHITECTURE.md CLAUDE.md \
 grep -ohE '`[A-Z_]{4,}`' README.md CLAUDE.md | tr -d '`' | sort -u
 
 # Retired concepts. Extend this list whenever something is removed.
+#
+# Sweep CONFIG COMMENTS too, not just the markdown. config/weights.yaml carries
+# several screenfuls of prose that nothing renders and no test reads — on
+# 2026-08-14 it still described a withdrawn UI control, a removed data source, a
+# cost table for a preset that no longer exists, and pointed at a closed backlog
+# item. Long-lived comments in config and in module docstrings rot exactly like
+# documentation, and are read exactly like documentation.
 for t in "GICS" "STOXX" "SPDR" "sector map" "trends-cache" "no-cache" \
-         "Google Trends" "RSS" "feed.xml" "Short / Medium / Long"; do
-  printf '%-22s %s\n' "$t" "$(grep -ril "$t" README.md ARCHITECTURE.md CLAUDE.md | tr '\n' ' ')"
+         "Google Trends" "RSS" "feed.xml" "Short" "Short / Medium / Long"; do
+  printf '%-22s %s\n' "$t" \
+    "$(grep -ril "$t" README.md ARCHITECTURE.md CLAUDE.md config/*.yaml | tr '\n' ' ')"
 done
 ```
 
@@ -86,8 +94,8 @@ Read each hit and decide. What matters is that none of them is a claim about the
 
 ### 3. Audit the three documents against the code
 
-For each of `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, check the categories
-that have actually failed here:
+For each of `CLAUDE.md`, `README.md`, `ARCHITECTURE.md` **and the comment blocks
+in `config/*.yaml`**, check the categories that have actually failed here:
 
 - **The opening description of the project.** The single highest-value sentence
   in the repo and the easiest to leave behind after an architectural change.
@@ -99,6 +107,11 @@ that have actually failed here:
 - **Counts and named values** — number of themes, preset names and bands,
   signal counts. `tests/test_docs_match_config.py` pins the horizon subset;
   everything else is manual.
+- **Provenance claims** — "chosen from the <date> sweep", "see <file> for the
+  results". These outlive the decision they describe: the cells were re-picked
+  twice while `weights.yaml` still credited the original sweep, sending a reader
+  to superseded evidence. Prefer naming the command that regenerates the result
+  over pointing at a snapshot of it.
 
 ### 4. Audit the backlog
 

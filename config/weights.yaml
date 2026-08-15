@@ -1,7 +1,10 @@
 # Sentiment uses FinBERT news polarity (ProsusAI/finbert over GDELT headlines).
-# The composite score is pure data by default (blend_sentiment=False); the
-# dashboard toggle lets the user blend sentiment at a configurable weight.
-# Google Trends signals remain info-only on the sentiment page.
+# The composite score is pure data (blend_sentiment=False) and always has been.
+#
+# Sentiment is ALPHA since 2026-08-14 and moves nothing: the dashboard control
+# that blended it into the ranking was withdrawn, and the leaderboard's
+# Sentiment column is hidden. Google Trends was removed from the pipeline
+# entirely — it is not an info-only source, it is gone.
 
 # Within data pillar: level vs change split
 data_pillar:
@@ -37,10 +40,12 @@ signal_params:
 # (src/backtest/strategy.py), so it is a ROUND-TRIP rate, not one-way.
 #
 # This defaulted to 0 until 2026-08-09, which mattered more than it sounds:
-# the horizon presets below were *selected* by a sweep that assumed free
-# trading, and free trading systematically favours the cadence that trades
-# most. Measured on this universe the ranking inverts at roughly 50 bps, and at
-# the 100 bps actually paid the Short preset is the WORST of the three:
+# the horizon presets were originally *selected* by a sweep that assumed free
+# trading, and free trading systematically favours the cadence that trades most.
+#
+# HISTORICAL — the table below is from the three-preset era and `Short` no
+# longer exists (removed 2026-08-14). Kept because the shape is the point: the
+# ranking inverts with cost, which is why this value is never 0 again.
 #
 #   cost |  Short | Medium |  Long
 #      0 |  17.4% |  16.1% | 14.2%
@@ -60,18 +65,27 @@ signal_params:
 #
 # CAVEAT: if Avanza's 100 SEK is a per-trade *minimum* rather than a true
 # percentage, this rate falls as position size rises — roughly 40 bps at
-# 25 000 SEK, 20 bps at 50 000 SEK. Below ~45 bps the Short preset starts
-# winning again. Recheck against a real trade confirmation if position sizing
-# changes materially.
+# 25 000 SEK, 20 bps at 50 000 SEK. That mattered when a weekly preset existed;
+# it no longer does, and the 2026-08-14 re-sweep picked the same cells at 70 and
+# at 100 bps, so the choice is not sensitive in this range. Researched real
+# all-in cost for this ISK account is ~65-80 bps (FX dominates courtage) — the
+# shipped 100 is deliberately conservative. Recheck against a real trade
+# confirmation if position sizing changes materially.
 costs:
   round_trip_bps: 100
 
 # ---------------------------------------------------------------------------
 # Horizon presets — how long to hold, and how much churn that costs.
 #
-# Each preset is a (rebalance cadence, top_n, hysteresis buffer) triple, chosen
-# from the 2026-08-08 sweep over 2008-2026 (see the results in
-# sector_momentum-notes/specs/2026-08-08-horizon-sweep-results-*.md).
+# Each preset is a (rebalance cadence, top_n, hysteresis buffer) triple. The
+# CURRENT cells were picked on 2026-08-14 by `scripts/horizon_sweep.py`, run on
+# warm history at 70 and 100 bps over two windows (see the re-pick note below).
+#
+# The `2026-08-08-horizon-sweep-results-*.md` files in sector_momentum-notes are
+# the ORIGINAL selection, at 0 and 10 bps, for a three-preset lineup that no
+# longer exists. They are history, not the justification for these cells — do
+# not re-derive from them. The sweep is reproducible in one command:
+# `python3 scripts/horizon_sweep.py --cost-bps 70`.
 #
 # `buffer` is the hysteresis band IN RANKS: a holding is kept while its rank
 # stays within top_n + buffer, so a one-rank wobble no longer forces a trade.
@@ -133,9 +147,13 @@ costs:
 # now by trades/yr as well (12.9 vs 6.9) — the inversion that forced
 # test_presets_are_ordered_by_holding_period to be relaxed is gone.
 #
-# `default` is what the baked page renders and what alerts use. Signed-in users
-# can switch preset client-side; alerts stay on the default (per-user horizon
-# would need a prefs column — see BACKLOG).
+# `default` is what the baked page renders AND what alerts evaluate — not by
+# being passed anywhere, but because `detect_badge_events` calls
+# `_compute_setup(row)` with no horizon and that falls back to
+# `default_horizon()`. Signed-in users can switch preset client-side; that choice
+# lives in localStorage and never reaches the scan, so the alerts modal states
+# which band is in force and warns when the reader has switched. Per-user
+# horizon was considered and deliberately NOT built (2026-08-14, see Done).
 horizons:
   default: medium
   presets:

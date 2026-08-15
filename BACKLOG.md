@@ -392,6 +392,50 @@ source-only and tight:
 
 # Done
 
+- **Preset provenance corrected in two places, both pointing at superseded
+  evidence** — found by asking what is written down that a newcomer would trust
+  and act on.
+
+  - `config/weights.yaml` still said the cells were "chosen from the 2026-08-08
+    sweep" and pointed at the 0/10 bps result files. Those describe the original
+    three-preset selection; the live cells were re-picked 2026-08-14 on warm
+    history at 70 and 100 bps. Corrected, with the old files labelled as history
+    and the reproducing command given instead — a command beats a snapshot now
+    that the harness is trustworthy.
+  - `sector_momentum-notes/specs/2026-08-12-horizon-cost-and-cadence-design.md`
+    was **actively misleading**: it called the starved 100 bps sweep "the most
+    rigorous preset-selection work done so far", stated it would not
+    second-guess it, and told the reader to choose between four "survivors"
+    (`M/5/7`, `M/4/8`, `M/4/5`, `M/4/4`) that came from the invalid harness —
+    plus a false claim that `long` survives. Anyone following it would have
+    redone bad work and possibly adopted `M/5/7`. Now carries a SUPERSEDED
+    banner at the top; its Thread A cost research is unaffected and says so.
+
+  **Reading the whole file then found four more stale claims in
+  `config/weights.yaml` alone**, none of which any test or renderer touches: the
+  header still described the withdrawn sentiment blend control and called Google
+  Trends an info-only source (it is removed entirely); the cost table concluded
+  "the Short preset is the WORST of the three" for a preset that no longer
+  exists; the minimum-fee caveat reasoned about when Short "starts winning
+  again"; and the `default:` note pointed at the per-user horizon backlog item
+  that was closed as deliberately-not-built. All corrected, with the cost table
+  kept but labelled historical — its shape (the ranking inverts with cost) is
+  still why the value is never 0 again.
+
+  **`/handover` was extended as a result.** Its sweep only covered the three
+  markdown files, so it could not have caught any of this. It now sweeps
+  `config/*.yaml` comment blocks too, and adds a category for **provenance
+  claims** — "chosen from the <date> sweep", "see <file> for results" — which
+  outlive the decision they describe. Prefer naming the command that regenerates
+  a result over pointing at a snapshot of it.
+
+  Both `2026-08-08-horizon-sweep-results-*.md` files were checked and are
+  **warm** (`--start 2003-01-01`, the fetch start), so they are wrong only about
+  which lineup exists, not about their own numbers. The full warm frontier from
+  2026-08-14 was deliberately **not** archived: it lives in a scratchpad that is
+  gone, and a stale table is worse than a one-line command that regenerates a
+  trustworthy one. *(2026-08-14)*
+
 - **`/handover` verification pass — one real gap found and fixed** — ran the new
   command against merged `main` (60d95ed). State clean: no open PRs, one branch,
   757 tests passing, dashboard builds.
