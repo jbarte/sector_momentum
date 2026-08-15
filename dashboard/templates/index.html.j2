@@ -469,7 +469,17 @@ function ackReview(key) {
 // The active horizon's due/muted state, recomputed fresh on every call —
 // never cached, so it is always correct relative to the reader's actual
 // clock even on a page built days ago.
+//
+// Guarded like every other window.Rescore call site (applyHorizonBadges
+// below, auth.js) — this one matters more than most: renderReviewStatus()
+// calls it BEFORE applyHorizonBadges() in both initHorizonSelect() and
+// switchHorizon(), so an unguarded throw here (a stale cache, a blocked
+// script, a network hiccup) would abort badge rendering, band boundaries and
+// the Done-button binding too, not just the review chip.
 function currentReviewStatus() {
+  if (!window.Rescore || !window.Rescore.reviewStatus || !window.Rescore.localISODate) {
+    return { due: true, dueDate: null, nextDate: null };
+  }
   var h = currentHorizon();
   return window.Rescore.reviewStatus(
     h.review_dates, window.Rescore.localISODate(), getReviewAck(h.key));
@@ -555,8 +565,9 @@ function applyHorizonBadges() {
   // horizon's calendar and the reader's ack, never on a row's own data.
   // Hold never mutes (see reviewStatus's docstring: "do nothing" has no
   // action to hold back), so this only ever gates entry/exit below.
-  var reviewDue = window.Rescore && window.Rescore.reviewStatus
-    ? currentReviewStatus().due : true;
+  // currentReviewStatus() guards window.Rescore itself, so no need to repeat
+  // that check here.
+  var reviewDue = currentReviewStatus().due;
   // Whether the badge may be personalised at all. Without holdings the
   // action-aware rule would silently delete every Exit badge (nothing is held,
   // so nothing can be exited) — including on an ungated build, where the server

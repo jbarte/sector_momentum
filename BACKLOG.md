@@ -377,6 +377,28 @@ source-only and tight:
   default, and the `.muted` CSS rule) — both caught their reverted bug and
   passed clean restored.
 
+  **Code review caught two real bugs, both fixed in-branch, both with a
+  sabotage-verified test:**
+
+  - **`currentReviewStatus()` called `window.Rescore` with no guard**, unlike
+    every other call site in this file (`applyHorizonBadges`, `auth.js`). It
+    runs BEFORE `applyHorizonBadges()` in both `initHorizonSelect()` and
+    `switchHorizon()`, so a stale cache or blocked script wouldn't just lose
+    the review chip — it would throw and abort badge rendering, band
+    boundaries and the Done-button binding too. Fixed with the same guard
+    shape used everywhere else; `applyHorizonBadges()`'s own now-redundant
+    guard was simplified since `currentReviewStatus()` guards itself.
+  - **The review calendar was baked from the server's UTC date with no
+    margin.** A reader whose LOCAL calendar date trails the server's (anyone
+    west of UTC, for part of every day) could have the review date that is
+    due *today* for them already excluded from the baked array — and since
+    every later build's window only moves forward, it would never reappear
+    for that cycle. `review_dates()` now pads `since` two days into the past
+    before generating the calendar (long enough to absorb any timezone in the
+    world, short enough that monthly-or-longer cadences can never pull in an
+    extra, unwanted date). Centralised in `review_dates()` itself, not the
+    caller, so a future second caller can't forget it and reintroduce the bug.
+
 - **Preset provenance corrected in two places, both pointing at superseded
   evidence** — found by asking what is written down that a newcomer would trust
   and act on.

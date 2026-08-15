@@ -116,13 +116,30 @@ def horizons(path: str | Path | None = None) -> list[Horizon]:
     return out
 
 
+#: `since` (the server's UTC build date) is padded this many days into the
+#: past before generating the calendar. A reader's LOCAL calendar date can
+#: trail the server's UTC date for part of every day (anyone west of UTC) or
+#: lead it (anyone east) — and once a review date drops out of the array
+#: because the server's date passed it, no later build ever re-adds it, since
+#: every build's window only moves forward. Two days covers any timezone in
+#: the world (max offset ±14h, i.e. under one full day of skew) plus slop for
+#: the build not running at exactly UTC midnight, with no risk of pulling in
+#: an extra, unwanted review date: cadences are weekly-or-longer, so two days
+#: of margin can only ever recover the ONE boundary that just passed, never
+#: reach back into the one before it.
+_CLOCK_SKEW_MARGIN_DAYS = 2
+
+
 def review_dates(horizon: Horizon, since: str, count: int = 6) -> list[str]:
     """This preset's next `count` review dates, as ISO date strings.
 
     `since` has no default deliberately: this module is pure config -> data
     with no clock of its own, and a hidden `datetime.now()` here would make
     every caller's tests non-deterministic. The caller (`dashboard/build.py`,
-    at build/scan time) is the one place "now" should be decided.
+    at build/scan time) is the one place "now" should be decided — but this
+    function, not the caller, is responsible for padding it defensively (see
+    `_CLOCK_SKEW_MARGIN_DAYS`): centralising that here means a future second
+    caller cannot forget it and reintroduce the bug it fixes.
 
     Thin wrapper over `replay.forward_rebalance_dates`, reading the preset's
     OWN `rebalance` cadence rather than assuming "M" — so a future preset on a
@@ -130,8 +147,10 @@ def review_dates(horizon: Horizon, since: str, count: int = 6) -> list[str]:
     `pandas.Timestamp`, because this feeds `dashboard/build.py`'s JSON context
     directly and a Timestamp is not JSON-serialisable.
     """
+    from datetime import date, timedelta
     from src.backtest.replay import forward_rebalance_dates
-    dates = forward_rebalance_dates(horizon.rebalance, since, count=count)
+    padded_since = date.fromisoformat(since) - timedelta(days=_CLOCK_SKEW_MARGIN_DAYS)
+    dates = forward_rebalance_dates(horizon.rebalance, padded_since.isoformat(), count=count)
     return [d.date().isoformat() for d in dates]
 
 

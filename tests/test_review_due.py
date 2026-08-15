@@ -158,3 +158,26 @@ def test_review_status_markup_has_both_states_and_starts_hidden():
 def test_swedish_has_the_new_review_strings(key):
     sv = _CORE_JS.read_text()
     assert f"{key}:" in sv, f"{key} carries data-i18n but has no Swedish entry"
+
+
+def test_current_review_status_guards_against_missing_rescore():
+    """Every other window.Rescore call site in this file guards with
+    `window.Rescore && window.Rescore.X` before calling — applyHorizonBadges,
+    auth.js. currentReviewStatus() must too: renderReviewStatus() calls it
+    BEFORE applyHorizonBadges() in both initHorizonSelect() and
+    switchHorizon(), so an unguarded throw here (a stale cache, a blocked
+    script, a network hiccup) aborts badge rendering, band boundaries and the
+    Done-button binding — not just the review chip."""
+    html = _INDEX.read_text()
+    start = html.index("function currentReviewStatus()")
+    body = html[start:html.index("\n}", start)]
+    # Must guard BEFORE the actual call, not merely mention window.Rescore
+    # somewhere in the body — the buggy version also contained that
+    # substring, in the unguarded call itself.
+    call_at = body.index("window.Rescore.reviewStatus(")
+    guard_at = body.find("if (!window.Rescore")
+    assert guard_at != -1 and guard_at < call_at, (
+        "currentReviewStatus() must check window.Rescore BEFORE calling it — "
+        "a missing Rescore would otherwise throw and abort the whole "
+        "init/switch flow, not just the review chip"
+    )

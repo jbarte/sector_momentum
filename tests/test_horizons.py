@@ -278,3 +278,23 @@ def test_shipped_presets_agree_on_review_dates():
     by_key = {h.key: h for h in horizons()}
     assert (review_dates(by_key["medium"], since="2026-01-15")
             == review_dates(by_key["long"], since="2026-01-15"))
+
+
+def test_review_dates_absorbs_a_days_worth_of_client_clock_skew():
+    """`since` is the SERVER's date (UTC, at build time) — but a reader
+    outside UTC has a local calendar date that trails the server's for part
+    of each day (anyone west of UTC), or leads it (anyone east). If a review
+    date falls out of the array the moment the server's date passes it, a
+    reader whose local date is still ON that review date never sees it as
+    due — and since every later build's window only moves forward, it can
+    never reappear. `since` one day past a boundary must still return that
+    boundary as the first date, not skip to the next one."""
+    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer=2)
+    assert review_dates(h, since="2026-09-01", count=1) == ["2026-08-31"]
+
+
+def test_review_dates_skew_margin_does_not_shift_the_ordinary_case():
+    """The margin must be invisible away from a boundary — otherwise every
+    calendar would be running a few days 'behind' for no reason."""
+    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer=2)
+    assert review_dates(h, since="2026-01-15", count=1) == ["2026-01-30"]
