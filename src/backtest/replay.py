@@ -122,6 +122,47 @@ def month_end_dates(index: pd.DatetimeIndex) -> list[pd.Timestamp]:
     return rebalance_dates(index, "M")
 
 
+# Frequency aliases for FUTURE dates, where there is no price index to derive
+# "last trading day" from. Pandas' business-day aliases give "last WEEKDAY of
+# the period" — deliberately not holiday-aware, since a future market holiday
+# calendar does not exist to consult. The two diverge rarely but really
+# (2024-03-29 was both the last weekday of March and Good Friday); under a
+# due-until-acknowledged UI the cost is a review surfacing one day early,
+# which is not worth a holiday-calendar dependency. Same (period, step) shape
+# as REBALANCE_FREQS, for the same every-Nth-period reason.
+_FORWARD_FREQS: dict[str, tuple[str, int]] = {
+    "W":  ("W-FRI", 1),
+    "2W": ("W-FRI", 2),
+    "M":  ("BME", 1),
+    "2M": ("BME", 2),
+    "Q":  ("BQE", 1),
+}
+
+
+def forward_rebalance_dates(freq: str, since: pd.Timestamp | str,
+                             count: int = 6) -> list[pd.Timestamp]:
+    """Approximate future review dates: the last weekday of each period from
+    `since` onward, with no price data required. See `_FORWARD_FREQS` for why
+    this is a distinct calendar from `rebalance_dates` rather than an
+    extrapolation of it.
+
+    `since` is INCLUSIVE: if it lands exactly on a period boundary, that date
+    is the first result. This is the case that matters most — it is what lets
+    a build running ON a review day say so, rather than reporting the next one.
+    """
+    if freq not in _FORWARD_FREQS:
+        raise ValueError(
+            f"unknown rebalance freq {freq!r}; expected one of "
+            f"{sorted(_FORWARD_FREQS)}"
+        )
+    base_freq, step = _FORWARD_FREQS[freq]
+    since_ts = pd.Timestamp(since).normalize()
+    # Over-fetch by `step`: date_range's first hit may fall on a boundary that
+    # gets thinned away by [::step], so periods=count alone can under-deliver.
+    raw = pd.date_range(start=since_ts, periods=count * step + step, freq=base_freq)
+    return [pd.Timestamp(d) for d in raw][::step][:count]
+
+
 def score_themes_as_of(
     themes_cfg: dict,
     prices: dict[str, pd.DataFrame],

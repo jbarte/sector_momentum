@@ -62,6 +62,51 @@ def test_unknown_freq_raises():
 
 
 # ---------------------------------------------------------------------------
+# forward_rebalance_dates — future review dates, no price index available
+# ---------------------------------------------------------------------------
+
+def test_forward_monthly_gives_last_weekday_of_each_month():
+    dates = replay.forward_rebalance_dates("M", "2026-08-15", count=3)
+    assert [d.date().isoformat() for d in dates] == [
+        "2026-08-31", "2026-09-30", "2026-10-30",
+    ]
+    for d in dates:
+        assert d.dayofweek < 5, f"{d} is a weekend"
+
+
+def test_forward_since_inclusive_when_it_lands_on_a_boundary():
+    """If `since` (build time) IS a review date, the calendar must say so —
+    not skip to next period. This is the case that matters most: it is the
+    day the reader most needs an honest 'today is due' answer."""
+    dates = replay.forward_rebalance_dates("M", "2026-08-31", count=1)
+    assert dates == [pd.Timestamp("2026-08-31")]
+
+
+def test_forward_doubled_cadence_is_every_second_period_end():
+    monthly = replay.forward_rebalance_dates("M", "2026-08-15", count=8)
+    doubled = replay.forward_rebalance_dates("2M", "2026-08-15", count=4)
+    assert doubled == monthly[::2][:4]
+
+
+def test_forward_count_is_respected():
+    assert len(replay.forward_rebalance_dates("M", "2026-01-01", count=6)) == 6
+    assert len(replay.forward_rebalance_dates("Q", "2026-01-01", count=2)) == 2
+
+
+def test_forward_unknown_freq_raises():
+    with pytest.raises(ValueError, match="unknown rebalance freq"):
+        replay.forward_rebalance_dates("fortnightly", "2026-01-01")
+
+
+def test_forward_dates_are_strictly_increasing():
+    """A calendar that repeats or goes backwards would make 'the next review
+    date' ambiguous on the client."""
+    for freq in ("W", "2W", "M", "2M", "Q"):
+        dates = replay.forward_rebalance_dates(freq, "2026-01-15", count=6)
+        assert dates == sorted(set(dates)), f"{freq}: {dates}"
+
+
+# ---------------------------------------------------------------------------
 # hysteresis
 # ---------------------------------------------------------------------------
 

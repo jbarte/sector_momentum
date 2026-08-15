@@ -307,6 +307,16 @@ tbody td:nth-child(n+4) {
   background: color-mix(in srgb, var(--down) 4%, transparent);
   border: 1px solid color-mix(in srgb, var(--down) 30%, transparent);
 }
+/* Mute, don't hide: between reviews the badge keeps its kind, text and
+   border — only the filled background goes, so it reads as an outline
+   rather than a loud pill. Text colour is untouched, so contrast against
+   --bg-raised only improves (a tinted background is what made the WCAG
+   fixes above necessary; no tint at all is the easy case). See
+   applyHorizonBadges()/Rescore.reviewStatus in index.html.j2. */
+.setup-badge.entry.muted,
+.setup-badge.exit.muted {
+  background: transparent;
+}
 /* Not a signal — a permanent property of the instrument. Deliberately the
    quietest mark on the row: it should answer "why is there no Enter badge and
    no UCITS row?" when the reader looks, not compete with the badges. */
@@ -538,6 +548,29 @@ tbody td:nth-child(n+4) {
   font-variant-numeric: tabular-nums;   /* numbers must not jitter on switch */
 }
 .horizon-note { color: var(--fg4); font-size: 11px; }
+/* Review-due status. .review-next is deliberately as quiet as .horizon-note —
+   it is the common, nothing-to-do state. .review-due stands out a little
+   more (fg2, not fg4) because it is the one state actually asking for
+   attention, without competing with the Enter/Exit badges themselves. */
+.review-status { font-size: 11px; }
+.review-next { color: var(--fg4); }
+.review-due { color: var(--fg2); font-weight: 600; }
+.review-done-btn {
+  margin-left: 6px;
+  font: inherit;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--brand-strong);
+  cursor: pointer;
+}
+.review-done-btn:hover { background: var(--bg-sunken); }
+.review-done-btn:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
 
 /* Active backtest preset row */
 tr.bt-row.active td {
