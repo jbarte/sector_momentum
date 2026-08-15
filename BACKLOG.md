@@ -164,18 +164,7 @@ been re-measured.
 files: zero instances of the glyph anywhere in the codebase. Resolved by an
 unrelated redesign since the 2026-08-09 audit; not itself acted on.
 
-**"474 elements render under 12px" is real but re-scoped, not fixed.**
-Re-measured live in-browser (2026-08-15): **92 elements** under 12px on the
-default leaderboard view alone (table headers, trend/setup badges, chevrons,
-health-panel text, filter chips) — not counting other tabs, modals, or the
-sentiment page, so the true total is plausibly still in the audit's ballpark.
-Deliberately not touched as part of the landmark/heading fix: this is a
-data-dense financial table, and a blanket font-size floor trades off
-information density against legibility across dozens of components at once —
-that is a real design decision (which elements can afford to grow, whether
-table density itself should change), not a mechanical patch. Needs its own
-scoped look, ideally with the actual browser measurement redone across every
-tab and both pages rather than assumed from the leaderboard sample above.
+**"474 elements render under 12px" is resolved (2026-08-15)** — see Done.
 
 ## Rebrand Phase 2 — rename the repo (optional, arguably forever)
 
@@ -303,6 +292,67 @@ source-only and tight:
 ---
 
 # Done
+
+- **Sub-12px typography floor** (2026-08-15) — closes the last open item of
+  "Design review findings (2026-08-09 audit)": "474 elements render under
+  12px." Full spec/plan at `sector_momentum-notes/specs/2026-08-15-sub-12px-typography-design.md`
+  / `plans/2026-08-15-sub-12px-typography.md`.
+
+  **Re-measurement.** A live, full-page browser walk (every tab, both pages)
+  found 72% of the audit's 474-element figure lived inside the collapsed
+  per-theme `.breakdown-row` drill-down panel — an opt-in expert view a
+  reader only sees after clicking to expand a specific theme, not something
+  rendered by default. Excluding it, the always-visible surface was 177
+  elements, which collapsed to a small set of shared CSS rules since every
+  offender is styled by a class or tag selector, not an inline style.
+
+  **Fixed: 34 CSS rules across 6 files** (`_tables.css.j2`, `_chrome.css.j2`,
+  `_guides.css.j2`, `_health.css.j2`, `_sentiment.css.j2`, `_charts.css.j2`)
+  raised to a 12px floor — table headers, rank-delta arrows, the Trend
+  badge, the filter bar, guide-modal subsection headings, the language
+  toggle, market-context chips, the site footer, the gate/lag banner, the
+  health panel, tab notes, cohort-selector labels, the signed-in email
+  label, the auth email field and status message, the entire Alerts modal
+  (intro/warn/status/hz-note/hz-warn/topic-code), the Methodology modal's
+  inline code, the horizon-note/review-status/band-legend cluster, the
+  scan-history "Showing" badge, and — the most consequential single fix —
+  **`.setup-badge`** (the ▲ Enter / ▼ Exit signal badge, the leaderboard's
+  single most important piece of UI) and `.unbuyable-badge`, both previously
+  9.8px.
+
+  **First pass measured 15 rules, missed 19.** The original design-phase
+  measurement was one live browser session, signed out, no modals open —
+  structurally blind to anything gated behind sign-in (`.setup-badge`,
+  `.scan-meta`) or rendered only inside a closed modal whose markup still
+  exists in the DOM (`.alert-prefs` cluster). Caught during this same PR's
+  own Task 3 verification: a systematic *static* grep of every `font-size`
+  declaration in every CSS file — not just what one browser session happened
+  to render — found the remaining 19, cross-checked and confirmed against
+  markup. Presented the corrected, doubled scope back before continuing
+  rather than silently expanding the shipped plan; decided to close all of
+  it in this PR rather than leave a known gap.
+
+  **Two "deliberately quiet" exemptions decided, not defaulted.**
+  `.alpha-badge` (9px) stays exempt — its own code comment documents it as
+  deliberately the quietest thing in the command bar, and a floor would
+  defeat that intent. `.unbuyable-badge` carries an almost identical
+  comment but was bumped anyway: unlike alpha-badge (a short qualifier
+  tag), it conveys substantive information ("⊘ Not buyable") a reader needs
+  to read and understand, not just a decorative qualifier — quiet and
+  illegible are different goals. Also exempt, unchanged: `.chevron`, the
+  `thead th` sort-direction ▲/▼ glyphs, and `.cc-info` — icon glyphs
+  recognized by shape, not read as text.
+
+  **Verification.** New `tests/test_typography_floor.py` (35 tests: 31
+  in-scope + 4 exempt, sabotage-verified per finding). Live in-browser
+  re-measurement after the fix found exactly the 5 exempted selectors'
+  known instances remaining on both pages, nothing else. Forced the Alerts
+  modal open and simulated a signed-in ▲ Enter badge render (both normally
+  invisible without a real session) to visually confirm no wrapping or
+  cramped layout at the new sizes — screenshotted clean.
+
+  803 → 838 tests (35 new: 16 from the first pass, 19 from the follow-up);
+  16 skipped unchanged.
 
 - **Deferred UI/code polish sweep** (2026-08-15) — the four small,
   deliberately-deferred findings recorded under "Deferred UI/code polish (small,
