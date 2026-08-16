@@ -453,6 +453,32 @@ class TestFetchHeadlinesOrchestration:
 
         assert out == {"Semiconductors": [], "Clean Energy": []}
 
+    def test_zero_result_themes_are_not_dropped_when_bulk_import_fails(self):
+        """When gdelt_gkg fails to import, `headlines` is never seeded and
+        starts empty. The merge must not use a bare `len(titles) >
+        len(headlines.get(name, []))` comparison there: for a theme the API
+        also finds nothing for, that's `0 > 0 -> False`, so the key is never
+        created and the theme silently vanishes instead of landing as `[]` —
+        breaking fetch_headlines' own documented "always returns every
+        keyworded theme" contract and undercounting finbert_total downstream.
+        """
+        import sys
+
+        from src.data.news_sentiment import fetch_headlines
+
+        with patch.dict(sys.modules, {"src.data.gdelt_gkg": None}), \
+             patch("src.data.news_sentiment.fetch_theme_headlines",
+                   return_value={"Semiconductors": ["a", "b"], "Clean Energy": []}) as api:
+            out = fetch_headlines(self._cfg())
+
+        api.assert_called_once()
+        assert api.call_args.args[0] == self._cfg(), (
+            "bulk failed before seeding — API should get the whole config"
+        )
+        assert out == {"Semiconductors": ["a", "b"], "Clean Energy": []}, (
+            "Clean Energy vanished instead of surviving as an empty list"
+        )
+
     def test_output_feeds_score_headlines_unchanged(self):
         """Contract check: the orchestrator's shape is what FinBERT consumes."""
         from src.data.news_sentiment import fetch_headlines, score_headlines, MIN_ARTICLES

@@ -263,9 +263,18 @@ def fetch_headlines(themes_cfg: dict, *, sleep_s: float = 20.0) -> dict[str, lis
         logger.warning("GKG bulk fetch failed (%s) — API fallback", exc)
 
     if not headlines:
-        # Bulk failed before it could even seed: hand the API the whole config
-        # and let it apply its own queryable filter.
-        sparse, sparse_cfg = ["(all themes)"], themes_cfg
+        # Bulk failed before it could even seed: hand the API the whole
+        # config and let it apply its own queryable filter. Compute an
+        # honest theme count/list for the log ourselves — gdelt_gkg (and
+        # therefore queryable_themes) may be exactly what failed to import,
+        # so this mirrors fetch_theme_headlines' own `queryable` filter
+        # rather than calling it.
+        sparse_cfg = themes_cfg
+        _cfg_themes = themes_cfg.get("themes", {})
+        sparse = [
+            n for n, v in _cfg_themes.items()
+            if isinstance(v, dict) and v.get("gdelt_keywords")
+        ]
     else:
         sparse = [n for n, v in headlines.items() if len(v) < MIN_ARTICLES]
         if not sparse:
@@ -279,9 +288,15 @@ def fetch_headlines(themes_cfg: dict, *, sleep_s: float = 20.0) -> dict[str, lis
     try:
         api = fetch_theme_headlines(sparse_cfg, sleep_s=sleep_s, max_retries=3)
         for name, titles in api.items():
-            # Keep whichever source found more. A throttled API returning a
+            # setdefault first: this is the only place a queryable theme can
+            # be entirely absent from `headlines` — when bulk failed before
+            # seeding, headlines starts empty, and a `0 > 0` count
+            # comparison would silently drop any theme the API also found
+            # nothing for instead of leaving it as an empty list. Keep
+            # whichever source found more; a throttled API returning a
             # short list must not clobber a longer bulk result.
-            if len(titles) > len(headlines.get(name, [])):
+            headlines.setdefault(name, [])
+            if len(titles) > len(headlines[name]):
                 headlines[name] = titles
     except Exception as exc:                      # noqa: BLE001
         logger.warning("API fallback failed (%s) — keeping bulk results", exc)
