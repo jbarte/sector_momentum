@@ -358,7 +358,12 @@ source-only and tight:
   same 0/0 state, so the final fix went one layer down instead of patching
   scan.py twice: `dashboard.health._badge` now returns **red**, never None,
   for a 0 denominator — covering every branch that reaches it, present and
-  future. Guarded by seven tests, all sabotage-verified.
+  future. Finally, the shared root of all of it: `_footer.html.j2` defaulted
+  every badge to `badge-green` when `_badge()` returned None — asserting
+  health the data does not support. All three metrics (prices, coverage,
+  finbert) now fall back to a neutral `badge-unknown`, so "cannot judge"
+  never again reads as "healthy". Guarded by twelve tests, all
+  sabotage-verified.
 
   **Also observed, not fixed:** GDELT rate-limits hard. Scan 162 spent
   **87 minutes** (06:49→08:16) fetching 1522 headlines with 60/120/240s
@@ -366,7 +371,7 @@ source-only and tight:
   at least buying something, but it remains the dominant cost of the daily
   scan — its own item if it becomes a problem.
 
-  838 → 852 tests (15 new; one is `TEST_DATABASE_URL`-gated so it runs in CI,
+  838 → 857 tests (20 new; one is `TEST_DATABASE_URL`-gated so it runs in CI,
   not locally). Verified locally end to end with GDELT/FinBERT stubbed: health
   metrics populate, `sentiment_score` fills, and the INSERT tuples carry zero
   NULLs. First real production output lands on the next daily scan.
