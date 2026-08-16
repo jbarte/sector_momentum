@@ -19,7 +19,7 @@ import logging
 import re
 import sys
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -144,3 +144,65 @@ def match_themes(records: list[dict], themes_cfg: dict) -> dict[str, list[str]]:
             seen_titles[name].add(title)
             out[name].append(title)
     return out
+
+
+def _download(url: str, timeout: int = 60) -> bytes:
+    """Fetch one slice. Separated so tests inject a fetcher instead."""
+    import requests
+
+    resp = requests.get(url, timeout=timeout)
+    resp.raise_for_status()
+    return resp.content
+
+
+def _safe_slice(fetcher, url: str) -> list[dict] | None:
+    """Parse one slice, or None if it could not be fetched or read.
+
+    GDELT occasionally skips a 15-minute publication and files can arrive
+    truncated; neither should cost us the other 95 slices.
+    """
+    try:
+        return parse_slice(fetcher(url))
+    except Exception as exc:                      # noqa: BLE001 — deliberately broad
+        logger.debug("GKG slice unavailable (%s): %s", url.rsplit("/", 1)[-1], exc)
+        return None
+
+
+def fetch_theme_headlines_bulk(
+    themes_cfg: dict,
+    *,
+    end: datetime | None = None,
+    hours: int = 24,
+    max_workers: int = 8,
+    fetcher=None,
+) -> dict[str, list[str]]:
+    """Theme headlines from GDELT's bulk GKG feed.
+
+    Downloads every 15-minute slice in the trailing `hours` window in
+    parallel, then attributes titles to themes locally. No rate limit applies
+    — this is static file hosting, unlike the DOC API.
+
+    Always returns a dict keyed by every theme with gdelt_keywords, even when
+    every slice fails, so callers can count coverage uniformly.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    end = end or datetime.now(timezone.utc)
+    urls = slice_urls(end, hours)
+    fetch = fetcher or _download
+
+    records: list[dict] = []
+    ok = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for result in pool.map(lambda u: _safe_slice(fetch, u), urls):
+            if result is None:
+                continue
+            ok += 1
+            records.extend(result)
+
+    logger.info(
+        "GKG bulk: %d/%d slices read, %d titles", ok, len(urls), len(records)
+    )
+    if ok == 0:
+        logger.warning("GKG bulk: no slices could be read — falling back to the API")
+    return match_themes(records, themes_cfg)

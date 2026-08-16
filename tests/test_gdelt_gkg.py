@@ -191,3 +191,71 @@ class TestMatchThemes:
     def test_empty_config_yields_empty_result(self):
         assert match_themes([_rec("Chip maker")], {"themes": {}}) == {}
         assert match_themes([_rec("Chip maker")], {}) == {}
+
+
+from src.data.gdelt_gkg import fetch_theme_headlines_bulk
+
+
+class TestFetchBulk:
+    def test_aggregates_records_across_slices(self):
+        def fetcher(url):
+            if url.endswith("094500.gkg.csv.zip"):
+                return _gkg_zip([_row(title="Chip maker one", url="https://x/1")])
+            if url.endswith("093000.gkg.csv.zip"):
+                return _gkg_zip([_row(title="Solar power surges", url="https://x/2")])
+            return _gkg_zip([])
+
+        out = fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=2,
+        )
+        assert out["Semiconductors"] == ["Chip maker one"]
+        assert out["Clean Energy"] == ["Solar power surges"]
+
+    def test_a_failing_slice_is_skipped_and_the_rest_still_return(self):
+        good = _gkg_zip([_row(title="Chip maker one", url="https://x/1")])
+
+        def fetcher(url):
+            if url.endswith("093000.gkg.csv.zip"):
+                raise TimeoutError("boom")
+            return good
+
+        out = fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=2,
+        )
+        assert len(out["Semiconductors"]) == 1   # deduped across the good slices
+
+    def test_all_slices_failing_yields_empty_lists_not_an_exception(self):
+        def fetcher(url):
+            raise ConnectionError("gdelt down")
+
+        out = fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=2,
+        )
+        assert out == {"Semiconductors": [], "Clean Energy": []}
+
+    def test_a_corrupt_zip_is_skipped_like_a_network_failure(self):
+        def fetcher(url):
+            return b"not a zip"
+
+        out = fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=2,
+        )
+        assert out == {"Semiconductors": [], "Clean Energy": []}
+
+    def test_requests_one_slice_per_quarter_hour_in_the_window(self):
+        seen = []
+
+        def fetcher(url):
+            seen.append(url)
+            return _gkg_zip([])
+
+        fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=4,
+        )
+        assert len(seen) == 4
+        assert len(set(seen)) == 4
