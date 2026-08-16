@@ -1,8 +1,10 @@
 """FinBERT news sentiment via GDELT headlines.
 
-Fetches recent English-language headlines per GICS sector from the GDELT DOC
-2.0 API, scores them with ProsusAI/finbert, and aggregates to a single
-cross-sectionally z-scored polarity value per sector.
+Scores recent English-language headlines with ProsusAI/finbert and
+aggregates to a single cross-sectionally z-scored polarity value per theme.
+Headlines arrive primarily from GDELT's bulk GKG feed
+(`src/data/gdelt_gkg.py`), which carries no rate limit; the GDELT DOC 2.0
+query API is a bounded fallback for themes the bulk files under-serve.
 """
 
 from __future__ import annotations
@@ -233,6 +235,121 @@ def fetch_theme_headlines(
             time.sleep(sleep_s)
 
     return result
+
+
+def fetch_headlines(
+    themes_cfg: dict,
+    *,
+    sleep_s: float = 20.0,
+    fallback_budget_s: float = 600.0,
+) -> dict[str, list[str]]:
+    """Theme headlines: GDELT bulk files first, query API only for the rest.
+
+    The DOC API's limiter is stateful over a long window, so an 18-query
+    batch reliably throttles itself into partial coverage (measured: 7 of 18
+    themes returned nothing on 2026-08-15). Bulk files carry no limit at all,
+    so they do the bulk of the work and the API is reserved for the handful
+    of low-volume themes the files under-serve — few enough requests that the
+    fallback actually succeeds when it is used.
+
+    `fallback_budget_s` bounds how long the API fallback is allowed to keep
+    starting new theme fetches (default 10 minutes). Measured in production
+    on 2026-08-16: the bulk phase took 20s and covered 13/18 themes, but an
+    unbounded fallback for the remaining 5 took ~89 more minutes to rescue
+    just 3 of them — as slow as the pre-bulk baseline this change exists to
+    fix. This is a "stop starting new work" bound, not a hard interrupt: a
+    theme already in flight when the deadline passes still runs to
+    completion (including its own retries/backoff), so worst-case wall time
+    is the budget plus roughly one theme's worst case, not a hard ceiling.
+
+    Always returns every keyworded theme, possibly with an empty list —
+    including themes the budget ran out before attempting, which keep
+    whatever the bulk pass already found for them. Never raises: sentiment
+    is alpha and non-fatal by design.
+    """
+    headlines: dict[str, list[str]] = {}
+    try:
+        from src.data.gdelt_gkg import fetch_theme_headlines_bulk, queryable_themes
+
+        # Seed every keyworded theme first, so a theme that matched nothing is
+        # still countable as covered-with-zero rather than silently absent.
+        headlines = {name: [] for name in queryable_themes(themes_cfg)}
+        headlines.update(fetch_theme_headlines_bulk(themes_cfg))
+    except Exception as exc:                      # noqa: BLE001
+        # Deliberately inside the try: an import error in gdelt_gkg must
+        # degrade to the API, not raise. This function's contract is that it
+        # never raises.
+        logger.warning("GKG bulk fetch failed (%s) — API fallback", exc)
+
+    if not headlines:
+        # Bulk failed before it could even seed: hand the API the whole
+        # config and let it apply its own queryable filter. Compute an
+        # honest theme count/list for the log ourselves — gdelt_gkg (and
+        # therefore queryable_themes) may be exactly what failed to import,
+        # so this mirrors fetch_theme_headlines' own `queryable` filter
+        # rather than calling it.
+        sparse_cfg = themes_cfg or {}
+        _cfg_themes = sparse_cfg.get("themes", {})
+        sparse = [
+            n for n, v in _cfg_themes.items()
+            if isinstance(v, dict) and v.get("gdelt_keywords")
+        ]
+    else:
+        sparse = [n for n, v in headlines.items() if len(v) < MIN_ARTICLES]
+        if not sparse:
+            logger.info(
+                "GKG bulk covered all %d themes — no API calls needed", len(headlines)
+            )
+            return headlines
+        sparse_cfg = {"themes": {n: themes_cfg["themes"][n] for n in sparse}}
+
+    logger.info("API fallback for %d theme(s): %s", len(sparse), ", ".join(sparse))
+
+    # fetch_theme_headlines is shared with other callers and out of scope to
+    # change, so the budget is enforced here instead: fetch one theme per
+    # call and stop *starting* new ones once the deadline passes. Chunking
+    # to a single theme keeps the worst-case overrun small — the existing
+    # per-theme sleep/backoff schedule tops out around 3.5 minutes for one
+    # theme, vs. the ~89 minutes an unbounded batch burned in production.
+    deadline = time.monotonic() + fallback_budget_s
+    _fallback_themes = sparse_cfg.get("themes", {})
+    _skipped: list[str] = []
+    for name in sparse:
+        # setdefault first, before the budget check: this is the only place
+        # a queryable theme can be entirely absent from `headlines` — when
+        # bulk failed before seeding, headlines starts empty — and a theme
+        # the budget runs out before attempting must still land in the
+        # result as whatever bulk already found for it, not vanish.
+        headlines.setdefault(name, [])
+
+        if time.monotonic() >= deadline:
+            _skipped.append(name)
+            continue
+
+        one_cfg = {"themes": {name: _fallback_themes[name]}}
+        try:
+            api = fetch_theme_headlines(one_cfg, sleep_s=sleep_s, max_retries=3)
+        except Exception as exc:                  # noqa: BLE001
+            logger.warning(
+                "API fallback failed for %s (%s) — keeping bulk results", name, exc
+            )
+            continue
+
+        titles = api.get(name, [])
+        # Keep whichever source found more. A throttled API returning a
+        # short list must not clobber a longer bulk result.
+        if len(titles) > len(headlines[name]):
+            headlines[name] = titles
+
+    if _skipped:
+        # Distinct from an attempted-but-empty API result: this means the
+        # theme was never asked for, not that the API had nothing to say.
+        logger.warning(
+            "API fallback budget (%.0fs) exhausted — %d theme(s) not attempted: %s",
+            fallback_budget_s, len(_skipped), ", ".join(_skipped),
+        )
+
+    return headlines
 
 
 def build_theme_news_signal_rows(

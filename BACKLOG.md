@@ -174,6 +174,71 @@ unrelated redesign since the 2026-08-09 audit; not itself acted on.
 
 **"474 elements render under 12px" is resolved (2026-08-15)** — see Done.
 
+## GDELT source alternatives — Web NGrams and BigQuery
+
+Recorded 2026-08-16 when the bulk GKG feed shipped (see Done). Both were
+researched and deliberately left out of scope; neither is needed unless GKG
+coverage proves insufficient. Written down so the question is not re-opened
+from scratch.
+
+Bulk GKG now covers **13 of 18 themes** unaided, and 16/18 once the bounded
+DOC API fallback runs. The two themes still below `MIN_ARTICLES` on the
+measured day were **Shipping (1 headline)** and **AgTech & Food Innovation
+(0)**. If coverage is the problem, the cheapest lever is **widening those
+themes' `gdelt_keywords`** — not a new data source. Try that first.
+
+- **Web NGrams 3.0** — GDELT's own recommendation for high-volume users, and
+  the one they point at in the 429 body. Ruled out on a data-model mismatch,
+  not on effort: it is word-level frequency data, not article headlines, so
+  it cannot feed FinBERT headline scoring without redesigning what the
+  sentiment signal *is*. Only worth revisiting alongside a decision to change
+  the signal itself.
+- **BigQuery** (`gdelt-bq.gdeltv2.gkg`) — likely the *best* data quality of
+  the three: full-text matching in one SQL query, rather than our local
+  match against title + GKG themes/orgs/names. Costs a GCP dependency, a new
+  CI secret, and a free-tier quota (1 TB/month) to manage. This is the option
+  to reach for if keyword-widening fails and coverage still matters.
+
+## Deferred polish from the GDELT bulk-fetch reviews (2026-08-16)
+
+Minor findings from the per-task and whole-branch reviews of the bulk-fetch
+work, each triaged "fine to defer" with a reason. None affect correctness.
+Recorded so they are not rediscovered from scratch.
+
+- **`src/data/gdelt_gkg.py`** — `csv.field_size_limit()` mutates global `csv`
+  state at import. Verified harmless: this module is the project's *only*
+  `csv` consumer, so there is no other reader whose limit it could change.
+- **`gdelt_gkg.py`** — the "no slices could be read" warning asserts caller
+  behaviour ("falling back to the API") that belongs to the orchestrator.
+  Accurate for the only production caller; misleading only if the bulk
+  function is called directly.
+- **`gdelt_gkg.py`** — per-slice download failures log at DEBUG, so a
+  partially degraded day shows only the aggregate `ok/total` at INFO. A
+  `logger.warning` when `ok < len(urls)` would be a cheap improvement.
+- **`gdelt_gkg.py`** — the whole 24h corpus (~50k records, each carrying the
+  large themes/orgs/names columns) accumulates in memory before matching, and
+  only `title` survives. Fine at `hours=24`; scales linearly, so a wider
+  window would want per-slice matching inside the download loop.
+- **`gdelt_gkg.py`** — fetches over plaintext `http://`. GDELT's own docs use
+  http, and the risk is low (alpha signal, no code execution), but check
+  whether the host serves https and switch if free.
+- **Estimator asymmetry between the two paths.** Bulk themes are sampled by
+  local matching against title + metadata with no cap; fallback themes get
+  ≤250 titles from the DOC API's full-text match. `zscore_polarity`
+  cross-sections across both, so fallback themes may sit nearer the tails for
+  sampling reasons rather than sentiment reasons — and *which* themes those
+  are varies daily. Not acted on: sentiment is alpha, excluded from the
+  composite and the ranking, and `news_count` is persisted per theme so the
+  asymmetry is observable in the data. The measured totals also make the
+  practical impact small (1140 headlines across 18 themes; only 2 themes
+  above 250). Revisit if sentiment is ever promoted out of alpha — this
+  would matter then.
+- **Pre-existing dead code**, predating this branch: `GDELT_SECTOR_THEMES`
+  and `_build_query` in `news_sentiment.py` are unreferenced by production
+  code (left over from the sector-cohort retirement), but
+  `tests/test_news_sentiment.py` still asserts on the constant. Removing both
+  means updating that test too.
+
 ## Rebrand Phase 2 — rename the repo (optional, arguably forever)
 
 Phase 1 shipped 2026-08-09: the product is called **ETF Momentum** everywhere a
@@ -300,6 +365,50 @@ source-only and tight:
 ---
 
 # Done
+
+- **GDELT bulk GKG feed replaces the rate-limited DOC API as the primary
+  sentiment source** (2026-08-16) — the daily scan's headline fetch spent
+  ~87 minutes, 80% of it (70 min) waiting out 429 backoffs, with 7 of 18
+  themes still coming back with zero headlines despite that.
+
+  **Why the API was demoted.** GDELT's DOC 2.0 rate limiter is stateful over
+  a long window: a client IP kept failing ~80% of requests even at GDELT's
+  own documented 5s spacing, and GDELT's guidance is that high-volume users
+  should move to the bulk feed instead. A `User-Agent` change that fixed
+  this for another client was tested here too and made no difference
+  (browser UA 0/4 successful vs default UA 1/4).
+
+  **What shipped.** Bulk GKG files — published every 15 minutes, no rate
+  limit — are now the primary source: 96 slices covering a 24h window
+  download in parallel, get matched locally against title text plus GKG
+  themes/orgs/names, and are deduped by URL and title
+  (`src/data/gdelt_gkg.py`). The DOC API is demoted to a fallback, used only
+  for themes still below `MIN_ARTICLES` after the bulk pass, itself bounded
+  by a wall-clock budget so a throttled run can't regress to the old
+  runtime (`src/data/news_sentiment.py::fetch_headlines`).
+
+  **Live measured results** (2026-08-16, real GDELT): the bulk phase alone
+  took 20 seconds, read 96/96 slices, and yielded 50,432 titles covering
+  13/18 themes. With the bounded API fallback added on top, coverage
+  reached 16/18 themes above `MIN_ARTICLES` (was 11/18), totaling 1,140
+  matched headlines. A single slice measured 3.2 MB at 2.11 MB/s.
+
+  **The honest caveat.** An *unbounded* fallback was also measured, and took
+  ~89 minutes to rescue just 3 themes on a heavily-throttled IP — as slow as
+  the pre-bulk baseline this change exists to fix. That's why the fallback
+  carries a wall-clock budget rather than running to completion: the bulk
+  path is the actual speedup, and the fallback is now bounded, not fast.
+
+  **Deliberately out of scope**, and now tracked as their own Queued items
+  rather than left as a footnote here: *GDELT source alternatives — Web
+  NGrams and BigQuery* (both researched and ruled out for now, with the
+  reasoning and the cheaper first lever — widening the two thin themes'
+  keywords — written down), and *Deferred polish from the GDELT bulk-fetch
+  reviews*, which carries the minor findings from the per-task and
+  whole-branch reviews with their triage reasons.
+
+  Spec: `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-16-gdelt-bulk-fetch-design.md`.
+  Plan: `/Users/jonasbarte/AI Projects/sector_momentum-notes/plans/2026-08-16-gdelt-bulk-fetch.md`.
 
 - **FinBERT sentiment pipeline restored — dead for 10 days** (2026-08-16) —
   the Sentiment tab had shown no data at all since 2026-08-05. Investigated

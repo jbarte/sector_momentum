@@ -1,0 +1,261 @@
+"""Tests for src/data/gdelt_gkg.py — GDELT bulk GKG file access.
+
+No network, no sleeping: slice URLs are pure computation, and parsing runs
+against synthetic zip bytes built in-test.
+"""
+from __future__ import annotations
+
+import io
+import zipfile
+from datetime import datetime, timezone
+
+import pytest
+
+from src.data.gdelt_gkg import slice_urls, parse_slice, match_themes
+
+
+def _gkg_zip(rows: list[list[str]]) -> bytes:
+    """Build a .gkg.csv.zip byte payload from raw column lists.
+
+    Joined manually rather than via csv.writer: GKG is plain tab-separated
+    with no quoting, and csv.writer rejects the QUOTE_NONE/quotechar combo
+    needed to reproduce that faithfully.
+    """
+    text = "\n".join("\t".join(r) for r in rows)
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("20260816091500.gkg.csv", text)
+    return out.getvalue()
+
+
+def _row(title="Chip maker posts record quarter", url="https://ex.com/a",
+         v1themes="ECON_STOCKMARKET", v2themes="EPU_ECONOMY,120",
+         v1orgs="acme corp", v2orgs="Acme Corp,55", names="Acme Corp,55"):
+    """A 27-column GKG row with the fields we read populated."""
+    row = [""] * 27
+    row[0] = "20260816091500-0"
+    row[1] = "20260816091500"
+    row[4] = url
+    row[7] = v1themes
+    row[8] = v2themes
+    row[13] = v1orgs
+    row[14] = v2orgs
+    row[23] = names
+    row[26] = f"<PAGE_TITLE>{title}</PAGE_TITLE>" if title is not None else "<PAGE_LINKS>x</PAGE_LINKS>"
+    return row
+
+
+class TestSliceUrls:
+    def test_24h_yields_96_quarter_hour_slices(self):
+        end = datetime(2026, 8, 16, 9, 47, 12, tzinfo=timezone.utc)
+        urls = slice_urls(end, hours=24)
+        assert len(urls) == 96
+
+    def test_end_is_aligned_down_to_the_previous_quarter_hour(self):
+        """09:47 must resolve to the 09:45 slice — 09:47 does not exist."""
+        end = datetime(2026, 8, 16, 9, 47, 12, tzinfo=timezone.utc)
+        urls = slice_urls(end, hours=1)
+        assert urls[-1].endswith("20260816094500.gkg.csv.zip")
+
+    def test_slices_are_oldest_first_and_15_minutes_apart(self):
+        end = datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc)
+        urls = slice_urls(end, hours=1)
+        assert [u.split("/")[-1] for u in urls] == [
+            "20260816090000.gkg.csv.zip",
+            "20260816091500.gkg.csv.zip",
+            "20260816093000.gkg.csv.zip",
+            "20260816094500.gkg.csv.zip",
+        ]
+
+    def test_crosses_a_day_boundary(self):
+        end = datetime(2026, 8, 16, 0, 15, tzinfo=timezone.utc)
+        names = [u.split("/")[-1] for u in slice_urls(end, hours=1)]
+        assert "20260815234500.gkg.csv.zip" in names
+        assert "20260816000000.gkg.csv.zip" in names
+
+    def test_crosses_a_month_boundary(self):
+        end = datetime(2026, 9, 1, 0, 0, tzinfo=timezone.utc)
+        names = [u.split("/")[-1] for u in slice_urls(end, hours=1)]
+        assert "20260831231500.gkg.csv.zip" in names
+
+
+class TestParseSlice:
+    def test_extracts_title_url_and_match_fields(self):
+        recs = parse_slice(_gkg_zip([_row()]))
+        assert len(recs) == 1
+        r = recs[0]
+        assert r["title"] == "Chip maker posts record quarter"
+        assert r["url"] == "https://ex.com/a"
+        assert "ECON_STOCKMARKET" in r["themes"]
+        assert "EPU_ECONOMY" in r["themes"]
+        assert "acme corp" in r["orgs"].lower()
+        assert "Acme Corp" in r["names"]
+
+    def test_skips_records_with_no_page_title(self):
+        recs = parse_slice(_gkg_zip([_row(title=None), _row(title="Kept")]))
+        assert [r["title"] for r in recs] == ["Kept"]
+
+    def test_skips_short_rows_without_crashing(self):
+        recs = parse_slice(_gkg_zip([["only", "three", "cols"], _row(title="Kept")]))
+        assert [r["title"] for r in recs] == ["Kept"]
+
+    def test_handles_very_large_fields(self):
+        """GKG's GCAM column routinely exceeds csv's default field limit."""
+        row = _row(title="Big")
+        row[17] = "wc:24," + ",".join(f"c{i}.{i}:{i}" for i in range(20000))
+        recs = parse_slice(_gkg_zip([row]))
+        assert [r["title"] for r in recs] == ["Big"]
+
+    def test_empty_slice_yields_no_records(self):
+        assert parse_slice(_gkg_zip([])) == []
+
+    def test_malformed_zip_raises_so_the_caller_can_skip_it(self):
+        with pytest.raises(Exception):
+            parse_slice(b"this is not a zip file")
+
+
+def _cfg():
+    return {
+        "themes": {
+            "Semiconductors": {"ticker": "SOXX",
+                               "gdelt_keywords": ["semiconductor", "chip maker"]},
+            "Clean Energy": {"ticker": "ICLN",
+                             "gdelt_keywords": ["clean energy", "solar power"]},
+            "NoKeywords": {"ticker": "NOPE"},
+        }
+    }
+
+
+def _rec(title, url="https://ex.com/a", themes="", orgs="", names=""):
+    return {"title": title, "url": url, "themes": themes, "orgs": orgs, "names": names}
+
+
+class TestMatchThemes:
+    def test_matches_keyword_in_title(self):
+        out = match_themes([_rec("Chip maker posts record quarter")], _cfg())
+        assert out["Semiconductors"] == ["Chip maker posts record quarter"]
+
+    def test_matching_is_case_insensitive(self):
+        out = match_themes([_rec("SEMICONDUCTOR shortage eases")], _cfg())
+        assert len(out["Semiconductors"]) == 1
+
+    def test_matches_keyword_found_only_in_gkg_metadata(self):
+        """The API matches article body text; GKG's themes/orgs/names fields
+        are the nearest equivalent, and are what make file coverage viable."""
+        out = match_themes(
+            [_rec("Quarterly results beat expectations", orgs="acme semiconductor inc")],
+            _cfg(),
+        )
+        assert len(out["Semiconductors"]) == 1
+
+    def test_does_not_match_unrelated_records(self):
+        out = match_themes([_rec("Local bakery wins award")], _cfg())
+        assert out["Semiconductors"] == []
+        assert out["Clean Energy"] == []
+
+    def test_every_keyworded_theme_is_present_even_with_no_matches(self):
+        """Downstream counts len() per theme, so a missing key would read as
+        a crash rather than 'no news today'."""
+        out = match_themes([], _cfg())
+        assert set(out) == {"Semiconductors", "Clean Energy"}
+        assert out["Semiconductors"] == []
+
+    def test_themes_without_keywords_are_excluded(self):
+        out = match_themes([_rec("anything")], _cfg())
+        assert "NoKeywords" not in out
+
+    def test_one_record_can_match_several_themes(self):
+        out = match_themes(
+            [_rec("Solar power plant adds chip maker as anchor tenant")], _cfg()
+        )
+        assert len(out["Semiconductors"]) == 1
+        assert len(out["Clean Energy"]) == 1
+
+    def test_dedups_the_same_url_across_slices(self):
+        recs = [_rec("Chip maker wins deal", url="https://ex.com/x"),
+                _rec("Chip maker wins deal", url="https://ex.com/x")]
+        assert len(match_themes(recs, _cfg())["Semiconductors"]) == 1
+
+    def test_dedups_identical_titles_from_different_urls(self):
+        """Syndicated wire copy appears under many URLs; scoring it once per
+        outlet would weight that story by its syndication footprint."""
+        recs = [_rec("Chip maker wins deal", url="https://a.com/1"),
+                _rec("Chip maker wins deal", url="https://b.com/2")]
+        assert len(match_themes(recs, _cfg())["Semiconductors"]) == 1
+
+    def test_keeps_distinct_titles(self):
+        recs = [_rec("Chip maker wins deal", url="https://a.com/1"),
+                _rec("Chip maker loses deal", url="https://b.com/2")]
+        assert len(match_themes(recs, _cfg())["Semiconductors"]) == 2
+
+    def test_empty_config_yields_empty_result(self):
+        assert match_themes([_rec("Chip maker")], {"themes": {}}) == {}
+        assert match_themes([_rec("Chip maker")], {}) == {}
+
+
+from src.data.gdelt_gkg import fetch_theme_headlines_bulk
+
+
+class TestFetchBulk:
+    def test_aggregates_records_across_slices(self):
+        def fetcher(url):
+            if url.endswith("094500.gkg.csv.zip"):
+                return _gkg_zip([_row(title="Chip maker one", url="https://x/1")])
+            if url.endswith("093000.gkg.csv.zip"):
+                return _gkg_zip([_row(title="Solar power surges", url="https://x/2")])
+            return _gkg_zip([])
+
+        out = fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=2,
+        )
+        assert out["Semiconductors"] == ["Chip maker one"]
+        assert out["Clean Energy"] == ["Solar power surges"]
+
+    def test_a_failing_slice_is_skipped_and_the_rest_still_return(self):
+        good = _gkg_zip([_row(title="Chip maker one", url="https://x/1")])
+
+        def fetcher(url):
+            if url.endswith("093000.gkg.csv.zip"):
+                raise TimeoutError("boom")
+            return good
+
+        out = fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=2,
+        )
+        assert len(out["Semiconductors"]) == 1   # deduped across the good slices
+
+    def test_all_slices_failing_yields_empty_lists_not_an_exception(self):
+        def fetcher(url):
+            raise ConnectionError("gdelt down")
+
+        out = fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=2,
+        )
+        assert out == {"Semiconductors": [], "Clean Energy": []}
+
+    def test_a_corrupt_zip_is_skipped_like_a_network_failure(self):
+        def fetcher(url):
+            return b"not a zip"
+
+        out = fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=2,
+        )
+        assert out == {"Semiconductors": [], "Clean Energy": []}
+
+    def test_requests_one_slice_per_quarter_hour_in_the_window(self):
+        seen = []
+
+        def fetcher(url):
+            seen.append(url)
+            return _gkg_zip([])
+
+        fetch_theme_headlines_bulk(
+            _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+            hours=1, fetcher=fetcher, max_workers=4,
+        )
+        assert len(seen) == 4
+        assert len(set(seen)) == 4
