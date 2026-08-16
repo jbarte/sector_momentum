@@ -354,7 +354,11 @@ source-only and tight:
   (which makes `_badge` return None and the footer's `or 'green'` fallback
   paint an outage green) and hardcoding `gdelt_articles = 0`, which in the
   real 2026-08-05 shape would have blamed a healthy GDELT for a FinBERT bug.
-  Both fixed. Guarded by five tests, all sabotage-verified.
+  Both fixed. A third pass then found the *success* path could reach the
+  same 0/0 state, so the final fix went one layer down instead of patching
+  scan.py twice: `dashboard.health._badge` now returns **red**, never None,
+  for a 0 denominator — covering every branch that reaches it, present and
+  future. Guarded by seven tests, all sabotage-verified.
 
   **Also observed, not fixed:** GDELT rate-limits hard. Scan 162 spent
   **87 minutes** (06:49→08:16) fetching 1522 headlines with 60/120/240s
@@ -362,7 +366,7 @@ source-only and tight:
   at least buying something, but it remains the dominant cost of the daily
   scan — its own item if it becomes a problem.
 
-  838 → 850 tests (13 new; one is `TEST_DATABASE_URL`-gated so it runs in CI,
+  838 → 852 tests (15 new; one is `TEST_DATABASE_URL`-gated so it runs in CI,
   not locally). Verified locally end to end with GDELT/FinBERT stubbed: health
   metrics populate, `sentiment_score` fills, and the INSERT tuples carry zero
   NULLs. First real production output lands on the next daily scan.

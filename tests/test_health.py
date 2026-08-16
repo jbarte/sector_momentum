@@ -35,6 +35,25 @@ class TestBadge:
     def test_finbert_none_scored(self):
         assert _badge("finbert", None, 11) is None
 
+    def test_finbert_zero_denominator_is_red_never_none(self):
+        """A 0 denominator means the scan tried and had nothing to score.
+        Returning None would let _footer.html.j2's `badge-{{ ... or 'green' }}`
+        fallback paint a total sentiment outage green in a collapsed panel —
+        the same class of invisible failure that hid the 2026-08-05 FinBERT
+        NameError for 10 days. A deliberate --no-finbert skip passes None as
+        `value` and is caught above, so it never reaches this branch."""
+        assert _badge("finbert", 0, 0) == "red"
+
+    def test_finbert_zero_denominator_trips_the_panel_open(self):
+        from dashboard.health import build_health_context
+
+        ctx = build_health_context({
+            "finbert_scored": 0, "finbert_total": 0, "gdelt_articles": 0,
+            "sectors_produced": 18, "sectors_expected": 18, "prices_failed": 0,
+        })
+        assert ctx["health_badges"]["finbert"] == "red"
+        assert ctx["health_any_warn"] is True
+
     def test_coverage_none(self):
         assert _badge("coverage", None, 25) is None
 
