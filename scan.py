@@ -44,6 +44,7 @@ logger = logging.getLogger("scan")
 
 from src.data.prices import fetch_prices
 from src.backup import backup_to_storage
+from src.cohorts import THEME_REGION
 from src.pipeline import SIGNAL_COLUMNS, build_theme_signals_rows
 
 # ---------------------------------------------------------------------------
@@ -193,6 +194,11 @@ def _compute_finbert_sentiment(wide_df, themes_cfg, args):
         return sentiment_score, sentiment_signals_df, finbert_health
 
     logger.info("Fetching GDELT headlines + FinBERT scoring …")
+    # Initialised before the try so the failure handler can report what GDELT
+    # actually returned. The real 2026-08-05 outage failed AFTER a successful
+    # 1522-headline fetch, so hardcoding 0 here would have blamed a healthy
+    # GDELT for a FinBERT bug.
+    _total_articles = 0
     try:
         from src.data.news_sentiment import (
             fetch_theme_headlines, score_headlines,
@@ -222,13 +228,51 @@ def _compute_finbert_sentiment(wide_df, themes_cfg, args):
                     sentiment_score[key] = z
             logger.info("sentiment_score overwritten with FinBERT polarity z-scores")
 
+        # build_theme_news_signal_rows() keys rows by `theme`; save_scan reads
+        # `region`/`gics_sector` (both NOT NULL in the schema). Re-key before
+        # concatenating — appending theme-keyed rows straight into the
+        # region-keyed accumulator leaves both key columns NaN and the INSERT
+        # writes NULLs into NOT NULL columns.
+        _theme_rows = pd.DataFrame(build_theme_news_signal_rows(_finbert_scores))
+        if not _theme_rows.empty:
+            _theme_rows = (
+                _theme_rows
+                .rename(columns={"theme": "gics_sector"})
+                .assign(region=THEME_REGION)
+            )
         sentiment_signals_df = pd.concat(
-            [sentiment_signals_df,
-             pd.DataFrame(build_theme_news_signal_rows(_finbert_scores))],
+            [sentiment_signals_df, _theme_rows],
             ignore_index=True,
         )
     except Exception as exc:
         logger.warning("FinBERT sentiment failed (%s) — sentiment stays NULL for this scan", exc)
+        # Record the failure as 0/N rather than leaving the health metrics
+        # None. A deliberate --no-finbert skip ALSO leaves them None, and the
+        # footer renders both identically as a muted "Skipped" with no badge —
+        # which is exactly how a NameError went unnoticed for 10 days and 10
+        # scans. 0/N scores a red badge via dashboard.health._badge and trips
+        # health_any_warn, which springs the panel open on load.
+        #
+        # Only when nothing was recorded yet: a failure *after* the metrics
+        # were set (e.g. in the signal-row concat) already has real numbers,
+        # and overwriting them with 0 would report a total outage that did not
+        # happen.
+        if finbert_health["finbert_scored"] is None:
+            _themes = themes_cfg.get("themes") or {}
+            # Mirror fetch_theme_headlines' own `queryable` filter, but fall
+            # back to the full theme count: a 0 denominator makes _badge()
+            # return None, and the footer's `badge-{{ ... or 'green' }}`
+            # fallback would then paint a total outage GREEN in a collapsed
+            # panel — the exact invisible state this handler exists to remove.
+            _queryable = sum(
+                1 for cfg in _themes.values()
+                if isinstance(cfg, dict) and cfg.get("gdelt_keywords")
+            )
+            _expected = _queryable or len(_themes)
+            if _expected:
+                finbert_health["finbert_scored"] = 0
+                finbert_health["finbert_total"] = _expected
+                finbert_health["gdelt_articles"] = _total_articles
 
     return sentiment_score, sentiment_signals_df, finbert_health
 

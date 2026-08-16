@@ -25,8 +25,17 @@ def _badge(metric: str, value: int | float | None, denominator: int | None) -> s
         return "red"
 
     if metric == "finbert":
-        if denominator is None or denominator == 0:
+        if denominator is None:
             return None
+        if denominator == 0:
+            # `value is not None` above means a scan actually attempted
+            # sentiment, so a 0 denominator is a broken state, not an
+            # inapplicable one — nothing was scoreable. Never return None
+            # here: _footer.html.j2 renders `badge-{{ ... or 'green' }}`, so
+            # None would paint a total sentiment outage GREEN in a collapsed
+            # panel. A deliberate --no-finbert skip never reaches this branch
+            # (it leaves finbert_scored None, caught at the top).
+            return "red"
         ratio = value / denominator
         if ratio >= 1.0:
             return "green"

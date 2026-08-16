@@ -35,6 +35,14 @@ anything. Until there is a reason to believe a positive polarity reading means
 something, letting it move the ranking is worse than not showing it. Nothing
 below matters until this is answered.
 
+> **The pipeline was entirely dead from 2026-08-05 to 2026-08-16** (scans
+> 153–162 wrote NULL sentiment) — fixed 2026-08-16, see Done. Validation
+> cannot start on the existing data: the newest real sentiment rows are from
+> scan 152 (2026-08-05), and everything after is NULL. **Let a few daily
+> scans accumulate fresh output first**, then validate against that. Note the
+> pre-152 history is sector-cohort-heavy, so it is not a clean sample for
+> judging the theme cohort either.
+
 **2. It never worked signed in, and that is fixable.** `makeLeaderboardReadOnly()`
 ([`auth.js:147`](dashboard/assets/auth.js)) hides the cogwheel and disables
 column sorting for signed-in readers, because the signed-in path replaces the
@@ -292,6 +300,81 @@ source-only and tight:
 ---
 
 # Done
+
+- **FinBERT sentiment pipeline restored — dead for 10 days** (2026-08-16) —
+  the Sentiment tab had shown no data at all since 2026-08-05. Investigated
+  end to end (GDELT → FinBERT → persistence → build → render) after the tab
+  was reported permanently empty.
+
+  **Root cause.** The sector-cohort retirement (`1ff80d8`, 2026-08-05 11:04)
+  deleted the module-level `_finbert_pipeline = None` from
+  `src/data/news_sentiment.py` while leaving `_load_finbert_pipeline()`'s
+  `global _finbert_pipeline` / `if _finbert_pipeline is None:` in place.
+  Reading an unassigned global raises `NameError`, so **every** FinBERT call
+  failed. Scan 152 ran 09:53 that morning and is the last scan with sentiment;
+  scan 153 the next day was the first to fail. Confirmed in the production log
+  for scan 162: `FinBERT sentiment failed (name '_finbert_pipeline' is not
+  defined) — sentiment stays NULL for this scan`.
+
+  **Blast radius.** Scans 153–162: `sentiment_signals` gained zero rows,
+  `scores.sentiment_score` was 100% NULL, and the three `scans` health columns
+  (`finbert_scored`, `finbert_total`, `gdelt_articles`) stayed NULL. The
+  dashboard was never at fault — it correctly rendered its "no news sentiment
+  for this snapshot" empty state, faithfully reporting the absence.
+
+  **A second, latent bug behind the first.** The same commit also left
+  `_compute_finbert_sentiment` concatenating theme-keyed rows (`theme`) into
+  an accumulator seeded with `region`/`gics_sector` columns, so both key
+  columns arrived NaN against `NOT NULL` schema columns. It had never fired in
+  production only because the `NameError` skipped the code entirely — fixing
+  the first bug alone would have swapped a silent failure for a failing
+  INSERT. Fixed by re-keying the rows before the concat.
+
+  **Why the suite stayed green through all of it.** Every test in
+  `test_news_sentiment.py` patched `src.data.news_sentiment._load_finbert_pipeline`
+  — mocking out the exact function that was broken. The fix is a test that
+  stubs the **external** boundary (the `transformers` module in `sys.modules`)
+  so our own loader body actually executes: mock what you don't own, run what
+  you do. The stub helper deliberately does *not* create the missing global as
+  a side effect, or it would paper over the very defect it exists to catch.
+  Added 7 tests, including a real-DB test (`TEST_DATABASE_URL`-gated, runs in
+  CI) that the built frame survives an actual `save_scan` INSERT — the layer
+  where the second bug bites and where no unit test could have caught it.
+
+  **The detection gap, closed.** Raised by `/code-review` and worth more than
+  either bug fix: a FinBERT *failure* and a deliberate `--no-finbert` *skip*
+  both left all three health metrics NULL, and `_footer.html.j2` renders that
+  as a muted "Skipped" with no badge and no warning dot. The dashboard was
+  reporting a 10-day outage as a user preference. A failure now records
+  `0/N` instead of NULL, which scores a **red** badge through the existing
+  `dashboard.health._badge` and trips `health_any_warn` — springing the health
+  panel open on load. No schema change needed. `--no-finbert` still records
+  NULL and still reads as "Skipped", so the two stay distinguishable. A second
+  review pass caught two ways this could still go quiet — a 0 denominator
+  (which makes `_badge` return None and the footer's `or 'green'` fallback
+  paint an outage green) and hardcoding `gdelt_articles = 0`, which in the
+  real 2026-08-05 shape would have blamed a healthy GDELT for a FinBERT bug.
+  Both fixed. A third pass then found the *success* path could reach the
+  same 0/0 state, so the final fix went one layer down instead of patching
+  scan.py twice: `dashboard.health._badge` now returns **red**, never None,
+  for a 0 denominator — covering every branch that reaches it, present and
+  future. Finally, the shared root of all of it: `_footer.html.j2` defaulted
+  every badge to `badge-green` when `_badge()` returned None — asserting
+  health the data does not support. All three metrics (prices, coverage,
+  finbert) now fall back to a neutral `badge-unknown`, so "cannot judge"
+  never again reads as "healthy". Guarded by twelve tests, all
+  sabotage-verified.
+
+  **Also observed, not fixed:** GDELT rate-limits hard. Scan 162 spent
+  **87 minutes** (06:49→08:16) fetching 1522 headlines with 60/120/240s
+  backoffs, all discarded one line later by the `NameError`. The pacing is now
+  at least buying something, but it remains the dominant cost of the daily
+  scan — its own item if it becomes a problem.
+
+  838 → 857 tests (20 new; one is `TEST_DATABASE_URL`-gated so it runs in CI,
+  not locally). Verified locally end to end with GDELT/FinBERT stubbed: health
+  metrics populate, `sentiment_score` fills, and the INSERT tuples carry zero
+  NULLs. First real production output lands on the next daily scan.
 
 - **Sub-12px typography floor** (2026-08-15) — closes the last open item of
   "Design review findings (2026-08-09 audit)": "474 elements render under

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import math
+import sys
+import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -174,3 +177,128 @@ class TestZscorePolarity:
         result = zscore_polarity(scores)
         for v in result.values():
             assert v == 0.0
+
+
+
+@contextlib.contextmanager
+def _stub_transformers(pipeline_factory):
+    """Install a fake `transformers` module exposing `pipeline`.
+
+    `_load_finbert_pipeline` does `from transformers import pipeline` inside
+    the function body, so a stub in sys.modules is picked up at call time.
+    Stubbing the module (rather than `@patch("transformers.pipeline")`) keeps
+    these tests runnable whether or not the real 400MB dependency is
+    installed — it is in CI, it usually is not on a dev machine — while still
+    executing our own loader code.
+    """
+    import src.data.news_sentiment as ns
+
+    fake = types.ModuleType("transformers")
+    fake.pipeline = pipeline_factory
+    saved = sys.modules.get("transformers")
+    sys.modules["transformers"] = fake
+
+    # Force a cold load WITHOUT creating the module global as a side effect.
+    # Assigning `ns._finbert_pipeline = None` unconditionally here would
+    # define the very global whose absence is the bug under test, so a broken
+    # module would silently pass. Reset it only when it genuinely exists.
+    _ABSENT = object()
+    saved_cache = getattr(ns, "_finbert_pipeline", _ABSENT)
+    if saved_cache is not _ABSENT:
+        ns._finbert_pipeline = None
+    try:
+        yield fake
+    finally:
+        if saved is None:
+            sys.modules.pop("transformers", None)
+        else:
+            sys.modules["transformers"] = saved
+        if saved_cache is _ABSENT:
+            if hasattr(ns, "_finbert_pipeline"):
+                del ns._finbert_pipeline
+        else:
+            ns._finbert_pipeline = saved_cache
+
+
+class TestFinbertPipelineLoadsForReal:
+    """The pipeline loader itself, exercised rather than mocked away.
+
+    Every other test in this file patches `_load_finbert_pipeline` — which is
+    exactly why this feature could be dead in production for 10 days with a
+    green suite. On 2026-08-05 the sector-cohort retirement (1ff80d8) deleted
+    the module-level `_finbert_pipeline = None` while leaving the function's
+    `global _finbert_pipeline` / `if _finbert_pipeline is None:` in place, so
+    every real call raised `NameError: name '_finbert_pipeline' is not
+    defined`. scan.py's broad `except Exception` swallowed it into a WARNING
+    and wrote NULL sentiment for every scan from 153 onward.
+
+    These tests stub the EXTERNAL boundary (the `transformers` module) so our
+    own loader code actually runs: mock what you don't own, run what you do.
+    """
+
+    def test_module_defines_the_pipeline_cache_global(self):
+        """`global _finbert_pipeline` makes the name a module global; reading
+        it before assignment is a NameError. It must exist at module scope."""
+        import src.data.news_sentiment as ns
+
+        assert hasattr(ns, "_finbert_pipeline"), (
+            "src.data.news_sentiment must define `_finbert_pipeline` at module "
+            "level — _load_finbert_pipeline() reads it before assigning, so a "
+            "missing global raises NameError on every real call"
+        )
+
+    def test_load_finbert_pipeline_runs_without_nameerror(self):
+        """The regression itself: calling the real loader must not raise."""
+        from src.data.news_sentiment import _load_finbert_pipeline
+
+        sentinel = MagicMock(name="finbert-pipeline")
+        calls = []
+
+        def factory(*args, **kwargs):
+            calls.append((args, kwargs))
+            return sentinel
+
+        with _stub_transformers(factory):
+            result = _load_finbert_pipeline()
+
+        assert result is sentinel
+        assert len(calls) == 1
+        assert calls[0][1].get("model") == "ProsusAI/finbert"
+
+    def test_pipeline_is_memoised_across_calls(self):
+        """The second call must reuse the cached object rather than reload the
+        model — that caching is the entire reason the global exists."""
+        from src.data.news_sentiment import _load_finbert_pipeline
+
+        calls = []
+
+        def factory(*args, **kwargs):
+            calls.append(1)
+            return MagicMock(name="finbert-pipeline")
+
+        with _stub_transformers(factory):
+            first = _load_finbert_pipeline()
+            second = _load_finbert_pipeline()
+
+        assert first is second
+        assert len(calls) == 1, (
+            "model reloaded on the second call — the memo global is not working"
+        )
+
+    def test_score_headlines_end_to_end_through_the_real_loader(self):
+        """score_headlines -> _load_finbert_pipeline -> transformers.pipeline,
+        with only the external library stubbed. This is the exact path that
+        was broken in production; the TestScoreHeadlines cases above cannot
+        catch it because they replace the loader itself."""
+        from src.data.news_sentiment import score_headlines, MIN_ARTICLES
+
+        pipe = MagicMock()
+        pipe.side_effect = lambda texts, **kw: [
+            {"label": "positive", "score": 0.9} for _ in texts
+        ]
+
+        with _stub_transformers(lambda *a, **kw: pipe):
+            result = score_headlines({"Space": ["headline"] * (MIN_ARTICLES + 1)})
+
+        assert result["Space"]["count"] == MIN_ARTICLES + 1
+        assert result["Space"]["mean_polarity"] == pytest.approx(0.9)

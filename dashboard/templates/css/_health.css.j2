@@ -8,3 +8,8 @@
 .badge-green { color: var(--ok); font-weight: 600; }
 .badge-amber { color: var(--warn); font-weight: 600; }
 .badge-red { color: var(--err); font-weight: 600; }
+/* "cannot judge this" — _badge() returned None (missing or zero denominator).
+   The template used to fall back to `badge-green`, which asserted health the
+   data does not support; a 0/0 sentiment outage rendered as a green tick in a
+   collapsed panel. Neutral grey states the uncertainty instead of guessing. */
+.badge-unknown { color: var(--fg4); font-weight: 600; }

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pandas as pd
 
 import pytest
 
@@ -164,3 +167,202 @@ class TestBuildThemeNewsSignalRows:
 
         rows = build_theme_news_signal_rows({})
         assert rows == []
+
+
+class TestSentimentSignalsFrameShape:
+    """The frame `_compute_finbert_sentiment` hands to `save_scan` must be
+    keyed the way `save_scan` reads it: region / gics_sector.
+
+    `build_theme_news_signal_rows` emits rows keyed by `theme`, but scan.py
+    seeds the accumulator frame with `region`/`gics_sector` columns and
+    concatenates the theme-keyed rows straight into it. That yields a frame
+    carrying BOTH `gics_sector` (all-NaN, from the seed) and `theme`, so
+    `save_scan`'s `_rows_from_df(key_cols=["region","gics_sector",...])`
+    reads NULLs into two NOT NULL columns.
+
+    Latent since 1ff80d8 (2026-08-05) and never observed in production only
+    because the FinBERT NameError fired first and skipped this code entirely.
+    """
+
+    def _fake_args(self):
+        return SimpleNamespace(no_finbert=False)
+
+    def _wide_df(self):
+        return pd.DataFrame(
+            {"x": [1.0, 2.0]},
+            index=["THEME|Cybersecurity", "THEME|Clean Energy"],
+        )
+
+    def _patched_scan(self):
+        """Patch the news_sentiment functions scan.py imports at call time."""
+        scores = {
+            "Cybersecurity": {"mean_polarity": 0.20, "count": 30,
+                              "positive_pct": 0.5, "negative_pct": 0.2},
+            "Clean Energy": {"mean_polarity": -0.10, "count": 25,
+                             "positive_pct": 0.3, "negative_pct": 0.4},
+        }
+        return (
+            patch("src.data.news_sentiment.fetch_theme_headlines",
+                  return_value={"Cybersecurity": ["a"] * 30,
+                                "Clean Energy": ["b"] * 25}),
+            patch("src.data.news_sentiment.score_headlines",
+                  return_value=scores),
+            patch("src.data.news_sentiment.zscore_polarity",
+                  return_value={"Cybersecurity": 1.0, "Clean Energy": -1.0}),
+        )
+
+    def _run(self):
+        import scan
+        p1, p2, p3 = self._patched_scan()
+        with p1, p2, p3:
+            return scan._compute_finbert_sentiment(
+                self._wide_df(), _themes_cfg(), self._fake_args()
+            )
+
+    def test_frame_has_no_duplicate_columns(self):
+        _score, sent_df, _health = self._run()
+        assert not sent_df.empty, "no sentiment rows produced"
+        dupes = [c for c in set(sent_df.columns)
+                 if list(sent_df.columns).count(c) > 1]
+        assert not dupes, f"duplicate columns in sentiment frame: {dupes}"
+
+    def test_frame_is_keyed_by_region_and_gics_sector(self):
+        """save_scan reads these two columns; both are NOT NULL in the schema."""
+        _score, sent_df, _health = self._run()
+        for col in ("region", "gics_sector", "signal_name", "value"):
+            assert col in sent_df.columns, f"missing column {col!r}"
+        assert sent_df["region"].notna().all(), "region has NULLs"
+        assert sent_df["gics_sector"].notna().all(), "gics_sector has NULLs"
+        assert set(sent_df["region"]) == {"THEME"}
+        assert set(sent_df["gics_sector"]) == {"Cybersecurity", "Clean Energy"}
+
+    def test_rows_reaching_the_insert_are_scalars_not_series(self):
+        """The concrete production failure mode: with a duplicate
+        `gics_sector`, `_rows_from_df` hands psycopg2 a pandas Series instead
+        of a string, which it cannot adapt."""
+        from src.state import _rows_from_df
+
+        _score, sent_df, _health = self._run()
+        rows = _rows_from_df(
+            sent_df, 999,
+            key_cols=["region", "gics_sector", "signal_name"],
+            float_cols=["value"],
+            raw_cols=["text_value"],
+        )
+        assert rows, "no rows built"
+        for row in rows:
+            for value in row:
+                assert not isinstance(value, pd.Series), (
+                    f"psycopg2 cannot adapt a Series — got {value!r} in {row!r}"
+                )
+            assert isinstance(row[1], str), f"region not a str: {row[1]!r}"
+            assert isinstance(row[2], str), f"gics_sector not a str: {row[2]!r}"
+
+
+class TestFinbertFailureIsVisible:
+    """A FinBERT failure must not look like a deliberate skip.
+
+    Both paths used to leave all three health metrics None, and
+    `_footer.html.j2` renders that as a muted "Skipped" with no badge and no
+    warning dot. That is why the 2026-08-05 NameError survived 10 scans
+    unnoticed: the dashboard reported the outage as a user preference.
+    """
+
+    def _run(self, side_effect):
+        import scan
+        with patch("src.data.news_sentiment.fetch_theme_headlines",
+                   side_effect=side_effect):
+            return scan._compute_finbert_sentiment(
+                pd.DataFrame({"x": [1.0]}, index=["THEME|Cybersecurity"]),
+                _themes_cfg(),
+                SimpleNamespace(no_finbert=False),
+            )
+
+    def test_failure_records_zero_of_n_not_none(self):
+        _score, _df, health = self._run(RuntimeError("boom"))
+        assert health["finbert_scored"] == 0, "failure left the metric None"
+        # _themes_cfg() has two themes with gdelt_keywords, one without.
+        assert health["finbert_total"] == 2
+        assert health["gdelt_articles"] == 0
+
+    def test_failure_shows_a_red_badge_and_opens_the_panel(self):
+        """The whole point: the footer must visibly flag it."""
+        from dashboard.health import build_health_context
+
+        _score, _df, health = self._run(RuntimeError("boom"))
+        ctx = build_health_context({
+            "finbert_scored": health["finbert_scored"],
+            "finbert_total": health["finbert_total"],
+            "gdelt_articles": health["gdelt_articles"],
+            "sectors_produced": 18, "sectors_expected": 18, "prices_failed": 0,
+        })
+        assert ctx["health_badges"]["finbert"] == "red"
+        assert ctx["health_any_warn"] is True, "health panel would stay collapsed"
+
+    def test_deliberate_skip_still_reads_as_skipped(self):
+        """--no-finbert must stay distinguishable from a failure: all-None,
+        which the footer renders as 'Skipped' with no badge."""
+        import scan
+        from dashboard.health import build_health_context
+
+        _score, _df, health = scan._compute_finbert_sentiment(
+            pd.DataFrame({"x": [1.0]}, index=["THEME|Cybersecurity"]),
+            _themes_cfg(),
+            SimpleNamespace(no_finbert=True),
+        )
+        assert health["finbert_scored"] is None
+        ctx = build_health_context({
+            "finbert_scored": None, "finbert_total": None, "gdelt_articles": None,
+            "sectors_produced": 18, "sectors_expected": 18, "prices_failed": 0,
+        })
+        assert ctx["health_badges"]["finbert"] is None
+        assert ctx["health_any_warn"] is False
+
+    def test_failure_after_a_good_gdelt_fetch_reports_the_real_article_count(self):
+        """The actual 2026-08-05 shape: GDELT returns 1522 headlines, FinBERT
+        then dies. Reporting `0 GDELT articles` would blame a healthy source
+        for a downstream bug."""
+        import scan
+
+        with patch("src.data.news_sentiment.fetch_theme_headlines",
+                   return_value={"Cybersecurity": ["h"] * 30,
+                                 "Clean Energy": ["h"] * 25}), \
+             patch("src.data.news_sentiment.score_headlines",
+                   side_effect=NameError("name '_finbert_pipeline' is not defined")):
+            _score, _df, health = scan._compute_finbert_sentiment(
+                pd.DataFrame({"x": [1.0]}, index=["THEME|Cybersecurity"]),
+                _themes_cfg(),
+                SimpleNamespace(no_finbert=False),
+            )
+
+        assert health["finbert_scored"] == 0
+        assert health["gdelt_articles"] == 55, (
+            "GDELT's real article count was discarded — the footer would blame "
+            "GDELT for a FinBERT failure"
+        )
+
+    def test_zero_queryable_themes_still_flags_red_not_green(self):
+        """A 0 denominator makes _badge() return None, and the footer's
+        `or 'green'` fallback then paints a total outage green in a collapsed
+        panel. Fall back to the full theme count so the ratio stays 0/N."""
+        import scan
+        from dashboard.health import build_health_context
+
+        cfg = {"themes": {"NoKeywords": {"ticker": "NOPE"},
+                          "AlsoNone": {"ticker": "NIX"}}}
+        with patch("src.data.news_sentiment.fetch_theme_headlines",
+                   side_effect=RuntimeError("boom")):
+            _score, _df, health = scan._compute_finbert_sentiment(
+                pd.DataFrame({"x": [1.0]}, index=["THEME|NoKeywords"]),
+                cfg, SimpleNamespace(no_finbert=False),
+            )
+
+        assert health["finbert_total"] == 2, "denominator collapsed to 0"
+        ctx = build_health_context({
+            "finbert_scored": health["finbert_scored"],
+            "finbert_total": health["finbert_total"],
+            "gdelt_articles": health["gdelt_articles"],
+            "sectors_produced": 18, "sectors_expected": 18, "prices_failed": 0,
+        })
+        assert ctx["health_badges"]["finbert"] == "red"
+        assert ctx["health_any_warn"] is True

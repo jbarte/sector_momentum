@@ -1,4 +1,6 @@
 """Tests for dashboard/health.py badge logic."""
+from pathlib import Path
+
 import pytest
 
 from dashboard.health import _badge, build_health_context
@@ -34,6 +36,25 @@ class TestBadge:
 
     def test_finbert_none_scored(self):
         assert _badge("finbert", None, 11) is None
+
+    def test_finbert_zero_denominator_is_red_never_none(self):
+        """A 0 denominator means the scan tried and had nothing to score.
+        Returning None would let _footer.html.j2's `badge-{{ ... or 'green' }}`
+        fallback paint a total sentiment outage green in a collapsed panel —
+        the same class of invisible failure that hid the 2026-08-05 FinBERT
+        NameError for 10 days. A deliberate --no-finbert skip passes None as
+        `value` and is caught above, so it never reaches this branch."""
+        assert _badge("finbert", 0, 0) == "red"
+
+    def test_finbert_zero_denominator_trips_the_panel_open(self):
+        from dashboard.health import build_health_context
+
+        ctx = build_health_context({
+            "finbert_scored": 0, "finbert_total": 0, "gdelt_articles": 0,
+            "sectors_produced": 18, "sectors_expected": 18, "prices_failed": 0,
+        })
+        assert ctx["health_badges"]["finbert"] == "red"
+        assert ctx["health_any_warn"] is True
 
     def test_coverage_none(self):
         assert _badge("coverage", None, 25) is None
@@ -105,3 +126,34 @@ class TestBuildHealthContext:
         ctx = build_health_context(health)
         assert ctx["health_badges"]["finbert"] is None
         assert ctx["health_any_warn"] is False
+
+
+class TestFooterNeverGuessesHealthy:
+    """`_badge()` returning None means "cannot judge this metric".
+
+    The footer used to render that as `badge-green`, asserting health the data
+    does not support — a 0/0 sentiment outage showed a green tick in a
+    collapsed panel. It now falls back to a neutral `badge-unknown`. Guarded
+    for all three metrics, not just the one that bit: the fallback is shared
+    infrastructure and the next metric added inherits it.
+    """
+
+    _TPL = Path(__file__).parent.parent / "dashboard" / "templates"
+
+    def test_no_metric_falls_back_to_green(self):
+        footer = (self._TPL / "_footer.html.j2").read_text()
+        assert "or 'green'" not in footer, (
+            "a health badge still defaults to green when _badge() cannot "
+            "judge the metric — that asserts health the data does not support"
+        )
+
+    @pytest.mark.parametrize("metric", ["prices", "coverage", "finbert"])
+    def test_each_metric_falls_back_to_unknown(self, metric):
+        footer = (self._TPL / "_footer.html.j2").read_text()
+        assert f"badge-{{{{ health_badges.{metric} or 'unknown' }}}}" in footer
+
+    def test_the_unknown_class_is_actually_styled(self):
+        """An unstyled class silently renders as inherited body text — the
+        badge would lose its weight and read as ordinary prose."""
+        css = (self._TPL / "css" / "_health.css.j2").read_text()
+        assert ".badge-unknown" in css, "badge-unknown has no CSS rule"
