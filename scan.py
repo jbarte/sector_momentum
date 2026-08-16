@@ -241,6 +241,24 @@ def _compute_finbert_sentiment(wide_df, themes_cfg, args):
         )
     except Exception as exc:
         logger.warning("FinBERT sentiment failed (%s) — sentiment stays NULL for this scan", exc)
+        # Record the failure as 0/N rather than leaving the health metrics
+        # None. A deliberate --no-finbert skip ALSO leaves them None, and the
+        # footer renders both identically as a muted "Skipped" with no badge —
+        # which is exactly how a NameError went unnoticed for 10 days and 10
+        # scans. 0/N scores a red badge via dashboard.health._badge and trips
+        # health_any_warn, which springs the panel open on load.
+        #
+        # Only when nothing was recorded yet: a failure *after* the metrics
+        # were set (e.g. in the signal-row concat) already has real numbers,
+        # and overwriting them with 0 would report a total outage that did not
+        # happen.
+        if finbert_health["finbert_scored"] is None:
+            finbert_health["finbert_scored"] = 0
+            finbert_health["finbert_total"] = sum(
+                1 for cfg in (themes_cfg.get("themes") or {}).values()
+                if isinstance(cfg, dict) and cfg.get("gdelt_keywords")
+            )
+            finbert_health["gdelt_articles"] = 0
 
     return sentiment_score, sentiment_signals_df, finbert_health
 

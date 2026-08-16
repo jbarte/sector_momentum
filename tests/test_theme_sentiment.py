@@ -257,3 +257,63 @@ class TestSentimentSignalsFrameShape:
                 )
             assert isinstance(row[1], str), f"region not a str: {row[1]!r}"
             assert isinstance(row[2], str), f"gics_sector not a str: {row[2]!r}"
+
+
+class TestFinbertFailureIsVisible:
+    """A FinBERT failure must not look like a deliberate skip.
+
+    Both paths used to leave all three health metrics None, and
+    `_footer.html.j2` renders that as a muted "Skipped" with no badge and no
+    warning dot. That is why the 2026-08-05 NameError survived 10 scans
+    unnoticed: the dashboard reported the outage as a user preference.
+    """
+
+    def _run(self, side_effect):
+        import scan
+        with patch("src.data.news_sentiment.fetch_theme_headlines",
+                   side_effect=side_effect):
+            return scan._compute_finbert_sentiment(
+                pd.DataFrame({"x": [1.0]}, index=["THEME|Cybersecurity"]),
+                _themes_cfg(),
+                SimpleNamespace(no_finbert=False),
+            )
+
+    def test_failure_records_zero_of_n_not_none(self):
+        _score, _df, health = self._run(RuntimeError("boom"))
+        assert health["finbert_scored"] == 0, "failure left the metric None"
+        # _themes_cfg() has two themes with gdelt_keywords, one without.
+        assert health["finbert_total"] == 2
+        assert health["gdelt_articles"] == 0
+
+    def test_failure_shows_a_red_badge_and_opens_the_panel(self):
+        """The whole point: the footer must visibly flag it."""
+        from dashboard.health import build_health_context
+
+        _score, _df, health = self._run(RuntimeError("boom"))
+        ctx = build_health_context({
+            "finbert_scored": health["finbert_scored"],
+            "finbert_total": health["finbert_total"],
+            "gdelt_articles": health["gdelt_articles"],
+            "sectors_produced": 18, "sectors_expected": 18, "prices_failed": 0,
+        })
+        assert ctx["health_badges"]["finbert"] == "red"
+        assert ctx["health_any_warn"] is True, "health panel would stay collapsed"
+
+    def test_deliberate_skip_still_reads_as_skipped(self):
+        """--no-finbert must stay distinguishable from a failure: all-None,
+        which the footer renders as 'Skipped' with no badge."""
+        import scan
+        from dashboard.health import build_health_context
+
+        _score, _df, health = scan._compute_finbert_sentiment(
+            pd.DataFrame({"x": [1.0]}, index=["THEME|Cybersecurity"]),
+            _themes_cfg(),
+            SimpleNamespace(no_finbert=True),
+        )
+        assert health["finbert_scored"] is None
+        ctx = build_health_context({
+            "finbert_scored": None, "finbert_total": None, "gdelt_articles": None,
+            "sectors_produced": 18, "sectors_expected": 18, "prices_failed": 0,
+        })
+        assert ctx["health_badges"]["finbert"] is None
+        assert ctx["health_any_warn"] is False

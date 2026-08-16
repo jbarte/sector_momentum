@@ -341,15 +341,27 @@ source-only and tight:
   CI) that the built frame survives an actual `save_scan` INSERT — the layer
   where the second bug bites and where no unit test could have caught it.
 
+  **The detection gap, closed.** Raised by `/code-review` and worth more than
+  either bug fix: a FinBERT *failure* and a deliberate `--no-finbert` *skip*
+  both left all three health metrics NULL, and `_footer.html.j2` renders that
+  as a muted "Skipped" with no badge and no warning dot. The dashboard was
+  reporting a 10-day outage as a user preference. A failure now records
+  `0/N` instead of NULL, which scores a **red** badge through the existing
+  `dashboard.health._badge` and trips `health_any_warn` — springing the health
+  panel open on load. No schema change needed. `--no-finbert` still records
+  NULL and still reads as "Skipped", so the two stay distinguishable. Guarded
+  by three tests, sabotage-verified.
+
   **Also observed, not fixed:** GDELT rate-limits hard. Scan 162 spent
   **87 minutes** (06:49→08:16) fetching 1522 headlines with 60/120/240s
   backoffs, all discarded one line later by the `NameError`. The pacing is now
   at least buying something, but it remains the dominant cost of the daily
   scan — its own item if it becomes a problem.
 
-  803 → 845 tests; verified locally end to end with GDELT/FinBERT stubbed:
-  health metrics populate, `sentiment_score` fills, and the INSERT tuples
-  carry zero NULLs. First real production output lands on the next daily scan.
+  838 → 848 tests (11 new; one is `TEST_DATABASE_URL`-gated so it runs in CI,
+  not locally). Verified locally end to end with GDELT/FinBERT stubbed: health
+  metrics populate, `sentiment_score` fills, and the INSERT tuples carry zero
+  NULLs. First real production output lands on the next daily scan.
 
 - **Sub-12px typography floor** (2026-08-15) — closes the last open item of
   "Design review findings (2026-08-09 audit)": "474 elements render under
