@@ -301,6 +301,47 @@ source-only and tight:
 
 # Done
 
+- **GDELT bulk GKG feed replaces the rate-limited DOC API as the primary
+  sentiment source** (2026-08-16) — the daily scan's headline fetch spent
+  ~87 minutes, 80% of it (70 min) waiting out 429 backoffs, with 7 of 18
+  themes still coming back with zero headlines despite that.
+
+  **Why the API was demoted.** GDELT's DOC 2.0 rate limiter is stateful over
+  a long window: a client IP kept failing ~80% of requests even at GDELT's
+  own documented 5s spacing, and GDELT's guidance is that high-volume users
+  should move to the bulk feed instead. A `User-Agent` change that fixed
+  this for another client was tested here too and made no difference
+  (browser UA 0/4 successful vs default UA 1/4).
+
+  **What shipped.** Bulk GKG files — published every 15 minutes, no rate
+  limit — are now the primary source: 96 slices covering a 24h window
+  download in parallel, get matched locally against title text plus GKG
+  themes/orgs/names, and are deduped by URL and title
+  (`src/data/gdelt_gkg.py`). The DOC API is demoted to a fallback, used only
+  for themes still below `MIN_ARTICLES` after the bulk pass, itself bounded
+  by a wall-clock budget so a throttled run can't regress to the old
+  runtime (`src/data/news_sentiment.py::fetch_headlines`).
+
+  **Live measured results** (2026-08-16, real GDELT): the bulk phase alone
+  took 20 seconds, read 96/96 slices, and yielded 50,432 titles covering
+  13/18 themes. With the bounded API fallback added on top, coverage
+  reached 16/18 themes above `MIN_ARTICLES` (was 11/18), totaling 1,140
+  matched headlines. A single slice measured 3.2 MB at 2.11 MB/s.
+
+  **The honest caveat.** An *unbounded* fallback was also measured, and took
+  ~89 minutes to rescue just 3 themes on a heavily-throttled IP — as slow as
+  the pre-bulk baseline this change exists to fix. That's why the fallback
+  carries a wall-clock budget rather than running to completion: the bulk
+  path is the actual speedup, and the fallback is now bounded, not fast.
+
+  **Deliberately out of scope.** GDELT's Web NGrams dataset (word-level
+  only, can't feed headline-level sentiment) and BigQuery (better data
+  quality, but adds a GCP dependency and a CI secret this project doesn't
+  otherwise need).
+
+  Spec: `/Users/jonasbarte/AI Projects/sector_momentum-notes/specs/2026-08-16-gdelt-bulk-fetch-design.md`.
+  Plan: `/Users/jonasbarte/AI Projects/sector_momentum-notes/plans/2026-08-16-gdelt-bulk-fetch.md`.
+
 - **FinBERT sentiment pipeline restored — dead for 10 days** (2026-08-16) —
   the Sentiment tab had shown no data at all since 2026-08-05. Investigated
   end to end (GDELT → FinBERT → persistence → build → render) after the tab

@@ -575,7 +575,7 @@ def test_save_scan_persists_finbert_sentiment_rows_end_to_end(db_conn):
                          "positive_pct": 0.3, "negative_pct": 0.4},
     }
 
-    with patch("src.data.news_sentiment.fetch_theme_headlines",
+    with patch("src.data.news_sentiment.fetch_headlines",
                return_value={"Cybersecurity": ["a"] * 30, "Clean Energy": ["b"] * 25}), \
          patch("src.data.news_sentiment.score_headlines", return_value=finbert_scores), \
          patch("src.data.news_sentiment.zscore_polarity",

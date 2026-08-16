@@ -1,8 +1,10 @@
 """FinBERT news sentiment via GDELT headlines.
 
-Fetches recent English-language headlines per GICS sector from the GDELT DOC
-2.0 API, scores them with ProsusAI/finbert, and aggregates to a single
-cross-sectionally z-scored polarity value per sector.
+Scores recent English-language headlines with ProsusAI/finbert and
+aggregates to a single cross-sectionally z-scored polarity value per theme.
+Headlines arrive primarily from GDELT's bulk GKG feed
+(`src/data/gdelt_gkg.py`), which carries no rate limit; the GDELT DOC 2.0
+query API is a bounded fallback for themes the bulk files under-serve.
 """
 
 from __future__ import annotations
@@ -286,8 +288,8 @@ def fetch_headlines(
         # therefore queryable_themes) may be exactly what failed to import,
         # so this mirrors fetch_theme_headlines' own `queryable` filter
         # rather than calling it.
-        sparse_cfg = themes_cfg
-        _cfg_themes = themes_cfg.get("themes", {})
+        sparse_cfg = themes_cfg or {}
+        _cfg_themes = sparse_cfg.get("themes", {})
         sparse = [
             n for n, v in _cfg_themes.items()
             if isinstance(v, dict) and v.get("gdelt_keywords")
