@@ -430,6 +430,9 @@ class TestFetchHeadlinesOrchestration:
         assert out["Semiconductors"] == ["a", "b", "c"]
 
     def test_bulk_failure_falls_back_to_the_api_for_everything(self):
+        """The fallback is chunked one theme per API call (see
+        TestFetchHeadlinesBudget for why), so a bulk-wide failure means one
+        call per sparse theme rather than a single batch call."""
         from src.data.news_sentiment import fetch_headlines
 
         with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk",
@@ -438,8 +441,9 @@ class TestFetchHeadlinesOrchestration:
                    return_value={"Semiconductors": ["a"], "Clean Energy": ["b"]}) as api:
             out = fetch_headlines(self._cfg())
 
-        api.assert_called_once()
-        assert set(api.call_args.args[0]["themes"]) == {"Semiconductors", "Clean Energy"}
+        assert api.call_count == 2
+        requested = {n for call in api.call_args_list for n in call.args[0]["themes"]}
+        assert requested == {"Semiconductors", "Clean Energy"}
         assert out["Semiconductors"] == ["a"]
 
     def test_total_failure_of_both_paths_returns_empty_lists_not_an_exception(self):
@@ -471,9 +475,12 @@ class TestFetchHeadlinesOrchestration:
                    return_value={"Semiconductors": ["a", "b"], "Clean Energy": []}) as api:
             out = fetch_headlines(self._cfg())
 
-        api.assert_called_once()
-        assert api.call_args.args[0] == self._cfg(), (
-            "bulk failed before seeding — API should get the whole config"
+        # Fallback is chunked one theme per call; both queryable themes from
+        # the whole config get attempted.
+        assert api.call_count == 2
+        requested = {n for call in api.call_args_list for n in call.args[0]["themes"]}
+        assert requested == {"Semiconductors", "Clean Energy"}, (
+            "bulk failed before seeding — API should get every queryable theme"
         )
         assert out == {"Semiconductors": ["a", "b"], "Clean Energy": []}, (
             "Clean Energy vanished instead of surviving as an empty list"
@@ -499,3 +506,115 @@ class TestFetchHeadlinesOrchestration:
 
         assert scored["Semiconductors"]["count"] == MIN_ARTICLES + 1
         assert scored["Semiconductors"]["mean_polarity"] == pytest.approx(0.8)
+
+
+class TestFetchHeadlinesBudget:
+    """Bound the API fallback's wall-clock time.
+
+    Production measurement (2026-08-16, full 18-theme config): bulk alone
+    took 20s and covered 13/18 themes; an unbounded fallback for the
+    remaining 5 took ~89 more minutes to rescue just 3 of them — as slow as
+    the pre-bulk baseline this whole change exists to fix. `fallback_budget_s`
+    stops the fallback from *starting* new theme fetches once a deadline
+    passes; themes it never gets to keep whatever bulk already found.
+    """
+
+    def _cfg(self):
+        return {
+            "themes": {
+                "A": {"ticker": "A1", "gdelt_keywords": ["a"]},
+                "B": {"ticker": "B1", "gdelt_keywords": ["b"]},
+                "C": {"ticker": "C1", "gdelt_keywords": ["c"]},
+            }
+        }
+
+    def test_all_sparse_themes_attempted_when_budget_not_exhausted(self):
+        """Ample budget: behaviour is unchanged from the unbudgeted path —
+        every sparse theme gets its own fallback attempt."""
+        from src.data.news_sentiment import fetch_headlines, MIN_ARTICLES
+
+        bulk = {"A": [], "B": [], "C": []}
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk", return_value=bulk), \
+             patch("src.data.news_sentiment.fetch_theme_headlines",
+                   side_effect=lambda cfg, **kw: {
+                       n: ["x"] * MIN_ARTICLES for n in cfg["themes"]
+                   }) as api:
+            out = fetch_headlines(self._cfg(), fallback_budget_s=600.0)
+
+        assert api.call_count == 3
+        assert all(len(out[n]) == MIN_ARTICLES for n in ("A", "B", "C"))
+
+    def test_remaining_themes_not_attempted_once_budget_expires(self):
+        """Budget expires after 2 of 3 themes: the 3rd is never asked for,
+        and keeps its bulk value (not overwritten, not dropped)."""
+        from src.data.news_sentiment import fetch_headlines
+
+        bulk = {"A": [], "B": [], "C": ["kept-from-bulk"]}   # all 3 sparse
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk", return_value=bulk), \
+             patch("src.data.news_sentiment.fetch_theme_headlines",
+                   side_effect=lambda cfg, **kw: {
+                       n: ["rescued"] * 6 for n in cfg["themes"]
+                   }) as api, \
+             patch("src.data.news_sentiment.time.monotonic",
+                   side_effect=[0, 10, 50, 150]):
+            # calls: [0]=deadline anchor, [10]=check A (ok), [50]=check B
+            # (ok), [150]=check C (deadline=100 already passed -> skip)
+            out = fetch_headlines(self._cfg(), fallback_budget_s=100.0)
+
+        assert api.call_count == 2, "C must not be attempted once the budget is gone"
+        requested = {n for call in api.call_args_list for n in call.args[0]["themes"]}
+        assert requested == {"A", "B"}
+        assert out["A"] == ["rescued"] * 6
+        assert out["B"] == ["rescued"] * 6
+        assert out["C"] == ["kept-from-bulk"], (
+            "skipped theme must keep bulk's value, not go missing or empty"
+        )
+
+    def test_budget_expiry_is_logged_distinctly_from_an_empty_api_result(self, caplog):
+        """A reader must be able to tell 'we ran out of budget' apart from
+        'the API had nothing' — they call for different responses."""
+        from src.data.news_sentiment import fetch_headlines
+
+        bulk = {"A": [], "B": [], "C": ["kept"]}
+        with caplog.at_level("WARNING", logger="src.data.news_sentiment"):
+            with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk", return_value=bulk), \
+                 patch("src.data.news_sentiment.fetch_theme_headlines",
+                       return_value={}) as api, \
+                 patch("src.data.news_sentiment.time.monotonic",
+                       side_effect=[0, 10, 50, 150]):
+                fetch_headlines(self._cfg(), fallback_budget_s=100.0)
+
+        assert api.call_count == 2, "A and B are attempted-but-empty, not budget-skipped"
+
+        budget_msgs = [r.message for r in caplog.records if "budget" in r.message.lower()]
+        assert len(budget_msgs) == 1, "expected exactly one budget-exhaustion log line"
+        named = budget_msgs[0].rsplit(":", 1)[1].strip()
+        assert {n.strip() for n in named.split(",")} == {"C"}, (
+            "only the budget-skipped theme should be named — themes that "
+            "were attempted (even with an empty result) must not appear here"
+        )
+
+    def test_never_raises_and_preserves_longer_bulk_under_budgeted_path(self):
+        """The pre-existing guarantees hold under the new per-theme loop:
+        never raises, every keyworded theme present, a shorter API result
+        never clobbers a longer bulk one."""
+        from src.data.news_sentiment import fetch_headlines
+
+        bulk = {"A": ["a1", "a2", "a3"], "B": [], "C": []}
+
+        def _api(cfg, **kw):
+            name = next(iter(cfg["themes"]))
+            if name == "A":
+                return {"A": ["z"]}                # shorter than bulk's 3
+            if name == "B":
+                raise RuntimeError("api down for B")
+            return {"C": ["c1"]}
+
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk", return_value=bulk), \
+             patch("src.data.news_sentiment.fetch_theme_headlines", side_effect=_api):
+            out = fetch_headlines(self._cfg(), fallback_budget_s=600.0)
+
+        assert out["A"] == ["a1", "a2", "a3"], "shorter API result clobbered longer bulk"
+        assert out["B"] == [], "a per-theme API exception must not propagate or drop the theme"
+        assert out["C"] == ["c1"]
+        assert set(out) == {"A", "B", "C"}
