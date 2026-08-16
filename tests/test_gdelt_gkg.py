@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from src.data.gdelt_gkg import slice_urls, parse_slice
+from src.data.gdelt_gkg import slice_urls, parse_slice, match_themes
 
 
 def _gkg_zip(rows: list[list[str]]) -> bytes:
@@ -112,3 +112,82 @@ class TestParseSlice:
     def test_malformed_zip_raises_so_the_caller_can_skip_it(self):
         with pytest.raises(Exception):
             parse_slice(b"this is not a zip file")
+
+
+def _cfg():
+    return {
+        "themes": {
+            "Semiconductors": {"ticker": "SOXX",
+                               "gdelt_keywords": ["semiconductor", "chip maker"]},
+            "Clean Energy": {"ticker": "ICLN",
+                             "gdelt_keywords": ["clean energy", "solar power"]},
+            "NoKeywords": {"ticker": "NOPE"},
+        }
+    }
+
+
+def _rec(title, url="https://ex.com/a", themes="", orgs="", names=""):
+    return {"title": title, "url": url, "themes": themes, "orgs": orgs, "names": names}
+
+
+class TestMatchThemes:
+    def test_matches_keyword_in_title(self):
+        out = match_themes([_rec("Chip maker posts record quarter")], _cfg())
+        assert out["Semiconductors"] == ["Chip maker posts record quarter"]
+
+    def test_matching_is_case_insensitive(self):
+        out = match_themes([_rec("SEMICONDUCTOR shortage eases")], _cfg())
+        assert len(out["Semiconductors"]) == 1
+
+    def test_matches_keyword_found_only_in_gkg_metadata(self):
+        """The API matches article body text; GKG's themes/orgs/names fields
+        are the nearest equivalent, and are what make file coverage viable."""
+        out = match_themes(
+            [_rec("Quarterly results beat expectations", orgs="acme semiconductor inc")],
+            _cfg(),
+        )
+        assert len(out["Semiconductors"]) == 1
+
+    def test_does_not_match_unrelated_records(self):
+        out = match_themes([_rec("Local bakery wins award")], _cfg())
+        assert out["Semiconductors"] == []
+        assert out["Clean Energy"] == []
+
+    def test_every_keyworded_theme_is_present_even_with_no_matches(self):
+        """Downstream counts len() per theme, so a missing key would read as
+        a crash rather than 'no news today'."""
+        out = match_themes([], _cfg())
+        assert set(out) == {"Semiconductors", "Clean Energy"}
+        assert out["Semiconductors"] == []
+
+    def test_themes_without_keywords_are_excluded(self):
+        out = match_themes([_rec("anything")], _cfg())
+        assert "NoKeywords" not in out
+
+    def test_one_record_can_match_several_themes(self):
+        out = match_themes(
+            [_rec("Solar power plant adds chip maker as anchor tenant")], _cfg()
+        )
+        assert len(out["Semiconductors"]) == 1
+        assert len(out["Clean Energy"]) == 1
+
+    def test_dedups_the_same_url_across_slices(self):
+        recs = [_rec("Chip maker wins deal", url="https://ex.com/x"),
+                _rec("Chip maker wins deal", url="https://ex.com/x")]
+        assert len(match_themes(recs, _cfg())["Semiconductors"]) == 1
+
+    def test_dedups_identical_titles_from_different_urls(self):
+        """Syndicated wire copy appears under many URLs; scoring it once per
+        outlet would weight that story by its syndication footprint."""
+        recs = [_rec("Chip maker wins deal", url="https://a.com/1"),
+                _rec("Chip maker wins deal", url="https://b.com/2")]
+        assert len(match_themes(recs, _cfg())["Semiconductors"]) == 1
+
+    def test_keeps_distinct_titles(self):
+        recs = [_rec("Chip maker wins deal", url="https://a.com/1"),
+                _rec("Chip maker loses deal", url="https://b.com/2")]
+        assert len(match_themes(recs, _cfg())["Semiconductors"]) == 2
+
+    def test_empty_config_yields_empty_result(self):
+        assert match_themes([_rec("Chip maker")], {"themes": {}}) == {}
+        assert match_themes([_rec("Chip maker")], {}) == {}

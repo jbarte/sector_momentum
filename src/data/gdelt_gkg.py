@@ -92,3 +92,55 @@ def parse_slice(raw: bytes) -> list[dict]:
                     "names": row[_COL_ALLNAMES],
                 })
     return records
+
+
+def queryable_themes(themes_cfg: dict) -> dict[str, list[str]]:
+    """{theme: [lowercased keyword]} for every theme carrying gdelt_keywords.
+
+    Shared by the bulk path and the API fallback so both agree on exactly
+    which themes are fetchable.
+    """
+    themes = (themes_cfg or {}).get("themes") or {}
+    return {
+        name: [k.lower() for k in cfg["gdelt_keywords"]]
+        for name, cfg in themes.items()
+        if isinstance(cfg, dict) and cfg.get("gdelt_keywords")
+    }
+
+
+def match_themes(records: list[dict], themes_cfg: dict) -> dict[str, list[str]]:
+    """Attribute records to themes by keyword, returning {theme: [title]}.
+
+    Matches against the title AND GKG's own themes/orgs/names enrichment.
+    Title-only matching halves the hit rate (measured: 6 vs 14 matches per
+    slice), which is not enough to keep the low-volume themes above
+    MIN_ARTICLES. Matching on metadata while scoring the title mirrors what
+    the DOC API already does — it matches article body text and we score the
+    headline — so this is consistent with existing behaviour, not a new
+    compromise.
+
+    Deduped by URL and by exact title: the same story is republished across
+    slices and syndicated across outlets, and counting it once per outlet
+    would weight it by syndication footprint rather than sentiment.
+    """
+    queryable = queryable_themes(themes_cfg)
+    out: dict[str, list[str]] = {name: [] for name in queryable}
+    seen_urls: dict[str, set] = {name: set() for name in queryable}
+    seen_titles: dict[str, set] = {name: set() for name in queryable}
+
+    for rec in records:
+        title = rec["title"]
+        haystack = " ".join((
+            title, rec.get("themes", ""), rec.get("orgs", ""), rec.get("names", ""),
+        )).lower()
+        url = rec.get("url") or ""
+        for name, keywords in queryable.items():
+            if not any(k in haystack for k in keywords):
+                continue
+            if (url and url in seen_urls[name]) or title in seen_titles[name]:
+                continue
+            if url:
+                seen_urls[name].add(url)
+            seen_titles[name].add(title)
+            out[name].append(title)
+    return out
