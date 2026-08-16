@@ -349,8 +349,12 @@ source-only and tight:
   `0/N` instead of NULL, which scores a **red** badge through the existing
   `dashboard.health._badge` and trips `health_any_warn` — springing the health
   panel open on load. No schema change needed. `--no-finbert` still records
-  NULL and still reads as "Skipped", so the two stay distinguishable. Guarded
-  by three tests, sabotage-verified.
+  NULL and still reads as "Skipped", so the two stay distinguishable. A second
+  review pass caught two ways this could still go quiet — a 0 denominator
+  (which makes `_badge` return None and the footer's `or 'green'` fallback
+  paint an outage green) and hardcoding `gdelt_articles = 0`, which in the
+  real 2026-08-05 shape would have blamed a healthy GDELT for a FinBERT bug.
+  Both fixed. Guarded by five tests, all sabotage-verified.
 
   **Also observed, not fixed:** GDELT rate-limits hard. Scan 162 spent
   **87 minutes** (06:49→08:16) fetching 1522 headlines with 60/120/240s
@@ -358,7 +362,7 @@ source-only and tight:
   at least buying something, but it remains the dominant cost of the daily
   scan — its own item if it becomes a problem.
 
-  838 → 848 tests (11 new; one is `TEST_DATABASE_URL`-gated so it runs in CI,
+  838 → 850 tests (13 new; one is `TEST_DATABASE_URL`-gated so it runs in CI,
   not locally). Verified locally end to end with GDELT/FinBERT stubbed: health
   metrics populate, `sentiment_score` fills, and the INSERT tuples carry zero
   NULLs. First real production output lands on the next daily scan.

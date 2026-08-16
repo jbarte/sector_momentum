@@ -194,6 +194,11 @@ def _compute_finbert_sentiment(wide_df, themes_cfg, args):
         return sentiment_score, sentiment_signals_df, finbert_health
 
     logger.info("Fetching GDELT headlines + FinBERT scoring …")
+    # Initialised before the try so the failure handler can report what GDELT
+    # actually returned. The real 2026-08-05 outage failed AFTER a successful
+    # 1522-headline fetch, so hardcoding 0 here would have blamed a healthy
+    # GDELT for a FinBERT bug.
+    _total_articles = 0
     try:
         from src.data.news_sentiment import (
             fetch_theme_headlines, score_headlines,
@@ -253,12 +258,21 @@ def _compute_finbert_sentiment(wide_df, themes_cfg, args):
         # and overwriting them with 0 would report a total outage that did not
         # happen.
         if finbert_health["finbert_scored"] is None:
-            finbert_health["finbert_scored"] = 0
-            finbert_health["finbert_total"] = sum(
-                1 for cfg in (themes_cfg.get("themes") or {}).values()
+            _themes = themes_cfg.get("themes") or {}
+            # Mirror fetch_theme_headlines' own `queryable` filter, but fall
+            # back to the full theme count: a 0 denominator makes _badge()
+            # return None, and the footer's `badge-{{ ... or 'green' }}`
+            # fallback would then paint a total outage GREEN in a collapsed
+            # panel — the exact invisible state this handler exists to remove.
+            _queryable = sum(
+                1 for cfg in _themes.values()
                 if isinstance(cfg, dict) and cfg.get("gdelt_keywords")
             )
-            finbert_health["gdelt_articles"] = 0
+            _expected = _queryable or len(_themes)
+            if _expected:
+                finbert_health["finbert_scored"] = 0
+                finbert_health["finbert_total"] = _expected
+                finbert_health["gdelt_articles"] = _total_articles
 
     return sentiment_score, sentiment_signals_df, finbert_health
 

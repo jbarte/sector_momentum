@@ -317,3 +317,52 @@ class TestFinbertFailureIsVisible:
         })
         assert ctx["health_badges"]["finbert"] is None
         assert ctx["health_any_warn"] is False
+
+    def test_failure_after_a_good_gdelt_fetch_reports_the_real_article_count(self):
+        """The actual 2026-08-05 shape: GDELT returns 1522 headlines, FinBERT
+        then dies. Reporting `0 GDELT articles` would blame a healthy source
+        for a downstream bug."""
+        import scan
+
+        with patch("src.data.news_sentiment.fetch_theme_headlines",
+                   return_value={"Cybersecurity": ["h"] * 30,
+                                 "Clean Energy": ["h"] * 25}), \
+             patch("src.data.news_sentiment.score_headlines",
+                   side_effect=NameError("name '_finbert_pipeline' is not defined")):
+            _score, _df, health = scan._compute_finbert_sentiment(
+                pd.DataFrame({"x": [1.0]}, index=["THEME|Cybersecurity"]),
+                _themes_cfg(),
+                SimpleNamespace(no_finbert=False),
+            )
+
+        assert health["finbert_scored"] == 0
+        assert health["gdelt_articles"] == 55, (
+            "GDELT's real article count was discarded — the footer would blame "
+            "GDELT for a FinBERT failure"
+        )
+
+    def test_zero_queryable_themes_still_flags_red_not_green(self):
+        """A 0 denominator makes _badge() return None, and the footer's
+        `or 'green'` fallback then paints a total outage green in a collapsed
+        panel. Fall back to the full theme count so the ratio stays 0/N."""
+        import scan
+        from dashboard.health import build_health_context
+
+        cfg = {"themes": {"NoKeywords": {"ticker": "NOPE"},
+                          "AlsoNone": {"ticker": "NIX"}}}
+        with patch("src.data.news_sentiment.fetch_theme_headlines",
+                   side_effect=RuntimeError("boom")):
+            _score, _df, health = scan._compute_finbert_sentiment(
+                pd.DataFrame({"x": [1.0]}, index=["THEME|NoKeywords"]),
+                cfg, SimpleNamespace(no_finbert=False),
+            )
+
+        assert health["finbert_total"] == 2, "denominator collapsed to 0"
+        ctx = build_health_context({
+            "finbert_scored": health["finbert_scored"],
+            "finbert_total": health["finbert_total"],
+            "gdelt_articles": health["gdelt_articles"],
+            "sectors_produced": 18, "sectors_expected": 18, "prices_failed": 0,
+        })
+        assert ctx["health_badges"]["finbert"] == "red"
+        assert ctx["health_any_warn"] is True
