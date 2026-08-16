@@ -201,10 +201,10 @@ def _compute_finbert_sentiment(wide_df, themes_cfg, args):
     _total_articles = 0
     try:
         from src.data.news_sentiment import (
-            fetch_theme_headlines, score_headlines,
+            fetch_headlines, score_headlines,
             zscore_polarity, build_theme_news_signal_rows,
         )
-        _headlines = fetch_theme_headlines(themes_cfg)
+        _headlines = fetch_headlines(themes_cfg)
         _total_articles = sum(len(h) for h in _headlines.values())
         logger.info("GDELT: %d headlines across %d themes",
                     _total_articles, len(_headlines))

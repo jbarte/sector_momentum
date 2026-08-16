@@ -235,6 +235,60 @@ def fetch_theme_headlines(
     return result
 
 
+def fetch_headlines(themes_cfg: dict, *, sleep_s: float = 20.0) -> dict[str, list[str]]:
+    """Theme headlines: GDELT bulk files first, query API only for the rest.
+
+    The DOC API's limiter is stateful over a long window, so an 18-query
+    batch reliably throttles itself into partial coverage (measured: 7 of 18
+    themes returned nothing on 2026-08-15). Bulk files carry no limit at all,
+    so they do the bulk of the work and the API is reserved for the handful
+    of low-volume themes the files under-serve — few enough requests that the
+    fallback actually succeeds when it is used.
+
+    Always returns every keyworded theme, possibly with an empty list. Never
+    raises: sentiment is alpha and non-fatal by design.
+    """
+    headlines: dict[str, list[str]] = {}
+    try:
+        from src.data.gdelt_gkg import fetch_theme_headlines_bulk, queryable_themes
+
+        # Seed every keyworded theme first, so a theme that matched nothing is
+        # still countable as covered-with-zero rather than silently absent.
+        headlines = {name: [] for name in queryable_themes(themes_cfg)}
+        headlines.update(fetch_theme_headlines_bulk(themes_cfg))
+    except Exception as exc:                      # noqa: BLE001
+        # Deliberately inside the try: an import error in gdelt_gkg must
+        # degrade to the API, not raise. This function's contract is that it
+        # never raises.
+        logger.warning("GKG bulk fetch failed (%s) — API fallback", exc)
+
+    if not headlines:
+        # Bulk failed before it could even seed: hand the API the whole config
+        # and let it apply its own queryable filter.
+        sparse, sparse_cfg = ["(all themes)"], themes_cfg
+    else:
+        sparse = [n for n, v in headlines.items() if len(v) < MIN_ARTICLES]
+        if not sparse:
+            logger.info(
+                "GKG bulk covered all %d themes — no API calls needed", len(headlines)
+            )
+            return headlines
+        sparse_cfg = {"themes": {n: themes_cfg["themes"][n] for n in sparse}}
+
+    logger.info("API fallback for %d theme(s): %s", len(sparse), ", ".join(sparse))
+    try:
+        api = fetch_theme_headlines(sparse_cfg, sleep_s=sleep_s, max_retries=3)
+        for name, titles in api.items():
+            # Keep whichever source found more. A throttled API returning a
+            # short list must not clobber a longer bulk result.
+            if len(titles) > len(headlines.get(name, [])):
+                headlines[name] = titles
+    except Exception as exc:                      # noqa: BLE001
+        logger.warning("API fallback failed (%s) — keeping bulk results", exc)
+
+    return headlines
+
+
 def build_theme_news_signal_rows(
     finbert_scores: dict[str, dict],
 ) -> list[dict]:

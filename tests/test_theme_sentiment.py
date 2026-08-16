@@ -202,7 +202,7 @@ class TestSentimentSignalsFrameShape:
                              "positive_pct": 0.3, "negative_pct": 0.4},
         }
         return (
-            patch("src.data.news_sentiment.fetch_theme_headlines",
+            patch("src.data.news_sentiment.fetch_headlines",
                   return_value={"Cybersecurity": ["a"] * 30,
                                 "Clean Energy": ["b"] * 25}),
             patch("src.data.news_sentiment.score_headlines",
@@ -270,7 +270,7 @@ class TestFinbertFailureIsVisible:
 
     def _run(self, side_effect):
         import scan
-        with patch("src.data.news_sentiment.fetch_theme_headlines",
+        with patch("src.data.news_sentiment.fetch_headlines",
                    side_effect=side_effect):
             return scan._compute_finbert_sentiment(
                 pd.DataFrame({"x": [1.0]}, index=["THEME|Cybersecurity"]),
@@ -324,7 +324,7 @@ class TestFinbertFailureIsVisible:
         for a downstream bug."""
         import scan
 
-        with patch("src.data.news_sentiment.fetch_theme_headlines",
+        with patch("src.data.news_sentiment.fetch_headlines",
                    return_value={"Cybersecurity": ["h"] * 30,
                                  "Clean Energy": ["h"] * 25}), \
              patch("src.data.news_sentiment.score_headlines",
@@ -350,7 +350,7 @@ class TestFinbertFailureIsVisible:
 
         cfg = {"themes": {"NoKeywords": {"ticker": "NOPE"},
                           "AlsoNone": {"ticker": "NIX"}}}
-        with patch("src.data.news_sentiment.fetch_theme_headlines",
+        with patch("src.data.news_sentiment.fetch_headlines",
                    side_effect=RuntimeError("boom")):
             _score, _df, health = scan._compute_finbert_sentiment(
                 pd.DataFrame({"x": [1.0]}, index=["THEME|NoKeywords"]),
@@ -366,3 +366,110 @@ class TestFinbertFailureIsVisible:
         })
         assert ctx["health_badges"]["finbert"] == "red"
         assert ctx["health_any_warn"] is True
+
+
+class TestFetchHeadlinesOrchestration:
+    """Bulk first, API only for what bulk under-serves.
+
+    The point of the whole change: the API is a rate-limited last resort, not
+    the default path. These tests pin the request count, because "we stopped
+    hammering the API" is the property that matters and it is invisible in
+    the returned data.
+    """
+
+    def _cfg(self):
+        return {
+            "themes": {
+                "Semiconductors": {"ticker": "SOXX", "gdelt_keywords": ["chip"]},
+                "Clean Energy": {"ticker": "ICLN", "gdelt_keywords": ["solar"]},
+            }
+        }
+
+    def test_no_api_call_when_bulk_covers_every_theme(self):
+        from src.data.news_sentiment import fetch_headlines, MIN_ARTICLES
+
+        bulk = {
+            "Semiconductors": [f"chip story {i}" for i in range(MIN_ARTICLES)],
+            "Clean Energy": [f"solar story {i}" for i in range(MIN_ARTICLES)],
+        }
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk", return_value=bulk), \
+             patch("src.data.news_sentiment.fetch_theme_headlines") as api:
+            out = fetch_headlines(self._cfg())
+
+        api.assert_not_called()
+        assert len(out["Semiconductors"]) == MIN_ARTICLES
+
+    def test_api_is_called_only_for_themes_below_the_floor(self):
+        from src.data.news_sentiment import fetch_headlines, MIN_ARTICLES
+
+        bulk = {
+            "Semiconductors": [f"chip story {i}" for i in range(MIN_ARTICLES)],
+            "Clean Energy": ["solar story"],          # 1 < MIN_ARTICLES
+        }
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk", return_value=bulk), \
+             patch("src.data.news_sentiment.fetch_theme_headlines",
+                   return_value={"Clean Energy": ["a", "b", "c", "d", "e", "f"]}) as api:
+            out = fetch_headlines(self._cfg())
+
+        api.assert_called_once()
+        requested = api.call_args.args[0]["themes"]
+        assert set(requested) == {"Clean Energy"}, "API asked for a covered theme"
+        assert len(out["Clean Energy"]) == 6
+        assert len(out["Semiconductors"]) == MIN_ARTICLES
+
+    def test_api_result_is_kept_only_when_it_beats_bulk(self):
+        """A throttled API returning less than bulk must not overwrite bulk."""
+        from src.data.news_sentiment import fetch_headlines
+
+        bulk = {"Semiconductors": ["a", "b", "c"], "Clean Energy": []}
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk", return_value=bulk), \
+             patch("src.data.news_sentiment.fetch_theme_headlines",
+                   return_value={"Semiconductors": ["z"], "Clean Energy": []}):
+            out = fetch_headlines(self._cfg())
+
+        assert out["Semiconductors"] == ["a", "b", "c"]
+
+    def test_bulk_failure_falls_back_to_the_api_for_everything(self):
+        from src.data.news_sentiment import fetch_headlines
+
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk",
+                   side_effect=RuntimeError("gdelt file host down")), \
+             patch("src.data.news_sentiment.fetch_theme_headlines",
+                   return_value={"Semiconductors": ["a"], "Clean Energy": ["b"]}) as api:
+            out = fetch_headlines(self._cfg())
+
+        api.assert_called_once()
+        assert set(api.call_args.args[0]["themes"]) == {"Semiconductors", "Clean Energy"}
+        assert out["Semiconductors"] == ["a"]
+
+    def test_total_failure_of_both_paths_returns_empty_lists_not_an_exception(self):
+        from src.data.news_sentiment import fetch_headlines
+
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk",
+                   side_effect=RuntimeError("down")), \
+             patch("src.data.news_sentiment.fetch_theme_headlines",
+                   side_effect=RuntimeError("also down")):
+            out = fetch_headlines(self._cfg())
+
+        assert out == {"Semiconductors": [], "Clean Energy": []}
+
+    def test_output_feeds_score_headlines_unchanged(self):
+        """Contract check: the orchestrator's shape is what FinBERT consumes."""
+        from src.data.news_sentiment import fetch_headlines, score_headlines, MIN_ARTICLES
+
+        bulk = {
+            "Semiconductors": [f"chip {i}" for i in range(MIN_ARTICLES + 1)],
+            "Clean Energy": [f"solar {i}" for i in range(MIN_ARTICLES + 1)],
+        }
+        with patch("src.data.gdelt_gkg.fetch_theme_headlines_bulk", return_value=bulk), \
+             patch("src.data.news_sentiment.fetch_theme_headlines", return_value={}), \
+             patch("src.data.news_sentiment._load_finbert_pipeline") as loader:
+            pipe = MagicMock()
+            pipe.side_effect = lambda texts, **kw: [
+                {"label": "positive", "score": 0.8} for _ in texts
+            ]
+            loader.return_value = pipe
+            scored = score_headlines(fetch_headlines(self._cfg()))
+
+        assert scored["Semiconductors"]["count"] == MIN_ARTICLES + 1
+        assert scored["Semiconductors"]["mean_polarity"] == pytest.approx(0.8)
