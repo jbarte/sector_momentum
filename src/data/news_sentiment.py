@@ -53,6 +53,15 @@ def _build_query(themes: list[str]) -> str:
     return f"({theme_clause}) sourcelang:english"
 
 
+# Memoised FinBERT pipeline. MUST stay at module scope: _load_finbert_pipeline
+# declares `global _finbert_pipeline` and reads it before assigning, so without
+# this line every real call raises `NameError: name '_finbert_pipeline' is not
+# defined`. It was dropped by the sector-cohort retirement (1ff80d8,
+# 2026-08-05) and, because scan.py catches the failure broadly, that silently
+# wrote NULL sentiment for every scan from 153 onward instead of failing loudly.
+_finbert_pipeline = None
+
+
 def _load_finbert_pipeline():
     """Load ProsusAI/finbert pipeline (cached after first call)."""
     global _finbert_pipeline

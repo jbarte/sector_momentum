@@ -44,6 +44,7 @@ logger = logging.getLogger("scan")
 
 from src.data.prices import fetch_prices
 from src.backup import backup_to_storage
+from src.cohorts import THEME_REGION
 from src.pipeline import SIGNAL_COLUMNS, build_theme_signals_rows
 
 # ---------------------------------------------------------------------------
@@ -222,9 +223,20 @@ def _compute_finbert_sentiment(wide_df, themes_cfg, args):
                     sentiment_score[key] = z
             logger.info("sentiment_score overwritten with FinBERT polarity z-scores")
 
+        # build_theme_news_signal_rows() keys rows by `theme`; save_scan reads
+        # `region`/`gics_sector` (both NOT NULL in the schema). Re-key before
+        # concatenating — appending theme-keyed rows straight into the
+        # region-keyed accumulator leaves both key columns NaN and the INSERT
+        # writes NULLs into NOT NULL columns.
+        _theme_rows = pd.DataFrame(build_theme_news_signal_rows(_finbert_scores))
+        if not _theme_rows.empty:
+            _theme_rows = (
+                _theme_rows
+                .rename(columns={"theme": "gics_sector"})
+                .assign(region=THEME_REGION)
+            )
         sentiment_signals_df = pd.concat(
-            [sentiment_signals_df,
-             pd.DataFrame(build_theme_news_signal_rows(_finbert_scores))],
+            [sentiment_signals_df, _theme_rows],
             ignore_index=True,
         )
     except Exception as exc:

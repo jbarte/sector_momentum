@@ -535,3 +535,82 @@ def test_sentiment_signals_reader_excludes_retired_sector_rows(db_conn):
     sigs = get_sentiment_signals_for_latest_scan(db_conn)
     assert set(sigs["region"]) == {THEME_REGION}
     assert set(sigs["gics_sector"]) == {"Space"}
+
+
+@skipif_no_db
+def test_save_scan_persists_finbert_sentiment_rows_end_to_end(db_conn):
+    """The FinBERT sentiment frame scan.py builds must survive a real INSERT.
+
+    `sentiment_signals.region` and `.gics_sector` are both NOT NULL. Between
+    1ff80d8 (2026-08-05) and this fix, scan.py concatenated theme-keyed rows
+    (`theme`) straight into an accumulator seeded with `region`/`gics_sector`
+    columns, so both key columns arrived NaN. No unit test on the frame shape
+    caught it and no scan ever reached this code (the FinBERT NameError fired
+    first), so the failure would only have surfaced here, at the INSERT.
+
+    Builds the frame through scan.py's own `_compute_finbert_sentiment` rather
+    than hand-rolling one, so the test tracks whatever that function actually
+    produces.
+    """
+    import pandas as pd
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    import scan
+    from src.state import save_scan, get_sentiment_signals_for_latest_scan, THEME_REGION
+
+    wide_df = pd.DataFrame(
+        {"x": [1.0, 2.0]}, index=["THEME|Cybersecurity", "THEME|Clean Energy"]
+    )
+    themes_cfg = {
+        "themes": {
+            "Cybersecurity": {"ticker": "CIBR", "gdelt_keywords": ["cybersecurity"]},
+            "Clean Energy": {"ticker": "ICLN", "gdelt_keywords": ["clean energy"]},
+        }
+    }
+    finbert_scores = {
+        "Cybersecurity": {"mean_polarity": 0.20, "count": 30,
+                          "positive_pct": 0.5, "negative_pct": 0.2},
+        "Clean Energy": {"mean_polarity": -0.10, "count": 25,
+                         "positive_pct": 0.3, "negative_pct": 0.4},
+    }
+
+    with patch("src.data.news_sentiment.fetch_theme_headlines",
+               return_value={"Cybersecurity": ["a"] * 30, "Clean Energy": ["b"] * 25}), \
+         patch("src.data.news_sentiment.score_headlines", return_value=finbert_scores), \
+         patch("src.data.news_sentiment.zscore_polarity",
+               return_value={"Cybersecurity": 1.0, "Clean Energy": -1.0}):
+        _score, sent_df, health = scan._compute_finbert_sentiment(
+            wide_df, themes_cfg, SimpleNamespace(no_finbert=False)
+        )
+
+    assert not sent_df.empty, "no sentiment rows built"
+    assert health["finbert_scored"] == 2, "health metrics not recorded"
+
+    scores_df = pd.DataFrame({
+        "region": [THEME_REGION, THEME_REGION],
+        "gics_sector": ["Cybersecurity", "Clean Energy"],
+        "level_score": [0.1, 0.2], "change_score": [0.1, 0.2],
+        "data_score": [0.1, 0.2], "sentiment_score": [1.0, -1.0],
+        "composite": [0.3, 0.4], "rank": [1, 2],
+    })
+    signals_df = pd.DataFrame(
+        columns=["region", "gics_sector", "signal_name", "raw_value", "z_value"]
+    )
+
+    # The assertion that matters: this INSERT raises on NULL region/gics_sector.
+    save_scan(
+        conn=db_conn,
+        run_at=datetime.datetime(2099, 6, 1, tzinfo=datetime.timezone.utc),
+        region_sector_signals=signals_df,
+        scores_df=scores_df,
+        sentiment_signals_df=sent_df,
+    )
+
+    stored = get_sentiment_signals_for_latest_scan(db_conn)
+    assert not stored.empty, "sentiment rows did not reach the database"
+    assert set(stored["region"]) == {THEME_REGION}
+    assert set(stored["gics_sector"]) == {"Cybersecurity", "Clean Energy"}
+    assert set(stored["signal_name"]) == {
+        "news_polarity", "news_count", "news_positive_pct", "news_negative_pct",
+    }

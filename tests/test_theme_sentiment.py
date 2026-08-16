@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pandas as pd
 
 import pytest
 
@@ -164,3 +167,93 @@ class TestBuildThemeNewsSignalRows:
 
         rows = build_theme_news_signal_rows({})
         assert rows == []
+
+
+class TestSentimentSignalsFrameShape:
+    """The frame `_compute_finbert_sentiment` hands to `save_scan` must be
+    keyed the way `save_scan` reads it: region / gics_sector.
+
+    `build_theme_news_signal_rows` emits rows keyed by `theme`, but scan.py
+    seeds the accumulator frame with `region`/`gics_sector` columns and
+    concatenates the theme-keyed rows straight into it. That yields a frame
+    carrying BOTH `gics_sector` (all-NaN, from the seed) and `theme`, so
+    `save_scan`'s `_rows_from_df(key_cols=["region","gics_sector",...])`
+    reads NULLs into two NOT NULL columns.
+
+    Latent since 1ff80d8 (2026-08-05) and never observed in production only
+    because the FinBERT NameError fired first and skipped this code entirely.
+    """
+
+    def _fake_args(self):
+        return SimpleNamespace(no_finbert=False)
+
+    def _wide_df(self):
+        return pd.DataFrame(
+            {"x": [1.0, 2.0]},
+            index=["THEME|Cybersecurity", "THEME|Clean Energy"],
+        )
+
+    def _patched_scan(self):
+        """Patch the news_sentiment functions scan.py imports at call time."""
+        scores = {
+            "Cybersecurity": {"mean_polarity": 0.20, "count": 30,
+                              "positive_pct": 0.5, "negative_pct": 0.2},
+            "Clean Energy": {"mean_polarity": -0.10, "count": 25,
+                             "positive_pct": 0.3, "negative_pct": 0.4},
+        }
+        return (
+            patch("src.data.news_sentiment.fetch_theme_headlines",
+                  return_value={"Cybersecurity": ["a"] * 30,
+                                "Clean Energy": ["b"] * 25}),
+            patch("src.data.news_sentiment.score_headlines",
+                  return_value=scores),
+            patch("src.data.news_sentiment.zscore_polarity",
+                  return_value={"Cybersecurity": 1.0, "Clean Energy": -1.0}),
+        )
+
+    def _run(self):
+        import scan
+        p1, p2, p3 = self._patched_scan()
+        with p1, p2, p3:
+            return scan._compute_finbert_sentiment(
+                self._wide_df(), _themes_cfg(), self._fake_args()
+            )
+
+    def test_frame_has_no_duplicate_columns(self):
+        _score, sent_df, _health = self._run()
+        assert not sent_df.empty, "no sentiment rows produced"
+        dupes = [c for c in set(sent_df.columns)
+                 if list(sent_df.columns).count(c) > 1]
+        assert not dupes, f"duplicate columns in sentiment frame: {dupes}"
+
+    def test_frame_is_keyed_by_region_and_gics_sector(self):
+        """save_scan reads these two columns; both are NOT NULL in the schema."""
+        _score, sent_df, _health = self._run()
+        for col in ("region", "gics_sector", "signal_name", "value"):
+            assert col in sent_df.columns, f"missing column {col!r}"
+        assert sent_df["region"].notna().all(), "region has NULLs"
+        assert sent_df["gics_sector"].notna().all(), "gics_sector has NULLs"
+        assert set(sent_df["region"]) == {"THEME"}
+        assert set(sent_df["gics_sector"]) == {"Cybersecurity", "Clean Energy"}
+
+    def test_rows_reaching_the_insert_are_scalars_not_series(self):
+        """The concrete production failure mode: with a duplicate
+        `gics_sector`, `_rows_from_df` hands psycopg2 a pandas Series instead
+        of a string, which it cannot adapt."""
+        from src.state import _rows_from_df
+
+        _score, sent_df, _health = self._run()
+        rows = _rows_from_df(
+            sent_df, 999,
+            key_cols=["region", "gics_sector", "signal_name"],
+            float_cols=["value"],
+            raw_cols=["text_value"],
+        )
+        assert rows, "no rows built"
+        for row in rows:
+            for value in row:
+                assert not isinstance(value, pd.Series), (
+                    f"psycopg2 cannot adapt a Series — got {value!r} in {row!r}"
+                )
+            assert isinstance(row[1], str), f"region not a str: {row[1]!r}"
+            assert isinstance(row[2], str), f"gics_sector not a str: {row[2]!r}"
