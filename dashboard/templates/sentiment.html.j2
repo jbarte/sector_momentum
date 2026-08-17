@@ -79,7 +79,7 @@
   {% else %}
   <div class="chart-container" style="padding:48px 32px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
     <p style="font-weight:600;color:var(--fg2);margin:0 0 8px" data-i18n="sentiment_empty_title">No news sentiment for this snapshot</p>
-    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto" data-i18n="sentiment_empty_body">The news source (GDELT / FinBERT) recorded no sentiment for any theme in this scan — usually a temporary source outage or rate limit. Sentiment returns automatically once the source is reachable again; the leaderboard and other tabs are unaffected.</p>
+    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto" data-i18n="sentiment_empty_body">No news sentiment appears for any theme in the snapshot shown here. This can happen when the source (GDELT / FinBERT) recorded nothing that day, or when this page is showing an earlier scan than the most recent one. Sentiment appears automatically once a scan with real readings is on display; the leaderboard and other tabs are unaffected.</p>
   </div>
   {% endif %}
   {% if sentiment_signal_rows %}

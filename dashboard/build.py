@@ -263,6 +263,7 @@ def main() -> None:
         get_sentiment_signals_for_latest_scan,
         get_latest_health,
         get_signals_for_scan,
+        get_sentiment_signals_for_scan,
     )
 
     conn = init_db()
@@ -310,6 +311,12 @@ def main() -> None:
         history_df = history_df[history_df["scan_id"] <= lb_scan_id].copy()
         rrg_df = rrg_df[rrg_df["scan_id"] <= lb_scan_id].copy()
         signals_df = get_signals_for_scan(conn, lb_scan_id)
+        # sentiment_signals_df otherwise reads the true latest scan
+        # unconditionally (see get_sentiment_signals_for_latest_scan below) —
+        # that leaked the current scan's News sentiment table to guests while
+        # the Data <-> Sentiment scatter above it stayed capped at lb_scan_id,
+        # so the two surfaces disagreed about what "latest" meant.
+        sentiment_signals_df = get_sentiment_signals_for_scan(conn, lb_scan_id)
 
     # Load config. Themes are needed early — the per-scan reports below are
     # generated per-cohort.
