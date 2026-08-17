@@ -181,11 +181,16 @@ researched and deliberately left out of scope; neither is needed unless GKG
 coverage proves insufficient. Written down so the question is not re-opened
 from scratch.
 
-Bulk GKG now covers **13 of 18 themes** unaided, and 16/18 once the bounded
-DOC API fallback runs. The two themes still below `MIN_ARTICLES` on the
-measured day were **Shipping (1 headline)** and **AgTech & Food Innovation
-(0)**. If coverage is the problem, the cheapest lever is **widening those
-themes' `gdelt_keywords`** — not a new data source. Try that first.
+**The cheap lever (widening `gdelt_keywords`) was tried 2026-08-17 — see
+Done.** It fixed AgTech & Food Innovation outright (0 → 36 headlines on the
+bulk pass alone) but only partially helped Shipping (1 → 3, still below
+`MIN_ARTICLES = 5`). Shipping's remaining lever is the DOC API fallback,
+which reads the same widened keyword list but was not re-measured live to
+avoid re-triggering the stateful rate limiter the bulk feed exists to avoid.
+If a scan shows Shipping still thin after the fallback runs, it may simply be
+a structurally thin news day for dry-bulk freight rather than a keyword gap —
+check `news_count` in the sentiment_signals table before reaching for
+BigQuery.
 
 - **Web NGrams 3.0** — GDELT's own recommendation for high-volume users, and
   the one they point at in the 429 body. Ruled out on a data-model mismatch,
@@ -365,6 +370,44 @@ source-only and tight:
 ---
 
 # Done
+
+- **Widened `gdelt_keywords` for the two themes still below `MIN_ARTICLES`
+  after the GDELT bulk-fetch shipped** (2026-08-17) — the cheap lever named
+  in *GDELT source alternatives* (see Queued), tried before reaching for
+  BigQuery.
+
+  **AgTech & Food Innovation** (`agtech`, `precision agriculture`, `food
+  technology`, `vertical farming` — 0 matches) had jargon too narrow to
+  appear in general headlines. Added 7 broader terms mapping to KROP's
+  actual holdings: alt-protein, indoor farming, ag biotech. Measured against
+  the live bulk GKG feed: **0 → 36 headlines** in one run, comfortably above
+  the floor (a later run measured 11 — the 24h window is a rolling feed, so
+  the exact count varies run to run; both are well above 0).
+  **Deliberately excludes "food security"**, tried and then dropped: plain
+  substring matching (not topic classification) pulled 4 of that run's 36
+  matches from war/famine/geopolitics headlines ("Russia cutting off
+  Ukraine's grain exports") with nothing to do with KROP's holdings —
+  contamination the widening's own goal argues against. Code review caught
+  this.
+
+  **Shipping** (`container shipping`, `freight rates`, `shipping industry`,
+  `tanker rates` — 1 match) turned out to be keyworded for the wrong freight
+  market: BOAT tracks Baltic Exchange **dry-bulk** futures
+  (Capesize/Panamax/Supramax), not container or tanker shipping. Added 7
+  dry-bulk-specific terms on top of the existing ones (kept, not removed).
+  Measured: **1 → 3 headlines** on the bulk pass — better, but still below
+  the `MIN_ARTICLES = 5` floor. The DOC API fallback reads the same widened
+  list; a live probe confirmed the longer query (233 chars, 11 OR-clauses,
+  up from ~90 chars/4 clauses) is not rejected as malformed — got GDELT's
+  429 rate-limit body, not a 400/414 — but could not confirm actual result
+  content: this IP is still under the same long-window throttle documented
+  in the GDELT bulk-fetch work, independent of this change. Shipping may
+  simply be a structurally thin news topic some days regardless of keywords.
+
+  Bulk measurements taken with `src.data.gdelt_gkg.fetch_theme_headlines_bulk`
+  against the real 24h GKG window (20s, no rate limit) — the same tool the
+  daily scan uses. No test pins the theme keyword lists' content, so nothing
+  needed updating beyond `config/themes.yaml`.
 
 - **Sentiment table leaked past the guest lag gate; empty-state copy blamed a
   source outage that wasn't one** (2026-08-17) — a follow-up from the GDELT

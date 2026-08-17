@@ -46,7 +46,22 @@ themes:
     gdelt_keywords: ["data center", "cloud infrastructure", "hyperscale", "server farm"]
   AgTech & Food Innovation:
     ticker: KROP
-    gdelt_keywords: ["agtech", "precision agriculture", "food technology", "vertical farming"]
+    # Widened 2026-08-17: the original 4 keywords are jargon that rarely
+    # appears verbatim in headlines and returned 0 GDELT matches on the
+    # measured day (see BACKLOG.md "GDELT source alternatives"). Added
+    # broader terms that map to KROP's actual holdings (alt-protein, indoor
+    # farming, ag biotech) and are more likely to appear in general coverage.
+    # Deliberately excludes "food security": matching (substring, not topic
+    # classification — see match_themes()) pulled in war/famine/geopolitics
+    # headlines unrelated to KROP's holdings (e.g. "Russia cutting off
+    # Ukraine's grain exports"). Measured 4 of 36 matches from that one term
+    # alone, none about agtech companies — dropped for a cleaner signal.
+    gdelt_keywords: [
+      "agtech", "precision agriculture", "food technology", "vertical farming",
+      "alternative protein", "plant-based food", "cultivated meat",
+      "indoor farming", "agricultural technology", "crop science",
+      "gene-edited crops",
+    ]
 
   # --- Diversifiers (added 2026-08-05, trimmed 2026-08-09) -----------------
   # Originally seven names chosen purely to lower cohort pairwise correlation,
@@ -93,7 +108,23 @@ themes:
     # strategy.simulate will not put it in the book. Delete this line the day a
     # UCITS shipping product launches.
     unbuyable: true
-    gdelt_keywords: ["container shipping", "freight rates", "shipping industry", "tanker rates"]
+    # Widened 2026-08-17: only 1 GDELT match on the measured day (see
+    # BACKLOG.md "GDELT source alternatives"). BOAT tracks Baltic Exchange
+    # dry-bulk freight futures (Capesize/Panamax/Supramax), a narrower and
+    # more specific market than "shipping" in general — added the dry-bulk
+    # terms actually driving this ETF, on top of the existing broader ones.
+    # This is the longest keyword list in this file (11 terms, ~230-char
+    # OR-joined query for the DOC API fallback in news_sentiment.py) — a
+    # live probe got GDELT's 429 rate-limit body, not 400/414, so the length
+    # is not being rejected as malformed, but actual fallback results are
+    # unconfirmed (this IP is under the same long-window throttle noted in
+    # the GDELT bulk-fetch work). If future themes need keyword lists this
+    # long, that assumption is worth re-checking with a cooled-down IP.
+    gdelt_keywords: [
+      "container shipping", "freight rates", "shipping industry", "tanker rates",
+      "dry bulk shipping", "baltic dry index", "capesize", "panamax",
+      "bulk carrier", "charter rates", "iron ore shipping",
+    ]
   Food & Beverage:
     ticker: PBJ
     gdelt_keywords: ["food company", "beverage industry", "food prices", "packaged food"]
