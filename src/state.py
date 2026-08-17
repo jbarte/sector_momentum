@@ -374,6 +374,29 @@ def get_sentiment_signals_for_latest_scan(
     )
 
 
+def get_sentiment_signals_for_scan(
+    conn: psycopg2.extensions.connection, scan_id: int, regions=DEFAULT_REGIONS
+) -> pd.DataFrame:
+    """
+    Return all derived sentiment-signal rows for a specific scan_id.
+    `regions` restricts the cohort; None selects every cohort.
+    Columns: region, gics_sector, signal_name, value, text_value
+    Returns empty DataFrame if the scan has no sentiment rows.
+
+    ORDER BY matches _latest_scan_query's rationale below: sentiment_signals
+    is one of the tables that started sharing rows across cohorts, so an
+    unordered read has undefined row order in Postgres.
+    """
+    rcond, rparams = _region_filter(regions, "t")
+    return _read_sql(
+        conn,
+        "SELECT t.region, t.gics_sector, t.signal_name, t.value, t.text_value "
+        f"FROM sentiment_signals t WHERE t.scan_id = %s AND {rcond} "
+        "ORDER BY t.region, t.gics_sector, t.signal_name",
+        (scan_id,) + rparams,
+    )
+
+
 def save_theme_scan(
     conn: psycopg2.extensions.connection,
     scan_id: int,

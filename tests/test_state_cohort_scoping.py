@@ -63,6 +63,7 @@ _SECTOR_READERS = [
     ("get_signals_for_latest_scan", {}),
     ("get_signals_for_scan", {"scan_id": 1}),
     ("get_sentiment_signals_for_latest_scan", {}),
+    ("get_sentiment_signals_for_scan", {"scan_id": 1}),
     ("load_last_scan", {}),
 ]
 
@@ -79,6 +80,7 @@ _SECTOR_READERS_PARAMS = [
     ("get_signals_for_latest_scan", {}, (list(state.DEFAULT_REGIONS),)),
     ("get_signals_for_scan", {"scan_id": 1}, (1, list(state.DEFAULT_REGIONS))),
     ("get_sentiment_signals_for_latest_scan", {}, (list(state.DEFAULT_REGIONS),)),
+    ("get_sentiment_signals_for_scan", {"scan_id": 1}, (1, list(state.DEFAULT_REGIONS))),
     ("load_last_scan", {}, (1, list(state.DEFAULT_REGIONS))),
 ]
 

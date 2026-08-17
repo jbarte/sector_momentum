@@ -366,6 +366,32 @@ source-only and tight:
 
 # Done
 
+- **Sentiment table leaked past the guest lag gate; empty-state copy blamed a
+  source outage that wasn't one** (2026-08-17) — a follow-up from the GDELT
+  bulk-fetch fix. Once sentiment started working again (scan 164), the Data
+  ⇄ Sentiment scatter (built from `history_df`, capped to the lagged scan for
+  guests) and the News-sentiment table below it (read via
+  `get_sentiment_signals_for_latest_scan`, always the true latest scan)
+  disagreed about which scan "latest" meant: a guest could see today's
+  News-sentiment table sitting above an empty scatter captioned "usually a
+  temporary source outage or rate limit," when the real cause was simply that
+  the site's 7-day content lag hadn't reached that scan yet.
+
+  Added `get_sentiment_signals_for_scan(conn, scan_id)` (`src/state.py`),
+  mirroring the existing `get_signals_for_scan` pattern (including its
+  `sentiment_signals`-table `ORDER BY`, per `_latest_scan_query`'s
+  documented rationale), and wired it into `dashboard/build.py`'s lag block
+  so `sentiment_signals_df` is re-fetched at `lb_scan_id` alongside
+  `signals_df` — the same scan the scatter was already capped to. Reworded
+  the empty-state copy (EN + SV) to name both real causes — a genuine source
+  gap that day, or the page simply showing an earlier scan — instead of
+  guessing at "usually an outage."
+
+  Verified against the live DB: the guest build (auth configured) now shows
+  an empty scatter *and* an empty table at the same lagged scan (157); the
+  auth-disabled local build still shows the full 18-theme table at the true
+  latest scan (164), unaffected.
+
 - **GDELT bulk GKG feed replaces the rate-limited DOC API as the primary
   sentiment source** (2026-08-16) — the daily scan's headline fetch spent
   ~87 minutes, 80% of it (70 min) waiting out 429 backoffs, with 7 of 18
