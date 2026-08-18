@@ -236,6 +236,31 @@ class TestFetchBulk:
         )
         assert out == {"Semiconductors": [], "Clean Energy": []}
 
+    def test_partial_slice_failure_logs_a_warning(self, caplog):
+        good = _gkg_zip([_row(title="Chip maker one", url="https://x/1")])
+
+        def fetcher(url):
+            if url.endswith("093000.gkg.csv.zip"):
+                raise TimeoutError("boom")
+            return good
+
+        with caplog.at_level("WARNING", logger="src.data.gdelt_gkg"):
+            fetch_theme_headlines_bulk(
+                _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+                hours=1, fetcher=fetcher, max_workers=2,
+            )
+        assert any("1/4 slices unreadable" in r.message for r in caplog.records)
+
+    def test_all_slices_ok_logs_no_warning(self, caplog):
+        good = _gkg_zip([_row(title="Chip maker one", url="https://x/1")])
+
+        with caplog.at_level("WARNING", logger="src.data.gdelt_gkg"):
+            fetch_theme_headlines_bulk(
+                _cfg(), end=datetime(2026, 8, 16, 9, 45, tzinfo=timezone.utc),
+                hours=1, fetcher=lambda url: good, max_workers=2,
+            )
+        assert not any(r.levelname == "WARNING" for r in caplog.records)
+
     def test_a_corrupt_zip_is_skipped_like_a_network_failure(self):
         def fetcher(url):
             return b"not a zip"

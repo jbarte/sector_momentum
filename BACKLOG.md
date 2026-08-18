@@ -210,23 +210,20 @@ Minor findings from the per-task and whole-branch reviews of the bulk-fetch
 work, each triaged "fine to defer" with a reason. None affect correctness.
 Recorded so they are not rediscovered from scratch.
 
-- **`src/data/gdelt_gkg.py`** — `csv.field_size_limit()` mutates global `csv`
-  state at import. Verified harmless: this module is the project's *only*
-  `csv` consumer, so there is no other reader whose limit it could change.
+**Three of six acted on 2026-08-17** — see Done: the partial-slice-failure
+warning, the dead-code removal, and the http/https check (confirmed *not*
+free — see Done for why).
+
+What remains:
+
 - **`gdelt_gkg.py`** — the "no slices could be read" warning asserts caller
   behaviour ("falling back to the API") that belongs to the orchestrator.
   Accurate for the only production caller; misleading only if the bulk
   function is called directly.
-- **`gdelt_gkg.py`** — per-slice download failures log at DEBUG, so a
-  partially degraded day shows only the aggregate `ok/total` at INFO. A
-  `logger.warning` when `ok < len(urls)` would be a cheap improvement.
 - **`gdelt_gkg.py`** — the whole 24h corpus (~50k records, each carrying the
   large themes/orgs/names columns) accumulates in memory before matching, and
   only `title` survives. Fine at `hours=24`; scales linearly, so a wider
   window would want per-slice matching inside the download loop.
-- **`gdelt_gkg.py`** — fetches over plaintext `http://`. GDELT's own docs use
-  http, and the risk is low (alpha signal, no code execution), but check
-  whether the host serves https and switch if free.
 - **Estimator asymmetry between the two paths.** Bulk themes are sampled by
   local matching against title + metadata with no cap; fallback themes get
   ≤250 titles from the DOC API's full-text match. `zscore_polarity`
@@ -238,11 +235,6 @@ Recorded so they are not rediscovered from scratch.
   practical impact small (1140 headlines across 18 themes; only 2 themes
   above 250). Revisit if sentiment is ever promoted out of alpha — this
   would matter then.
-- **Pre-existing dead code**, predating this branch: `GDELT_SECTOR_THEMES`
-  and `_build_query` in `news_sentiment.py` are unreferenced by production
-  code (left over from the sector-cohort retirement), but
-  `tests/test_news_sentiment.py` still asserts on the constant. Removing both
-  means updating that test too.
 
 ## Rebrand Phase 2 — rename the repo (optional, arguably forever)
 
@@ -370,6 +362,37 @@ source-only and tight:
 ---
 
 # Done
+
+- **Acted on 3 of 6 deferred GDELT bulk-fetch polish findings** (2026-08-17)
+  — see Queued for the 3 that remain deferred.
+
+  - **Partial-slice-failure warning**: `fetch_theme_headlines_bulk` now logs
+    `logger.warning` when `0 < ok < len(urls)`, not just at total failure
+    (`ok == 0`). A degraded-but-not-dead day (e.g. 3 of 96 slices unreadable)
+    previously only showed up in the `ok/total` INFO line. Sabotage-verified:
+    reverting the new branch made the new test fail with the expected
+    assertion error, confirming it actually exercises the code path.
+  - **Dead code removed**: `GDELT_SECTOR_THEMES` (an 11-GICS-sector theme-code
+    map, left over from the sector-cohort retirement) and `_build_query`
+    (superseded by `_build_keyword_query`) deleted from `news_sentiment.py`,
+    along with the one test class that existed purely to assert on the dead
+    constant.
+  - **http → https checked, not switched**: confirmed *not* free, contrary to
+    the original finding's "switch if free." `data.gdeltproject.org` serves
+    HTTPS on port 443, but the certificate is issued for
+    `*.storage.googleapis.com` (the GCS bucket fronting it), not for the
+    GDELT hostname — every request fails
+    `SSLCertVerificationError: Hostname mismatch`. Verified directly with
+    `requests` (the library the code uses), not just `curl`. `GKG_BASE`
+    stays on `http://`; the comment in `gdelt_gkg.py` explaining why was
+    already accurate, just unconfirmed.
+  - **Not touched**: `csv.field_size_limit()` global mutation (the original
+    review already verified it harmless — no code change was ever indicated,
+    just a note) and the "no slices could be read" warning wording — both
+    still fine to defer, no new information changes that.
+
+  `pytest -q` → 898 passed, 17 skipped (same total as before: 2 tests
+  removed with the dead code, 2 added for the new warning).
 
 - **Widened `gdelt_keywords` for the two themes still below `MIN_ARTICLES`
   after the GDELT bulk-fetch shipped** (2026-08-17) — the cheap lever named

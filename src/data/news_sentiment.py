@@ -22,38 +22,6 @@ GDELT_ENDPOINT = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 MIN_ARTICLES = 5
 
-GDELT_SECTOR_THEMES: dict[str, list[str]] = {
-    "Energy": [
-        "ENV_OIL", "ENV_NATURALGAS", "ENV_COAL",
-        "ECON_OILPRICE", "ECON_GASOLINEPRICE", "ECON_NATGASPRICE",
-    ],
-    "Materials": ["ENV_MINING", "ENV_METALS", "ENV_FORESTRY"],
-    "Industrials": ["WB_1281_MANUFACTURING", "WB_1068_MANUFACTURING_DEVELOPMENT"],
-    "Consumer Discretionary": ["ECON_HOUSING_PRICES", "TOURISM"],
-    "Consumer Staples": ["AGRICULTURE", "WB_435_AGRICULTURE_AND_FOOD_SECURITY"],
-    "Health Care": ["GENERAL_HEALTH", "MEDICAL"],
-    "Financials": [
-        "ECON_STOCKMARKET", "ECON_CENTRALBANK",
-        "ECON_INTEREST_RATES", "ECON_DEBT",
-    ],
-    "Technology": [
-        "CYBER_ATTACK", "TECH_AUTOMATION", "TECH_BIGDATA",
-        "WB_133_INFORMATION_AND_COMMUNICATION_TECHNOLOGIES",
-    ],
-    "Communication Services": ["MEDIA", "WB_1286_TELECOMMUNICATIONS"],
-    "Utilities": ["WB_508_POWER_SYSTEMS", "WB_137_WATER", "WATER_SECURITY"],
-    "Real Estate": [
-        "WB_904_HOUSING_MARKETS", "WB_870_HOUSING_CONSTRUCTION",
-        "ECON_HOUSING_PRICES",
-    ],
-}
-
-
-def _build_query(themes: list[str]) -> str:
-    """Build the GDELT query string from a list of theme codes."""
-    theme_clause = " OR ".join(f"theme:{t}" for t in themes)
-    return f"({theme_clause}) sourcelang:english"
-
 
 # Memoised FinBERT pipeline. MUST stay at module scope: _load_finbert_pipeline
 # declares `global _finbert_pipeline` and reads it before assigning, so without
