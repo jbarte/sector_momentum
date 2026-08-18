@@ -251,3 +251,11 @@ def test_alpha_badge_is_deliberately_exempt_from_the_floor():
     A 12px floor would defeat that documented intent."""
     css = _css("_chrome.css.j2")
     assert _resolved_px(_rule_font_size(css, ".alpha-badge")) < 12
+
+
+def test_level_change_label_is_deliberately_exempt_from_the_floor():
+    """Row headers for the Level/Change merged cell — tiny caps label, same
+    10px precedent as .sig-title elsewhere in the table. Deliberately small
+    to fit the compact cell layout."""
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".lc-label")) < 12

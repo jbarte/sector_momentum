@@ -266,6 +266,26 @@
          + '<span class="' + valCls + '">' + signedFmt(n) + '</span>';
   }
 
+  function levelChangeBars(level, change) {
+    function row(label, value) {
+      var v = (value === null || value === undefined) ? null : Number(value);
+      if (v === null || isNaN(v)) {
+        return '<div class="lc-row"><span class="lc-label">' + label + '</span>'
+             + '<span class="lc-track"></span>'
+             + '<span class="lc-val">—</span></div>';
+      }
+      var frac = Math.min(Math.abs(v) / COMPOSITE_FULL_SCALE, 1);
+      var pct = (frac * 50).toFixed(1);
+      var side = v >= 0 ? "left:50%" : "right:50%";
+      var cls = v >= 0 ? "lc-bar pos" : "lc-bar neg";
+      return '<div class="lc-row"><span class="lc-label">' + label + '</span>'
+           + '<span class="lc-track"><span class="' + cls + '" style="' + side
+           + ';width:' + pct + '%"></span></span>'
+           + '<span class="lc-val">' + signedFmt(v) + '</span></div>';
+    }
+    return '<div class="lc-cell">' + row("LEVEL", level) + row("CHANGE", change) + '</div>';
+  }
+
   // Whether a preset's Enter/Exit badges should render as actionable now or
   // muted (informational only, nothing new since the last review) — the fix
   // for "the daily-signal mismatch": badges used to recompute every scan
@@ -322,7 +342,7 @@
               inBuyBand: inBuyBand,
               badgeForRank: badgeForRank, badgeFor: badgeFor,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
-              latestRowMeta: latestRowMeta, compositeBar: compositeBar, signedFmt: signedFmt,
+              latestRowMeta: latestRowMeta, compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,
               reviewStatus: reviewStatus, localISODate: localISODate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }

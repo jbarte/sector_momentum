@@ -257,6 +257,42 @@ def _composite_bar(value) -> str:
     )
 
 
+def _level_change_bars(level, change) -> str:
+    """Two stacked centre-origin bars (Level, Change) in one cell — replaces
+    the two separate bare-number columns. Same scale and colour rule as
+    _composite_bar (COMPOSITE_FULL_SCALE), per the redesign spec."""
+    def _row(label: str, value) -> str:
+        v = _safe_float(value)
+        if v is None:
+            return (
+                f'<div class="lc-row">'
+                f'<span class="lc-label">{label}</span>'
+                f'<span class="lc-track"></span>'
+                f'<span class="lc-val">—</span>'
+                f"</div>"
+            )
+        frac = min(abs(v) / COMPOSITE_FULL_SCALE, 1.0)
+        pct = f"{frac * 50:.1f}"
+        side = "left:50%" if v >= 0 else "right:50%"
+        cls = "lc-bar pos" if v >= 0 else "lc-bar neg"
+        return (
+            f'<div class="lc-row">'
+            f'<span class="lc-label">{label}</span>'
+            f'<span class="lc-track">'
+            f'<span class="{cls}" style="{side};width:{pct}%"></span>'
+            f"</span>"
+            f'<span class="lc-val">{_signed_fmt(v)}</span>'
+            f"</div>"
+        )
+
+    return (
+        '<div class="lc-cell">'
+        + _row("LEVEL", level)
+        + _row("CHANGE", change)
+        + "</div>"
+    )
+
+
 def _build_rows_common(
     history_df,
     *,

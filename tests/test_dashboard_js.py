@@ -1011,6 +1011,38 @@ def test_z_bar_is_centre_origin():
     _, chip = _z_bar(0.1)
     assert "neut" in chip
 
+def test_level_change_bars_python_and_js_agree():
+    """_level_change_bars (build) and levelChangeBars (rescore.js) render the
+    same two-row cell — the same three-way duplication risk as the composite
+    bar, for the new merged Level/Change column."""
+    import re
+    from dashboard.rows import _level_change_bars, COMPOSITE_FULL_SCALE
+
+    js = (Path(__file__).parent.parent / "dashboard/assets/rescore.js").read_text()
+    assert "function levelChangeBars" in js
+
+    html = _level_change_bars(1.58, 0.53)
+    assert html.count('class="lc-row"') == 2
+    assert html.count('class="lc-track"') == 2
+    assert "−" not in html  # both positive here
+    assert "+1.58" in html and "+0.53" in html
+    assert 'class="lc-bar pos"' in html
+
+    # Negative change, positive level — both signs must render independently.
+    html2 = _level_change_bars(1.58, -0.53)
+    assert "+1.58" in html2
+    assert "−0.53" in html2
+    assert 'class="lc-bar neg"' in html2
+
+    # Both missing — two dashes, no bars.
+    html3 = _level_change_bars(None, None)
+    assert html3.count("—") == 2
+    assert 'class="lc-bar' not in html3
+
+    # Full-scale clamp matches the composite bar's own scale.
+    full = _level_change_bars(COMPOSITE_FULL_SCALE, COMPOSITE_FULL_SCALE)
+    assert full.count("width:50.0%") == 2
+
 def test_gate_modal_uses_the_shared_modal_helper():
     """The gate modal declared aria-modal="true" while implementing none of it:
     no focus move, no trap, no Escape, no backdrop close. It must go through

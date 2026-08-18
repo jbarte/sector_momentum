@@ -239,6 +239,46 @@ tbody td:nth-child(n+4) {
 .cbar-val.pos { color: var(--up-ink); }
 .cbar-val.neg { color: var(--down-ink); }
 
+/* Level/Change cell: two stacked centre-origin bars, replacing the two bare
+   z-score columns. Same construction as .cbar-wrap, smaller and labelled. */
+.lc-cell { display: flex; flex-direction: column; gap: 5px; }
+.lc-row { display: flex; align-items: center; gap: 6px; }
+.lc-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg5);
+  width: 44px;
+  flex: none;
+}
+.lc-track {
+  position: relative;
+  flex: 1;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--border-hair);
+  overflow: hidden;
+}
+.lc-track::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.lc-bar { position: absolute; top: 0; bottom: 0; border-radius: var(--radius-pill); }
+.lc-bar.pos { background: var(--up); }
+.lc-bar.neg { background: var(--down); }
+.lc-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg3);
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+  text-align: right;
+  flex: none;
+}
+
 .z-bar-wrap {
   position: relative;
   display: inline-block;
