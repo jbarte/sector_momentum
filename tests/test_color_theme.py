@@ -362,6 +362,35 @@ def test_traj_flat_contrast_meets_wcag_aa():
     )
 
 
+# Hardcoded hex for `--fg5` and surface backgrounds, in both themes.
+# Must be kept in sync with _foundation.css.j2 if --fg5, --surface, or
+# --bg-raised ever change.
+_FG5_LIGHT = "#8A8068"
+_FG5_DARK = "#9E9179"
+_SURFACE_DARK = "#201D15"
+
+
+def test_fg5_contrast_meets_wcag_aa_dark_mode():
+    """--fg5 dark-mode value (#9E9179, used for 10-11px eyebrow/micro-row labels)
+    must clear the 4.5:1 WCAG AA minimum against both dark-mode backgrounds
+    (--surface and --bg-raised). Regression guard for the dark-theme failure
+    (3.52:1 with brief's candidate #7C7256) Task 1's verification pass found
+    and fixed by brightening --fg5."""
+    # Check against --surface (primary background)
+    ratio_vs_surface = _contrast_ratio(_FG5_DARK, _SURFACE_DARK)
+    assert ratio_vs_surface >= 4.5, (
+        f"--fg5 ({_FG5_DARK}) on --surface ({_SURFACE_DARK}) is "
+        f"{ratio_vs_surface:.2f}:1 in dark mode, below the 4.5:1 AA minimum"
+    )
+
+    # Check against --bg-raised (secondary/card background)
+    ratio_vs_bg_raised = _contrast_ratio(_FG5_DARK, _BG_RAISED_DARK)
+    assert ratio_vs_bg_raised >= 4.5, (
+        f"--fg5 ({_FG5_DARK}) on --bg-raised ({_BG_RAISED_DARK}) is "
+        f"{ratio_vs_bg_raised:.2f}:1 in dark mode, below the 4.5:1 AA minimum"
+    )
+
+
 # Hardcoded hex for `--down` (terra-500), in both themes — same trade-off as
 # _UP_LIGHT/_UP_DARK above.
 _DOWN_LIGHT = "#A55A3C"
