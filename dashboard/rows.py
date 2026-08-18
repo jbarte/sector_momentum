@@ -218,7 +218,13 @@ def _compute_setup(row: dict, horizon=None) -> None:
 # — the signed-in upgrade and the scan-history view build the same markup in JS,
 # so the two implementations must stay in step (guarded by
 # test_composite_bar_python_and_js_agree).
-COMPOSITE_FULL_SCALE = 1.5
+COMPOSITE_FULL_SCALE = 1.6
+
+
+def _signed_fmt(v: float) -> str:
+    """2 decimals, explicit sign, U+2212 (minus sign) instead of ASCII hyphen —
+    matches the redesign spec's number formatting for composite/level/change."""
+    return f"{v:+.2f}".replace("-", "−")
 
 
 def _composite_bar(value) -> str:
@@ -227,7 +233,8 @@ def _composite_bar(value) -> str:
     The composite is an average of z-scores: signed and centred on zero, so a
     left-filled bar would render -0.7 and +0.7 identically. The scale is fixed
     rather than per-scan, so bar lengths stay comparable between scans; values
-    beyond it clamp.
+    beyond it clamp. The value's ink follows its own sign (positive/negative/
+    exactly zero), independent of the bar's fill side.
     """
     v = _safe_float(value)
     if v is None:
@@ -236,11 +243,17 @@ def _composite_bar(value) -> str:
     pct = f"{frac * 50:.1f}"
     side = "left:50%" if v >= 0 else "right:50%"
     cls = "cbar pos" if v >= 0 else "cbar neg"
+    if v > 0:
+        val_cls = "cbar-val pos"
+    elif v < 0:
+        val_cls = "cbar-val neg"
+    else:
+        val_cls = "cbar-val"
     return (
         f'<span class="cbar-wrap">'
         f'<span class="{cls}" style="{side};width:{pct}%"></span>'
         f"</span>"
-        f'<span class="cbar-val">{v:.3f}</span>'
+        f'<span class="{val_cls}">{_signed_fmt(v)}</span>'
     )
 
 

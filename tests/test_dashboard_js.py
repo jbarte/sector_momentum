@@ -962,10 +962,11 @@ def test_composite_bar_python_and_js_agree():
     m = re.search(r"var COMPOSITE_FULL_SCALE = ([\d.]+);", js)
     assert m, "COMPOSITE_FULL_SCALE missing from rescore.js"
     assert float(m.group(1)) == COMPOSITE_FULL_SCALE, "full-scale constant drifted"
+    assert COMPOSITE_FULL_SCALE == 1.6, "scale should be 1.6 per the redesign spec"
 
     # Positive grows right from centre, negative grows left, both half-width max.
-    pos = _composite_bar(1.5)
-    neg = _composite_bar(-1.5)
+    pos = _composite_bar(1.6)
+    neg = _composite_bar(-1.6)
     assert "left:50%" in pos and "width:50.0%" in pos
     assert "right:50%" in neg and "width:50.0%" in neg
     assert "cbar pos" in pos and "cbar neg" in neg
@@ -978,6 +979,15 @@ def test_composite_bar_python_and_js_agree():
     assert _composite_bar(None) == (
         '<span class="cbar-wrap"></span><span class="cbar-val">—</span>'
     )
+
+    # Signed, 2 decimals, U+2212 (not ASCII hyphen) for negatives, and the
+    # value's ink class follows its own sign (spec: ink #3F4F34 positive,
+    # #8E4B31 negative, --fg3 at exactly zero).
+    assert '<span class="cbar-val pos">+1.06</span>' in _composite_bar(1.061)
+    assert '<span class="cbar-val neg">−0.87</span>' in _composite_bar(-0.869)
+    assert "-0.87" not in _composite_bar(-0.869), "must use U+2212, not ASCII hyphen"
+    assert '<span class="cbar-val">+0.00</span>' in _composite_bar(0.0), \
+        "exactly zero gets no pos/neg class -- falls back to --fg3 via the base rule"
 
 
 def test_z_bar_is_centre_origin():

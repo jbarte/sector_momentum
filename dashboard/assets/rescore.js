@@ -243,21 +243,27 @@
    * FIXED (+/-COMPOSITE_FULL_SCALE), not per-scan, so bar lengths stay
    * comparable between scans; values beyond it clamp.
    */
-  var COMPOSITE_FULL_SCALE = 1.5;
+  var COMPOSITE_FULL_SCALE = 1.6;
+
+  function signedFmt(v) {
+    // 2 decimals, explicit sign, U+2212 instead of ASCII hyphen for negatives.
+    return (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+  }
 
   function compositeBar(v) {
-    var n = Number(v);
-    if (v === null || v === undefined || isNaN(n)) {
+    var n = (v === null || v === undefined) ? null : Number(v);
+    if (n === null || isNaN(n)) {
       return '<span class="cbar-wrap"></span><span class="cbar-val">—</span>';
     }
     var frac = Math.min(Math.abs(n) / COMPOSITE_FULL_SCALE, 1);
-    var pct = (frac * 50).toFixed(1);            // half-width max, from centre
+    var pct = (frac * 50).toFixed(1);
     var side = n >= 0 ? "left:50%" : "right:50%";
     var cls = n >= 0 ? "cbar pos" : "cbar neg";
+    var valCls = n > 0 ? "cbar-val pos" : (n < 0 ? "cbar-val neg" : "cbar-val");
     return '<span class="cbar-wrap">'
-         + '<span class="' + cls + '" style="' + side + ";width:" + pct + '%"></span>'
-         + "</span>"
-         + '<span class="cbar-val">' + n.toFixed(3) + "</span>";
+         + '<span class="' + cls + '" style="' + side + ';width:' + pct + '%"></span>'
+         + '</span>'
+         + '<span class="' + valCls + '">' + signedFmt(n) + '</span>';
   }
 
   // Whether a preset's Enter/Exit badges should render as actionable now or
@@ -316,7 +322,7 @@
               inBuyBand: inBuyBand,
               badgeForRank: badgeForRank, badgeFor: badgeFor,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
-              latestRowMeta: latestRowMeta, compositeBar: compositeBar,
+              latestRowMeta: latestRowMeta, compositeBar: compositeBar, signedFmt: signedFmt,
               reviewStatus: reviewStatus, localISODate: localISODate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }

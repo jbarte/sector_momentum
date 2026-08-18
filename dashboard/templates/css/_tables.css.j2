@@ -199,39 +199,45 @@ tbody td:nth-child(n+4) {
 /* Composite cell: centre-origin diverging bar + value.
    The composite is signed, so the bar grows left or right from a zero line
    rather than filling from the left edge. */
-.composite-cell { white-space: nowrap; }
+.composite-cell { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 .cbar-wrap {
   position: relative;
-  display: inline-block;
-  width: 54px; height: 8px;
-  background: var(--bg-sunken);
-  border-radius: 2px;
-  vertical-align: middle;
-  margin-right: 8px;
+  flex: 1;
+  height: 22px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--down) 5%, transparent),
+    color-mix(in srgb, var(--up) 5%, transparent)
+  );
   overflow: hidden;
 }
-/* Zero reference line down the middle. */
 .cbar-wrap::before {
   content: "";
   position: absolute;
-  left: 50%; top: 0; bottom: 0;
+  left: 50%; top: 3px; bottom: 3px;
   width: 1px;
-  background: var(--fg4);
-  opacity: 0.55;
+  background: var(--zero-line);
 }
 .cbar {
   position: absolute;
-  top: 0; bottom: 0;
-  border-radius: 1px;
+  top: 4px; bottom: 4px;
+  border-radius: 2px;
 }
 .cbar.pos { background: var(--up); }
 .cbar.neg { background: var(--down); }
 .cbar-val {
   font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--fg2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg3);
   font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  text-align: right;
+  flex: none;
 }
+.cbar-val.pos { color: var(--up-ink); }
+.cbar-val.neg { color: var(--down-ink); }
 
 .z-bar-wrap {
   position: relative;
