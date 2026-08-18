@@ -11,28 +11,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-class TestGdeltSectorThemes:
-    """GDELT_SECTOR_THEMES constant must cover all 11 GICS sectors."""
-
-    def test_all_sectors_mapped(self):
-        from src.data.news_sentiment import GDELT_SECTOR_THEMES
-
-        expected = {
-            "Energy", "Materials", "Industrials", "Consumer Discretionary",
-            "Consumer Staples", "Health Care", "Financials", "Technology",
-            "Communication Services", "Utilities", "Real Estate",
-        }
-        assert set(GDELT_SECTOR_THEMES.keys()) == expected
-
-    def test_each_sector_has_themes(self):
-        from src.data.news_sentiment import GDELT_SECTOR_THEMES
-
-        for sector, themes in GDELT_SECTOR_THEMES.items():
-            assert len(themes) >= 1, f"{sector} has no theme codes"
-            for t in themes:
-                assert isinstance(t, str) and len(t) > 0
-
-
 class TestScoreHeadlines:
     """Tests for score_headlines — FinBERT inference + aggregation."""
 

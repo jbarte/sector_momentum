@@ -205,4 +205,9 @@ def fetch_theme_headlines_bulk(
     )
     if ok == 0:
         logger.warning("GKG bulk: no slices could be read — falling back to the API")
+    elif ok < len(urls):
+        logger.warning(
+            "GKG bulk: %d/%d slices unreadable — coverage degraded this run",
+            len(urls) - ok, len(urls),
+        )
     return match_themes(records, themes_cfg)
