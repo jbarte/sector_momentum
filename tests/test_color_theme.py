@@ -177,7 +177,7 @@ _SEMANTIC_TOKENS = [
     "--canvas", "--surface", "--bg-raised", "--bg-sunken",
     "--fg1", "--fg2", "--fg3", "--fg4", "--fg5",
     "--border", "--border-soft", "--border-hair",
-    "--up", "--down", "--up-ink", "--down-ink", "--brand-strong",
+    "--up", "--down", "--up-ink", "--down-ink", "--zero-line", "--brand-strong",
     "--ok", "--warn", "--err",
     "--shadow-xs", "--shadow-sm", "--shadow-card",
 ]
