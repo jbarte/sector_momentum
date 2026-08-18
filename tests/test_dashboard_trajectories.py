@@ -110,3 +110,17 @@ def test_multiple_sectors_independent():
     result = _compute_rank_trajectories(df)
     assert result["US|Technology"]["state"] == "flat"
     assert result["US|Financials"]["state"] == "up"
+
+
+def test_trajectory_word_map():
+    """Each trajectory state carries its word, per the redesign spec's exact
+    wording: '↑↑ surging', '↑ rising', '→ flat', '↓ falling', '↓↓ sliding'."""
+    from dashboard.rows import TRAJECTORY_WORDS
+
+    assert TRAJECTORY_WORDS == {
+        "strong_up": "surging",
+        "up": "rising",
+        "flat": "flat",
+        "down": "falling",
+        "strong_down": "sliding",
+    }

@@ -41,14 +41,19 @@
     return den === 0 ? 0.0 : num / den;
   }
 
+  var TRAJECTORY_WORDS = {
+    strong_up: "surging", up: "rising", flat: "flat",
+    down: "falling", strong_down: "sliding"
+  };
+
   // Trajectory thresholds match _compute_rank_trajectories in build.py.
   // Negative slope = rank improving (climbing toward 1).
   function trajectoryLabel(slope) {
-    if (slope <= -1.5) { return { label: "↑↑", state: "strong_up" }; }
-    if (slope <= -0.3) { return { label: "↑", state: "up" }; }
-    if (slope < 0.3)   { return { label: "→", state: "flat" }; }
-    if (slope < 1.5)   { return { label: "↓", state: "down" }; }
-    return { label: "↓↓", state: "strong_down" };
+    if (slope <= -1.5) { return { label: "↑↑", state: "strong_up",   word: TRAJECTORY_WORDS.strong_up }; }
+    if (slope <= -0.3) { return { label: "↑",  state: "up",          word: TRAJECTORY_WORDS.up }; }
+    if (slope < 0.3)   { return { label: "→",  state: "flat",        word: TRAJECTORY_WORDS.flat }; }
+    if (slope < 1.5)   { return { label: "↓",  state: "down",        word: TRAJECTORY_WORDS.down }; }
+    return { label: "↓↓", state: "strong_down", word: TRAJECTORY_WORDS.strong_down };
   }
 
   // data = {scans:[{scan_id,run_at}], sectors:[key], data:{key:[..]}, sentiment:{key:[..]}}

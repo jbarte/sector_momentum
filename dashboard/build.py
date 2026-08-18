@@ -72,6 +72,7 @@ from dashboard.reports import (                      # noqa: E402, F401
     _generate_scan_reports,
 )
 from dashboard.rows import (                         # noqa: E402, F401
+    TRAJECTORY_WORDS,
     _build_leaderboard_rows,
     _compute_rank_trajectories,
     _compute_setup,
@@ -390,6 +391,7 @@ def main() -> None:
         traj = trajectories.get(key, {"label": "→", "state": "flat"})
         row["trajectory_label"] = traj["label"]
         row["trajectory_state"] = traj["state"]
+        row["trajectory_word"]  = TRAJECTORY_WORDS.get(traj["state"], "flat")
         # Gating has to happen here, not in the template: `setup` also reaches
         # the reader through data-setup on the row and through data.json's
         # theme rows, so suppressing only the rendered span would leak it twice.

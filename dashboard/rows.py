@@ -112,6 +112,19 @@ def distinct_scan_ids(
     return out
 
 
+# Word alongside each trend glyph, per the 2026-08-18 leaderboard redesign
+# spec's exact wording. Kept as data (not embedded in _compute_rank_trajectories'
+# state/label pairs) so build.py's enrichment loop and the JS mirror can both
+# read the same source without duplicating the strings.
+TRAJECTORY_WORDS = {
+    "strong_up": "surging",
+    "up": "rising",
+    "flat": "flat",
+    "down": "falling",
+    "strong_down": "sliding",
+}
+
+
 def _compute_rank_trajectories(history_df) -> dict:
     """
     Compute rank slope over the last 5 *distinct* scans per sector.
