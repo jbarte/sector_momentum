@@ -235,7 +235,8 @@
       var setup = setupForRank(latest.rank, horizon);
       out[key] = {
         delta_rank: deltaStr, arrow: arrow, arrow_class: arrowClass,
-        trajectory_label: traj.label, trajectory_state: traj.state, setup: setup
+        trajectory_label: traj.label, trajectory_state: traj.state,
+        trajectory_word: traj.word, setup: setup
       };
     });
     return out;

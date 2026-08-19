@@ -400,6 +400,12 @@ def main() -> None:
         # prompt an entry it knows the reader cannot act on. Same config flag
         # the backtest reads, so the two describe one strategy.
         row["unbuyable"] = is_unbuyable(row["region"], row["sector"], _themes_cfg)
+        # The US ETF ticker for this theme, shown beside the theme name in the
+        # leaderboard's Theme cell. Sourced from config/themes.yaml, not from
+        # the scores table, which carries no ticker.
+        row["ticker"] = (
+            _themes_cfg.get("themes", {}).get(row["sector"], {}).get("ticker", "")
+        )
         # Always computed, even when gated: _compute_setup also sets
         # `in_buy_band`, which drives the highlighted rank badge and is NOT a
         # signed-in feature — top_n is already public in the page's HORIZONS,
@@ -539,6 +545,13 @@ def main() -> None:
         # may be a smaller universe than the signed-in reader sees. See
         # breakdown.unbuyable_names().
         "unbuyable_json": _json.dumps(unbuyable_names(_themes_cfg)),
+        # Theme name -> US ETF ticker, for the signed-in rebuild (auth.js),
+        # which sources rows from v_recent_scores and so has no ticker of its
+        # own. Same config-sourced pattern as unbuyable_json above.
+        "theme_tickers_json": _json.dumps({
+            name: (cfg or {}).get("ticker", "")
+            for name, cfg in (_themes_cfg.get("themes") or {}).items()
+        }),
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
         "has_any_rows": bool(leaderboard_rows),
         "badges_gated": badges_gated,

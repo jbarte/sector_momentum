@@ -64,6 +64,7 @@ def _horizon_ctx(dumps=json.dumps):
         horizon_default_json=dumps({
             "key": d.key, "label": d.label, "top_n": d.top_n, "buffer": d.buffer}),
         unbuyable_json=dumps([]),
+        theme_tickers_json=dumps({}),
         chart_dark_json=dumps({}),
     )
 
@@ -171,10 +172,12 @@ def _minimal_history_df() -> pd.DataFrame:
 # Test 1 — sentiment scatter builder returns valid non-empty JSON
 # ---------------------------------------------------------------------------
 
-def test_leaderboard_rows_include_sentiment_score():
-    """Each leaderboard row must carry a formatted, non-empty sentiment_score so
-    the Sentiment column renders (regression: the column was previously blank
-    because the row dict never set this key)."""
+def test_leaderboard_rows_carry_the_level_change_cell_and_its_sort_key():
+    """The 6-column restructure (2026-08-19) dropped the Sentiment column and
+    merged Level and Change into one stacked-bar cell. The row dict must carry
+    the rendered cell plus `_raw_level`, the numeric sort key sortTable() reads
+    from that cell's data-sort-value — and must no longer carry the three
+    pre-formatted score strings the old separate columns printed."""
     df = pd.DataFrame([
         {"scan_id": 1, "run_at": "2026-06-24T12:00:00", "region": "US",
          "gics_sector": "Technology", "level_score": 0.5, "change_score": 0.3,
@@ -185,11 +188,17 @@ def test_leaderboard_rows_include_sentiment_score():
     ])
     rows, _ = _build_leaderboard_rows(df)
     by_sector = {r["sector"]: r for r in rows}
-    assert "sentiment_score" in by_sector["Technology"]
-    assert by_sector["Technology"]["sentiment_score"] == "0.420"
-    # NaN sentiment falls back to the em-dash placeholder, never blank
-    assert by_sector["Energy"]["sentiment_score"] == "—"
-    assert by_sector["Energy"]["sentiment_score"] != ""
+
+    tech = by_sector["Technology"]
+    assert "lc-cell" in tech["level_change_bars"]
+    assert tech["_raw_level"] == pytest.approx(0.5)
+    assert tech["_raw_change"] == pytest.approx(0.3)
+    assert by_sector["Energy"]["_raw_level"] == pytest.approx(-0.2)
+
+    # The old per-column strings are gone from the dict entirely, not merely
+    # unused by the template.
+    for gone in ("level_score", "change_score", "sentiment_score"):
+        assert gone not in tech, f"{gone} still in the leaderboard row dict"
 
 
 def test_sentiment_scatter_empty_df_returns_valid_json():
@@ -928,6 +937,84 @@ def test_leaderboard_row_builders_emit_the_same_column_count():
         f"leaderboard column count drifted: template={tpl_cells} "
         f"auth.js={auth_cells} scan-history.js={hist_cells}"
     )
+
+
+def _row_builder_fragments() -> dict[str, str]:
+    """The three independent leaderboard row-building fragments, as source text."""
+    root = Path(__file__).parent.parent
+
+    auth = (root / "dashboard/assets/auth.js").read_text()
+    hist = (root / "dashboard/assets/scan-history.js").read_text()
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+    tbody = tpl.split("{% for row in leaderboard_rows %}", 1)[1].split("{% endfor %}", 1)[0]
+
+    return {
+        "auth.js": auth.split("tr.innerHTML =", 1)[1].split("tbody.appendChild(tr)", 1)[0],
+        "scan-history.js": hist.split(
+            'html += \'<tr class="leaderboard-row">\'', 1)[1].split('"</tr>"', 1)[0],
+        "index.html.j2": tbody.split('<tr class="breakdown-row"', 1)[0],
+    }
+
+
+def test_leaderboard_row_builders_emit_the_same_cell_classes():
+    """Stronger than the column COUNT above: the three builders must put the
+    same class on the same cell index, in the same order. Every consumer of a
+    leaderboard row addresses cells positionally and by class —
+    applyHorizonBadges() reads `tr.cells[0] .rank-badge` and `tr.cells[1]`,
+    sortTable() special-cases column 3's `data-sort-value`, and the CSS styles
+    `.rank-cell` / `.theme-cell` / `.composite-cell` / `.delta-cell`. A builder
+    that keeps the right number of cells but drops a class (or reorders two)
+    passes the count test and still breaks those consumers silently.
+    """
+    import re
+
+    def classes(fragment: str) -> list[str]:
+        out = []
+        for td in re.findall(r"<td\b([^>]*)>", fragment):
+            m = re.search(r'class=\\?["\']([^"\'\\]*)', td)
+            out.append(m.group(1).strip() if m else "")
+        return out
+
+    frags = _row_builder_fragments()
+    got = {name: classes(frag) for name, frag in frags.items()}
+
+    # The template's rank/theme cells carry Jinja conditionals inside the class
+    # attribute (`in-band-rail`, and the setup/unbuyable spans); compare only
+    # the leading literal class name, which is what the consumers match on.
+    def head(vals):
+        return [v.split("{")[0].strip() for v in vals]
+
+    expected = ["rank-cell", "theme-cell", "composite-cell", "", "delta-cell", ""]
+    for name, vals in got.items():
+        assert head(vals) == expected, f"{name} cell classes drifted: {head(vals)}"
+
+
+def test_every_row_builder_carries_the_level_change_sort_key():
+    """sortTable()'s column-3 branch reads `data-sort-value` because the merged
+    Level/Change cell holds two numbers its innerText parse cannot
+    disambiguate. A builder that omits the attribute makes that column sort
+    every one of its rows as NaN."""
+    for name, frag in _row_builder_fragments().items():
+        assert "data-sort-value" in frag, f"{name} omits the Level/Change sort key"
+
+
+def test_theme_cell_is_not_a_flex_table_cell():
+    """`.theme-cell` and `.composite-cell` are ADJACENT columns. A <td> whose
+    display is flex stops being a table-internal box, and two adjacent such
+    boxes share ONE anonymous table cell — which stacks them vertically, so the
+    theme name lands on top of the composite bar in a single double-width
+    column. `.composite-cell` is flex, so `.theme-cell` must not be. Verified in
+    a browser when this was written: the six cells' left offsets collapsed to
+    four. See the rule's own comment in _tables.css.j2."""
+    import re
+    css = (Path(__file__).parent.parent
+           / "dashboard/templates/css/_tables.css.j2").read_text()
+    m = re.search(r"^\.theme-cell\s*\{([^}]*)\}", css, re.M)
+    if m:
+        assert "flex" not in m.group(1), (
+            ".theme-cell declares display:flex — it is adjacent to the flex "
+            ".composite-cell and the two will collapse into one anonymous cell"
+        )
 
 
 def test_leaderboard_colspans_match_the_column_count():

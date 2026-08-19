@@ -383,26 +383,27 @@ def _build_leaderboard_rows(history_df) -> tuple[list[dict], str]:
     """
     Return leaderboard rows from the most recent scan and the scan date string.
     """
-    def _fv(v):
-        f = _safe_float(v)
-        return f"{f:.3f}" if f is not None else "—"
-
     def _iter(latest):
         for _, row in latest.iterrows():
             composite = _safe_float(row.get("composite"))
             rank = _safe_float(row.get("rank"))
+            level = _safe_float(row.get("level_score"))
+            change = _safe_float(row.get("change_score"))
             yield {
                 "rank": int(rank) if rank is not None else "—",
                 "sector": row["gics_sector"],
                 "region": row["region"],
                 "composite": f"{composite:.3f}" if composite is not None else "—",
                 "composite_bar": _composite_bar(composite),
-                "level_score": _fv(row.get("level_score")),
-                "change_score": _fv(row.get("change_score")),
-                "sentiment_score": _fv(row.get("sentiment_score")),
+                "level_change_bars": _level_change_bars(level, change),
                 "delta_rank": _safe_float(row.get("delta_rank", 0)) or 0.0,
                 "_raw_composite": composite,
-                "_raw_change": _safe_float(row.get("change_score")),
+                "_raw_change": change,
+                # Numeric sort key for the merged Level/Change column: the cell
+                # holds two numbers, so sortTable() cannot parse one out of the
+                # text. Carried on the row as data-level, mirroring
+                # data-composite / data-change.
+                "_raw_level": level,
             }
 
     return _build_rows_common(

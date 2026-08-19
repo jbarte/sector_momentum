@@ -106,13 +106,9 @@
     + ' data-i18n-title="unbuyable_tip"'
     + ' title="No UCITS equivalent exists, so this cannot be bought from an EU'
     + ' account. It is still scored because it shapes how every other theme'
-    + ' ranks.">⊘ Not buyable</span>';
+    + ' ranks.">⊘ not buyable in EU</span>';
 
   var _upgraded = false;
-
-  function fmtScore(v) {
-    return (v === null || v === undefined || isNaN(v)) ? "—" : Number(v).toFixed(3);
-  }
 
   function upgradeLeaderboard() {
     if (_upgraded) return;
@@ -210,23 +206,32 @@
         if (unbuyable) { tr.dataset.unbuyable = "1"; }
         tr.dataset.composite = (r.composite === null || r.composite === undefined) ? "" : r.composite;
         tr.dataset.change = (r.change_score === null || r.change_score === undefined) ? "" : r.change_score;
+        tr.dataset.level = (r.level_score === null || r.level_score === undefined) ? "" : r.level_score;
         tr.dataset.rank = (r.rank === null || isNaN(r.rank)) ? "" : Math.round(r.rank);
         var deltaInner = m.arrow
           ? '<span class="arrow ' + m.arrow_class + '">' + m.arrow + "</span> " + (m.delta_rank || "—")
           : (m.delta_rank || "—");
         var trendInner = m.trajectory_state
-          ? '<span class="traj-badge traj-' + m.trajectory_state + '">' + m.trajectory_label + "</span>"
+          ? '<span class="traj-badge traj-' + m.trajectory_state + '"><span class="traj-glyph">'
+            + m.trajectory_label + '</span> ' + (m.trajectory_word || "") + '</span>'
           : "—";
+        var ticker = (window.THEME_TICKERS || {})[r.gics_sector] || "";
+        var tickerHtml = ticker ? '<span class="theme-ticker">' + ticker + '</span>' : "";
+        // rank-1 is a static fact about this row (not horizon-dependent, unlike
+        // in-buy-band/in-band-rail below), so it's baked here rather than left
+        // to applyHorizonBadges() — that function only ever toggles the two
+        // in-band classes, never rank-1.
+        var rank1Class = (r.rank === 1) ? " rank-1" : "";
         tr.innerHTML =
           // No band class here: this rebuild ends by dispatching
           // sm:leaderboard-upgraded, and applyHorizonBadges() writes the
           // highlight from the active horizon.
-          '<td class="rank-cell"><span class="rank-badge">' + rank + "</span></td>" +
-          "<td>" + r.gics_sector + (unbuyable ? UNBUYABLE_BADGE : "") + "</td>" +
+          '<td class="rank-cell"><span class="rank-badge' + rank1Class + '">' + rank + "</span></td>" +
+          "<td class=\"theme-cell\"><span class=\"theme-name\">" + r.gics_sector + "</span>" + tickerHtml
+            + (unbuyable ? UNBUYABLE_BADGE : "") + "</td>" +
           '<td class="composite-cell">' + Rescore.compositeBar(r.composite) + "</td>" +
-          "<td>" + fmtScore(r.level_score) + "</td>" +
-          "<td>" + fmtScore(r.change_score) + "</td>" +
-          '<td class="sentiment-cell">' + fmtScore(r.sentiment_score) + "</td>" +
+          '<td data-sort-value="' + (r.level_score === null || r.level_score === undefined ? "" : r.level_score) + '">'
+            + Rescore.levelChangeBars(r.level_score, r.change_score) + "</td>" +
           '<td class="delta-cell">' + deltaInner + "</td>" +
           "<td>" + trendInner + "</td>";
         tbody.appendChild(tr);

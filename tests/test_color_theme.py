@@ -275,13 +275,17 @@ _BG_RAISED_LIGHT = "#FAF7F0"
 _BG_RAISED_DARK = "#262218"
 _UP_LIGHT = "#5A6F49"
 _UP_DARK = "#A9C48E"
+# The badge's TEXT is --up-ink, not --up (darkened for contrast in light;
+# aliased straight to --up in dark). Same hand-sync caveat as above.
+_UP_INK_LIGHT = "#3F4F34"
+_UP_INK_DARK = _UP_DARK
 
 def _rank_badge_in_buy_band_tint_pct() -> int:
     """`.rank-badge.in-buy-band`'s tint percentage in the color-mix idiom, read
     straight from the source CSS so this test tracks the real rule instead
     of a copy-pasted number:
       background: color-mix(in srgb, var(--up) <PCT>%, transparent);
-      color: var(--up);
+      color: var(--up-ink);
     `.rank-badge` sits inside `.table-wrap`, which sets
     `background: var(--bg-raised)` with no intervening tbody/tr/td
     background override, so the tint composites against `--bg-raised` in
@@ -294,16 +298,16 @@ def _rank_badge_in_buy_band_tint_pct() -> int:
 
 
 def test_rank_badge_in_buy_band_contrast_meets_wcag_aa():
-    """`.rank-badge.in-buy-band` text (var(--up), opaque) on its tinted background
-    (color-mix(in srgb, var(--up) N%, transparent) composited over the
-    table's real container background, --bg-raised) must clear the 4.5:1
+    """`.rank-badge.in-buy-band` text (var(--up-ink), opaque) on its tinted
+    background (color-mix(in srgb, var(--up) N%, transparent) composited over
+    the table's real container background, --bg-raised) must clear the 4.5:1
     WCAG AA minimum for normal-size text, in both themes."""
     pct = _rank_badge_in_buy_band_tint_pct()
     light_bg = _mix_over(_UP_LIGHT, pct, _BG_RAISED_LIGHT)
     dark_bg = _mix_over(_UP_DARK, pct, _BG_RAISED_DARK)
 
-    light_ratio = _contrast_ratio(_UP_LIGHT, light_bg)
-    dark_ratio = _contrast_ratio(_UP_DARK, dark_bg)
+    light_ratio = _contrast_ratio(_UP_INK_LIGHT, light_bg)
+    dark_ratio = _contrast_ratio(_UP_INK_DARK, dark_bg)
 
     assert light_ratio >= 4.5, (
         f".rank-badge.in-buy-band light-theme contrast is {light_ratio:.2f}:1 "

@@ -64,14 +64,14 @@ table {
   font-size: 13px;
 }
 thead tr {
-  background: var(--bg-sunken);
-  border-bottom: 1px solid var(--border);
+  background: transparent;
+  border-bottom: none;
 }
 thead th {
-  padding: 10px 16px;
+  padding: 0 12px 8px;
   text-align: left;
   color: var(--fg4);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.10em;
@@ -82,36 +82,76 @@ thead th {
 thead th:hover { color: var(--fg2); }
 thead th.sort-asc::after  { content: " ▲"; font-size: 0.75em; }
 thead th.sort-desc::after { content: " ▼"; font-size: 0.75em; }
-tbody tr { border-bottom: 1px dashed var(--border-soft); }
-tbody tr:last-child { border-bottom: none; }
 tbody td {
-  padding: 11px 16px;
+  padding: 10px 12px;
   vertical-align: middle;
   color: var(--fg2);
+  border-top: 1px solid var(--border-hair);
 }
+tbody tr:first-child td { border-top: none; }
+tbody tr.leaderboard-row:hover { background: var(--bg-raised); transition: background 140ms var(--ease-standard); }
 tbody td:nth-child(n+4) {
   font-family: var(--font-mono);
   font-size: 12px;
+}
+/* The rail is 3px on EVERY rank cell, transparent when out of band, so an
+   in-band row's content does not sit 3px right of an out-of-band row's. */
+.rank-cell {
+  border-left: 3px solid transparent;
+}
+.rank-cell.in-band-rail {
+  border-left: 3px solid color-mix(in srgb, var(--up) 55%, transparent);
 }
 .rank-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
   background: var(--bg-sunken);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 13px;
   color: var(--fg3);
 }
 .rank-badge.in-buy-band {
-  background: color-mix(in srgb, var(--up) 8%, transparent);
-  color: var(--up);
+  background: color-mix(in srgb, var(--up) 12%, transparent);
+  color: var(--up-ink);
 }
-.arrow.up   { color: var(--up);   font-size: 12px; }
-.arrow.down { color: var(--down); font-size: 12px; }
+.rank-badge.rank-1 {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--up) 14%, transparent);
+}
+/* Deliberately NOT `display: flex` on the <td>, even though flex/gap is the
+   obvious way to space these spans. A <td> whose display is flex stops being a
+   table-internal box and gets wrapped in an anonymous table cell — and TWO
+   ADJACENT such cells share one anonymous cell, which stacks them vertically.
+   .composite-cell (the very next column) is already flex, so a flex .theme-cell
+   put the theme name on top of the composite bar in one double-height column.
+   Verified in the browser: the six cells' left offsets collapse to four.
+   Normal inline flow gives the same baseline alignment and wrapping; the gap
+   comes from the margin below. The row builders emit these spans with no
+   whitespace between them, so the margin is the ONLY spacing — see the
+   whitespace-control markers in index.html.j2's theme cell. */
+.theme-cell > * + * {
+  margin-left: 8px;
+}
+.theme-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--fg1);
+  letter-spacing: -0.01em;
+}
+.theme-ticker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg5);
+  letter-spacing: 0.04em;
+}
+.arrow.up   { color: var(--up-ink);   font-size: 12px; }
+.arrow.down { color: var(--down-ink); font-size: 12px; }
 
 /* Trajectory badges */
 .traj-badge {
@@ -138,15 +178,10 @@ tbody td:nth-child(n+4) {
 /* =========================================================
    Leaderboard row breakdown
    ========================================================= */
+/* Row hover lives with the other tbody rules above
+   (`tbody tr.leaderboard-row:hover`). The `.chevron` rule that used to sit
+   here went with the element: the row itself is the disclosure control now. */
 .leaderboard-row { cursor: pointer; }
-.leaderboard-row:hover { background: color-mix(in srgb, var(--brand-strong) 6%, transparent); }
-.chevron {
-  font-size: 0.6em;
-  color: var(--fg4);
-  margin-left: 5px;
-  display: inline-block;
-  transition: transform var(--duration-fast) var(--ease-standard);
-}
 .breakdown-row { display: none; }
 .breakdown-row.open { display: table-row; }
 .breakdown-inner {

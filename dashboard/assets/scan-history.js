@@ -17,10 +17,6 @@
   var sentimentControl = document.getElementById("sentiment-control");
   var latestScanId = SCAN_HISTORY.scans[0].id;
 
-  function fmtScore(v) {
-    return v.toFixed(3);
-  }
-
   function fmtDelta(d) {
     if (d === 0) return "—";
     return (d > 0 ? "+" : "") + d.toFixed(1);
@@ -91,15 +87,27 @@
         else if (e.delta < 0) { arrow = "▼"; arrowClass = "down"; }
         var arrowHtml = arrow ? '<span class="arrow ' + arrowClass + '">' + arrow + "</span> " : "";
 
+        // This view has never shown a real trend value — the trend column was a
+        // literal "—" before the 6-column restructure too. Preserved as-is;
+        // scan-history-specific trend logic is out of scope here.
+        var trendInner = "—";
+        // Static, unlike rankClass above — applyHorizonBadges() never sets it.
+        var rank1Class = (sc.rank === 1) ? " rank-1" : "";
+        // No ticker: `sc`/`e` (this view's data source) doesn't carry one.
+        // The rank cell's left rail is written HERE, not left to
+        // applyHorizonBadges(): that pass returns early for any row without a
+        // data-rank attribute, and these rows deliberately carry none (a past
+        // scan shows no action badges). Same condition as rankClass, so the
+        // rail and the badge tint always agree.
+        var railClass = rankClass ? " in-band-rail" : "";
         html += '<tr class="leaderboard-row">'
-          + '<td class="rank-cell"><span class="rank-badge' + rankClass + '">' + sc.rank + "</span></td>"
-          + "<td>" + sector + "</td>"
+          + '<td class="rank-cell' + railClass + '"><span class="rank-badge' + rankClass + rank1Class + '">' + sc.rank + "</span></td>"
+          + "<td class=\"theme-cell\"><span class=\"theme-name\">" + sector + "</span></td>"
           + '<td class="composite-cell">' + Rescore.compositeBar(sc.composite) + "</td>"
-          + "<td>" + fmtScore(sc.level) + "</td>"
-          + "<td>" + fmtScore(sc.change) + "</td>"
-          + '<td class="sentiment-cell">' + fmtScore(sc.sentiment) + "</td>"
+          + '<td data-sort-value="' + (sc.level === null || sc.level === undefined ? "" : sc.level) + '">'
+            + Rescore.levelChangeBars(sc.level, sc.change) + "</td>"
           + '<td class="delta-cell">' + arrowHtml + fmtDelta(e.delta) + "</td>"
-          + "<td>—</td>"
+          + "<td>" + trendInner + "</td>"
           + "</tr>";
       }
     });
