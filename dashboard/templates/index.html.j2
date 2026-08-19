@@ -245,7 +245,7 @@
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
           <td>
-            <span class="traj-badge traj-{{ row.trajectory_state }}"><span class="traj-glyph">{{ row.trajectory_label }}</span> {{ row.trajectory_word }}</span>
+            <span class="traj-badge traj-{{ row.trajectory_state }}"><span class="traj-glyph">{{ row.trajectory_label }}</span> <span class="traj-word">{{ row.trajectory_word }}</span></span>
           </td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">

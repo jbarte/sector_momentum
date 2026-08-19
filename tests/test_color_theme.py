@@ -448,13 +448,13 @@ def _assert_badge_contrast(name: str, fg_light: str, fg_dark: str, pct: int) -> 
     )
 
 
-# Hardcoded hex for `--up-ink`/`--down-ink` in light mode. Dark mode is not
-# listed separately: --up-ink/--down-ink resolve to var(--up)/var(--down) in
-# the dark palette (_foundation.css.j2), so _UP_DARK/_DOWN_DARK above already
-# cover it. Light mode differs — the 2026-08-18 redesign unified the trend
-# badge's ink under these Task-1 tokens, which are darker/more saturated than
-# the raw --up/--down used for the badges' own background tint.
-_UP_INK_LIGHT = "#3F4F34"
+# Hardcoded hex for `--down-ink` in light mode (see `_UP_INK_LIGHT` above for
+# `--up-ink`). Dark mode is not listed separately: --up-ink/--down-ink resolve
+# to var(--up)/var(--down) in the dark palette (_foundation.css.j2), so
+# _UP_DARK/_DOWN_DARK above already cover it. Light mode differs — the
+# 2026-08-18 redesign unified the trend badge's ink under these Task-1 tokens,
+# which are darker/more saturated than the raw --up/--down used for the
+# badges' own background tint.
 _DOWN_INK_LIGHT = "#8E4B31"
 
 

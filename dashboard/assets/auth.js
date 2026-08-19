@@ -182,6 +182,14 @@
       list.forEach(function (r) {
         var tr = document.createElement("tr");
         tr.className = "leaderboard-row";
+        // Baked rows (rows.py/index.html.j2) carry both of these so the
+        // row-expand disclosure is keyboard-reachable on first paint;
+        // toggleBreakdown() sets aria-expanded on interaction but never
+        // tabindex, since tabindex="0" is expected to already be there.
+        // Without this, a signed-in reader loses keyboard access to every
+        // row until upgradeLeaderboard() has already been used with a mouse.
+        tr.setAttribute("tabindex", "0");
+        tr.setAttribute("aria-expanded", "false");
         tr.dataset.region = r.region;
         tr.dataset.sector = r.gics_sector;
         tr.dataset.sectorId = region + "-" + r.gics_sector.replace(/ /g, "_");
@@ -213,7 +221,7 @@
           : (m.delta_rank || "—");
         var trendInner = m.trajectory_state
           ? '<span class="traj-badge traj-' + m.trajectory_state + '"><span class="traj-glyph">'
-            + m.trajectory_label + '</span> ' + (m.trajectory_word || "") + '</span>'
+            + m.trajectory_label + '</span> <span class="traj-word">' + (m.trajectory_word || "") + '</span></span>'
           : "—";
         var ticker = (window.THEME_TICKERS || {})[r.gics_sector] || "";
         var tickerHtml = ticker ? '<span class="theme-ticker">' + ticker + '</span>' : "";

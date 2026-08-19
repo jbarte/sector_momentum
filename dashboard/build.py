@@ -103,9 +103,13 @@ from dashboard.validation import (                    # noqa: E402, F401
 #     index.html.j2 early-returns when the control is absent, so a reader who
 #     once enabled it cannot have it silently re-applied from localStorage on the
 #     next visit. CSS hiding alone would leave that path live.
-#   - the leaderboard's Sentiment column is hidden by CSS rather than removed.
-#     Column indices are positional (sortTable(6), data-col, nth-child), so
-#     dropping the cell would shift every reference after it.
+#   - the leaderboard's Sentiment column is GONE, not hidden — the 2026-08-19
+#     6-column restructure removed the cell outright and renumbered every
+#     positional reference after it (sortTable() indices, data-col, colspans).
+#     Restoring the column now costs more than undoing a CSS rule: a new
+#     `<th>`, a cell added back to all three row-builders (dashboard/rows.py,
+#     auth.js's renderLatestRows(), scan-history.js), an i18n key, and
+#     renumbering sortTable()/data-col plus every colspan that counts columns.
 #
 # The STORED composite has never included sentiment — scan.py passes
 # blend_sentiment=False — so this governs presentation and the client-side blend

@@ -93,7 +93,12 @@
         var trendInner = "—";
         // Static, unlike rankClass above — applyHorizonBadges() never sets it.
         var rank1Class = (sc.rank === 1) ? " rank-1" : "";
-        // No ticker: `sc`/`e` (this view's data source) doesn't carry one.
+        // Ticker: `sector` here is `e.key.split("|")[1]`, the plain theme
+        // name — the same key window.THEME_TICKERS (build.py -> template ->
+        // JS, keyed by theme name) is looked up on, exactly like auth.js's
+        // renderLatestRows() does for r.gics_sector (auth.js:218-219).
+        var ticker = (window.THEME_TICKERS || {})[sector] || "";
+        var tickerHtml = ticker ? '<span class="theme-ticker">' + ticker + '</span>' : "";
         // The rank cell's left rail is written HERE, not left to
         // applyHorizonBadges(): that pass returns early for any row without a
         // data-rank attribute, and these rows deliberately carry none (a past
@@ -102,7 +107,7 @@
         var railClass = rankClass ? " in-band-rail" : "";
         html += '<tr class="leaderboard-row">'
           + '<td class="rank-cell' + railClass + '"><span class="rank-badge' + rankClass + rank1Class + '">' + sc.rank + "</span></td>"
-          + "<td class=\"theme-cell\"><span class=\"theme-name\">" + sector + "</span></td>"
+          + "<td class=\"theme-cell\"><span class=\"theme-name\">" + sector + "</span>" + tickerHtml + "</td>"
           + '<td class="composite-cell">' + Rescore.compositeBar(sc.composite) + "</td>"
           + '<td data-sort-value="' + (sc.level === null || sc.level === undefined ? "" : sc.level) + '">'
             + Rescore.levelChangeBars(sc.level, sc.change) + "</td>"

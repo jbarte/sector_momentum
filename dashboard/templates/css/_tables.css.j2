@@ -168,6 +168,14 @@ tbody td:nth-child(n+4) {
   font-family: var(--font-mono);
   font-size: 12px;
 }
+/* Only the glyph (↑↑/↑/→/↓/↓↓) is meant to be monospace. Both it and the word
+   ("surging", "rising", ...) sit under `tbody td:nth-child(n+4)`, which sets
+   the whole cell to --font-mono — so without this, the word renders in mono
+   too even though .traj-glyph's own mono rule above is the one that LOOKS
+   responsible. Set the word's own span back to the body font explicitly. */
+.traj-word {
+  font-family: var(--font-body);
+}
 .traj-badge.traj-strong_up   { color: var(--up-ink);   background: color-mix(in srgb, var(--up) 14%, transparent); }
 .traj-badge.traj-up          { color: var(--up-ink);   background: color-mix(in srgb, var(--up) 10%, transparent); }
 .traj-badge.traj-flat        { color: var(--fg4);      background: var(--border-hair); }

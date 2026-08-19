@@ -1005,16 +1005,52 @@ def test_theme_cell_is_not_a_flex_table_cell():
     theme name lands on top of the composite bar in a single double-width
     column. `.composite-cell` is flex, so `.theme-cell` must not be. Verified in
     a browser when this was written: the six cells' left offsets collapsed to
-    four. See the rule's own comment in _tables.css.j2."""
+    four. See the rule's own comment in _tables.css.j2.
+
+    The original regex here (`^\\.theme-cell\\s*\\{...`) only matched a bare
+    `.theme-cell { ... }` rule. The actual rule is `.theme-cell > * + * { ... }`
+    (a descendant-combinator selector), so that regex never matched — `m` was
+    always `None` and the `if m:` body, the only place the assertion lived,
+    never ran. This was the sole automated guard against the exact regression
+    the module docstring above describes, and it passed vacuously no matter
+    what `.theme-cell` declared."""
     import re
     css = (Path(__file__).parent.parent
            / "dashboard/templates/css/_tables.css.j2").read_text()
-    m = re.search(r"^\.theme-cell\s*\{([^}]*)\}", css, re.M)
-    if m:
-        assert "flex" not in m.group(1), (
+
+    # Every CSS rule whose selector contains `.theme-cell` as a class token
+    # (not just an exact `.theme-cell { }` rule) — covers `.theme-cell > * + *`
+    # and any future selector variant (`.theme-cell.foo`, `#id .theme-cell`, …).
+    rules = re.findall(r"([^{}]+)\{([^}]*)\}", css)
+    theme_cell_bodies = [
+        body for selector, body in rules if re.search(r"\.theme-cell\b", selector)
+    ]
+    assert theme_cell_bodies, (
+        "no CSS rule matched `.theme-cell` at all — the regex itself is "
+        "broken, which is exactly how this test passed vacuously before"
+    )
+    for body in theme_cell_bodies:
+        assert not re.search(r"display\s*:\s*flex", body), (
             ".theme-cell declares display:flex — it is adjacent to the flex "
             ".composite-cell and the two will collapse into one anonymous cell"
         )
+
+    # `.composite-cell` is the other half of the adjacency risk: it is
+    # display:flex BY DESIGN (deferred elsewhere to become a wrapper <div>,
+    # see BACKLOG.md), and that is precisely what makes a flex `.theme-cell`
+    # dangerous. Confirming it here means a regression that silently drops
+    # `.composite-cell`'s flex (changing the premise this test relies on
+    # without anyone updating this test) gets caught too, not just the
+    # `.theme-cell` side.
+    composite_cell_bodies = [
+        body for selector, body in rules if re.search(r"\.composite-cell\b", selector)
+    ]
+    assert composite_cell_bodies, "no CSS rule matched `.composite-cell`"
+    assert any(re.search(r"display\s*:\s*flex", body) for body in composite_cell_bodies), (
+        ".composite-cell no longer declares display:flex — the adjacency risk "
+        "this test guards against has changed shape; re-derive the guard "
+        "rather than deleting it"
+    )
 
 
 def test_leaderboard_colspans_match_the_column_count():
@@ -1101,12 +1137,49 @@ def test_z_bar_is_centre_origin():
 def test_level_change_bars_python_and_js_agree():
     """_level_change_bars (build) and levelChangeBars (rescore.js) render the
     same two-row cell — the same three-way duplication risk as the composite
-    bar, for the new merged Level/Change column."""
-    import re
+    bar, for the new merged Level/Change column.
+
+    Only checking `"function levelChangeBars" in js` (the previous version of
+    this test) proves the function exists, not that it agrees with the Python
+    side — a JS-only divergence in class names, the LEVEL/CHANGE label text,
+    or row order would still pass. Following `test_composite_bar_python_and_js_agree`'s
+    pattern of reading the JS source directly, this pulls the exact function
+    body (brace-balanced, not a regex guess at where it ends) and checks the
+    specific class strings and label text it must share with the Python
+    output for the two row-builders to render the same markup."""
     from dashboard.rows import _level_change_bars, COMPOSITE_FULL_SCALE
 
     js = (Path(__file__).parent.parent / "dashboard/assets/rescore.js").read_text()
     assert "function levelChangeBars" in js
+
+    # Extract the exact function body (brace-balanced) so the checks below are
+    # scoped to levelChangeBars itself, not to the whole file.
+    start = js.index("function levelChangeBars")
+    brace_start = js.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if js[i] == "{":
+            depth += 1
+        elif js[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    js_fn = js[start:i + 1]
+
+    # The Python side's class names and label text, cross-checked against the
+    # JS source text directly — a divergence here (renamed class, retyped
+    # label, swapped row order) is exactly what would make the two builders
+    # disagree while every Python-only assertion below kept passing.
+    for cls in ("lc-cell", "lc-row", "lc-label", "lc-track", "lc-bar", "lc-val"):
+        assert cls in js_fn, f"levelChangeBars is missing the '{cls}' class the Python side emits"
+    assert '"LEVEL"' in js_fn or "'LEVEL'" in js_fn, "levelChangeBars must label the first row LEVEL"
+    assert '"CHANGE"' in js_fn or "'CHANGE'" in js_fn, "levelChangeBars must label the second row CHANGE"
+    # Row order: LEVEL must be built (and therefore appended) before CHANGE,
+    # matching _level_change_bars' _row("LEVEL", ...) then _row("CHANGE", ...).
+    assert js_fn.index("LEVEL") < js_fn.index("CHANGE"), \
+        "levelChangeBars must render LEVEL before CHANGE, like the Python side"
 
     html = _level_change_bars(1.58, 0.53)
     assert html.count('class="lc-row"') == 2
