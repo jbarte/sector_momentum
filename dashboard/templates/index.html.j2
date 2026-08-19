@@ -221,7 +221,7 @@
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
             data-level="{{ row._raw_level if row._raw_level is not none else '' }}"
             data-rank="{{ row.rank }}"
-            tabindex="0" role="button" aria-expanded="false">
+            tabindex="0" aria-expanded="false">
           <td class="rank-cell{% if row.in_buy_band %} in-band-rail{% endif %}">
             <span class="rank-badge{% if row.in_buy_band %} in-buy-band{% endif %}{% if row.rank == 1 %} rank-1{% endif %}">{{ row.rank }}</span>
           </td>
