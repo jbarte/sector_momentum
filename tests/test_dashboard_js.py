@@ -1203,6 +1203,115 @@ def test_level_change_bars_python_and_js_agree():
     full = _level_change_bars(COMPOSITE_FULL_SCALE, COMPOSITE_FULL_SCALE)
     assert full.count("width:50.0%") == 2
 
+
+def _apply_band_boundaries_js():
+    """applyBandBoundaries()'s exact function body (brace-balanced), the same
+    technique test_level_change_bars_python_and_js_agree above uses for
+    levelChangeBars — a naive regex would truncate on the first nested `}`."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function applyBandBoundaries()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_old_band_edge_classes_are_gone():
+    """The invisible border-cut mechanism (toggling a class on the boundary
+    row) is replaced entirely by inserted rows — see test_inserts_a_row_not_a_class
+    below. Stage 2 of the leaderboard redesign
+    (sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md,
+    Screen 1 point 7)."""
+    js = _apply_band_boundaries_js()
+    assert "band-edge-buy" not in js
+    assert "band-edge-hold" not in js
+
+
+def test_inserts_a_row_not_a_class():
+    js = _apply_band_boundaries_js()
+    assert "band-cut-row" in js
+    assert "insertAdjacentElement" in js or "insertBefore" in js or ".after(" in js
+
+
+def test_removes_existing_cut_rows_before_reinserting():
+    """Idempotency: applyBandBoundaries() runs again after every sort, filter,
+    and horizon switch. Without removing what it inserted last time, repeated
+    calls accumulate duplicate cut rows."""
+    js = _apply_band_boundaries_js()
+    assert re.search(r"querySelectorAll\(['\"]\.band-cut-row['\"]\)", js), (
+        "applyBandBoundaries() must remove any existing .band-cut-row elements "
+        "before inserting new ones, or repeated calls (every sort/filter does "
+        "this) will accumulate duplicate rows"
+    )
+
+
+def test_band_cut_rank_text_is_not_hardcoded():
+    """The exit note ('a holding that falls past rank N is sold') must read N
+    from the active horizon preset, never a literal number — a Medium-preset
+    literal would be silently wrong on Long."""
+    js = _apply_band_boundaries_js()
+    assert "h.top_n" in js and "h.buffer" in js, (
+        "the exit-rank text must be computed from h.top_n + h.buffer "
+        "(the active horizon preset), not a hardcoded number"
+    )
+    assert not re.search(r"rank\s+\d", js), (
+        "found a hardcoded rank number in applyBandBoundaries() — "
+        "it must be interpolated from h.top_n + h.buffer"
+    )
+
+
+def test_band_legend_markup_is_gone():
+    """The #band-legend swatch legend is redundant once the band-cut rows
+    self-label — Stage 2 Task 1 deletes it rather than keep two descriptions
+    of the same fact."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert "band-legend" not in text
+
+
+def test_band_legend_css_is_gone():
+    css = (Path(__file__).parent.parent / "dashboard/templates/css/_tables.css.j2").read_text()
+    assert ".band-legend" not in css
+
+
+def test_band_cut_i18n_keys_updated():
+    i18n = (Path(__file__).parent.parent / "dashboard/templates/i18n/_core.js.j2").read_text()
+    assert "band_buy:" not in i18n
+    assert "band_exit:" not in i18n
+    for key in ("band_buy_ends", "band_buy_note", "band_sell_line",
+                "band_sell_note_prefix", "band_sell_note_suffix"):
+        assert f"{key}:" in i18n, f"missing SV translation for new key {key}"
+
+
+def test_leaderboard_upgraded_event_also_draws_band_boundaries():
+    """Stage 1 wired sm:leaderboard-upgraded/sm:positions-changed to
+    applyHorizonBadges only — research for the Stage 2 plan found neither
+    event ever triggered applyBandBoundaries, so signed-in readers never saw
+    a band cut of any kind, invisible or otherwise."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert re.search(
+        r"addEventListener\(['\"]sm:leaderboard-upgraded['\"],\s*applyBandBoundaries\)",
+        text,
+    ), "sm:leaderboard-upgraded must also trigger applyBandBoundaries"
+
+
+def test_scan_history_also_draws_band_boundaries():
+    """Same gap as the signed-in view: showScan() rebuilds rows but never
+    called applyBandBoundaries()."""
+    js = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    assert "applyBandBoundaries" in js, (
+        "showScan() must call applyBandBoundaries() after rebuilding rows, "
+        "the same way it already sets the in-band rail (Stage 1)"
+    )
+
+
 def test_gate_modal_uses_the_shared_modal_helper():
     """The gate modal declared aria-modal="true" while implementing none of it:
     no focus move, no trap, no Escape, no backdrop close. It must go through

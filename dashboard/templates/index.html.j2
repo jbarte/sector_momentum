@@ -123,13 +123,6 @@
         <span data-i18n="review_next_label">Next review:</span> <b id="review-next-date">—</b>
       </span>
     </span>
-    {#- Legend for the two cut lines drawn in the table by applyBandBoundaries().
-        Hidden until those lines exist, so it never describes something absent —
-        e.g. when the leaderboard is showing a past scan rebuilt without ranks. -#}
-    <span class="band-legend" id="band-legend" hidden>
-      <span class="bl-item"><span class="bl-swatch buy"></span><span data-i18n="band_buy">buy band</span></span>
-      <span class="bl-item"><span class="bl-swatch exit"></span><span data-i18n="band_exit">sell below</span></span>
-    </span>
   </div>
   <div class="utility-row">
     <div class="filter-bar" id="leaderboard-filter-bar">
@@ -538,40 +531,101 @@ function badgesVisible() {
 // Per region: cohorts are ranked independently, so each gets its own pair.
 function applyBandBoundaries() {
   var h = currentHorizon();
-  var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row');
+  var table = document.getElementById('leaderboard-table');
+  var tbody = table ? table.querySelector('tbody') : null;
+  if (!tbody) return;
+
+  // Idempotent: every sort/filter/horizon-switch calls this again. Remove any
+  // rows this function inserted last time before computing fresh positions —
+  // otherwise repeated calls accumulate duplicate cut rows.
+  Array.prototype.forEach.call(
+    tbody.querySelectorAll('.band-cut-row'),
+    function (r) { r.remove(); }
+  );
+
+  var rows = tbody.querySelectorAll('tr.leaderboard-row');
   // A cut line only means anything while the table is in rank order. Sort by
   // Theme or by Composite descending and the band stops being contiguous — the
   // rows inside it scatter, so a single line cannot separate "in" from "out"
   // and would just be a rule under an arbitrary row. Column 0 ascending is the
   // rank sort (see _sortCol/_sortDir defaults).
   var rankOrder = (typeof _sortCol === 'undefined') || (_sortCol === 0 && _sortDir === 1);
+  if (!rankOrder) return;
+
   var lastBuy = {}, lastHold = {};
   Array.prototype.forEach.call(rows, function (tr) {
-    tr.classList.remove('band-edge-buy', 'band-edge-hold');
-    if (!rankOrder || tr.style.display === 'none') { return; }
+    if (tr.style.display === 'none') { return; }
     var rank = parseFloat(tr.dataset.rank);
     if (isNaN(rank)) { return; }
     var region = tr.dataset.region || '';
     if (rank <= h.top_n) { lastBuy[region] = tr; }
     if (rank <= h.top_n + h.buffer) { lastHold[region] = tr; }
   });
-  var drew = false;
-  Object.keys(lastBuy).forEach(function (r) {
-    lastBuy[r].classList.add('band-edge-buy'); drew = true;
-  });
-  Object.keys(lastHold).forEach(function (r) {
-    // Only a cut if something is actually below it; a line under the final row
-    // separates nothing and reads as a stray border.
-    var tr = lastHold[r];
+
+  function nextVisibleLeaderboardRow(tr) {
     var next = tr.nextElementSibling;
     while (next && (next.style.display === 'none'
                     || !next.classList.contains('leaderboard-row'))) {
       next = next.nextElementSibling;
     }
-    if (next) { tr.classList.add('band-edge-hold'); drew = true; }
+    return next;
+  }
+
+  // data-i18n, English text, no translation call: matches auth.js's
+  // UNBUYABLE_BADGE, this codebase's established pattern for content
+  // inserted after the page's initial i18n pass has already run — "the next
+  // apply() call (a language toggle) picks it up for free" (see
+  // _i18n.html.j2's applyToEl() docstring). applyLangToEl() does not apply
+  // here: it only translates data-i18n-title/data-i18n-aria, not plain
+  // data-i18n text content — and calling the full window.applyLang() here
+  // would recurse (applyBandBoundaries() is itself called from
+  // applyFilters(), which applyLang() calls at the end of every run).
+  function insertCutRow(afterTr, kind, eyebrowKey, eyebrowText, noteHtml) {
+    var tr = document.createElement('tr');
+    tr.className = 'band-cut-row ' + kind;
+    var td = document.createElement('td');
+    td.colSpan = 6;
+    // .bcr-row is a flex DIV inside the <td>, not the <td> itself — Stage 1
+    // already hit the bug this avoids: two ADJACENT flex table cells merge
+    // into one anonymous cell (see .lc-cell's identical wrapper pattern).
+    // flex:1 on .bcr-rule lets it absorb whatever width the eyebrow/note
+    // don't need, rather than a guessed calc() budget that wrapped the note
+    // onto two lines the first time this was measured live.
+    td.innerHTML =
+      '<div class="bcr-row">'
+      + '<span class="bcr-eyebrow" data-i18n="' + eyebrowKey + '">' + eyebrowText + '</span>'
+      + '<span class="bcr-rule"></span>'
+      + '<span class="bcr-note">' + noteHtml + '</span>'
+      + '</div>';
+    tr.appendChild(td);
+    afterTr.insertAdjacentElement('afterend', tr);
+  }
+
+  Object.keys(lastBuy).forEach(function (region) {
+    var tr = lastBuy[region];
+    // Only a cut if something is actually below it; a line under the final row
+    // separates nothing and reads as a stray border.
+    if (!nextVisibleLeaderboardRow(tr)) { return; }
+    insertCutRow(tr, 'buy', 'band_buy_ends', 'BUY BAND ENDS',
+      '<span data-i18n="band_buy_note">below this line: not a new buy</span>');
   });
-  var legend = document.getElementById('band-legend');
-  if (legend) { legend.hidden = !drew; }
+
+  Object.keys(lastHold).forEach(function (region) {
+    var tr = lastHold[region];
+    if (!nextVisibleLeaderboardRow(tr)) { return; }
+    // The exit cut is the more consequential of the two, so if the buffer left
+    // no gap between them (both fall on the same last-visible row), remove any
+    // buy-band row that insertion already placed here and let the exit row win.
+    var existingBuy = tr.nextElementSibling;
+    if (existingBuy && existingBuy.classList.contains('band-cut-row')
+        && existingBuy.classList.contains('buy')) {
+      existingBuy.remove();
+    }
+    var exitRank = h.top_n + h.buffer;
+    insertCutRow(tr, 'exit', 'band_sell_line', 'SELL LINE',
+      '<span data-i18n="band_sell_note_prefix">a holding that falls past rank</span> '
+      + exitRank + ' <span data-i18n="band_sell_note_suffix">is sold</span>');
+  });
 }
 
 function applyHorizonBadges() {

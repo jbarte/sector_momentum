@@ -194,9 +194,15 @@ def test_review_status_meets_floor():
     assert _resolved_px(_rule_font_size(css, ".review-status")) >= 12
 
 
-def test_band_legend_meets_floor():
+def test_band_legend_rule_is_gone_with_its_element():
+    """The #band-legend swatch legend was removed by the Stage 2 leaderboard
+    redesign (2026-08-20) — the band-cut rows self-label now, making a
+    separate legend redundant. Pins the DELETION rather than the old floor
+    assertion, matching test_chevron_rule_is_gone_with_its_element's
+    precedent for the same situation; a reintroduced `.band-legend` should be
+    a deliberate edit to this test."""
     css = _css("_tables.css.j2")
-    assert _resolved_px(_rule_font_size(css, ".band-legend")) >= 12
+    assert not re.search(r"\.band-legend\s*[,{\[]", css)
 
 
 def test_setup_badge_meets_floor():
@@ -279,3 +285,20 @@ def test_level_change_label_is_deliberately_exempt_from_the_floor():
     to fit the compact cell layout."""
     css = _css("_tables.css.j2")
     assert _resolved_px(_rule_font_size(css, ".lc-label")) < 12
+
+
+def test_band_cut_eyebrow_is_deliberately_exempt_from_the_floor():
+    """BUY BAND ENDS / SELL LINE — an uppercase, wide-tracked eyebrow label,
+    same treatment as the table header and other quiet secondary labels this
+    redesign introduced. Below the floor on purpose, pinned here rather than
+    silently skipped. Design spec:
+    sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md."""
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".band-cut-row .bcr-eyebrow")) < 12
+
+
+def test_band_cut_note_is_deliberately_exempt_from_the_floor():
+    """The trailing explanatory note ('below this line: not a new buy') —
+    quiet supporting text next to the eyebrow it belongs to."""
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".band-cut-row .bcr-note")) < 12
