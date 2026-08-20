@@ -21,6 +21,45 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Leaderboard redesign — Stages 2–5
+
+Stage 1 (tokens + the 6-column table restructure) shipped 2026-08-19 — see
+Done. Stages 2–5 were named in the Done entry's prose only, with no Queued
+section of their own; added here so they don't get lost the way the GDELT
+out-of-scope items did on 2026-08-16.
+
+Design spec: `sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md`
+("Suggested order of work"). Each stage is independently shippable, same as
+Stage 1 was, and should get its own plan (`writing-plans`) when picked up —
+Stage 1's plan is a template for scope (one stage per plan file, not one plan
+for the whole redesign).
+
+- **Stage 2 — labelled band cut rows.** Replaces today's invisible
+  `border-bottom` cut lines (`applyBandBoundaries()`, toggled via CSS class)
+  with actual inserted `<td colspan="6">` rows reading "BUY BAND ENDS" /
+  "SELL LINE". This rewrites `applyBandBoundaries()`'s mechanism, not just
+  its styling — it currently works by toggling a class on the boundary row;
+  the new design needs it to insert/remove a DOM row, idempotently, on every
+  sort and horizon switch. Must integrate with `sortTable()`'s
+  "each row followed by its own breakdown panel" reordering.
+- **Stage 3 — mobile cards.** Replaces the pinned-column table treatment in
+  `_responsive.css.j2` (deletable once cards land) with real cards. Touches
+  the same three row-builders Stage 1 did.
+- **Stage 4 — summary strip.** New 3-cell strip above the tab bar: a derived
+  "Today's Read" headline (build-time, tested — Stage 1's spec already
+  resolved the "build it, don't fall back to digest chips" decision, reuse
+  that), an in-band-themes cell, and a market-context cell that moves the
+  SPY/VIX chips out of the command bar. Check `auth.js`'s `markLive()`
+  before starting — it currently targets `#context-chips`, which this stage
+  removes; that function's host-lookup will need updating or it silently
+  falls through to its `.meta-cluster` fallback.
+- **Stage 5 — horizon segmented control.** Replaces `<select id="horizon-select">`
+  with a segmented control matching `.theme-toggle`'s pattern, plus the four
+  backtest stats. Stage 1's spec already resolved the underlying decision
+  (keep the `<select>` in the DOM, visually hidden, since `switchHorizon()`
+  reads it back internally rather than only receiving it via `onchange`) —
+  reuse that finding rather than re-deriving it.
+
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
