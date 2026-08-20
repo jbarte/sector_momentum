@@ -4,6 +4,12 @@
 
 Always branch before making changes. Never commit directly to `main`.
 
+**Exception: `chore:` and `docs:` commits may go straight to `main`**, skipping
+branch/PR/review — config, deps, tooling, or documentation-only changes (per Commit
+style below), and nothing else. If a change mixes chore/docs work with anything that
+touches application code, tests, or behavior, it doesn't qualify for the exception —
+branch it normally. Still run the test suite before pushing.
+
 1. **Create a branch** from `main` using the pattern `feature/<short-slug>` or `fix/<short-slug>`.
 2. **Implement** the feature on that branch with regular commits.
 3. **Update `BACKLOG.md` in the same branch** — if the work completes a backlog
