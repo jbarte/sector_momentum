@@ -465,48 +465,58 @@ tbody td:nth-child(n+4) {
    ---------------------------------------------------------------
    The Horizon selector claims to "set the Enter/Exit band", but on a book held
    at the top of the table every preset renders the same badges, so the control
-   looked inert (see BACKLOG). These two rules make the band itself visible, so
+   looked inert (see BACKLOG). These rows make the band itself visible, so
    switching preset always moves something the eye can see.
 
-   Rows already carry a DASHED separator, so these are SOLID to read as cut
-   lines rather than as another row divider. Both sit on the row ABOVE the cut:
-   everything down to the solid line is a buy candidate; everything down to the
-   second line is still held; below it is out. */
-.leaderboard-row.band-edge-buy {
-  border-bottom: 2px solid color-mix(in srgb, var(--up) 45%, transparent);
+   2026-08-20 redesign: replaced the invisible border-bottom-on-the-row-above
+   approach (a coloured line only, no label — undiscoverable without already
+   knowing the horizon preset's top_n/exit rank) with actual inserted, labelled
+   rows. applyBandBoundaries() (index.html.j2) inserts/removes these; nothing
+   here toggles visibility, the row is either in the DOM or it isn't. The old
+   #band-legend swatch legend is gone too — redundant now that the rows
+   self-label. */
+.band-cut-row td {
+  padding: 10px 12px 8px;
+  border-top: none;
 }
-.leaderboard-row.band-edge-hold {
-  border-bottom: 2px solid color-mix(in srgb, var(--down) 60%, transparent);
-}
-/* A row can be both edges at once when the buffer leaves no gap between them
-   (or when filtering hides everything in between). The exit cut is the more
-   consequential of the two, so it wins. */
-.leaderboard-row.band-edge-buy.band-edge-hold {
-  border-bottom: 2px solid color-mix(in srgb, var(--down) 60%, transparent);
-}
-/* The legend beside the horizon selector. Swatches mirror the two line colours
-   so the mapping needs no words beyond the labels themselves. */
-.band-legend {
-  display: inline-flex;
+/* Flex DIV inside the <td>, not the <td> itself — see the comment on
+   .band-cut-row td's markup site (insertCutRow() in index.html.j2) for why.
+   .bcr-rule is the only flexible child (flex: 1), so it absorbs whatever
+   width the eyebrow and note don't need instead of a guessed fixed budget —
+   a calc(100% - Npx) first pass here wrapped the note onto two lines the
+   first time this was measured live in the browser. */
+.band-cut-row .bcr-row {
+  display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
-  color: var(--fg4);
 }
-/* An author `display` beats the UA sheet's `[hidden] { display: none }`, so the
-   `hidden` property set in applyBandBoundaries() would do nothing without this
-   — the legend would keep describing cut lines that are not drawn. Same trap
-   the filter-group rules below already document. */
-.band-legend[hidden] { display: none; }
-.band-legend .bl-item { display: inline-flex; align-items: center; gap: 4px; }
-.band-legend .bl-swatch {
-  display: inline-block;
-  width: 14px;
+.band-cut-row .bcr-eyebrow {
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.band-cut-row.buy .bcr-eyebrow { color: var(--brand-strong); }
+.band-cut-row.exit .bcr-eyebrow { color: var(--down); }
+.band-cut-row .bcr-rule {
+  flex: 1;
   height: 0;
-  border-top: 2px solid var(--border);
+  border-top: 2px solid;
 }
-.band-legend .bl-swatch.buy { border-top-color: color-mix(in srgb, var(--up) 45%, transparent); }
-.band-legend .bl-swatch.exit { border-top-color: color-mix(in srgb, var(--down) 60%, transparent); }
+.band-cut-row.buy .bcr-rule {
+  border-top-color: color-mix(in srgb, var(--up) 45%, transparent);
+}
+.band-cut-row.exit .bcr-rule {
+  border-top-color: color-mix(in srgb, var(--down) 55%, transparent);
+}
+.band-cut-row .bcr-note {
+  flex: none;
+  font-size: 11px;
+  color: var(--fg4);
+  white-space: nowrap;
+}
 
 .leaderboard-row.position-held {
   background: color-mix(in srgb, var(--brand-strong) 7%, transparent);

@@ -59,6 +59,20 @@
     try { return localStorage.getItem("lang") || "en"; } catch (e) { return "en"; }
   }
 
+  // For markup built and inserted client-side by code that reruns often
+  // (applyBandBoundaries() on every sort/filter/horizon-switch, not a
+  // once-per-row-rebuild case like auth.js's UNBUYABLE_BADGE) — that
+  // frequency means "insert English + data-i18n, wait for the next language
+  // toggle" visibly resets translated text back to English on the reader's
+  // very next interaction. This bakes in the correct text for the CURRENT
+  // language at insertion time; the data-i18n attribute the caller still
+  // sets is what keeps a LATER language toggle able to find and retranslate
+  // the element too, so both paths stay correct.
+  function translate(key, fallbackEn) {
+    return (currentLang() === "sv" && SV[key] != null) ? SV[key] : fallbackEn;
+  }
+  window.translate = translate;
+
   // Scoped counterpart to apply(): translates one element's title/aria-label
   // in place, instead of the four document-wide querySelectorAll passes (plus
   // the applyFilters() side effect) apply() does. For content that is
