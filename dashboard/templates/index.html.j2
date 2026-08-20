@@ -571,6 +571,14 @@ function applyBandBoundaries() {
     return next;
   }
 
+  // Exposed as window.buildBandCutRowHtml — scan-history.js's showScan() also
+  // needs this markup. Its rows deliberately carry no data-rank attribute
+  // (see the comment on railClass in that file), which is exactly what this
+  // function's callers below rely on to find a row at all, so scan-history.js
+  // computes its own cut positions from its in-memory rank data and calls
+  // this for the markup only, rather than sharing the DOM-attribute-driven
+  // pass below.
+  //
   // data-i18n, English text, no translation call: matches auth.js's
   // UNBUYABLE_BADGE, this codebase's established pattern for content
   // inserted after the page's initial i18n pass has already run — "the next
@@ -580,25 +588,43 @@ function applyBandBoundaries() {
   // data-i18n text content — and calling the full window.applyLang() here
   // would recurse (applyBandBoundaries() is itself called from
   // applyFilters(), which applyLang() calls at the end of every run).
-  function insertCutRow(afterTr, kind, eyebrowKey, eyebrowText, noteHtml) {
-    var tr = document.createElement('tr');
-    tr.className = 'band-cut-row ' + kind;
-    var td = document.createElement('td');
-    td.colSpan = 6;
+  // noteParts: array of {key, en} for a translatable segment, or {text} for
+  // a literal one that is never translated (the interpolated rank number).
+  // Bakes in the correct text for the CURRENT language via window.translate
+  // (from _i18n.html.j2) at build time — this function is called on every
+  // sort/filter/horizon-switch, unlike a once-per-row-rebuild case, so
+  // "insert English + data-i18n, wait for the next language toggle" would
+  // visibly reset already-translated text back to English on the reader's
+  // very next interaction (found live, browser-verified, by whole-branch
+  // review). window.translate may not exist yet on the very first
+  // applyHorizonBadges() call at initial page load — it runs before
+  // _i18n.html.j2's script does — so this falls back to the plain English
+  // text, same as every other data-i18n element does until that script runs.
+  function buildBandCutRowHtml(kind, eyebrowKey, eyebrowText, noteParts) {
+    var t = window.translate || function (key, en) { return en; };
+    var noteHtml = noteParts.map(function (p) {
+      return p.key
+        ? '<span data-i18n="' + p.key + '">' + t(p.key, p.en) + '</span>'
+        : p.text;
+    }).join(' ');
     // .bcr-row is a flex DIV inside the <td>, not the <td> itself — Stage 1
     // already hit the bug this avoids: two ADJACENT flex table cells merge
     // into one anonymous cell (see .lc-cell's identical wrapper pattern).
     // flex:1 on .bcr-rule lets it absorb whatever width the eyebrow/note
     // don't need, rather than a guessed calc() budget that wrapped the note
     // onto two lines the first time this was measured live.
-    td.innerHTML =
-      '<div class="bcr-row">'
-      + '<span class="bcr-eyebrow" data-i18n="' + eyebrowKey + '">' + eyebrowText + '</span>'
+    return '<tr class="band-cut-row ' + kind + '"><td colspan="6">'
+      + '<div class="bcr-row">'
+      + '<span class="bcr-eyebrow" data-i18n="' + eyebrowKey + '">' + t(eyebrowKey, eyebrowText) + '</span>'
       + '<span class="bcr-rule"></span>'
       + '<span class="bcr-note">' + noteHtml + '</span>'
-      + '</div>';
-    tr.appendChild(td);
-    afterTr.insertAdjacentElement('afterend', tr);
+      + '</div></td></tr>';
+  }
+  window.buildBandCutRowHtml = buildBandCutRowHtml;
+
+  function insertCutRow(afterTr, kind, eyebrowKey, eyebrowText, noteParts) {
+    afterTr.insertAdjacentHTML('afterend',
+      buildBandCutRowHtml(kind, eyebrowKey, eyebrowText, noteParts));
   }
 
   Object.keys(lastBuy).forEach(function (region) {
@@ -607,7 +633,7 @@ function applyBandBoundaries() {
     // separates nothing and reads as a stray border.
     if (!nextVisibleLeaderboardRow(tr)) { return; }
     insertCutRow(tr, 'buy', 'band_buy_ends', 'BUY BAND ENDS',
-      '<span data-i18n="band_buy_note">below this line: not a new buy</span>');
+      [{key: 'band_buy_note', en: 'below this line: not a new buy'}]);
   });
 
   Object.keys(lastHold).forEach(function (region) {
@@ -622,9 +648,11 @@ function applyBandBoundaries() {
       existingBuy.remove();
     }
     var exitRank = h.top_n + h.buffer;
-    insertCutRow(tr, 'exit', 'band_sell_line', 'SELL LINE',
-      '<span data-i18n="band_sell_note_prefix">a holding that falls past rank</span> '
-      + exitRank + ' <span data-i18n="band_sell_note_suffix">is sold</span>');
+    insertCutRow(tr, 'exit', 'band_sell_line', 'SELL LINE', [
+      {key: 'band_sell_note_prefix', en: 'a holding that falls past rank'},
+      {text: String(exitRank)},
+      {key: 'band_sell_note_suffix', en: 'is sold'}
+    ]);
   });
 }
 
@@ -745,6 +773,14 @@ function applyHorizonBadges() {
 document.addEventListener('sm:auth-changed', applyHorizonBadges);
 document.addEventListener('sm:positions-changed', applyHorizonBadges);
 document.addEventListener('sm:leaderboard-upgraded', applyHorizonBadges);
+// No separate listener needed for applyBandBoundaries() here: applyHorizonBadges()
+// already calls it unconditionally at its own end, so the signed-in path was
+// never actually missing a band cut of any kind — that was a research error
+// in the Stage 2 plan, caught by whole-branch review and reverted. Only
+// scan-history.js's showScan() genuinely needed new wiring (see that file) —
+// it never called applyHorizonBadges() (or applyBandBoundaries()) at all, and
+// couldn't rely on either even if it did, since its rows deliberately carry
+// no data-rank attribute.
 
 // Sync the <select> to the restored state. Without this the control shows the
 // first option while activeHorizon is whatever localStorage (or the config

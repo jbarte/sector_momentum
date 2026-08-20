@@ -62,38 +62,20 @@
   /* Tighten the cells so more of the data columns fit alongside the pinned pair. */
   #leaderboard-table td, #leaderboard-table th { padding-left: 8px; padding-right: 8px; }
 
-  /* The breakdown panel spans the full row and must not be pinned. */
+  /* The breakdown panel spans the full row and must not be pinned. Same
+     reason band-cut-row is reset below: both have a single <td> that is
+     structurally td:nth-child(1), which the sticky-pin rule above was
+     written for the RANK column, not any other single-cell row. */
   .breakdown-row td { position: static; width: auto; min-width: 0; }
 
-  /* Band cut lines under the PINNED cells.
-     Same failure as the vertical edge above: the sticky cells carry an opaque
-     background and stack above the row, so the `border-bottom` set on the <tr>
-     in _tables.css.j2 is hidden behind them — the line would appear to start
-     only after the pinned Theme column, reading as a rendering bug. Redraw it
-     as an inset shadow on those two cells. Column 2 keeps its existing right
-     edge, so both shadows are listed.
-
-     All four selectors are prefixed with #leaderboard-table deliberately: the
-     right-edge rule above is `#leaderboard-table td:nth-child(2)`, and an ID
-     outranks any number of classes. Without the prefix the bottom line silently
-     lost the cascade on the pinned name column only — visible as a line that
-     started one column in. */
-  #leaderboard-table .leaderboard-row.band-edge-buy td:nth-child(1) {
-    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--up) 45%, transparent);
-  }
-  #leaderboard-table .leaderboard-row.band-edge-buy td:nth-child(2) {
-    box-shadow: inset -1px 0 0 var(--border-soft),
-                inset 0 -2px 0 color-mix(in srgb, var(--up) 45%, transparent);
-  }
-  /* Listed after the buy rules so a row that is both edges resolves to the
-     exit colour, matching the precedence in _tables.css.j2. */
-  #leaderboard-table .leaderboard-row.band-edge-hold td:nth-child(1) {
-    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--down) 60%, transparent);
-  }
-  #leaderboard-table .leaderboard-row.band-edge-hold td:nth-child(2) {
-    box-shadow: inset -1px 0 0 var(--border-soft),
-                inset 0 -2px 0 color-mix(in srgb, var(--down) 60%, transparent);
-  }
+  /* Band cut rows (2026-08-20 redesign — see _tables.css.j2) also have one
+     <td colspan="6">, so without this they inherit the rank column's
+     sticky/44px-wide pin instead of spanning the row — found live at a
+     375px viewport by whole-branch review. The old .band-edge-buy/-hold
+     under-the-pinned-cells redraw this section used to need is gone with
+     those classes: a band cut is a full labelled row now, not a border on
+     an existing one, so there is no pinned-cell background to hide behind. */
+  #leaderboard-table .band-cut-row td { position: static; width: auto; min-width: 0; }
 }
 
 /* ---------------------------------------------------------

@@ -114,6 +114,35 @@
           + '<td class="delta-cell">' + arrowHtml + fmtDelta(e.delta) + "</td>"
           + "<td>" + trendInner + "</td>"
           + "</tr>";
+
+        // Band cut rows — same rule as applyBandBoundaries() (index.html.j2),
+        // computed here instead of via that shared DOM pass: these rows
+        // deliberately carry no data-rank attribute (see railClass's comment
+        // above), which is exactly what that pass requires to find a row at
+        // all. group is sorted by rank ascending, so "the next row" is
+        // simply group[j + 1]; only a cut if something is actually below it.
+        if (typeof window.buildBandCutRowHtml === "function" && _h) {
+          var nextRank = (j + 1 < group.length) ? group[j + 1].scores.rank : null;
+          var isBuyCut = nextRank !== null
+            && sc.rank <= _h.top_n && nextRank > _h.top_n;
+          var isHoldCut = nextRank !== null
+            && sc.rank <= (_h.top_n + _h.buffer) && nextRank > (_h.top_n + _h.buffer);
+          // The exit cut is the more consequential of the two, so if the
+          // buffer leaves no gap between them (both land on this row), only
+          // the exit cut shows — same tie-break as applyBandBoundaries().
+          if (isBuyCut && !isHoldCut) {
+            html += window.buildBandCutRowHtml('buy', 'band_buy_ends', 'BUY BAND ENDS',
+              [{key: 'band_buy_note', en: 'below this line: not a new buy'}]);
+          }
+          if (isHoldCut) {
+            var exitRank = _h.top_n + _h.buffer;
+            html += window.buildBandCutRowHtml('exit', 'band_sell_line', 'SELL LINE', [
+              {key: 'band_sell_note_prefix', en: 'a holding that falls past rank'},
+              {text: String(exitRank)},
+              {key: 'band_sell_note_suffix', en: 'is sold'}
+            ]);
+          }
+        }
       }
     });
     tbody.innerHTML = html;

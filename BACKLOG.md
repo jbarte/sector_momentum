@@ -21,27 +21,19 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Leaderboard redesign — Stages 2–5
+## Leaderboard redesign — Stages 3–5
 
-Stage 1 (tokens + the 6-column table restructure) shipped 2026-08-19 — see
-Done. Stages 2–5 were named in the Done entry's prose only, with no Queued
-section of their own; added here so they don't get lost the way the GDELT
-out-of-scope items did on 2026-08-16.
+Stages 1 (tokens + 6-column table) and 2 (labelled band cut rows) shipped —
+see Done. Stages 3–5 were named in Stage 1's Done entry prose only, with no
+Queued section of their own; added here so they don't get lost the way the
+GDELT out-of-scope items did on 2026-08-16.
 
 Design spec: `sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md`
 ("Suggested order of work"). Each stage is independently shippable, same as
-Stage 1 was, and should get its own plan (`writing-plans`) when picked up —
-Stage 1's plan is a template for scope (one stage per plan file, not one plan
-for the whole redesign).
+Stages 1 and 2 were, and should get its own plan (`writing-plans`) when
+picked up — Stage 1's plan is a template for scope (one stage per plan file,
+not one plan for the whole redesign).
 
-- **Stage 2 — labelled band cut rows.** Replaces today's invisible
-  `border-bottom` cut lines (`applyBandBoundaries()`, toggled via CSS class)
-  with actual inserted `<td colspan="6">` rows reading "BUY BAND ENDS" /
-  "SELL LINE". This rewrites `applyBandBoundaries()`'s mechanism, not just
-  its styling — it currently works by toggling a class on the boundary row;
-  the new design needs it to insert/remove a DOM row, idempotently, on every
-  sort and horizon switch. Must integrate with `sortTable()`'s
-  "each row followed by its own breakdown panel" reordering.
 - **Stage 3 — mobile cards.** Replaces the pinned-column table treatment in
   `_responsive.css.j2` (deletable once cards land) with real cards. Touches
   the same three row-builders Stage 1 did.
@@ -406,6 +398,41 @@ source-only and tight:
 ---
 
 # Done
+
+- **Leaderboard table redesign — Stage 2 of the leaderboard redesign**
+  (2026-08-20). Plan:
+  `sector_momentum-notes/plans/2026-08-20-leaderboard-redesign-stage2-band-cut-rows.md`.
+
+  - **Labelled band cut rows** replace the old invisible `border-bottom`
+    cut lines. `applyBandBoundaries()` now inserts real
+    `<td colspan="6">` rows reading "BUY BAND ENDS" / "SELL LINE" after the
+    horizon's top_n and exit-rank rows, idempotently (removes its own
+    previously-inserted rows before recomputing, since sort/filter/horizon-switch
+    all call it repeatedly). The `#band-legend` swatch legend is gone —
+    redundant now that the rows self-label.
+  - Wired into the scan-history view (`showScan()`), which genuinely lacked
+    any band cut before this — its rows deliberately carry no `data-rank`
+    attribute, so the shared `applyBandBoundaries()` DOM pass can never find
+    them; `scan-history.js` now computes its own cut positions from its
+    in-memory rank data and builds the row markup via a new shared
+    `window.buildBandCutRowHtml()`. The signed-in path needed **no new
+    wiring** — `applyHorizonBadges()` (already triggered by
+    `sm:leaderboard-upgraded`/`sm:positions-changed`) already called
+    `applyBandBoundaries()` at its own end; the plan's premise that this was
+    missing was a research error, caught and reverted by whole-branch review.
+  - **Real, browser-verified bugs found and fixed during implementation:**
+    a first-pass `calc(100% - 260px)` rule width wrapped the note onto two
+    lines (switched to a flex `<div>` wrapper inside the `<td>`, not the
+    `<td>` itself — avoiding Stage 1's flex-collapse trap); the band-cut
+    text was resetting to English on every sort/filter for a Swedish reader,
+    since `applyBandBoundaries()` reruns far more often than the
+    once-per-row-rebuild cases the existing `data-i18n`-and-wait pattern was
+    designed for — fixed with a new `window.translate(key, fallbackEn)`
+    helper that bakes in the correct language at build time; and the mobile
+    pinned-column CSS (`#leaderboard-table td:nth-child(1)`) was catching the
+    new row's single `<td>`, pinning a full-width banner into a 44px sticky
+    box — fixed the same way `.breakdown-row` already handles this,
+    `position: static` on `.band-cut-row td`.
 
 - **Leaderboard table redesign — Stage 1 of the leaderboard redesign**
   (2026-08-19). Design spec:

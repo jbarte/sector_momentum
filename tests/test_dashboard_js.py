@@ -1238,7 +1238,8 @@ def test_old_band_edge_classes_are_gone():
 def test_inserts_a_row_not_a_class():
     js = _apply_band_boundaries_js()
     assert "band-cut-row" in js
-    assert "insertAdjacentElement" in js or "insertBefore" in js or ".after(" in js
+    assert ("insertAdjacentElement" in js or "insertAdjacentHTML" in js
+            or "insertBefore" in js or ".after(" in js)
 
 
 def test_removes_existing_cut_rows_before_reinserting():
@@ -1290,25 +1291,79 @@ def test_band_cut_i18n_keys_updated():
         assert f"{key}:" in i18n, f"missing SV translation for new key {key}"
 
 
-def test_leaderboard_upgraded_event_also_draws_band_boundaries():
-    """Stage 1 wired sm:leaderboard-upgraded/sm:positions-changed to
-    applyHorizonBadges only — research for the Stage 2 plan found neither
-    event ever triggered applyBandBoundaries, so signed-in readers never saw
-    a band cut of any kind, invisible or otherwise."""
+def test_band_cut_text_bakes_in_the_current_language():
+    """applyBandBoundaries() reruns on every sort/filter/horizon-switch, not
+    once per row-rebuild — hardcoding English + data-i18n and waiting for the
+    next language toggle (auth.js's UNBUYABLE_BADGE pattern) would visibly
+    reset a Swedish reader's translated band-cut text back to English on
+    their very next interaction. Browser-verified live by whole-branch
+    review: localStorage.lang='sv', sort/filter the table, watch 'BUY BAND
+    ENDS' reappear in English. buildBandCutRowHtml() must bake in the
+    correct text for the current language at build time via
+    window.translate(), not just tag it data-i18n and hope."""
+    js = _apply_band_boundaries_js()
+    # _apply_band_boundaries_js() only captures applyBandBoundaries() itself;
+    # buildBandCutRowHtml() is defined just above it in the same script block.
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    assert re.search(
-        r"addEventListener\(['\"]sm:leaderboard-upgraded['\"],\s*applyBandBoundaries\)",
-        text,
-    ), "sm:leaderboard-upgraded must also trigger applyBandBoundaries"
+    start = text.index("function buildBandCutRowHtml")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = text[start:i + 1]
+    assert "window.translate" in fn_body, (
+        "buildBandCutRowHtml() must call window.translate() to bake in the "
+        "current language's text, not just emit English + data-i18n"
+    )
+
+
+def test_apply_horizon_badges_calls_apply_band_boundaries():
+    """applyHorizonBadges() must keep calling applyBandBoundaries() at its own
+    end — this is what already gives the signed-in path (sm:leaderboard-upgraded/
+    sm:positions-changed, both wired to applyHorizonBadges) a band cut with no
+    separate listener needed. A Stage 2 plan draft assumed this call was
+    missing and added a redundant second listener; whole-branch review found
+    the call already there on main and the addition was reverted. This test
+    guards the fact the (correct) revert depends on."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function applyHorizonBadges()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = text[start:i + 1]
+    assert "applyBandBoundaries();" in fn_body
 
 
 def test_scan_history_also_draws_band_boundaries():
-    """Same gap as the signed-in view: showScan() rebuilds rows but never
-    called applyBandBoundaries()."""
+    """Same gap as the signed-in view: showScan() rebuilt rows with no band
+    cut of any kind. Cannot call applyBandBoundaries() directly the way the
+    signed-in view does — that function is a DOM-attribute-driven pass keyed
+    on tr.dataset.rank, and scan-history rows deliberately carry no
+    data-rank attribute (railClass's comment in this same file explains
+    why). showScan() must compute its own cut positions from its in-memory
+    rank data and build the row markup via the shared
+    window.buildBandCutRowHtml() instead."""
     js = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
-    assert "applyBandBoundaries" in js, (
-        "showScan() must call applyBandBoundaries() after rebuilding rows, "
-        "the same way it already sets the in-band rail (Stage 1)"
+    assert "buildBandCutRowHtml" in js, (
+        "showScan() must build band-cut-row markup via "
+        "window.buildBandCutRowHtml(), the same function applyBandBoundaries() "
+        "uses, computing its own cut positions since it cannot rely on that "
+        "shared DOM pass (see this test's docstring)"
     )
 
 
