@@ -33,7 +33,8 @@ def test_compute_rank_trajectories_produces_theme_prefixed_keys():
 
 def test_one_builder_produces_rows_for_every_cohort():
     """Theme rows now live in `scores` with region='THEME', so the sector row
-    builder handles them — same shape, including region and sentiment_score."""
+    builder handles them — same shape, including region and the merged
+    Level/Change cell."""
     import pandas as pd
     from dashboard.rows import _build_leaderboard_rows
 
@@ -50,7 +51,7 @@ def test_one_builder_produces_rows_for_every_cohort():
     by_region = {r["region"]: r for r in rows}
     assert set(by_region) == {"US", "THEME"}
     assert by_region["THEME"]["sector"] == "Space"
-    assert "sentiment_score" in by_region["THEME"]
+    assert "level_change_bars" in by_region["THEME"]
 
 
 def test_theme_row_builder_is_gone():

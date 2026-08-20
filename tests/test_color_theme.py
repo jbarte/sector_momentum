@@ -175,8 +175,9 @@ _FOUNDATION = _PROJECT_ROOT / "dashboard" / "templates" / "css" / "_foundation.c
 
 _SEMANTIC_TOKENS = [
     "--canvas", "--surface", "--bg-raised", "--bg-sunken",
-    "--fg1", "--fg2", "--fg3", "--fg4",
-    "--border", "--border-soft", "--up", "--down", "--brand-strong",
+    "--fg1", "--fg2", "--fg3", "--fg4", "--fg5",
+    "--border", "--border-soft", "--border-hair",
+    "--up", "--down", "--up-ink", "--down-ink", "--zero-line", "--brand-strong",
     "--ok", "--warn", "--err",
     "--shadow-xs", "--shadow-sm", "--shadow-card",
 ]
@@ -274,13 +275,17 @@ _BG_RAISED_LIGHT = "#FAF7F0"
 _BG_RAISED_DARK = "#262218"
 _UP_LIGHT = "#5A6F49"
 _UP_DARK = "#A9C48E"
+# The badge's TEXT is --up-ink, not --up (darkened for contrast in light;
+# aliased straight to --up in dark). Same hand-sync caveat as above.
+_UP_INK_LIGHT = "#3F4F34"
+_UP_INK_DARK = _UP_DARK
 
 def _rank_badge_in_buy_band_tint_pct() -> int:
     """`.rank-badge.in-buy-band`'s tint percentage in the color-mix idiom, read
     straight from the source CSS so this test tracks the real rule instead
     of a copy-pasted number:
       background: color-mix(in srgb, var(--up) <PCT>%, transparent);
-      color: var(--up);
+      color: var(--up-ink);
     `.rank-badge` sits inside `.table-wrap`, which sets
     `background: var(--bg-raised)` with no intervening tbody/tr/td
     background override, so the tint composites against `--bg-raised` in
@@ -293,16 +298,16 @@ def _rank_badge_in_buy_band_tint_pct() -> int:
 
 
 def test_rank_badge_in_buy_band_contrast_meets_wcag_aa():
-    """`.rank-badge.in-buy-band` text (var(--up), opaque) on its tinted background
-    (color-mix(in srgb, var(--up) N%, transparent) composited over the
-    table's real container background, --bg-raised) must clear the 4.5:1
+    """`.rank-badge.in-buy-band` text (var(--up-ink), opaque) on its tinted
+    background (color-mix(in srgb, var(--up) N%, transparent) composited over
+    the table's real container background, --bg-raised) must clear the 4.5:1
     WCAG AA minimum for normal-size text, in both themes."""
     pct = _rank_badge_in_buy_band_tint_pct()
     light_bg = _mix_over(_UP_LIGHT, pct, _BG_RAISED_LIGHT)
     dark_bg = _mix_over(_UP_DARK, pct, _BG_RAISED_DARK)
 
-    light_ratio = _contrast_ratio(_UP_LIGHT, light_bg)
-    dark_ratio = _contrast_ratio(_UP_DARK, dark_bg)
+    light_ratio = _contrast_ratio(_UP_INK_LIGHT, light_bg)
+    dark_ratio = _contrast_ratio(_UP_INK_DARK, dark_bg)
 
     assert light_ratio >= 4.5, (
         f".rank-badge.in-buy-band light-theme contrast is {light_ratio:.2f}:1 "
@@ -321,43 +326,80 @@ _FG4_LIGHT = "#6F674F"
 _FG4_DARK = "#A59A80"
 
 
-def _traj_flat_tint_pct() -> int:
-    """`.traj-badge.traj-flat`'s tint percentage in the color-mix idiom, read
-    from the source CSS rather than copy-pasted, mirroring
-    `_rank_badge_in_buy_band_tint_pct`:
-      color: var(--fg4);
-      background: color-mix(in srgb, var(--fg4) <PCT>%, transparent);
-    Sits in the same `.table-wrap` (`--bg-raised`) container as
-    `.rank-badge.in-buy-band`, so the tint composites against `--bg-raised` too."""
+# Hardcoded hex for `--border-soft`/light `--surface` (dark `--surface` is
+# `_SURFACE_DARK` below). `--border-hair` is itself `color-mix(in srgb,
+# var(--border-soft) 60%, var(--surface))` in _foundation.css.j2, so it's
+# recomputed from these two rather than hardcoding its resolved colour a
+# third time.
+_BORDER_SOFT_LIGHT = "#EDE6D6"
+_BORDER_SOFT_DARK = "#2A2619"
+_SURFACE_LIGHT = "#FFFFFF"
+
+
+def _traj_flat_background_is_border_hair() -> None:
+    """Assert `.traj-badge.traj-flat`'s background is the fixed --border-hair
+    token, so this test still tracks the real rule instead of assuming it.
+    The 2026-08-18 leaderboard redesign swapped this badge off its own
+    color-mix(var(--fg4) N%) tint onto the shared --border-hair token used
+    for other quiet chrome."""
     text = _CSS_DIR.joinpath("_tables.css.j2").read_text()
-    m = re.search(
-        r"\.traj-badge\.traj-flat\s*\{[^}]*color-mix\(in srgb, var\(--fg4\) (\d+)%, transparent\)",
-        text,
+    m = re.search(r"\.traj-badge\.traj-flat\s*\{[^}]*\}", text)
+    assert m, ".traj-badge.traj-flat rule not found in _tables.css.j2"
+    assert "var(--border-hair)" in m.group(0), (
+        ".traj-badge.traj-flat background is not the expected var(--border-hair)"
     )
-    assert m, ".traj-badge.traj-flat background is not the expected color-mix(var(--fg4) N%) idiom"
-    return int(m.group(1))
 
 
 def test_traj_flat_contrast_meets_wcag_aa():
-    """`.traj-badge.traj-flat` text (var(--fg4), opaque) on its tinted
-    background (color-mix(in srgb, var(--fg4) N%, transparent) composited
-    over --bg-raised) must clear the 4.5:1 WCAG AA minimum in both themes.
+    """`.traj-badge.traj-flat` text (var(--fg4), opaque) on its background
+    (var(--border-hair)) must clear the 4.5:1 WCAG AA minimum in both themes.
     Regression guard for the dark-theme failure (4.33:1) Task 9's
-    verification pass found and fixed by brightening dark --fg4."""
-    pct = _traj_flat_tint_pct()
-    light_bg = _mix_over(_FG4_LIGHT, pct, _BG_RAISED_LIGHT)
-    dark_bg = _mix_over(_FG4_DARK, pct, _BG_RAISED_DARK)
+    verification pass found and fixed by brightening dark --fg4; re-derived
+    for --border-hair (rather than a color-mix(var(--fg4) N%) tint) after the
+    2026-08-18 redesign moved this badge onto that token."""
+    _traj_flat_background_is_border_hair()
+    light_bg = _mix_over(_BORDER_SOFT_LIGHT, 60, _SURFACE_LIGHT)
+    dark_bg = _mix_over(_BORDER_SOFT_DARK, 60, _SURFACE_DARK)
 
     light_ratio = _contrast_ratio(_FG4_LIGHT, light_bg)
     dark_ratio = _contrast_ratio(_FG4_DARK, dark_bg)
 
     assert light_ratio >= 4.5, (
         f".traj-badge.traj-flat light-theme contrast is {light_ratio:.2f}:1 "
-        f"at {pct}% tint, below the 4.5:1 AA minimum"
+        f"against --border-hair, below the 4.5:1 AA minimum"
     )
     assert dark_ratio >= 4.5, (
         f".traj-badge.traj-flat dark-theme contrast is {dark_ratio:.2f}:1 "
-        f"at {pct}% tint, below the 4.5:1 AA minimum"
+        f"against --border-hair, below the 4.5:1 AA minimum"
+    )
+
+
+# Hardcoded hex for `--fg5` and surface backgrounds, in both themes.
+# Must be kept in sync with _foundation.css.j2 if --fg5, --surface, or
+# --bg-raised ever change.
+_FG5_LIGHT = "#8A8068"
+_FG5_DARK = "#9E9179"
+_SURFACE_DARK = "#201D15"
+
+
+def test_fg5_contrast_meets_wcag_aa_dark_mode():
+    """--fg5 dark-mode value (#9E9179, used for 10-11px eyebrow/micro-row labels)
+    must clear the 4.5:1 WCAG AA minimum against both dark-mode backgrounds
+    (--surface and --bg-raised). Regression guard for the dark-theme failure
+    (3.52:1 with brief's candidate #7C7256) Task 1's verification pass found
+    and fixed by brightening --fg5."""
+    # Check against --surface (primary background)
+    ratio_vs_surface = _contrast_ratio(_FG5_DARK, _SURFACE_DARK)
+    assert ratio_vs_surface >= 4.5, (
+        f"--fg5 ({_FG5_DARK}) on --surface ({_SURFACE_DARK}) is "
+        f"{ratio_vs_surface:.2f}:1 in dark mode, below the 4.5:1 AA minimum"
+    )
+
+    # Check against --bg-raised (secondary/card background)
+    ratio_vs_bg_raised = _contrast_ratio(_FG5_DARK, _BG_RAISED_DARK)
+    assert ratio_vs_bg_raised >= 4.5, (
+        f"--fg5 ({_FG5_DARK}) on --bg-raised ({_BG_RAISED_DARK}) is "
+        f"{ratio_vs_bg_raised:.2f}:1 in dark mode, below the 4.5:1 AA minimum"
     )
 
 
@@ -406,14 +448,45 @@ def _assert_badge_contrast(name: str, fg_light: str, fg_dark: str, pct: int) -> 
     )
 
 
+# Hardcoded hex for `--down-ink` in light mode (see `_UP_INK_LIGHT` above for
+# `--up-ink`). Dark mode is not listed separately: --up-ink/--down-ink resolve
+# to var(--up)/var(--down) in the dark palette (_foundation.css.j2), so
+# _UP_DARK/_DOWN_DARK above already cover it. Light mode differs — the
+# 2026-08-18 redesign unified the trend badge's ink under these Task-1 tokens,
+# which are darker/more saturated than the raw --up/--down used for the
+# badges' own background tint.
+_DOWN_INK_LIGHT = "#8E4B31"
+
+
+def _assert_ink_badge_contrast(name, tint_light, tint_dark, ink_light, ink_dark, pct):
+    """Like `_assert_badge_contrast`, but for badges whose text colour
+    (--up-ink/--down-ink) differs from the colour their background tint is
+    mixed from (--up/--down) in light mode — introduced by the 2026-08-18
+    leaderboard redesign's trend-badge ink unification."""
+    light_bg = _mix_over(tint_light, pct, _BG_RAISED_LIGHT)
+    dark_bg = _mix_over(tint_dark, pct, _BG_RAISED_DARK)
+    light_ratio = _contrast_ratio(ink_light, light_bg)
+    dark_ratio = _contrast_ratio(ink_dark, dark_bg)
+    assert light_ratio >= 4.5, (
+        f"{name} light-theme contrast is {light_ratio:.2f}:1 at {pct}% tint, "
+        f"below the 4.5:1 AA minimum"
+    )
+    assert dark_ratio >= 4.5, (
+        f"{name} dark-theme contrast is {dark_ratio:.2f}:1 at {pct}% tint, "
+        f"below the 4.5:1 AA minimum"
+    )
+
+
 def test_traj_strong_up_contrast_meets_wcag_aa():
     """Regression guard for the pre-existing failure the 2026-08-11 audit
     found: `.traj-badge.traj-strong_up` at its original 15% tint was 4.26:1
-    in light mode. Dropped to 10% — the largest step in the 8/10/12/15%
-    family already used across these badges that still clears 4.5:1 in both
-    themes."""
+    in light mode. The 2026-08-18 redesign moved this badge to a 14% tint of
+    --up with --up-ink text (darker than raw --up in light mode), which
+    clears 4.5:1 in both themes."""
     pct = _tint_pct("_tables.css.j2", ".traj-badge.traj-strong_up", "--up")
-    _assert_badge_contrast(".traj-badge.traj-strong_up", _UP_LIGHT, _UP_DARK, pct)
+    _assert_ink_badge_contrast(
+        ".traj-badge.traj-strong_up", _UP_LIGHT, _UP_DARK, _UP_INK_LIGHT, _UP_DARK, pct
+    )
 
 
 def test_setup_badge_entry_contrast_meets_wcag_aa():
@@ -425,19 +498,24 @@ def test_setup_badge_entry_contrast_meets_wcag_aa():
 
 def test_traj_down_contrast_meets_wcag_aa():
     """`--down` (terra-500) needs a materially lower tint than `--up` for the
-    same contrast target: 8% — already the smallest step in the
-    8/10/12/15% family other badges share — still failed at 4.28:1 light, so
-    this one needed a tint below any step already in use elsewhere rather
-    than a swap among them."""
+    same contrast target — already the smallest step in the 8/10/12/15%
+    family other badges share. The 2026-08-18 redesign keeps this badge at
+    8% tint of --down with --down-ink text (darker than raw --down in light
+    mode), which clears 4.5:1 in both themes."""
     pct = _tint_pct("_tables.css.j2", ".traj-badge.traj-down", "--down")
-    _assert_badge_contrast(".traj-badge.traj-down", _DOWN_LIGHT, _DOWN_DARK, pct)
+    _assert_ink_badge_contrast(
+        ".traj-badge.traj-down", _DOWN_LIGHT, _DOWN_DARK, _DOWN_INK_LIGHT, _DOWN_DARK, pct
+    )
 
 
 def test_traj_strong_down_contrast_meets_wcag_aa():
-    """Same `--down` ceiling as traj-down above, at the badge's own original
-    15% tint (3.90:1 light) rather than 8%."""
+    """Same `--down` ceiling as traj-down above. The 2026-08-18 redesign
+    moved this badge to a 13% tint of --down with --down-ink text, which
+    clears 4.5:1 in both themes."""
     pct = _tint_pct("_tables.css.j2", ".traj-badge.traj-strong_down", "--down")
-    _assert_badge_contrast(".traj-badge.traj-strong_down", _DOWN_LIGHT, _DOWN_DARK, pct)
+    _assert_ink_badge_contrast(
+        ".traj-badge.traj-strong_down", _DOWN_LIGHT, _DOWN_DARK, _DOWN_INK_LIGHT, _DOWN_DARK, pct
+    )
 
 
 def test_setup_badge_exit_contrast_meets_wcag_aa():

@@ -201,17 +201,17 @@
     <table id="leaderboard-table">
       <thead>
         <tr>
+          {#- "Data" was dropped 2026-08-12 (with sentiment weighted 0 by default
+              the composite IS the data score); "Sentiment" was dropped 2026-08-19
+              with the 6-column restructure — sentiment is alpha and excluded from
+              the ranking, so the column was "—" in every row. Level and Change
+              merged into one stacked-bar cell in the same change. -#}
           <th onclick="sortTable(0)" data-col="0" tabindex="0" data-i18n="col_rank">#</th>
           <th onclick="sortTable(1)" data-col="1" tabindex="0" data-i18n="col_sector">Theme</th>
           <th onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_composite">Composite</th>
-          <th onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_level">Level</th>
-          <th onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_change">Change</th>
-          {#- "Data" was dropped 2026-08-12: with sentiment weighted 0 by default
-              the composite IS the data score, so the column repeated its
-              neighbour verbatim in every row. -#}
-          <th onclick="sortTable(5)" data-col="5" tabindex="0" data-i18n="col_sentiment">Sentiment</th>
-          <th onclick="sortTable(6)" data-col="6" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
-          <th data-col="7" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
+          <th onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_levelchange">Level / Change</th>
+          <th onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
+          <th data-col="5" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
         </tr>
       </thead>
       <tbody>
@@ -219,36 +219,44 @@
         <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"{% if row.unbuyable %} data-unbuyable="1"{% endif %}
             data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
+            data-level="{{ row._raw_level if row._raw_level is not none else '' }}"
             data-rank="{{ row.rank }}"
-            tabindex="0">
-          <td class="rank-cell">
-            <span class="rank-badge{% if row.in_buy_band %} in-buy-band{% endif %}">{{ row.rank }}</span>
-            <span class="chevron" id="chev-{{ row.sector_id }}">▶</span>
+            tabindex="0" aria-expanded="false">
+          <td class="rank-cell{% if row.in_buy_band %} in-band-rail{% endif %}">
+            <span class="rank-badge{% if row.in_buy_band %} in-buy-band{% endif %}{% if row.rank == 1 %} rank-1{% endif %}">{{ row.rank }}</span>
           </td>
           {#- Never "hold": the build has no reader and so no holdings. When the
               badge is gated, row.setup is None for everyone and applyHorizonBadges()
               writes the real badge once the session and holdings are known. -#}
-          <td>{{ row.sector }}{% if row.unbuyable %}<span class="unbuyable-badge" data-i18n="badge_unbuyable" data-i18n-title="unbuyable_tip" title="No UCITS equivalent exists, so this cannot be bought from an EU account. It is still scored because it shapes how every other theme ranks.">⊘ Not buyable</span>{% endif %}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}</td>
+          {#- Whitespace-controlled so the spans are emitted back-to-back with no
+              text nodes between them: .theme-cell spaces them with margin alone
+              (see _tables.css.j2), and a stray space would widen just the pairs
+              this template happens to separate, leaving the baked rows spaced
+              differently from the auth.js / scan-history.js ones. -#}
+          <td class="theme-cell"
+            >{#- -#}<span class="theme-name">{{ row.sector }}</span>{#-
+            -#}{% if row.ticker %}<span class="theme-ticker">{{ row.ticker }}</span>{% endif %}{#-
+            -#}{% if row.unbuyable %}<span class="unbuyable-badge" data-i18n="badge_unbuyable" data-i18n-title="unbuyable_tip" title="No UCITS equivalent exists, so this cannot be bought from an EU account. It is still scored because it shapes how every other theme ranks.">⊘ not buyable in EU</span>{% endif %}{#-
+            -#}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}{#-
+          -#}</td>
           <td class="composite-cell">{{ row.composite_bar | safe }}</td>
-          <td>{{ row.level_score }}</td>
-          <td>{{ row.change_score }}</td>
-          <td class="sentiment-cell">{{ row.sentiment_score }}</td>
+          <td data-sort-value="{{ row._raw_level if row._raw_level is not none else '' }}">{{ row.level_change_bars | safe }}</td>
           <td class="delta-cell">
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
           <td>
-            <span class="traj-badge traj-{{ row.trajectory_state }}">{{ row.trajectory_label }}</span>
+            <span class="traj-badge traj-{{ row.trajectory_state }}"><span class="traj-glyph">{{ row.trajectory_label }}</span> <span class="traj-word">{{ row.trajectory_word }}</span></span>
           </td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
-          <td colspan="8">{{ row.breakdown_html | safe }}</td>
+          <td colspan="6">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% endfor %}
         {% if not has_any_rows %}
-        <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
+        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
-          <td colspan="8" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
+          <td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
         </tr>
       </tbody>
     </table>
@@ -615,9 +623,16 @@ function applyHorizonBadges() {
     // Composite, where the cut lines are deliberately withdrawn. Ungated on
     // purpose — it marks where a rank sits, which top_n already makes public,
     // rather than telling a signed-in reader what to do.
+    // The rank cell's left rail is the same fact as the badge tint, so it is
+    // toggled from the same already-computed condition. The template bakes an
+    // initial `in-band-rail` for the default horizon; without this the rail
+    // would go stale the moment a reader switches horizon while the badge
+    // beside it re-tinted.
     var rankBadge = tr.cells[0] ? tr.cells[0].querySelector('.rank-badge') : null;
     if (rankBadge && window.Rescore && window.Rescore.inBuyBand) {
-      rankBadge.classList.toggle('in-buy-band', window.Rescore.inBuyBand(rank, h));
+      var inBand = window.Rescore.inBuyBand(rank, h);
+      rankBadge.classList.toggle('in-buy-band', inBand);
+      if (tr.cells[0]) { tr.cells[0].classList.toggle('in-band-rail', inBand); }
     }
 
     var nameCell = tr.cells[1];
@@ -781,6 +796,12 @@ var COHORTS = {{ cohorts_json | js_json }};   // [{region, label}, ...]
 var UNBUYABLE = {{ unbuyable_json | js_json }};
 window.UNBUYABLE = UNBUYABLE;
 
+// Theme name -> US ETF ticker (config/themes.yaml). Same reason as UNBUYABLE
+// above: auth.js rebuilds the leaderboard from v_recent_scores, which carries
+// no ticker column.
+var THEME_TICKERS = {{ theme_tickers_json | js_json }};
+window.THEME_TICKERS = THEME_TICKERS;
+
 // Light->dark hex map for the baked Plotly figures (Task 7 consumes this).
 var CHART_DARK = {{ chart_dark_json | js_json }};
 window.CHART_DARK = CHART_DARK;
@@ -928,10 +949,10 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
 // ----- Breakdown toggle -----
 function toggleBreakdown(id) {
   var bdRow = document.getElementById('bd-' + id);
-  var chev  = document.getElementById('chev-' + id);
+  var row   = document.querySelector('.leaderboard-row[data-sector-id="' + id + '"]');
   if (!bdRow) return;
   bdRow.classList.toggle('open');
-  if (chev) chev.textContent = bdRow.classList.contains('open') ? '▼' : '▶';
+  if (row) row.setAttribute('aria-expanded', bdRow.classList.contains('open') ? 'true' : 'false');
 }
 
 // ----- Sortable table -----
@@ -996,8 +1017,10 @@ function _collapseBreakdown(sectorId) {
   if (!sectorId) return;
   var bd = document.getElementById('bd-' + sectorId);
   if (bd) bd.classList.remove('open');
-  var chev = document.getElementById('chev-' + sectorId);
-  if (chev) chev.textContent = '▶';
+  // Keep the row's disclosure state in step, exactly as toggleBreakdown() does
+  // — a filter that collapses the panel must not leave aria-expanded="true".
+  var row = document.querySelector('.leaderboard-row[data-sector-id="' + sectorId + '"]');
+  if (row) row.setAttribute('aria-expanded', 'false');
 }
 
 function _updateFilterCount(shown, total) {
@@ -1094,14 +1117,29 @@ function sortTable(col) {
   rows.sort(function(a, b) {
     var aCell = a.querySelectorAll('td')[col];
     var bCell = b.querySelectorAll('td')[col];
+
+    // Column 3 (Level / Change) holds two numbers in one cell's text, which
+    // the generic innerText-parse below cannot disambiguate — read the
+    // explicit sort key instead (decided: sorts by Level).
+    if (col === 3) {
+      var aVal = aCell ? parseFloat(aCell.dataset.sortValue) : NaN;
+      var bVal = bCell ? parseFloat(bCell.dataset.sortValue) : NaN;
+      if (!isNaN(aVal) && !isNaN(bVal)) return (aVal - bVal) * _sortDir;
+      if (isNaN(aVal) && isNaN(bVal)) return 0;
+      return (isNaN(aVal) ? -1 : 1) * _sortDir;
+    }
+
     var aText = aCell ? aCell.innerText.trim() : '';
     var bText = bCell ? bCell.innerText.trim() : '';
 
-    aText = aText.replace(/[▲▼▶]/g, '').trim();
-    bText = bText.replace(/[▲▼▶]/g, '').trim();
+    aText = aText.replace(/[▲▼]/g, '').trim();
+    bText = bText.replace(/[▲▼]/g, '').trim();
 
-    var aNum = parseFloat(aText.replace(/[+,]/g, ''));
-    var bNum = parseFloat(bText.replace(/[+,]/g, ''));
+    // U+2212 back to an ASCII minus first: the signed format the composite and
+    // Level/Change cells use renders negatives with a real minus sign, which
+    // parseFloat does not understand.
+    var aNum = parseFloat(aText.replace(/[+,−]/g, function(m) { return m === '−' ? '-' : ''; }));
+    var bNum = parseFloat(bText.replace(/[+,−]/g, function(m) { return m === '−' ? '-' : ''; }));
 
     if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * _sortDir;
     return aText.localeCompare(bText) * _sortDir;

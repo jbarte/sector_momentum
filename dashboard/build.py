@@ -72,6 +72,7 @@ from dashboard.reports import (                      # noqa: E402, F401
     _generate_scan_reports,
 )
 from dashboard.rows import (                         # noqa: E402, F401
+    TRAJECTORY_WORDS,
     _build_leaderboard_rows,
     _compute_rank_trajectories,
     _compute_setup,
@@ -102,9 +103,13 @@ from dashboard.validation import (                    # noqa: E402, F401
 #     index.html.j2 early-returns when the control is absent, so a reader who
 #     once enabled it cannot have it silently re-applied from localStorage on the
 #     next visit. CSS hiding alone would leave that path live.
-#   - the leaderboard's Sentiment column is hidden by CSS rather than removed.
-#     Column indices are positional (sortTable(6), data-col, nth-child), so
-#     dropping the cell would shift every reference after it.
+#   - the leaderboard's Sentiment column is GONE, not hidden — the 2026-08-19
+#     6-column restructure removed the cell outright and renumbered every
+#     positional reference after it (sortTable() indices, data-col, colspans).
+#     Restoring the column now costs more than undoing a CSS rule: a new
+#     `<th>`, a cell added back to all three row-builders (dashboard/rows.py,
+#     auth.js's renderLatestRows(), scan-history.js), an i18n key, and
+#     renumbering sortTable()/data-col plus every colspan that counts columns.
 #
 # The STORED composite has never included sentiment — scan.py passes
 # blend_sentiment=False — so this governs presentation and the client-side blend
@@ -390,6 +395,7 @@ def main() -> None:
         traj = trajectories.get(key, {"label": "→", "state": "flat"})
         row["trajectory_label"] = traj["label"]
         row["trajectory_state"] = traj["state"]
+        row["trajectory_word"]  = TRAJECTORY_WORDS.get(traj["state"], "flat")
         # Gating has to happen here, not in the template: `setup` also reaches
         # the reader through data-setup on the row and through data.json's
         # theme rows, so suppressing only the rendered span would leak it twice.
@@ -398,6 +404,12 @@ def main() -> None:
         # prompt an entry it knows the reader cannot act on. Same config flag
         # the backtest reads, so the two describe one strategy.
         row["unbuyable"] = is_unbuyable(row["region"], row["sector"], _themes_cfg)
+        # The US ETF ticker for this theme, shown beside the theme name in the
+        # leaderboard's Theme cell. Sourced from config/themes.yaml, not from
+        # the scores table, which carries no ticker.
+        row["ticker"] = (
+            _themes_cfg.get("themes", {}).get(row["sector"], {}).get("ticker", "")
+        )
         # Always computed, even when gated: _compute_setup also sets
         # `in_buy_band`, which drives the highlighted rank badge and is NOT a
         # signed-in feature — top_n is already public in the page's HORIZONS,
@@ -537,6 +549,13 @@ def main() -> None:
         # may be a smaller universe than the signed-in reader sees. See
         # breakdown.unbuyable_names().
         "unbuyable_json": _json.dumps(unbuyable_names(_themes_cfg)),
+        # Theme name -> US ETF ticker, for the signed-in rebuild (auth.js),
+        # which sources rows from v_recent_scores and so has no ticker of its
+        # own. Same config-sourced pattern as unbuyable_json above.
+        "theme_tickers_json": _json.dumps({
+            name: (cfg or {}).get("ticker", "")
+            for name, cfg in (_themes_cfg.get("themes") or {}).items()
+        }),
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
         "has_any_rows": bool(leaderboard_rows),
         "badges_gated": badges_gated,

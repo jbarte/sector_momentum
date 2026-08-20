@@ -12,13 +12,14 @@ override); .traj-badge's `em` is relative to its parent table cell, measured
 at exactly 12px; .chevron and the sort-direction arrows are `em` relative to
 their own `thead th`/table-cell ancestor.
 
-Four selectors are DELIBERATELY excluded from the floor: three are icon
-glyphs read by shape, not parsed as text (.chevron, the thead sort-direction
-arrows, .cc-info's info-circle), and .alpha-badge is smaller than body text
-on purpose (its own code comment: "Deliberately the quietest thing in the
-command bar"). Each is pinned below with its own assertion, not silently
-skipped, so a future change to any of them is a deliberate edit to this
-test, not a silent gap.
+Several selectors are DELIBERATELY excluded from the floor: icon glyphs read
+by shape rather than parsed as text (the thead sort-direction arrows,
+.cc-info's info-circle), and quiet secondary labels that must not compete
+with what they qualify (.alpha-badge — its own code comment: "Deliberately
+the quietest thing in the command bar" — plus .lc-label, .theme-ticker and,
+since the 2026-08-19 leaderboard restructure, `thead th`). Each is pinned
+below with its own assertion, not silently skipped, so a future change to any
+of them is a deliberate edit to this test, not a silent gap.
 """
 import re
 from pathlib import Path
@@ -56,10 +57,6 @@ def _resolved_px(value: str, context_px: float = _ROOT_PX) -> float:
 # ---------------------------------------------------------------------------
 # In scope: always-visible chrome, floor = 12px
 # ---------------------------------------------------------------------------
-
-def test_table_header_meets_floor():
-    css = _css("_tables.css.j2")
-    assert _resolved_px(_rule_font_size(css, "thead th")) >= 12
 
 
 def test_rank_delta_arrows_meet_floor():
@@ -222,21 +219,44 @@ def test_showing_badge_meets_floor():
 # Deliberately exempt — pinned, not ignored
 # ---------------------------------------------------------------------------
 
-def test_chevron_is_deliberately_exempt_from_the_floor():
-    """Row-expand indicator — recognized by shape, not read as text."""
+def test_chevron_rule_is_gone_with_its_element():
+    """The row-expand chevron was removed by the 2026-08-19 leaderboard
+    restructure — the row itself is the disclosure control now. Its CSS rule
+    went with it, so this pins the DELETION rather than the old exemption; a
+    reintroduced `.chevron` should be a deliberate edit to this test."""
     css = _css("_tables.css.j2")
-    # em relative to its table-cell ancestor, measured live at 13px.
-    assert _resolved_px(_rule_font_size(css, ".chevron"), context_px=13) < 12
+    assert not re.search(r"\.chevron\s*[,{]", css)
+
+
+def test_table_header_is_deliberately_exempt_from_the_floor():
+    """Column headers dropped to 11px in the 2026-08-19 leaderboard restructure
+    (sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md).
+    They are uppercase, wide-tracked labels for columns whose CONTENT carries
+    the reading weight — the redesign deliberately quiets the header so the row
+    doesn't compete with it. Same category as .alpha-badge: below the floor on
+    purpose, pinned here rather than silently skipped.
+
+    NOTE: this reverses the 2026-08-15 sub-12px audit, which raised `thead th`
+    from 10px to 12px. Flagged for review with the restructure."""
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, "thead th")) < 12
+
+
+def test_theme_ticker_is_deliberately_exempt_from_the_floor():
+    """The US ETF ticker beside a theme name — a quiet secondary identifier
+    that must not compete with the 15px theme name it qualifies. Same
+    reasoning as .alpha-badge."""
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".theme-ticker")) < 12
 
 
 def test_sort_direction_arrows_are_deliberately_exempt_from_the_floor():
     """▲/▼ appended after a column header's own text via ::after — a
     direction glyph, not a second piece of reading text. em is relative to
-    `thead th`'s OWN font-size, which Task 2 raises to 12px, so context_px
-    here is the POST-FIX th value, not th's original 10px."""
+    `thead th`'s OWN font-size, 11px since the 2026-08-19 restructure."""
     css = _css("_tables.css.j2")
-    assert _resolved_px(_rule_font_size(css, "thead th.sort-asc::after"), context_px=12) < 12
-    assert _resolved_px(_rule_font_size(css, "thead th.sort-desc::after"), context_px=12) < 12
+    assert _resolved_px(_rule_font_size(css, "thead th.sort-asc::after"), context_px=11) < 12
+    assert _resolved_px(_rule_font_size(css, "thead th.sort-desc::after"), context_px=11) < 12
 
 
 def test_market_context_info_glyph_is_deliberately_exempt_from_the_floor():
@@ -251,3 +271,11 @@ def test_alpha_badge_is_deliberately_exempt_from_the_floor():
     A 12px floor would defeat that documented intent."""
     css = _css("_chrome.css.j2")
     assert _resolved_px(_rule_font_size(css, ".alpha-badge")) < 12
+
+
+def test_level_change_label_is_deliberately_exempt_from_the_floor():
+    """Row headers for the Level/Change merged cell — tiny caps label, same
+    10px precedent as .sig-title elsewhere in the table. Deliberately small
+    to fit the compact cell layout."""
+    css = _css("_tables.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".lc-label")) < 12

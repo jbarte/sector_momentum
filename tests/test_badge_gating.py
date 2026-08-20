@@ -30,17 +30,19 @@ def _rows():
     """Two rows spanning both badge bands under the default horizon."""
     return [
         {"key": "THEME|Uranium", "sector_id": "THEME-Uranium", "region": "THEME",
-         "sector": "Uranium", "rank": 1, "setup": "entry", "composite": "1.2",
-         "level_score": "1.0", "change_score": "0.5", "data_score": "0.8",
-         "sentiment_score": "—", "delta_rank": "—", "arrow": "", "arrow_class": "",
-         "trajectory_label": "→", "trajectory_state": "flat", "breakdown_html": "",
-         "_raw_composite": 1.2, "_raw_change": 0.5},
+         "sector": "Uranium", "ticker": "URA", "rank": 1, "setup": "entry",
+         "composite": "1.2", "composite_bar": "", "level_change_bars": "",
+         "delta_rank": "—", "arrow": "", "arrow_class": "",
+         "trajectory_label": "→", "trajectory_state": "flat",
+         "trajectory_word": "flat", "breakdown_html": "",
+         "_raw_composite": 1.2, "_raw_change": 0.5, "_raw_level": 1.0},
         {"key": "THEME|Shipping", "sector_id": "THEME-Shipping", "region": "THEME",
-         "sector": "Shipping", "rank": 17, "setup": "exit", "composite": "-1.1",
-         "level_score": "-1.0", "change_score": "-0.4", "data_score": "-0.7",
-         "sentiment_score": "—", "delta_rank": "—", "arrow": "", "arrow_class": "",
-         "trajectory_label": "→", "trajectory_state": "flat", "breakdown_html": "",
-         "_raw_composite": -1.1, "_raw_change": -0.4},
+         "sector": "Shipping", "ticker": "BOAT", "rank": 17, "setup": "exit",
+         "composite": "-1.1", "composite_bar": "", "level_change_bars": "",
+         "delta_rank": "—", "arrow": "", "arrow_class": "",
+         "trajectory_label": "→", "trajectory_state": "flat",
+         "trajectory_word": "flat", "breakdown_html": "",
+         "_raw_composite": -1.1, "_raw_change": -0.4, "_raw_level": -1.0},
     ]
 
 
@@ -153,7 +155,11 @@ def test_gated_row_still_marks_the_buy_band():
         row["setup"] = None
     rows[0]["in_buy_band"] = True
     html = _render_index(leaderboard_rows=rows, badges_gated=True)
-    assert 'class="rank-badge in-buy-band"' in html
+    # rank 1 also picks up the `rank-1` ring class, so match the prefix rather
+    # than the whole attribute.
+    assert 'class="rank-badge in-buy-band' in html
+    # The in-band left rail on the rank cell tracks the same fact.
+    assert 'class="rank-cell in-band-rail"' in html
     assert 'data-setup=""' in html
     # No BAKED badge span. The literal "setup-badge" also appears in the page's
     # JavaScript, which builds them at runtime, so match the rendered markup.

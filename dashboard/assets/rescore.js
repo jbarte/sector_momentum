@@ -41,14 +41,19 @@
     return den === 0 ? 0.0 : num / den;
   }
 
+  var TRAJECTORY_WORDS = {
+    strong_up: "surging", up: "rising", flat: "flat",
+    down: "falling", strong_down: "sliding"
+  };
+
   // Trajectory thresholds match _compute_rank_trajectories in build.py.
   // Negative slope = rank improving (climbing toward 1).
   function trajectoryLabel(slope) {
-    if (slope <= -1.5) { return { label: "↑↑", state: "strong_up" }; }
-    if (slope <= -0.3) { return { label: "↑", state: "up" }; }
-    if (slope < 0.3)   { return { label: "→", state: "flat" }; }
-    if (slope < 1.5)   { return { label: "↓", state: "down" }; }
-    return { label: "↓↓", state: "strong_down" };
+    if (slope <= -1.5) { return { label: "↑↑", state: "strong_up",   word: TRAJECTORY_WORDS.strong_up }; }
+    if (slope <= -0.3) { return { label: "↑",  state: "up",          word: TRAJECTORY_WORDS.up }; }
+    if (slope < 0.3)   { return { label: "→",  state: "flat",        word: TRAJECTORY_WORDS.flat }; }
+    if (slope < 1.5)   { return { label: "↓",  state: "down",        word: TRAJECTORY_WORDS.down }; }
+    return { label: "↓↓", state: "strong_down", word: TRAJECTORY_WORDS.strong_down };
   }
 
   // data = {scans:[{scan_id,run_at}], sectors:[key], data:{key:[..]}, sentiment:{key:[..]}}
@@ -230,7 +235,8 @@
       var setup = setupForRank(latest.rank, horizon);
       out[key] = {
         delta_rank: deltaStr, arrow: arrow, arrow_class: arrowClass,
-        trajectory_label: traj.label, trajectory_state: traj.state, setup: setup
+        trajectory_label: traj.label, trajectory_state: traj.state,
+        trajectory_word: traj.word, setup: setup
       };
     });
     return out;
@@ -243,21 +249,47 @@
    * FIXED (+/-COMPOSITE_FULL_SCALE), not per-scan, so bar lengths stay
    * comparable between scans; values beyond it clamp.
    */
-  var COMPOSITE_FULL_SCALE = 1.5;
+  var COMPOSITE_FULL_SCALE = 1.6;
+
+  function signedFmt(v) {
+    // 2 decimals, explicit sign, U+2212 instead of ASCII hyphen for negatives.
+    return (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+  }
 
   function compositeBar(v) {
-    var n = Number(v);
-    if (v === null || v === undefined || isNaN(n)) {
+    var n = (v === null || v === undefined) ? null : Number(v);
+    if (n === null || isNaN(n)) {
       return '<span class="cbar-wrap"></span><span class="cbar-val">—</span>';
     }
     var frac = Math.min(Math.abs(n) / COMPOSITE_FULL_SCALE, 1);
-    var pct = (frac * 50).toFixed(1);            // half-width max, from centre
+    var pct = (frac * 50).toFixed(1);
     var side = n >= 0 ? "left:50%" : "right:50%";
     var cls = n >= 0 ? "cbar pos" : "cbar neg";
+    var valCls = n > 0 ? "cbar-val pos" : (n < 0 ? "cbar-val neg" : "cbar-val");
     return '<span class="cbar-wrap">'
-         + '<span class="' + cls + '" style="' + side + ";width:" + pct + '%"></span>'
-         + "</span>"
-         + '<span class="cbar-val">' + n.toFixed(3) + "</span>";
+         + '<span class="' + cls + '" style="' + side + ';width:' + pct + '%"></span>'
+         + '</span>'
+         + '<span class="' + valCls + '">' + signedFmt(n) + '</span>';
+  }
+
+  function levelChangeBars(level, change) {
+    function row(label, value) {
+      var v = (value === null || value === undefined) ? null : Number(value);
+      if (v === null || isNaN(v)) {
+        return '<div class="lc-row"><span class="lc-label">' + label + '</span>'
+             + '<span class="lc-track"></span>'
+             + '<span class="lc-val">—</span></div>';
+      }
+      var frac = Math.min(Math.abs(v) / COMPOSITE_FULL_SCALE, 1);
+      var pct = (frac * 50).toFixed(1);
+      var side = v >= 0 ? "left:50%" : "right:50%";
+      var cls = v >= 0 ? "lc-bar pos" : "lc-bar neg";
+      return '<div class="lc-row"><span class="lc-label">' + label + '</span>'
+           + '<span class="lc-track"><span class="' + cls + '" style="' + side
+           + ';width:' + pct + '%"></span></span>'
+           + '<span class="lc-val">' + signedFmt(v) + '</span></div>';
+    }
+    return '<div class="lc-cell">' + row("LEVEL", level) + row("CHANGE", change) + '</div>';
   }
 
   // Whether a preset's Enter/Exit badges should render as actionable now or
@@ -316,7 +348,7 @@
               inBuyBand: inBuyBand,
               badgeForRank: badgeForRank, badgeFor: badgeFor,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
-              latestRowMeta: latestRowMeta, compositeBar: compositeBar,
+              latestRowMeta: latestRowMeta, compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,
               reviewStatus: reviewStatus, localISODate: localISODate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }

@@ -64,6 +64,7 @@ def _horizon_ctx(dumps=json.dumps):
         horizon_default_json=dumps({
             "key": d.key, "label": d.label, "top_n": d.top_n, "buffer": d.buffer}),
         unbuyable_json=dumps([]),
+        theme_tickers_json=dumps({}),
         chart_dark_json=dumps({}),
     )
 
@@ -171,10 +172,12 @@ def _minimal_history_df() -> pd.DataFrame:
 # Test 1 — sentiment scatter builder returns valid non-empty JSON
 # ---------------------------------------------------------------------------
 
-def test_leaderboard_rows_include_sentiment_score():
-    """Each leaderboard row must carry a formatted, non-empty sentiment_score so
-    the Sentiment column renders (regression: the column was previously blank
-    because the row dict never set this key)."""
+def test_leaderboard_rows_carry_the_level_change_cell_and_its_sort_key():
+    """The 6-column restructure (2026-08-19) dropped the Sentiment column and
+    merged Level and Change into one stacked-bar cell. The row dict must carry
+    the rendered cell plus `_raw_level`, the numeric sort key sortTable() reads
+    from that cell's data-sort-value — and must no longer carry the three
+    pre-formatted score strings the old separate columns printed."""
     df = pd.DataFrame([
         {"scan_id": 1, "run_at": "2026-06-24T12:00:00", "region": "US",
          "gics_sector": "Technology", "level_score": 0.5, "change_score": 0.3,
@@ -185,11 +188,17 @@ def test_leaderboard_rows_include_sentiment_score():
     ])
     rows, _ = _build_leaderboard_rows(df)
     by_sector = {r["sector"]: r for r in rows}
-    assert "sentiment_score" in by_sector["Technology"]
-    assert by_sector["Technology"]["sentiment_score"] == "0.420"
-    # NaN sentiment falls back to the em-dash placeholder, never blank
-    assert by_sector["Energy"]["sentiment_score"] == "—"
-    assert by_sector["Energy"]["sentiment_score"] != ""
+
+    tech = by_sector["Technology"]
+    assert "lc-cell" in tech["level_change_bars"]
+    assert tech["_raw_level"] == pytest.approx(0.5)
+    assert tech["_raw_change"] == pytest.approx(0.3)
+    assert by_sector["Energy"]["_raw_level"] == pytest.approx(-0.2)
+
+    # The old per-column strings are gone from the dict entirely, not merely
+    # unused by the template.
+    for gone in ("level_score", "change_score", "sentiment_score"):
+        assert gone not in tech, f"{gone} still in the leaderboard row dict"
 
 
 def test_sentiment_scatter_empty_df_returns_valid_json():
@@ -930,6 +939,120 @@ def test_leaderboard_row_builders_emit_the_same_column_count():
     )
 
 
+def _row_builder_fragments() -> dict[str, str]:
+    """The three independent leaderboard row-building fragments, as source text."""
+    root = Path(__file__).parent.parent
+
+    auth = (root / "dashboard/assets/auth.js").read_text()
+    hist = (root / "dashboard/assets/scan-history.js").read_text()
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+    tbody = tpl.split("{% for row in leaderboard_rows %}", 1)[1].split("{% endfor %}", 1)[0]
+
+    return {
+        "auth.js": auth.split("tr.innerHTML =", 1)[1].split("tbody.appendChild(tr)", 1)[0],
+        "scan-history.js": hist.split(
+            'html += \'<tr class="leaderboard-row">\'', 1)[1].split('"</tr>"', 1)[0],
+        "index.html.j2": tbody.split('<tr class="breakdown-row"', 1)[0],
+    }
+
+
+def test_leaderboard_row_builders_emit_the_same_cell_classes():
+    """Stronger than the column COUNT above: the three builders must put the
+    same class on the same cell index, in the same order. Every consumer of a
+    leaderboard row addresses cells positionally and by class —
+    applyHorizonBadges() reads `tr.cells[0] .rank-badge` and `tr.cells[1]`,
+    sortTable() special-cases column 3's `data-sort-value`, and the CSS styles
+    `.rank-cell` / `.theme-cell` / `.composite-cell` / `.delta-cell`. A builder
+    that keeps the right number of cells but drops a class (or reorders two)
+    passes the count test and still breaks those consumers silently.
+    """
+    import re
+
+    def classes(fragment: str) -> list[str]:
+        out = []
+        for td in re.findall(r"<td\b([^>]*)>", fragment):
+            m = re.search(r'class=\\?["\']([^"\'\\]*)', td)
+            out.append(m.group(1).strip() if m else "")
+        return out
+
+    frags = _row_builder_fragments()
+    got = {name: classes(frag) for name, frag in frags.items()}
+
+    # The template's rank/theme cells carry Jinja conditionals inside the class
+    # attribute (`in-band-rail`, and the setup/unbuyable spans); compare only
+    # the leading literal class name, which is what the consumers match on.
+    def head(vals):
+        return [v.split("{")[0].strip() for v in vals]
+
+    expected = ["rank-cell", "theme-cell", "composite-cell", "", "delta-cell", ""]
+    for name, vals in got.items():
+        assert head(vals) == expected, f"{name} cell classes drifted: {head(vals)}"
+
+
+def test_every_row_builder_carries_the_level_change_sort_key():
+    """sortTable()'s column-3 branch reads `data-sort-value` because the merged
+    Level/Change cell holds two numbers its innerText parse cannot
+    disambiguate. A builder that omits the attribute makes that column sort
+    every one of its rows as NaN."""
+    for name, frag in _row_builder_fragments().items():
+        assert "data-sort-value" in frag, f"{name} omits the Level/Change sort key"
+
+
+def test_theme_cell_is_not_a_flex_table_cell():
+    """`.theme-cell` and `.composite-cell` are ADJACENT columns. A <td> whose
+    display is flex stops being a table-internal box, and two adjacent such
+    boxes share ONE anonymous table cell — which stacks them vertically, so the
+    theme name lands on top of the composite bar in a single double-width
+    column. `.composite-cell` is flex, so `.theme-cell` must not be. Verified in
+    a browser when this was written: the six cells' left offsets collapsed to
+    four. See the rule's own comment in _tables.css.j2.
+
+    The original regex here (`^\\.theme-cell\\s*\\{...`) only matched a bare
+    `.theme-cell { ... }` rule. The actual rule is `.theme-cell > * + * { ... }`
+    (a descendant-combinator selector), so that regex never matched — `m` was
+    always `None` and the `if m:` body, the only place the assertion lived,
+    never ran. This was the sole automated guard against the exact regression
+    the module docstring above describes, and it passed vacuously no matter
+    what `.theme-cell` declared."""
+    import re
+    css = (Path(__file__).parent.parent
+           / "dashboard/templates/css/_tables.css.j2").read_text()
+
+    # Every CSS rule whose selector contains `.theme-cell` as a class token
+    # (not just an exact `.theme-cell { }` rule) — covers `.theme-cell > * + *`
+    # and any future selector variant (`.theme-cell.foo`, `#id .theme-cell`, …).
+    rules = re.findall(r"([^{}]+)\{([^}]*)\}", css)
+    theme_cell_bodies = [
+        body for selector, body in rules if re.search(r"\.theme-cell\b", selector)
+    ]
+    assert theme_cell_bodies, (
+        "no CSS rule matched `.theme-cell` at all — the regex itself is "
+        "broken, which is exactly how this test passed vacuously before"
+    )
+    for body in theme_cell_bodies:
+        assert not re.search(r"display\s*:\s*flex", body), (
+            ".theme-cell declares display:flex — it is adjacent to the flex "
+            ".composite-cell and the two will collapse into one anonymous cell"
+        )
+
+    # `.composite-cell` is the other half of the adjacency risk: it is
+    # display:flex BY DESIGN (deferred elsewhere to become a wrapper <div>,
+    # see BACKLOG.md), and that is precisely what makes a flex `.theme-cell`
+    # dangerous. Confirming it here means a regression that silently drops
+    # `.composite-cell`'s flex (changing the premise this test relies on
+    # without anyone updating this test) gets caught too, not just the
+    # `.theme-cell` side.
+    composite_cell_bodies = [
+        body for selector, body in rules if re.search(r"\.composite-cell\b", selector)
+    ]
+    assert composite_cell_bodies, "no CSS rule matched `.composite-cell`"
+    assert any(re.search(r"display\s*:\s*flex", body) for body in composite_cell_bodies), (
+        ".composite-cell no longer declares display:flex — the adjacency risk "
+        "this test guards against has changed shape; re-derive the guard "
+        "rather than deleting it"
+    )
+
+
 def test_leaderboard_colspans_match_the_column_count():
     """A stale colspan leaves the breakdown panel and empty-state rows spanning
     the wrong width once a column is added or removed."""
@@ -962,10 +1085,11 @@ def test_composite_bar_python_and_js_agree():
     m = re.search(r"var COMPOSITE_FULL_SCALE = ([\d.]+);", js)
     assert m, "COMPOSITE_FULL_SCALE missing from rescore.js"
     assert float(m.group(1)) == COMPOSITE_FULL_SCALE, "full-scale constant drifted"
+    assert COMPOSITE_FULL_SCALE == 1.6, "scale should be 1.6 per the redesign spec"
 
     # Positive grows right from centre, negative grows left, both half-width max.
-    pos = _composite_bar(1.5)
-    neg = _composite_bar(-1.5)
+    pos = _composite_bar(1.6)
+    neg = _composite_bar(-1.6)
     assert "left:50%" in pos and "width:50.0%" in pos
     assert "right:50%" in neg and "width:50.0%" in neg
     assert "cbar pos" in pos and "cbar neg" in neg
@@ -978,6 +1102,15 @@ def test_composite_bar_python_and_js_agree():
     assert _composite_bar(None) == (
         '<span class="cbar-wrap"></span><span class="cbar-val">—</span>'
     )
+
+    # Signed, 2 decimals, U+2212 (not ASCII hyphen) for negatives, and the
+    # value's ink class follows its own sign (spec: ink #3F4F34 positive,
+    # #8E4B31 negative, --fg3 at exactly zero).
+    assert '<span class="cbar-val pos">+1.06</span>' in _composite_bar(1.061)
+    assert '<span class="cbar-val neg">−0.87</span>' in _composite_bar(-0.869)
+    assert "-0.87" not in _composite_bar(-0.869), "must use U+2212, not ASCII hyphen"
+    assert '<span class="cbar-val">+0.00</span>' in _composite_bar(0.0), \
+        "exactly zero gets no pos/neg class -- falls back to --fg3 via the base rule"
 
 
 def test_z_bar_is_centre_origin():
@@ -1000,6 +1133,75 @@ def test_z_bar_is_centre_origin():
     # The neutral band keeps its muted chip.
     _, chip = _z_bar(0.1)
     assert "neut" in chip
+
+def test_level_change_bars_python_and_js_agree():
+    """_level_change_bars (build) and levelChangeBars (rescore.js) render the
+    same two-row cell — the same three-way duplication risk as the composite
+    bar, for the new merged Level/Change column.
+
+    Only checking `"function levelChangeBars" in js` (the previous version of
+    this test) proves the function exists, not that it agrees with the Python
+    side — a JS-only divergence in class names, the LEVEL/CHANGE label text,
+    or row order would still pass. Following `test_composite_bar_python_and_js_agree`'s
+    pattern of reading the JS source directly, this pulls the exact function
+    body (brace-balanced, not a regex guess at where it ends) and checks the
+    specific class strings and label text it must share with the Python
+    output for the two row-builders to render the same markup."""
+    from dashboard.rows import _level_change_bars, COMPOSITE_FULL_SCALE
+
+    js = (Path(__file__).parent.parent / "dashboard/assets/rescore.js").read_text()
+    assert "function levelChangeBars" in js
+
+    # Extract the exact function body (brace-balanced) so the checks below are
+    # scoped to levelChangeBars itself, not to the whole file.
+    start = js.index("function levelChangeBars")
+    brace_start = js.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if js[i] == "{":
+            depth += 1
+        elif js[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    js_fn = js[start:i + 1]
+
+    # The Python side's class names and label text, cross-checked against the
+    # JS source text directly — a divergence here (renamed class, retyped
+    # label, swapped row order) is exactly what would make the two builders
+    # disagree while every Python-only assertion below kept passing.
+    for cls in ("lc-cell", "lc-row", "lc-label", "lc-track", "lc-bar", "lc-val"):
+        assert cls in js_fn, f"levelChangeBars is missing the '{cls}' class the Python side emits"
+    assert '"LEVEL"' in js_fn or "'LEVEL'" in js_fn, "levelChangeBars must label the first row LEVEL"
+    assert '"CHANGE"' in js_fn or "'CHANGE'" in js_fn, "levelChangeBars must label the second row CHANGE"
+    # Row order: LEVEL must be built (and therefore appended) before CHANGE,
+    # matching _level_change_bars' _row("LEVEL", ...) then _row("CHANGE", ...).
+    assert js_fn.index("LEVEL") < js_fn.index("CHANGE"), \
+        "levelChangeBars must render LEVEL before CHANGE, like the Python side"
+
+    html = _level_change_bars(1.58, 0.53)
+    assert html.count('class="lc-row"') == 2
+    assert html.count('class="lc-track"') == 2
+    assert "−" not in html  # both positive here
+    assert "+1.58" in html and "+0.53" in html
+    assert 'class="lc-bar pos"' in html
+
+    # Negative change, positive level — both signs must render independently.
+    html2 = _level_change_bars(1.58, -0.53)
+    assert "+1.58" in html2
+    assert "−0.53" in html2
+    assert 'class="lc-bar neg"' in html2
+
+    # Both missing — two dashes, no bars.
+    html3 = _level_change_bars(None, None)
+    assert html3.count("—") == 2
+    assert 'class="lc-bar' not in html3
+
+    # Full-scale clamp matches the composite bar's own scale.
+    full = _level_change_bars(COMPOSITE_FULL_SCALE, COMPOSITE_FULL_SCALE)
+    assert full.count("width:50.0%") == 2
 
 def test_gate_modal_uses_the_shared_modal_helper():
     """The gate modal declared aria-modal="true" while implementing none of it:

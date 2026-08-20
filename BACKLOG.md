@@ -77,10 +77,15 @@ is likely all it needs.
   view, not a change to what is persisted, backtested or alerted on.
   `tests/test_sentiment_alpha_gate.py` pins this.
 
-**Also queued with it:** un-hide the leaderboard's Sentiment column (one CSS
-block in `_sentiment.css.j2`, deliberately a `display:none` rather than a removal
-so the positional column indices stay aligned), and drop the `alpha` badge from
-the Sentiment nav and page note.
+**Also queued with it:** the leaderboard's Sentiment column is not merely
+hidden anymore — the 2026-08-19 6-column restructure (Stage 1 of the
+leaderboard redesign, see Done) removed it outright, and `_sentiment.css.j2`'s
+old `display:none` block is gone with it. Restoring the column now means
+re-adding a `<th>`, a cell in **all three** row-builders (`dashboard/rows.py`,
+`renderLatestRows()` in `auth.js`, and the row loop in `scan-history.js`), an
+i18n key, and renumbering every `sortTable()`/`data-col` index and `colspan`
+that counts columns — meaningfully more work than the one CSS block this used
+to be. Also drop the `alpha` badge from the Sentiment nav and page note.
 
 ## Composite structure — 4.2 effective signals of 8
 
@@ -362,6 +367,34 @@ source-only and tight:
 ---
 
 # Done
+
+- **Leaderboard table redesign — Stage 1 of the leaderboard redesign**
+  (2026-08-19). Design spec:
+  `sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md`;
+  plan:
+  `sector_momentum-notes/plans/2026-08-18-leaderboard-redesign-stage1-tokens-and-table.md`
+  (private companion repo).
+
+  - **6 columns, down from 8**: dropped the always-empty Sentiment column
+    (sentiment is alpha and excluded from the ranking, so it was "—" in every
+    row) and merged the separate Level and Change columns into one
+    stacked-bar cell.
+  - **Rank pill with a left rail**: the rank cell got a pill badge plus a
+    3px in-band rail, replacing the plain numeral.
+  - **Composite bar rescaled 1.5 → 1.6**, values signed with U+2212 (not
+    ASCII hyphen) instead of the unsigned formatting the old bar used.
+  - **Trend badge gained a word** ("surging", "rising", "flat", "falling",
+    "sliding") alongside the existing glyph (↑↑/↑/→/↓/↓↓).
+  - Three independent places build leaderboard row HTML and had to change
+    together: `dashboard/rows.py` (baked), `renderLatestRows()` in
+    `dashboard/assets/auth.js` (signed-in), and the row loop in
+    `dashboard/assets/scan-history.js` (past-scan view). A new
+    `window.THEME_TICKERS` global (build.py → template → JS) lets all three
+    show the theme's US ETF ticker.
+
+  Stages 2–5 of the redesign (band cut rows, mobile cards, summary strip,
+  horizon control) are still queued/not yet planned — see the design spec
+  for the full roadmap.
 
 - **Acted on 3 of 6 deferred GDELT bulk-fetch polish findings** (2026-08-17)
   — see Queued for the 3 that remain deferred.

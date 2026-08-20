@@ -10,6 +10,7 @@ import pytest
 from scipy.stats import rankdata
 
 from src.horizons import default_horizon
+from dashboard.rows import TRAJECTORY_WORDS
 
 # The parity check must drive BOTH sides from the same horizon, or it would be
 # comparing two different strategies and calling the difference a JS bug.
@@ -189,7 +190,8 @@ def _py_latest_meta(recent_rows):
             setup = None
         out[key] = {
             "delta_rank": delta_str, "arrow": arrow, "arrow_class": arrow_class,
-            "trajectory_label": label, "trajectory_state": state, "setup": setup,
+            "trajectory_label": label, "trajectory_state": state,
+            "trajectory_word": TRAJECTORY_WORDS[state], "setup": setup,
         }
     return out
 
@@ -229,7 +231,8 @@ def test_latest_row_meta_single_scan():
     js = _run_js_meta(rows)
     assert js["US|Energy"] == {
         "delta_rank": "—", "arrow": "", "arrow_class": "",
-        "trajectory_label": "→", "trajectory_state": "flat", "setup": "entry",
+        "trajectory_label": "→", "trajectory_state": "flat",
+        "trajectory_word": "flat", "setup": "entry",
     }
 
 
