@@ -453,12 +453,32 @@ source-only and tight:
     colour `#161` for `test_no_hardcoded_hex_outside_foundation`. The JS test
     now strips `//` lines before asserting; the CSS comment avoids a literal
     id. Worth remembering for Stage 5.
+  - **Three more bugs found by a whole-branch review pass, after the plan's
+    own tasks were already green:** (1) `todays_read()` was called with
+    `leaderboard_rows` (all cohorts) instead of `theme_rows` (THEME-only) —
+    ranks are per-cohort, so an unmixed call could have named a retired
+    US/EU sector as the lead theme had a scan_id ever mixed cohorts. Not
+    exercised by current data; fixed defensively, since this is exactly the
+    failure mode CLAUDE.md's `region` warning describes. (2) Cell C's inner
+    `{% if macro %}` only hid the chips, not the eyebrow trigger around
+    them — the outer `{% if macro or auth %}` the old header block had was
+    dropped when Cell C replaced it, so a build with neither still rendered
+    a "what these mean" button with nothing beside it to explain. (3) The
+    bigger one: `sentiment.html.j2` shares `_header.html.j2` but has no
+    summary strip of its own — the plan's Task 2 file list never mentioned
+    it, so deleting the header's SPY/VIX/Live chips for Cell C's sake
+    silently removed them from the Sentiment page too, with no replacement.
+    Restored as a header-only echo gated to non-leaderboard pages
+    (`active_segment != "sectors"`), reusing the same `#market-context-chips`
+    id `markLive()` already targets. All three caught by the review's own
+    finder angles, not by the plan's tests — a reminder that a plan's Task N
+    tests only ever check what Task N's author thought to check.
 
   Deliberately out of scope, left for Stage 5 or their own items: the `.card`
   wrapper drop and panel/tab-bar padding (spec Screen 1 items 3–4), the footer
   `Data health` link (item 9), and Cell B's signed-in Enter/Exit counts line —
   that one needs the gating rules `applyHorizonBadges()` applies, and guessing
-  at them is how a guest-safe variant leaks. 980 passed.
+  at them is how a guest-safe variant leaks. 984 passed (after the review fixes above).
 
 - **Leaderboard table redesign — Stage 3 of the leaderboard redesign**
   (2026-08-21). Plan:
