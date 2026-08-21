@@ -1388,6 +1388,22 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   }
 });
 
+// Same treatment for the mobile cards, which get role="button"/tabindex="0"
+// (renderMobileCards() above) but only a click listener — found in review,
+// same class of gap the table's own delegated handler above already exists
+// to close. Delegated on the container rather than attached per-card: cards
+// are fully rebuilt by renderMobileCards() on every sort/filter/horizon-
+// switch, so a per-card listener would need re-adding on every render for
+// no benefit over one delegated listener that survives all of them.
+document.getElementById('leaderboard-cards')?.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var t = e.target;
+  if (t.matches('.leaderboard-card')) {
+    e.preventDefault();
+    t.click();
+  }
+});
+
 // ----- Sentiment toggle wiring -----
 (function () {
   var LS_ENABLED = "sentimentEnabled", LS_WEIGHT = "sentimentWeight";

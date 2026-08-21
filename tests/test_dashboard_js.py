@@ -1616,6 +1616,20 @@ def test_card_breakdown_scrolls_instead_of_clipping():
 # ---------------------------------------------------------------------------
 
 
+def test_leaderboard_cards_have_keyboard_activation():
+    """Found by whole-branch review: cards get role="button"/tabindex="0"
+    (renderMobileCards()) but only a click listener, so Enter/Space did
+    nothing for keyboard/AT users — unlike #leaderboard-table's own
+    delegated keydown handler for the identical role="button" pattern on
+    .leaderboard-row, which this mirrors on #leaderboard-cards."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    idx = text.index("getElementById('leaderboard-cards')?.addEventListener('keydown'")
+    block_end = text.index("});", idx)
+    block = text[idx:block_end]
+    assert "'.leaderboard-card'" in block
+    assert "t.click()" in block
+
+
 def test_mobile_scan_meta_markup_exists():
     """The mobile echo of the desktop meta-cluster (scan id, date, SPY/VIX)
     — a distinct class from the pre-existing .scan-meta on #auth-email-label,
