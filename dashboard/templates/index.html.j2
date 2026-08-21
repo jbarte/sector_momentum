@@ -253,6 +253,13 @@
         </tr>
       </tbody>
     </table>
+    {#- Populated client-side by renderMobileCards() from the table's own live
+        DOM state — never baked, so it starts empty. See that function for
+        why: a fourth independently-built row format (alongside rows.py,
+        auth.js, scan-history.js) would need its own sort/filter/band-cut
+        logic to stay working on mobile; reading the table instead needs
+        none. -#}
+    <div class="leaderboard-cards" id="leaderboard-cards" aria-hidden="true"></div>
   </div>
 </section>
 
@@ -528,6 +535,120 @@ function badgesVisible() {
 // Reading "everything above this line is inside the band" stays true under any
 // filter, which a fixed-rank line would not.
 //
+// Mobile cards — a read-only projection of the table's live DOM state, not a
+// fourth independently-built row format (alongside dashboard/rows.py,
+// auth.js's renderLatestRows(), scan-history.js). It reads whatever
+// .leaderboard-row / .band-cut-row elements currently exist in the table
+// (already correctly sorted, filtered, banded, and badged by the functions
+// below) and rebuilds .leaderboard-cards to match — so cards stay in sync
+// with every table interaction with no card-specific reimplementation of
+// sorting, filtering, band cuts, or badges. Called from applyBandBoundaries()
+// below (which itself is already called by sortTable(), applyFilters(), and
+// applyHorizonBadges() — verified, not assumed, before writing this) and
+// directly from scan-history.js's showScan(), the one path that genuinely
+// bypasses applyBandBoundaries() entirely (its rows carry no data-rank).
+function renderMobileCards() {
+  var container = document.getElementById('leaderboard-cards');
+  var tbody = document.querySelector('#leaderboard-table tbody');
+  if (!container || !tbody) return;
+
+  var html = '';
+  Array.prototype.forEach.call(tbody.children, function (tr) {
+    if (tr.style.display === 'none') { return; }
+
+    if (tr.classList.contains('band-cut-row')) {
+      var eyebrow = tr.querySelector('.bcr-eyebrow');
+      var note = tr.querySelector('.bcr-note');
+      html += '<div class="card-cut-row ' + (tr.classList.contains('buy') ? 'buy' : 'exit') + '">'
+        + '<span class="ccr-eyebrow">' + (eyebrow ? eyebrow.innerHTML : '') + '</span>'
+        + '<span class="ccr-note">' + (note ? note.innerHTML : '') + '</span>'
+        + '</div>';
+      return;
+    }
+
+    if (!tr.classList.contains('leaderboard-row')) { return; }
+
+    var rankBadge = tr.querySelector('.rank-badge');
+    var themeName = tr.querySelector('.theme-name');
+    var unbuyableBadge = tr.querySelector('.unbuyable-badge');
+    var setupBadge = tr.querySelector('.setup-badge');
+    var compositeCell = tr.querySelector('.composite-cell');
+    var deltaCell = tr.querySelector('.delta-cell');
+    var trendBadge = tr.querySelector('.traj-badge');
+    var isInBand = tr.cells[0] && tr.cells[0].classList.contains('in-band-rail');
+
+    // .lc-row order (LEVEL first, CHANGE second) is already pinned by
+    // test_level_change_bars_python_and_js_agree — no data-lc-kind attribute
+    // needed, positional indexing is as safe as that test makes it.
+    var lcRows = tr.querySelectorAll('.lc-row');
+    var levelVal = lcRows[0] ? lcRows[0].querySelector('.lc-val') : null;
+    var changeVal = lcRows[1] ? lcRows[1].querySelector('.lc-val') : null;
+
+    // The card embeds its OWN copy of the breakdown content, read from the
+    // table's <tr class="breakdown-row" id="bd-...">, rather than reusing
+    // toggleBreakdown(): that function only toggles a CSS class on the
+    // table's own breakdown row, and the table is fully hidden on mobile
+    // (#leaderboard-table { display: none }), so a class toggle inside it
+    // has no visible effect. A card-local copy, toggled by the card's own
+    // class, sidesteps that — see the click handler below.
+    var sectorId = tr.dataset.sectorId || '';
+    var bdRow = sectorId ? document.getElementById('bd-' + sectorId) : null;
+    var bdContent = bdRow ? bdRow.querySelector('td').innerHTML : '';
+    // A card is a disclosure only when it has something to disclose.
+    // scan-history.js's past-scan rows are built as a bare leaderboard-row
+    // <tr> carrying no data-sector-id, with no .breakdown-row sibling, so
+    // bdContent is always '' on that path — the one
+    // path this stage newly wired renderMobileCards() into. Advertising those
+    // cards as role="button"/aria-expanded made every card on a past scan
+    // announce itself as an expandable disclosure and then reveal a 0px-tall
+    // empty panel. Found in review at a 375px viewport, on scan #159.
+    var expandable = bdContent !== '';
+
+    html += '<div class="leaderboard-card' + (isInBand ? ' in-band' : '') + '"'
+      + (expandable ? ' role="button" tabindex="0" aria-expanded="false"' : '')
+      + ' data-sector-id="' + sectorId + '">'
+      + '<div class="card-line1">'
+      + (rankBadge ? '<span class="card-rank">' + rankBadge.outerHTML + '</span>' : '')
+      + '<span class="card-theme">' + (themeName ? themeName.textContent : '') + '</span>'
+      + (trendBadge ? trendBadge.outerHTML : '')
+      + '</div>'
+      + '<div class="card-line2">'
+      + (compositeCell ? compositeCell.innerHTML : '')
+      + '</div>'
+      + '<div class="card-line3">'
+      + (levelVal ? '<span>Level ' + levelVal.textContent + '</span>' : '')
+      + (changeVal ? '<span>Change ' + changeVal.textContent + '</span>' : '')
+      + (deltaCell ? '<span class="card-delta">' + deltaCell.innerHTML + '</span>' : '')
+      + '</div>'
+      + (unbuyableBadge || setupBadge
+          ? '<div class="card-badges">'
+            + (unbuyableBadge ? unbuyableBadge.outerHTML : '')
+            + (setupBadge ? setupBadge.outerHTML : '')
+            + '</div>'
+          : '')
+      + (expandable ? '<div class="card-breakdown">' + bdContent + '</div>' : '')
+      + '</div>';
+  });
+
+  container.innerHTML = html;
+  container.setAttribute('aria-hidden', 'false');
+
+  // Tapping a card toggles ITS OWN embedded breakdown copy (a card-local
+  // 'open' class), independent of the table's toggleBreakdown()/'open'
+  // state. The two are never visible at the same time (table hidden on
+  // mobile, cards hidden on desktop), so independent state causes no
+  // visible inconsistency.
+  // [role="button"], not every card: a non-expandable card (see `expandable`
+  // above) has no breakdown to toggle, so a handler on it would only add an
+  // 'open' class nothing reads.
+  Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card[role="button"]'), function (card) {
+    card.addEventListener('click', function () {
+      var open = card.classList.toggle('open');
+      card.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  });
+}
+
 // Per region: cohorts are ranked independently, so each gets its own pair.
 function applyBandBoundaries() {
   var h = currentHorizon();
@@ -549,8 +670,16 @@ function applyBandBoundaries() {
   // rows inside it scatter, so a single line cannot separate "in" from "out"
   // and would just be a rule under an arbitrary row. Column 0 ascending is the
   // rank sort (see _sortCol/_sortDir defaults).
+  //
+  // Guards the rest of this function rather than an early return: cards
+  // (renderMobileCards() at the very end) must still run when NOT in rank
+  // order — sorting by Theme correctly clears band-cut rows above, and cards
+  // need to reflect that "no band cut" state too, not just skip the rebuild
+  // entirely and go stale. An early return here would have made that call
+  // unreachable on every non-rank sort — caught before shipping by tracing
+  // this path, not by the substring-only test written for the call itself.
   var rankOrder = (typeof _sortCol === 'undefined') || (_sortCol === 0 && _sortDir === 1);
-  if (!rankOrder) return;
+  if (rankOrder) {
 
   var lastBuy = {}, lastHold = {};
   Array.prototype.forEach.call(rows, function (tr) {
@@ -654,6 +783,15 @@ function applyBandBoundaries() {
       {key: 'band_sell_note_suffix', en: 'is sold'}
     ]);
   });
+
+  } // if (rankOrder)
+
+  // One call here covers every caller of applyBandBoundaries() —
+  // sortTable(), applyFilters(), applyHorizonBadges() (and everything that
+  // triggers it: page load, switchHorizon(), ackReview(), the sm:* events
+  // including the signed-in upgrade) — so cards stay in sync with the table
+  // with no separate wiring in any of those places.
+  if (typeof renderMobileCards === 'function') { renderMobileCards(); }
 }
 
 function applyHorizonBadges() {
@@ -1257,6 +1395,22 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   if (e.key !== 'Enter' && e.key !== ' ') return;
   var t = e.target;
   if (t.matches('th[onclick]') || t.matches('.leaderboard-row')) {
+    e.preventDefault();
+    t.click();
+  }
+});
+
+// Same treatment for the mobile cards, which get role="button"/tabindex="0"
+// (renderMobileCards() above) but only a click listener — found in review,
+// same class of gap the table's own delegated handler above already exists
+// to close. Delegated on the container rather than attached per-card: cards
+// are fully rebuilt by renderMobileCards() on every sort/filter/horizon-
+// switch, so a per-card listener would need re-adding on every render for
+// no benefit over one delegated listener that survives all of them.
+document.getElementById('leaderboard-cards')?.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var t = e.target;
+  if (t.matches('.leaderboard-card')) {
     e.preventDefault();
     t.click();
   }

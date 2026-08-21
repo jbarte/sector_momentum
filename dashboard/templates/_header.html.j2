@@ -69,4 +69,30 @@
     </div>
     <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
   </div>
+  {#- Mobile-only second row: the meta-cluster's chips and scan context
+      condense to icon-only/hidden below 600px (see _responsive.css.j2's
+      touch-target rules), so a phone reader loses the scan id, date, and
+      SPY/VIX numbers entirely. This mirrors them in one condensed line.
+      Named .mobile-scan-meta, not .scan-meta: that class already exists on
+      #auth-email-label above (the signed-in user's email) — an unrelated
+      element this would silently collide with if reused. Visibility is
+      entirely _responsive.css.j2's call (display:none there above 600px),
+      not an inline style — that file is guaranteed last in the cascade
+      (see its own header comment) so nothing here needs to pre-hide it.
+
+      Guarded on scan_date, not just wrapped: `scan_date[:10]` slices an
+      undefined var, which raises (Jinja's default Undefined tolerates bare
+      `{{ }}` output but not slicing) rather than rendering blank — hit by
+      tests/test_leaderboard_filters.py's minimal render context, which
+      passes no scan_date at all. -#}
+  {% if scan_date %}
+  <div class="mobile-scan-meta">
+    <span data-i18n="mobile_scan_prefix">Scan</span> #{{ active_scan_id }}
+    <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
+    {%- if macro %}
+    <span aria-hidden="true">&middot;</span> SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%
+    <span aria-hidden="true">&middot;</span> VIX {{ "%.1f"|format(macro.vix_last) }}
+    {%- endif %}
+  </div>
+  {% endif %}
 </header>

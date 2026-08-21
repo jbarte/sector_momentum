@@ -146,6 +146,12 @@
       }
     });
     tbody.innerHTML = html;
+    // Same reason band-cut rows needed their own call here (Stage 2): this
+    // view never calls applyHorizonBadges()/applyBandBoundaries(), so the
+    // shared renderMobileCards() call inside applyBandBoundaries() never
+    // runs for it either. Cards would silently go stale on a past scan
+    // without this.
+    if (typeof window.renderMobileCards === "function") { window.renderMobileCards(); }
   }
 
   function updateShowingBadge(scanId) {

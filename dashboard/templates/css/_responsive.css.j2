@@ -20,7 +20,36 @@
   .card { margin: 12px 8px 16px; }
   .card > .tab-panel { padding: 14px 10px; }
   .card > .tabs { padding: 0 8px; }
-  .site-footer { padding: 14px 16px; }
+  /* .site-footer's desktop layout (_chrome.css.j2) is
+     `justify-content: space-between` on one row — disclaimer text left,
+     Methodology/Alerts buttons right. At 375px that squeezes both against
+     each other with no wrap; stack them instead. */
+  .site-footer {
+    padding: 14px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* Control row: the filter chips (.filter-bar, _tables.css.j2) already
+     flex-wrap onto several lines at this width, which reads as a tall
+     block of pills before the leaderboard. Scrolling them horizontally
+     as one row keeps the chip row compact instead — same trade-off the
+     design spec's "Control row" point calls for. Each .filter-group
+     wraps its own buttons by default too, so it needs the same
+     nowrap/flex:none treatment as the row itself, or squeezing the row
+     would just push the wrap down a level instead of removing it.
+     .horizon-row is deliberately NOT included here: it carries a full
+     sentence (.horizon-note) and the review-status text, and forcing
+     prose onto a scrolling strip would be worse than the wrapping it
+     already does. */
+  .filter-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filter-bar > * { flex: none; white-space: nowrap; }
+  .filter-group { flex-wrap: nowrap; }
 }
 
 @media (max-width: 420px) {
@@ -28,54 +57,142 @@
 }
 
 /* ---------------------------------------------------------
-   Leaderboard: keep identity visible while scrolling right
+   Mobile scan-meta strip (_header.html.j2)
    ---------------------------------------------------------
-   The table is far wider than a phone. Without pinned columns, scrolling out
-   to Rank Δ / Trend takes the rank and the theme name off screen, so the
-   reader is looking at four numbers with nothing saying which theme they
-   belong to. Pin the first two columns; the rest scrolls under them. */
+   Same visibility pattern as the leaderboard cards below: the markup is
+   always present, this file just decides which width sees it — the
+   desktop meta-cluster chips already carry the scan id/date/SPY/VIX,
+   this is their condensed mobile echo. */
+@media (min-width: 601px) {
+  .mobile-scan-meta { display: none; }
+}
 @media (max-width: 600px) {
-  #leaderboard-table th:nth-child(1),
-  #leaderboard-table td:nth-child(1),
-  #leaderboard-table th:nth-child(2),
-  #leaderboard-table td:nth-child(2) {
-    position: sticky;
-    z-index: 2;
-    background: var(--bg-raised);
+  .mobile-scan-meta {
+    width: 100%;
+    font-size: 11px;
+    color: var(--fg3);
   }
-  /* Fixed widths so the second column's offset is exact rather than measured. */
-  #leaderboard-table th:nth-child(1),
-  #leaderboard-table td:nth-child(1) { left: 0; width: 44px; min-width: 44px; }
-  #leaderboard-table th:nth-child(2),
-  #leaderboard-table td:nth-child(2) { left: 44px; width: 116px; min-width: 116px; }
+}
 
-  /* border-collapse drops the shared edge on a sticky cell, so draw the
-     separation explicitly — otherwise scrolled content abuts the pinned name. */
-  #leaderboard-table th:nth-child(2),
-  #leaderboard-table td:nth-child(2) { box-shadow: inset -1px 0 0 var(--border-soft); }
+/* ---------------------------------------------------------
+   Leaderboard: cards instead of a pinned-column table
+   ---------------------------------------------------------
+   Stage 3 of the leaderboard redesign (2026-08-20) replaced the pinned-first-
+   two-columns table this section used to hold — it showed ~2 of 6 columns at
+   a time even with sticky columns. renderMobileCards() (index.html.j2)
+   builds .leaderboard-cards from the table's own live DOM state; both are
+   always in the markup, this section just decides which one is visible. */
+@media (min-width: 601px) {
+  .leaderboard-cards { display: none; }
+}
 
-  /* Hover/held tints are set on the row; repeat them on the pinned cells so
-     they do not read as a detached strip. */
-  .leaderboard-row:hover td:nth-child(1),
-  .leaderboard-row:hover td:nth-child(2) { background: var(--bg-sunken); }
+@media (max-width: 600px) {
+  #leaderboard-table { display: none; }
 
-  /* Tighten the cells so more of the data columns fit alongside the pinned pair. */
-  #leaderboard-table td, #leaderboard-table th { padding-left: 8px; padding-right: 8px; }
+  .leaderboard-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px 16px;
+  }
 
-  /* The breakdown panel spans the full row and must not be pinned. Same
-     reason band-cut-row is reset below: both have a single <td> that is
-     structurally td:nth-child(1), which the sticky-pin rule above was
-     written for the RANK column, not any other single-cell row. */
-  .breakdown-row td { position: static; width: auto; min-width: 0; }
+  .leaderboard-card {
+    border: 1px solid var(--border-hair);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: var(--surface);
+  }
+  .leaderboard-card.in-band {
+    border-left: 3px solid color-mix(in srgb, var(--up) 55%, transparent);
+    background: color-mix(in srgb, var(--up) 4%, transparent);
+  }
 
-  /* Band cut rows (2026-08-20 redesign — see _tables.css.j2) also have one
-     <td colspan="6">, so without this they inherit the rank column's
-     sticky/44px-wide pin instead of spanning the row — found live at a
-     375px viewport by whole-branch review. The old .band-edge-buy/-hold
-     under-the-pinned-cells redraw this section used to need is gone with
-     those classes: a band cut is a full labelled row now, not a border on
-     an existing one, so there is no pinned-cell background to hide behind. */
-  #leaderboard-table .band-cut-row td { position: static; width: auto; min-width: 0; }
+  .card-line1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-theme {
+    flex: 1;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  /* .card-line2 takes over .composite-cell's flex-container role (see
+     _tables.css.j2): renderMobileCards() copies compositeCell.innerHTML —
+     the .cbar-wrap/.cbar-val children only, not .composite-cell itself — so
+     .cbar-wrap's flex:1 has no flex parent to size against on its own.
+     Found live: the bar rendered at 0 width until this was added. */
+  .card-line2 {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-line2 .cbar-wrap { height: 20px; }
+  .card-line2 .cbar-val { font-size: 14px; }
+
+  .card-line3 {
+    margin-top: 10px;
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--fg4);
+  }
+  .card-line3 span {
+    color: var(--fg2);
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .card-delta { margin-left: auto; }
+
+  .card-badges {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-soft);
+  }
+
+  /* Mirrors .band-cut-row's desktop treatment (_tables.css.j2) at card
+     scale — no flex-collapse trap to avoid here, .card-cut-row is a <div>,
+     not a <td> sitting adjacent to another flex <td>. */
+  .card-cut-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px 4px;
+    font-size: 11px;
+  }
+  .card-cut-row .ccr-eyebrow {
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .card-cut-row.buy .ccr-eyebrow { color: var(--brand-strong); }
+  .card-cut-row.exit .ccr-eyebrow { color: var(--down); }
+  .card-cut-row .ccr-note { color: var(--fg4); }
+
+  /* The card's own embedded breakdown copy (renderMobileCards()) — collapsed
+     by default, shown when the card's tap handler toggles its 'open' class.
+     Independent of the table's own .breakdown-row/.open mechanism; the
+     table itself is fully hidden above, so its state is simply never seen
+     on mobile, not fought with. .breakdown-grid already collapses to one
+     column under 700px (existing rule, this file's "Relocated from other
+     partials" section below), so the embedded copy reads correctly here
+     with no further change. */
+  /* overflow-x: auto is a scoped fallback, not a full fix: the embedded
+     breakdown content (score tree, signal rows/bars) is intrinsically wider
+     than a mobile card even in .breakdown-grid's existing single-column
+     mode — found live, ~130px of horizontal overflow at 375px. Redesigning
+     .breakdown-grid's internals for card width is its own task, out of
+     Stage 3's scope (this stage is the leaderboard table becoming cards,
+     not the breakdown panel); scrolling keeps the content reachable rather
+     than silently clipping it in the meantime. */
+  .card-breakdown { display: none; margin-top: 10px; overflow-x: auto; }
+  .leaderboard-card.open .card-breakdown { display: block; }
 }
 
 /* ---------------------------------------------------------

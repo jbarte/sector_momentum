@@ -1466,3 +1466,270 @@ def test_supabase_client_asset_is_copied_when_auth_is_configured():
     missing the new fourth one."""
     build_py = (Path(__file__).parent.parent / "dashboard/build.py").read_text()
     assert 'docs_assets / "supabase-client.js"' in build_py
+
+
+def _render_mobile_cards_js():
+    """renderMobileCards()'s exact function body (brace-balanced), the same
+    technique test_level_change_bars_python_and_js_agree /
+    _apply_band_boundaries_js use elsewhere in this file."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function renderMobileCards()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_leaderboard_cards_container_exists():
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert 'class="leaderboard-cards"' in text
+    # Must be a sibling of the table inside the same .table-wrap, not a
+    # separate top-level element — CSS visibility toggling assumes this.
+    wrap_start = text.index('class="table-wrap"')
+    cards_start = text.index('class="leaderboard-cards"', wrap_start)
+    assert wrap_start < cards_start, "cards container must be inside .table-wrap"
+
+
+def test_render_mobile_cards_reads_the_table_not_a_fourth_data_source():
+    """Cards are a projection of the table's live DOM, not an independently
+    built fourth row-format — this is what keeps sort/filter/band-cuts/badges
+    working on mobile with no card-specific reimplementation of any of them."""
+    js = _render_mobile_cards_js()
+    assert "querySelectorAll" in js
+    assert "leaderboard-row" in js
+    # Must read the CURRENT DOM (rank badge text, theme name text, etc.), not
+    # a data source like RESCORE_DATA or SCAN_HISTORY that duplicates the
+    # table's own state.
+    assert "RESCORE_DATA" not in js
+    assert "SCAN_HISTORY" not in js
+
+
+def test_render_mobile_cards_reflects_band_cut_rows_too():
+    js = _render_mobile_cards_js()
+    assert "band-cut-row" in js
+
+
+def test_cards_embed_their_own_breakdown_copy_not_toggle_breakdown():
+    """Resolved during planning: toggleBreakdown() only toggles a CSS class
+    on the table's own breakdown <tr>, and the table is fully hidden on
+    mobile (display:none), so calling it from a card's tap handler would
+    toggle a class with no visible effect. Cards must embed their own copy
+    of the breakdown content and toggle it independently — this is the
+    regression a future 'simplify by reusing toggleBreakdown()' edit would
+    silently reintroduce."""
+    js = _render_mobile_cards_js()
+    assert "card-breakdown" in js
+    assert "getElementById('bd-'" in js or 'getElementById("bd-"' in js
+
+
+def test_render_mobile_cards_wired_into_apply_band_boundaries():
+    """sortTable(), applyFilters(), and applyHorizonBadges() all already call
+    applyBandBoundaries() at their own end (verified before this test was
+    written — the same class of unverified claim Stage 2's whole-branch
+    review had to catch and revert). One call inside applyBandBoundaries()
+    itself covers all of them, plus the signed-in path (auth.js dispatches
+    sm:leaderboard-upgraded after rebuilding rows, and that event already
+    triggers applyHorizonBadges()) — no direct listener needed in auth.js."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function applyBandBoundaries(")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = text[start:i + 1]
+    assert "renderMobileCards" in fn_body
+
+
+def test_render_mobile_cards_wired_into_scan_history_only():
+    """scan-history.js's showScan() is the one path that genuinely needs a
+    direct call — it deliberately never calls applyHorizonBadges() or
+    applyBandBoundaries() (its rows carry no data-rank, so that DOM pass
+    would find nothing regardless), the identical reason Stage 2 had to give
+    it its own local band-cut logic instead of reusing the shared pass."""
+    scan_history_js = (Path(__file__).parent.parent
+                        / "dashboard/assets/scan-history.js").read_text()
+    assert "renderMobileCards" in scan_history_js, (
+        "showScan() must call renderMobileCards() after rebuilding rows"
+    )
+
+
+def test_pinned_column_css_is_gone():
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    assert "#leaderboard-table th:nth-child(1)" not in css
+    assert "#leaderboard-table td:nth-child(1)" not in css
+    assert "#leaderboard-table th:nth-child(2)" not in css
+    assert "#leaderboard-table td:nth-child(2)" not in css
+
+
+def test_card_and_table_visibility_toggle_by_viewport():
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    assert "max-width: 600px" in css
+    assert ".leaderboard-cards" in css
+
+
+def test_card_line2_is_a_flex_container():
+    """Found live: renderMobileCards() copies compositeCell.innerHTML — the
+    .cbar-wrap/.cbar-val children only, not .composite-cell itself, whose
+    `display: flex` (_tables.css.j2) is what gives .cbar-wrap's `flex: 1` a
+    container to size against. Without .card-line2 also being a flex
+    container, the bar rendered at 0 width — measured live via
+    getBoundingClientRect() before this was caught."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.card-line2\s*\{[^}]*\}", css)
+    assert m, ".card-line2 rule not found"
+    assert "display: flex" in m.group(0)
+
+
+def test_card_breakdown_scrolls_instead_of_clipping():
+    """Found live: the embedded breakdown content is intrinsically wider
+    than a mobile card even in .breakdown-grid's single-column mode (~130px
+    of overflow measured at 375px via scrollWidth vs clientWidth). Without
+    overflow-x, that content is silently clipped rather than scrollable."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.card-breakdown\s*\{[^}]*\}", css)
+    assert m, ".card-breakdown rule not found"
+    assert "overflow-x: auto" in m.group(0)
+
+
+# ---------------------------------------------------------------------------
+# Stage 3 Task 2: mobile header scan-meta row, scrollable control row,
+# stacked footer.
+# ---------------------------------------------------------------------------
+
+
+def test_leaderboard_cards_have_keyboard_activation():
+    """Found by whole-branch review: cards get role="button"/tabindex="0"
+    (renderMobileCards()) but only a click listener, so Enter/Space did
+    nothing for keyboard/AT users — unlike #leaderboard-table's own
+    delegated keydown handler for the identical role="button" pattern on
+    .leaderboard-row, which this mirrors on #leaderboard-cards."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    idx = text.index("getElementById('leaderboard-cards')?.addEventListener('keydown'")
+    block_end = text.index("});", idx)
+    block = text[idx:block_end]
+    assert "'.leaderboard-card'" in block
+    assert "t.click()" in block
+
+
+def test_mobile_scan_meta_markup_exists():
+    """The mobile echo of the desktop meta-cluster (scan id, date, SPY/VIX)
+    — a distinct class from the pre-existing .scan-meta on #auth-email-label,
+    which is an unrelated element (the signed-in user's email)."""
+    header = (Path(__file__).parent.parent
+              / "dashboard/templates/_header.html.j2").read_text()
+    assert 'class="mobile-scan-meta"' in header
+    assert 'data-i18n="mobile_scan_prefix"' in header
+    assert "{{ active_scan_id }}" in header
+    assert "{{ scan_date[:10] }}" in header
+    # Guarded by the same `{% if macro %}` the desktop chips use — a build
+    # with no FRED data must not crash rendering this row.
+    meta_start = header.index('class="mobile-scan-meta"')
+    assert "{%- if macro %}" in header[meta_start:]
+
+
+def test_mobile_scan_meta_prefix_has_sv_translation():
+    """data-i18n="mobile_scan_prefix" without an SV entry would silently
+    fall back to English on language switch — the same gap the horizon
+    control's own SV keys were added to close (see the comment above
+    horizon_label in this same file)."""
+    core_i18n = (Path(__file__).parent.parent
+                 / "dashboard/templates/i18n/_core.js.j2").read_text()
+    assert re.search(r"\bmobile_scan_prefix:\s*\"\S+\"", core_i18n)
+
+
+def test_control_row_scrolls_horizontally_not_wraps():
+    """The filter chips (.filter-bar) already flex-wrap onto several lines
+    at 375px — scrolling them as one row instead keeps the control row
+    compact, per the design spec's "Control row" point."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.filter-bar\s*\{[^}]*\}", css)
+    assert m, ".filter-bar rule not found"
+    assert "overflow-x: auto" in m.group(0)
+    assert "flex-wrap: nowrap" in m.group(0)
+    # .horizon-row carries a full sentence (.horizon-note) and the
+    # review-status text — deliberately NOT put on a scrolling strip.
+    assert not re.search(r"\.horizon-row\s*\{[^}]*overflow-x", css)
+
+
+def test_mobile_scan_meta_survives_missing_scan_date():
+    """Found by the full suite, not by this task's own tests above:
+    test_leaderboard_filters.py's _render_index() renders index.html.j2
+    (which includes this header) with a minimal context that carries no
+    scan_date at all. `scan_date[:10]` slices Jinja's default Undefined,
+    which raises — unlike a bare `{{ scan_date }}`, which just renders
+    blank — so the whole block must be guarded on scan_date, not only the
+    macro half of it."""
+    from jinja2 import Environment, FileSystemLoader
+    tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)))
+    html = env.get_template("_header.html.j2").render(active_segment="sectors")
+    assert "mobile-scan-meta" not in html
+
+
+def test_site_footer_stacks_on_mobile():
+    """Desktop's `justify-content: space-between` on one row (_chrome.css.j2)
+    squeezes the disclaimer text against the Methodology/Alerts buttons at
+    375px with no wrap; stack them instead."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.site-footer\s*\{[^}]*\}", css)
+    assert m, ".site-footer rule not found"
+    assert "flex-direction: column" in m.group(0)
+
+
+def test_cards_are_only_disclosures_when_they_have_a_breakdown():
+    """Found in review, verified live at 375px on scan #159: scan-history.js's
+    past-scan rows are bare `<tr class="leaderboard-row">` with no
+    data-sector-id and no .breakdown-row sibling, so bdContent is '' for every
+    card on that path — the one path this stage newly wired renderMobileCards()
+    into. Emitting role="button"/tabindex/aria-expanded unconditionally made all
+    18 cards announce themselves as expandable and then reveal a 0px-tall empty
+    panel. role, tabindex, aria-expanded and .card-breakdown must all hang off
+    the same `expandable` condition, or they drift apart again."""
+    fn_body = _render_mobile_cards_js()
+    assert "var expandable = bdContent !== ''" in fn_body, (
+        "renderMobileCards() must decide expandability from bdContent"
+    )
+    # The disclosure affordances are gated, not unconditional.
+    assert "expandable ? ' role=\"button\" tabindex=\"0\" aria-expanded=\"false\"'" in fn_body
+    assert "expandable ? '<div class=\"card-breakdown\">'" in fn_body
+    # ...and nothing emits them unconditionally any more.
+    assert "+ ' role=\"button\" tabindex=\"0\" aria-expanded=\"false\"'" not in fn_body
+    assert "+ '<div class=\"card-breakdown\">'" not in fn_body
+
+
+def test_card_click_handler_is_scoped_to_expandable_cards():
+    """A non-expandable card has no breakdown to toggle, so a click handler on
+    it would only set an 'open' class nothing reads — and would still feel like
+    a dead tap target. Pairs with
+    test_cards_are_only_disclosures_when_they_have_a_breakdown."""
+    fn_body = _render_mobile_cards_js()
+    assert "querySelectorAll('.leaderboard-card[role=\"button\"]')" in fn_body
+
+
+def test_breakdown_lookup_skips_empty_sector_id():
+    """getElementById('bd-') on a row with no data-sector-id is a lookup that
+    can only ever miss; guard it so the intent reads as deliberate rather than
+    as an accidental miss that happens to return null."""
+    fn_body = _render_mobile_cards_js()
+    assert "sectorId ? document.getElementById('bd-' + sectorId) : null" in fn_body
