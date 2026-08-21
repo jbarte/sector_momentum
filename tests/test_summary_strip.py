@@ -99,3 +99,15 @@ def test_every_new_key_has_a_swedish_entry():
 def test_eyebrow_labels_exist_for_all_three_cells():
     for key in ("strip_eyebrow_read", "strip_eyebrow_band", "strip_eyebrow_market"):
         assert f'data-i18n="{key}"' in INDEX
+
+
+def test_mobile_hides_what_the_scan_meta_row_already_says():
+    """At 375px .mobile-scan-meta (Stage 3) already prints the scan id, date,
+    SPY and VIX. Cell C and the strip's subline repeat exactly that, within a
+    couple of hundred pixels of it — so both are hidden at this width rather
+    than printing the same facts twice on one screen. Found at the browser
+    gate; caught nowhere else, since both are correct in isolation."""
+    css = (ROOT / "dashboard/templates/css/_responsive.css.j2").read_text()
+    mobile = css[css.index("@media (max-width: 600px)"):]
+    assert re.search(r"#cell-market-context\s*\{\s*display:\s*none", mobile)
+    assert re.search(r"\.strip-subline\s*\{\s*display:\s*none", mobile)

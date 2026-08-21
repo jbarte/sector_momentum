@@ -21,27 +21,19 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Leaderboard redesign — Stages 4–5
+## Leaderboard redesign — Stage 5
 
-Stages 1 (tokens + 6-column table), 2 (labelled band cut rows), and 3 (mobile
-cards) shipped — see Done. Stages 4–5 were named in Stage 1's Done entry
-prose only, with no Queued section of their own; added here so they don't
-get lost the way the GDELT out-of-scope items did on 2026-08-16.
+Stages 1 (tokens + 6-column table), 2 (labelled band cut rows), 3 (mobile
+cards) and 4 (summary strip) shipped — see Done. Stage 5 was named in Stage
+1's Done entry prose only, with no Queued section of its own; kept here so it
+doesn't get lost the way the GDELT out-of-scope items did on 2026-08-16.
 
 Design spec: `sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md`
-("Suggested order of work"). Each stage is independently shippable, same as
-Stages 1–3 were, and should get its own plan (`writing-plans`) when picked
-up — Stage 1's plan is a template for scope (one stage per plan file, not
-one plan for the whole redesign).
+("Suggested order of work"). It is independently shippable, same as Stages
+1–4 were, and should get its own plan (`writing-plans`) when picked up —
+Stage 1's plan is a template for scope (one stage per plan file, not one plan
+for the whole redesign).
 
-- **Stage 4 — summary strip.** New 3-cell strip above the tab bar: a derived
-  "Today's Read" headline (build-time, tested — Stage 1's spec already
-  resolved the "build it, don't fall back to digest chips" decision, reuse
-  that), an in-band-themes cell, and a market-context cell that moves the
-  SPY/VIX chips out of the command bar. Check `auth.js`'s `markLive()`
-  before starting — it currently targets `#context-chips`, which this stage
-  removes; that function's host-lookup will need updating or it silently
-  falls through to its `.meta-cluster` fallback.
 - **Stage 5 — horizon segmented control.** Replaces `<select id="horizon-select">`
   with a segmented control matching `.theme-toggle`'s pattern, plus the four
   backtest stats. Stage 1's spec already resolved the underlying decision
@@ -55,31 +47,6 @@ one plan for the whole redesign).
   `.filter-bar` a horizontal-scroll treatment as a stopgap
   (`_responsive.css.j2`, `max-width: 600px`) without this restructuring;
   don't mistake that for the spec's intent when picking Stage 5 up.
-
-## Mobile header overflows the viewport (pre-existing, pre-dates Stage 3)
-
-Found while verifying Stage 3 at 375px, then confirmed **identical on `main`**
-— not a regression from that stage, and out of its scope, so it was left
-alone rather than folded in.
-
-`.meta-cluster` (`_chrome.css.j2`) is `display: flex` with `flex-wrap: nowrap`
-and no mobile treatment. Its four children — `.context-chips`, `.auth-root`,
-`.theme-toggle`, `.lang-toggle` — total **484px** inside a 375px header, so
-the document's `scrollWidth` is 499px against a 375px `clientWidth` on both
-this branch and `main`.
-
-The consequence is worse than a sideways scroll: the layout viewport is blown
-out to the content width, so a real phone renders the **whole page** at about
-75% scale — every font size, tap target, and the new Stage 3 cards included.
-That likely explains why the mobile type reads small even after Stage 3's
-work.
-
-`_responsive.css.j2` already has the right seam for this (it is guaranteed
-last in the cascade). The fix is a mobile rule on `.meta-cluster` — wrap, or
-move the toggles into the `.mobile-scan-meta` row Stage 3 added, which is
-already the established place for header content that does not fit. Worth
-checking Stage 4 against this too: that stage moves the SPY/VIX chips out of
-the command bar, which removes one of the four offenders on its own.
 
 ## Restore the sentiment blend control — and make it work when signed in
 
@@ -427,6 +394,71 @@ source-only and tight:
 ---
 
 # Done
+
+- **Leaderboard summary strip — Stage 4 of the leaderboard redesign**
+  (2026-08-21). Plan:
+  `sector_momentum-notes/plans/2026-08-21-leaderboard-redesign-stage4-summary-strip.md`.
+
+  - **A 3-cell strip between the command bar and the tab bar.** Cell A
+    "Today's read", Cell B "In the buy band", Cell C "Market context" — a
+    1px grid gap over a `--border` background draws the dividers, so no cell
+    carries its own border and none doubles at the seams.
+  - **The sentence rule departs from the spec, deliberately.** The spec
+    suggested naming "the top-2 themes' shared character if the top 4 share a
+    tag". **No tag concept exists** — `config/themes.yaml` themes carry only
+    `ticker`, `gdelt_keywords`, `unbuyable` — so that branch had no data
+    behind it, and inventing a taxonomy would have made the headline sentence
+    assert groupings the data cannot support, which is the exact failure the
+    spec's own risk note warns about. The shipped rule states only what the
+    data supports: the rank-1 theme leads, and the second clause is the sign
+    of the mean change score across the bottom half, with a `DRIFT_EPS = 0.05`
+    dead band so the cell does not flip between "picking up" and "sliding" on
+    noise. `dashboard/digest.py`, 17 tests.
+  - **Python returns facts, never prose** (`{"lead_theme", "drift"}`). Every
+    word lives in the template behind a `data-i18n` key. This is not style: the
+    i18n pass has no variable-interpolation mechanism, so a sentence assembled
+    in Python could not be translated at all without inventing a `data-i18n-*`
+    attribute the pass does not read — which is silently inert. Theme name
+    first, since theme names are never translated and theme-first reads
+    correctly in both EN and SV.
+  - **Cell B cannot be baked, and isn't.** Buy-band membership depends on the
+    *active* horizon — client-side state the reader switches at runtime — so
+    baking it would be wrong for every reader on Long and stale the moment
+    anyone switched. `renderBuyBand()` reads `.in-band-rail`, which
+    `applyHorizonBadges()` already writes from the active horizon's `top_n`,
+    and hangs off the same `applyBandBoundaries()` funnel Stage 3's
+    `renderMobileCards()` uses. Verified live: Medium → 4 pills, Long → 5
+    (Defense joins), filters and sorts followed, all without a reload.
+  - **Three bugs found at the browser gate, none by the test suite:**
+    (1) `applyLang()` inside `renderBuyBand()` recursed —
+    `applyFilters()` → `applyBandBoundaries()` → `renderBuyBand()` →
+    `applyLang()` → … until the stack blew. Reachable *only* by filtering the
+    band empty, so nothing else would have hit it. The empty-state note is now
+    baked into the template and toggled, needing no runtime translate call.
+    (2) Pills followed table order, so sorting by Theme rendered "1 2 4 3" —
+    each pill prints its own rank, so that reads as a bug rather than as the
+    sort. The band is a set; it is now always rank-ordered.
+    (3) The strip's subline repeated the scan id and date that
+    `.mobile-scan-meta` already prints a couple of hundred pixels above it on
+    a phone; hidden at that width, same reasoning as Cell C.
+  - **The mobile header overflow is fixed as a side effect** — the Queued item
+    for it is deleted rather than rewritten. `.meta-cluster` was 484px of
+    children in a 375px header, blowing the layout viewport out to 499px and
+    rendering the whole page at ~75% scale. Moving the 201px chips button into
+    Cell C leaves three children at 274px: measured 375/375, no overflow.
+  - **Comments are page content, and three source-scanning tests proved it.**
+    Stage 3 already lost a round to a leaderboard-row tag inside a JS comment;
+    this stage hit it twice more — `applyLang` inside a comment matched a test
+    forbidding the call, and "Scan #161" inside a CSS comment parsed as the hex
+    colour `#161` for `test_no_hardcoded_hex_outside_foundation`. The JS test
+    now strips `//` lines before asserting; the CSS comment avoids a literal
+    id. Worth remembering for Stage 5.
+
+  Deliberately out of scope, left for Stage 5 or their own items: the `.card`
+  wrapper drop and panel/tab-bar padding (spec Screen 1 items 3–4), the footer
+  `Data health` link (item 9), and Cell B's signed-in Enter/Exit counts line —
+  that one needs the gating rules `applyHorizonBadges()` applies, and guessing
+  at them is how a guest-safe variant leaks. 980 passed.
 
 - **Leaderboard table redesign — Stage 3 of the leaderboard redesign**
   (2026-08-21). Plan:
