@@ -79,6 +79,7 @@ from dashboard.rows import (                         # noqa: E402, F401
     _format_raw_value,
     _safe_float,
 )
+from dashboard.digest import todays_read
 from dashboard.sentiment import (                    # noqa: E402, F401
     _build_sentiment_signal_rows,
     build_page_context as _sentiment_ctx,
@@ -535,6 +536,7 @@ def main() -> None:
         "scan_index": scan_index,
         "active_scan_id": active_scan_id,
         "leaderboard_rows": leaderboard_rows,
+        "todays_read": todays_read(leaderboard_rows),
         "cohort_list": cohort_list,
         "horizon_list": horizon_list,
         "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,

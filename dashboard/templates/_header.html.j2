@@ -16,37 +16,6 @@
     {% endif %}
   </div>
   <div class="meta-cluster">
-    {#- The chips are ONE tappable control, not three decorated spans.
-        `title` tooltips do not exist on touch, so on a phone these were
-        permanently unexplained; and what a reader needs is not three mechanics
-        but the single framing "these tell you how much to trust the board",
-        which lives in the guide this opens. Uses the shared .tab-guide-btn
-        dispatch, so it works identically on both pages.
-
-        Rendered when EITHER macro data exists or auth is configured: auth.js
-        inserts the Live chip in here after a signed-in upgrade, which can happen
-        on a build that has no FRED data. -#}
-    {% if macro or auth %}
-    <button type="button" id="context-chips" class="context-chips tab-guide-btn"
-            data-guide="guide_body_market_context"
-            aria-label="Market context — what these mean"
-            data-i18n-aria="market_context_aria">
-      {#- The dialog heading. A visually-hidden span rather than an attribute, so
-          the existing [data-i18n] pass translates it for free — an invented
-          data-i18n-* attribute would be silently inert. The dispatch prefers
-          .cc-label over the trigger's textContent, which here is live numbers. -#}
-      <span class="cc-label" data-i18n="market_context_title">Market context</span>
-      {% if macro %}
-      <span class="chip {{ 'chip-up' if macro.spy_above else 'chip-down' }}"
-            data-i18n-title="{{ 'macro_chip_spy_above' if macro.spy_above else 'macro_chip_spy_below' }}"
-            title="vs 200-DMA — {{ 'above' if macro.spy_above else 'below' }}">SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%</span>
-      <span class="chip chip-{{ macro.vix_band|lower }}"
-            data-i18n-title="macro_vix_{{ macro.vix_band|lower }}"
-            title="{{ macro.vix_band }}">VIX {{ "%.1f"|format(macro.vix_last) }}</span>
-      {% endif %}
-      <span class="cc-info" aria-hidden="true">&#9432;</span>
-    </button>
-    {% endif %}
     {% if auth %}
     <span class="auth-root" id="auth-root">
       <button id="auth-signin" class="lang-toggle" type="button" data-i18n="auth_sign_in">Sign in</button>

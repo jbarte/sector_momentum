@@ -48,6 +48,60 @@
 {% endif %}
 
 <main id="main-content" tabindex="-1">
+{#- Summary strip (Stage 4). Three cells framing the board before the reader
+    reaches the table. Cell B is EMPTY here on purpose: buy-band membership
+    depends on the active horizon, which is client-side state, so it is filled
+    by renderBuyBand() from the table's live DOM — the same read-projection
+    pattern Stage 3's renderMobileCards() uses, for the same reason. -#}
+<section class="summary-strip" aria-label="Scan summary">
+  {% if todays_read %}
+  <div class="strip-cell" id="cell-todays-read">
+    <p class="strip-eyebrow" data-i18n="strip_eyebrow_read">Today's read</p>
+    <p class="strip-headline">
+      {{ todays_read.lead_theme }} <span data-i18n="read_leads">leads the board.</span>
+      {% if todays_read.drift == "rising" %}
+      <span data-i18n="read_bottom_rising">The bottom half is picking up.</span>
+      {% elif todays_read.drift == "falling" %}
+      <span data-i18n="read_bottom_falling">The bottom half keeps sliding.</span>
+      {% else %}
+      <span data-i18n="read_bottom_flat">The bottom half is holding flat.</span>
+      {% endif %}
+    </p>
+    {% if scan_date %}
+    <p class="strip-subline">
+      <span data-i18n="mobile_scan_prefix">Scan</span> #{{ active_scan_id }}
+      <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="strip-cell" id="cell-buy-band">
+    <p class="strip-eyebrow" data-i18n="strip_eyebrow_band">In the buy band</p>
+    <div class="band-pills" id="band-pills"></div>
+  </div>
+
+  <div class="strip-cell" id="cell-market-context">
+    {#- The eyebrow is the guide trigger, replacing the header's #context-chips
+        button. .cc-label so the shared dispatch uses it as the dialog heading
+        rather than the live numbers beside it. -#}
+    <button type="button" class="strip-eyebrow tab-guide-btn"
+            data-guide="guide_body_market_context"
+            aria-label="Market context — what these mean"
+            data-i18n-aria="market_context_aria">
+      <span class="cc-label" data-i18n="strip_eyebrow_market">Market context</span>
+      <span class="cc-info" aria-hidden="true">&#9432;</span>
+    </button>
+    <div class="market-chips" id="market-context-chips">
+      {% if macro %}
+      <span class="chip {{ 'chip-up' if macro.spy_above else 'chip-down' }}">SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%</span>
+      <span class="chip-word" data-i18n="{{ 'macro_chip_spy_above' if macro.spy_above else 'macro_chip_spy_below' }}">{{ 'above 200-DMA' if macro.spy_above else 'below 200-DMA' }}</span>
+      <span class="chip chip-{{ macro.vix_band|lower }}">VIX {{ "%.1f"|format(macro.vix_last) }}</span>
+      <span class="chip-word" data-i18n="macro_vix_{{ macro.vix_band|lower }}">{{ macro.vix_band|lower }}</span>
+      {% endif %}
+    </div>
+  </div>
+</section>
 <div class="card">
 <!-- Tab bar. A plain div, not <nav>: role="tablist" is an explicit ARIA role
      and always wins over an element's implicit one, so a <nav role="tablist">
