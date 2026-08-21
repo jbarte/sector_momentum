@@ -1608,3 +1608,76 @@ def test_card_breakdown_scrolls_instead_of_clipping():
     m = re.search(r"\.card-breakdown\s*\{[^}]*\}", css)
     assert m, ".card-breakdown rule not found"
     assert "overflow-x: auto" in m.group(0)
+
+
+# ---------------------------------------------------------------------------
+# Stage 3 Task 2: mobile header scan-meta row, scrollable control row,
+# stacked footer.
+# ---------------------------------------------------------------------------
+
+
+def test_mobile_scan_meta_markup_exists():
+    """The mobile echo of the desktop meta-cluster (scan id, date, SPY/VIX)
+    — a distinct class from the pre-existing .scan-meta on #auth-email-label,
+    which is an unrelated element (the signed-in user's email)."""
+    header = (Path(__file__).parent.parent
+              / "dashboard/templates/_header.html.j2").read_text()
+    assert 'class="mobile-scan-meta"' in header
+    assert 'data-i18n="mobile_scan_prefix"' in header
+    assert "{{ active_scan_id }}" in header
+    assert "{{ scan_date[:10] }}" in header
+    # Guarded by the same `{% if macro %}` the desktop chips use — a build
+    # with no FRED data must not crash rendering this row.
+    meta_start = header.index('class="mobile-scan-meta"')
+    assert "{%- if macro %}" in header[meta_start:]
+
+
+def test_mobile_scan_meta_prefix_has_sv_translation():
+    """data-i18n="mobile_scan_prefix" without an SV entry would silently
+    fall back to English on language switch — the same gap the horizon
+    control's own SV keys were added to close (see the comment above
+    horizon_label in this same file)."""
+    core_i18n = (Path(__file__).parent.parent
+                 / "dashboard/templates/i18n/_core.js.j2").read_text()
+    assert re.search(r"\bmobile_scan_prefix:\s*\"\S+\"", core_i18n)
+
+
+def test_control_row_scrolls_horizontally_not_wraps():
+    """The filter chips (.filter-bar) already flex-wrap onto several lines
+    at 375px — scrolling them as one row instead keeps the control row
+    compact, per the design spec's "Control row" point."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.filter-bar\s*\{[^}]*\}", css)
+    assert m, ".filter-bar rule not found"
+    assert "overflow-x: auto" in m.group(0)
+    assert "flex-wrap: nowrap" in m.group(0)
+    # .horizon-row carries a full sentence (.horizon-note) and the
+    # review-status text — deliberately NOT put on a scrolling strip.
+    assert not re.search(r"\.horizon-row\s*\{[^}]*overflow-x", css)
+
+
+def test_mobile_scan_meta_survives_missing_scan_date():
+    """Found by the full suite, not by this task's own tests above:
+    test_leaderboard_filters.py's _render_index() renders index.html.j2
+    (which includes this header) with a minimal context that carries no
+    scan_date at all. `scan_date[:10]` slices Jinja's default Undefined,
+    which raises — unlike a bare `{{ scan_date }}`, which just renders
+    blank — so the whole block must be guarded on scan_date, not only the
+    macro half of it."""
+    from jinja2 import Environment, FileSystemLoader
+    tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)))
+    html = env.get_template("_header.html.j2").render(active_segment="sectors")
+    assert "mobile-scan-meta" not in html
+
+
+def test_site_footer_stacks_on_mobile():
+    """Desktop's `justify-content: space-between` on one row (_chrome.css.j2)
+    squeezes the disclaimer text against the Methodology/Alerts buttons at
+    375px with no wrap; stack them instead."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.site-footer\s*\{[^}]*\}", css)
+    assert m, ".site-footer rule not found"
+    assert "flex-direction: column" in m.group(0)

@@ -20,11 +20,58 @@
   .card { margin: 12px 8px 16px; }
   .card > .tab-panel { padding: 14px 10px; }
   .card > .tabs { padding: 0 8px; }
-  .site-footer { padding: 14px 16px; }
+  /* .site-footer's desktop layout (_chrome.css.j2) is
+     `justify-content: space-between` on one row — disclaimer text left,
+     Methodology/Alerts buttons right. At 375px that squeezes both against
+     each other with no wrap; stack them instead. */
+  .site-footer {
+    padding: 14px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* Control row: the filter chips (.filter-bar, _tables.css.j2) already
+     flex-wrap onto several lines at this width, which reads as a tall
+     block of pills before the leaderboard. Scrolling them horizontally
+     as one row keeps the chip row compact instead — same trade-off the
+     design spec's "Control row" point calls for. Each .filter-group
+     wraps its own buttons by default too, so it needs the same
+     nowrap/flex:none treatment as the row itself, or squeezing the row
+     would just push the wrap down a level instead of removing it.
+     .horizon-row is deliberately NOT included here: it carries a full
+     sentence (.horizon-note) and the review-status text, and forcing
+     prose onto a scrolling strip would be worse than the wrapping it
+     already does. */
+  .filter-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filter-bar > * { flex: none; white-space: nowrap; }
+  .filter-group { flex-wrap: nowrap; }
 }
 
 @media (max-width: 420px) {
   .scan-meta { display: none; }
+}
+
+/* ---------------------------------------------------------
+   Mobile scan-meta strip (_header.html.j2)
+   ---------------------------------------------------------
+   Same visibility pattern as the leaderboard cards below: the markup is
+   always present, this file just decides which width sees it — the
+   desktop meta-cluster chips already carry the scan id/date/SPY/VIX,
+   this is their condensed mobile echo. */
+@media (min-width: 601px) {
+  .mobile-scan-meta { display: none; }
+}
+@media (max-width: 600px) {
+  .mobile-scan-meta {
+    width: 100%;
+    font-size: 11px;
+    color: var(--fg3);
+  }
 }
 
 /* ---------------------------------------------------------
