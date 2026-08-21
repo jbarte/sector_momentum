@@ -21,22 +21,19 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Leaderboard redesign — Stages 3–5
+## Leaderboard redesign — Stages 4–5
 
-Stages 1 (tokens + 6-column table) and 2 (labelled band cut rows) shipped —
-see Done. Stages 3–5 were named in Stage 1's Done entry prose only, with no
-Queued section of their own; added here so they don't get lost the way the
-GDELT out-of-scope items did on 2026-08-16.
+Stages 1 (tokens + 6-column table), 2 (labelled band cut rows), and 3 (mobile
+cards) shipped — see Done. Stages 4–5 were named in Stage 1's Done entry
+prose only, with no Queued section of their own; added here so they don't
+get lost the way the GDELT out-of-scope items did on 2026-08-16.
 
 Design spec: `sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md`
 ("Suggested order of work"). Each stage is independently shippable, same as
-Stages 1 and 2 were, and should get its own plan (`writing-plans`) when
-picked up — Stage 1's plan is a template for scope (one stage per plan file,
-not one plan for the whole redesign).
+Stages 1–3 were, and should get its own plan (`writing-plans`) when picked
+up — Stage 1's plan is a template for scope (one stage per plan file, not
+one plan for the whole redesign).
 
-- **Stage 3 — mobile cards.** Replaces the pinned-column table treatment in
-  `_responsive.css.j2` (deletable once cards land) with real cards. Touches
-  the same three row-builders Stage 1 did.
 - **Stage 4 — summary strip.** New 3-cell strip above the tab bar: a derived
   "Today's Read" headline (build-time, tested — Stage 1's spec already
   resolved the "build it, don't fall back to digest chips" decision, reuse
@@ -50,7 +47,14 @@ not one plan for the whole redesign).
   backtest stats. Stage 1's spec already resolved the underlying decision
   (keep the `<select>` in the DOM, visually hidden, since `switchHorizon()`
   reads it back internally rather than only receiving it via `onchange`) —
-  reuse that finding rather than re-deriving it.
+  reuse that finding rather than re-deriving it. The design spec's "Control
+  row" point (item 3, "Suggested order of work") describes this segmented
+  control living in ONE scrollable row together with a curated `Top 5` /
+  `↑ Rising` / `Filters` subset — a different, smaller control row than the
+  nine-chip `.filter-bar` that exists today. Stage 3 gave the existing
+  `.filter-bar` a horizontal-scroll treatment as a stopgap
+  (`_responsive.css.j2`, `max-width: 600px`) without this restructuring;
+  don't mistake that for the spec's intent when picking Stage 5 up.
 
 ## Restore the sentiment blend control — and make it work when signed in
 
@@ -398,6 +402,46 @@ source-only and tight:
 ---
 
 # Done
+
+- **Leaderboard table redesign — Stage 3 of the leaderboard redesign**
+  (2026-08-21). Plan:
+  `sector_momentum-notes/plans/2026-08-20-leaderboard-redesign-stage3-mobile-cards.md`.
+
+  - **Mobile cards replace the pinned-column table.** `renderMobileCards()`
+    (`index.html.j2`) reads the table's own live DOM
+    (`.leaderboard-row`/`.band-cut-row`) and rebuilds `.leaderboard-cards`
+    below 601px — a read-projection of the table, not a fourth independently
+    built row-format, which is what keeps sort/filter/horizon-switch/band-cuts
+    working on mobile with no card-specific reimplementation of any of them.
+    The old pinned-first-two-columns treatment (`#leaderboard-table
+    td/th:nth-child(1)/(2)`) is deleted from `_responsive.css.j2`.
+    Wired from the single `applyBandBoundaries()` funnel point (verified
+    before implementing, not assumed, that `sortTable()`/`applyFilters()`/
+    `applyHorizonBadges()` all already call it) plus directly from
+    `scan-history.js`'s `showScan()`, which never calls
+    `applyBandBoundaries()` — the same reason Stage 2's band cut rows needed
+    their own wiring there.
+  - **Real, browser-verified bugs found and fixed during implementation:**
+    the composite bar rendered at 0 width (`.cbar-wrap`'s `flex: 1` had no
+    flex-container parent once only `compositeCell.innerHTML` was copied,
+    not `.composite-cell` itself — fixed by making `.card-line2` a flex
+    container); the embedded breakdown copy overflowed ~130px at 375px
+    (`.breakdown-grid`'s internals are wider than a card even collapsed to
+    one column — fixed with a scoped `overflow-x: auto` fallback, a full
+    breakdown redesign judged out of scope for this stage); and
+    `applyBandBoundaries()`'s early `return` for non-rank sorts would have
+    made the new `renderMobileCards()` call unreachable on those sorts —
+    restructured to an `if (rankOrder) { … }` block instead, found by
+    tracing control flow rather than trusting a substring-match test.
+  - **Mobile header scan-meta row, scrollable control row, stacked footer.**
+    A new `.mobile-scan-meta` row (`_header.html.j2`) echoes the desktop
+    chips' scan id/date/SPY/VIX below 600px, guarded on `scan_date` (slicing
+    an undefined `scan_date` raises in Jinja, unlike a bare `{{ }}` reference
+    — caught by `test_leaderboard_filters.py`'s minimal render context, which
+    passes no `scan_date`). `.filter-bar` scrolls horizontally as one row
+    instead of wrapping across several (`.horizon-row` deliberately excluded
+    — it carries prose, not chips). `.site-footer` stacks vertically instead
+    of squeezing the disclaimer text against the Methodology/Alerts buttons.
 
 - **Leaderboard table redesign — Stage 2 of the leaderboard redesign**
   (2026-08-20). Plan:
