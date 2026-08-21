@@ -87,6 +87,15 @@
     <p class="band-note" id="band-empty" data-i18n="band_empty" hidden>No themes in the band on this view.</p>
   </div>
 
+  {#- Same guard the old header block had (_header.html.j2, pre-Stage 4):
+      render when EITHER macro data exists (real numbers to show) OR auth is
+      configured — a build with no FRED data still needs this DOM host to
+      exist, because markLive() (auth.js) targets #market-context-chips
+      after a signed-in upgrade, which can happen on exactly that build.
+      Without this outer guard the eyebrow button rendered unconditionally —
+      an "what these mean" trigger with nothing beside it to explain on a
+      build with neither. Found in whole-branch review. -#}
+  {% if macro or auth %}
   <div class="strip-cell" id="cell-market-context">
     {#- The eyebrow is the guide trigger, replacing the header's #context-chips
         button. .cc-label so the shared dispatch uses it as the dialog heading
@@ -107,6 +116,7 @@
       {% endif %}
     </div>
   </div>
+  {% endif %}
 </section>
 <div class="card">
 <!-- Tab bar. A plain div, not <nav>: role="tablist" is an explicit ARIA role

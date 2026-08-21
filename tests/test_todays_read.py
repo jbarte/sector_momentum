@@ -103,3 +103,20 @@ def test_drift_is_always_one_of_the_three_template_keys(drift):
     an empty second clause."""
     rows = [_row(1, "A", 1.0), _row(2, "B", {"rising": 1.0, "falling": -1.0, "flat": 0.0}[drift])]
     assert todays_read(rows)["drift"] in {"rising", "falling", "flat"}
+
+
+def test_build_py_calls_todays_read_with_theme_rows_not_leaderboard_rows():
+    """Found in whole-branch review: leaderboard_rows "carries all three
+    cohorts" (comment above its own definition in build.py) — region is the
+    filter that keeps retired US/EU sector rows out of every read
+    (CLAUDE.md). Ranks are per-cohort, so calling todays_read() with the
+    unfiltered list could name a retired sector as the lead theme if a
+    scan_id ever mixed cohorts (a restored/backfilled snapshot, a
+    transitional scan). A functional test would need DB fixtures build.py
+    doesn't take as a parameter, so this pins the call site directly, the
+    same technique test_badge_gating.py's
+    test_gating_suppresses_setup_before_data_json_is_built() uses for a
+    build.py ordering guarantee it can't exercise end-to-end either."""
+    build_text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
+    assert "todays_read(theme_rows)" in build_text
+    assert "todays_read(leaderboard_rows)" not in build_text
