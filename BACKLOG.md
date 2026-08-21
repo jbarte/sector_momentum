@@ -56,6 +56,31 @@ one plan for the whole redesign).
   (`_responsive.css.j2`, `max-width: 600px`) without this restructuring;
   don't mistake that for the spec's intent when picking Stage 5 up.
 
+## Mobile header overflows the viewport (pre-existing, pre-dates Stage 3)
+
+Found while verifying Stage 3 at 375px, then confirmed **identical on `main`**
+— not a regression from that stage, and out of its scope, so it was left
+alone rather than folded in.
+
+`.meta-cluster` (`_chrome.css.j2`) is `display: flex` with `flex-wrap: nowrap`
+and no mobile treatment. Its four children — `.context-chips`, `.auth-root`,
+`.theme-toggle`, `.lang-toggle` — total **484px** inside a 375px header, so
+the document's `scrollWidth` is 499px against a 375px `clientWidth` on both
+this branch and `main`.
+
+The consequence is worse than a sideways scroll: the layout viewport is blown
+out to the content width, so a real phone renders the **whole page** at about
+75% scale — every font size, tap target, and the new Stage 3 cards included.
+That likely explains why the mobile type reads small even after Stage 3's
+work.
+
+`_responsive.css.j2` already has the right seam for this (it is guaranteed
+last in the cascade). The fix is a mobile rule on `.meta-cluster` — wrap, or
+move the toggles into the `.mobile-scan-meta` row Stage 3 added, which is
+already the established place for header content that does not fit. Worth
+checking Stage 4 against this too: that stage moves the SPY/VIX chips out of
+the command bar, which removes one of the four offenders on its own.
+
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
@@ -442,6 +467,19 @@ source-only and tight:
     instead of wrapping across several (`.horizon-row` deliberately excluded
     — it carries prose, not chips). `.site-footer` stacks vertically instead
     of squeezing the disclaimer text against the Methodology/Alerts buttons.
+  - **Review finding, verified live and fixed:** every card was emitted with
+    `role="button"`/`tabindex="0"`/`aria-expanded` and a toggle handler
+    unconditionally, but `scan-history.js`'s past-scan rows carry no
+    `data-sector-id` and emit no `.breakdown-row`, so `bdContent` is always
+    empty on exactly the path this stage newly wired. Confirmed at 375px on
+    scan #159: all 18 cards announced themselves as expandable disclosures and
+    revealed a 0px-tall empty panel. The disclosure affordances and the
+    `.card-breakdown` div now hang off one `expandable` condition, and the
+    click handler is scoped to `[role="button"]`. Three tests pin it (all
+    three fail against the pre-fix template). Worth noting for Stages 4–5:
+    the first draft of the fix put a literal leaderboard-row tag in a JS
+    comment, which `test_badge_gating.py`'s row-tag regex matched in the
+    rendered page — template comments are page content, not source-only.
 
 - **Leaderboard table redesign — Stage 2 of the leaderboard redesign**
   (2026-08-20). Plan:
