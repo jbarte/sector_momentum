@@ -1695,3 +1695,41 @@ def test_site_footer_stacks_on_mobile():
     m = re.search(r"\.site-footer\s*\{[^}]*\}", css)
     assert m, ".site-footer rule not found"
     assert "flex-direction: column" in m.group(0)
+
+
+def test_cards_are_only_disclosures_when_they_have_a_breakdown():
+    """Found in review, verified live at 375px on scan #159: scan-history.js's
+    past-scan rows are bare `<tr class="leaderboard-row">` with no
+    data-sector-id and no .breakdown-row sibling, so bdContent is '' for every
+    card on that path — the one path this stage newly wired renderMobileCards()
+    into. Emitting role="button"/tabindex/aria-expanded unconditionally made all
+    18 cards announce themselves as expandable and then reveal a 0px-tall empty
+    panel. role, tabindex, aria-expanded and .card-breakdown must all hang off
+    the same `expandable` condition, or they drift apart again."""
+    fn_body = _render_mobile_cards_js()
+    assert "var expandable = bdContent !== ''" in fn_body, (
+        "renderMobileCards() must decide expandability from bdContent"
+    )
+    # The disclosure affordances are gated, not unconditional.
+    assert "expandable ? ' role=\"button\" tabindex=\"0\" aria-expanded=\"false\"'" in fn_body
+    assert "expandable ? '<div class=\"card-breakdown\">'" in fn_body
+    # ...and nothing emits them unconditionally any more.
+    assert "+ ' role=\"button\" tabindex=\"0\" aria-expanded=\"false\"'" not in fn_body
+    assert "+ '<div class=\"card-breakdown\">'" not in fn_body
+
+
+def test_card_click_handler_is_scoped_to_expandable_cards():
+    """A non-expandable card has no breakdown to toggle, so a click handler on
+    it would only set an 'open' class nothing reads — and would still feel like
+    a dead tap target. Pairs with
+    test_cards_are_only_disclosures_when_they_have_a_breakdown."""
+    fn_body = _render_mobile_cards_js()
+    assert "querySelectorAll('.leaderboard-card[role=\"button\"]')" in fn_body
+
+
+def test_breakdown_lookup_skips_empty_sector_id():
+    """getElementById('bd-') on a row with no data-sector-id is a lookup that
+    can only ever miss; guard it so the intent reads as deliberate rather than
+    as an accidental miss that happens to return null."""
+    fn_body = _render_mobile_cards_js()
+    assert "sectorId ? document.getElementById('bd-' + sectorId) : null" in fn_body

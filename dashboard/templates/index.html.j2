@@ -592,11 +592,20 @@ function renderMobileCards() {
     // has no visible effect. A card-local copy, toggled by the card's own
     // class, sidesteps that — see the click handler below.
     var sectorId = tr.dataset.sectorId || '';
-    var bdRow = document.getElementById('bd-' + sectorId);
+    var bdRow = sectorId ? document.getElementById('bd-' + sectorId) : null;
     var bdContent = bdRow ? bdRow.querySelector('td').innerHTML : '';
+    // A card is a disclosure only when it has something to disclose.
+    // scan-history.js's past-scan rows are built as a bare leaderboard-row
+    // <tr> carrying no data-sector-id, with no .breakdown-row sibling, so
+    // bdContent is always '' on that path — the one
+    // path this stage newly wired renderMobileCards() into. Advertising those
+    // cards as role="button"/aria-expanded made every card on a past scan
+    // announce itself as an expandable disclosure and then reveal a 0px-tall
+    // empty panel. Found in review at a 375px viewport, on scan #159.
+    var expandable = bdContent !== '';
 
     html += '<div class="leaderboard-card' + (isInBand ? ' in-band' : '') + '"'
-      + ' role="button" tabindex="0" aria-expanded="false"'
+      + (expandable ? ' role="button" tabindex="0" aria-expanded="false"' : '')
       + ' data-sector-id="' + sectorId + '">'
       + '<div class="card-line1">'
       + (rankBadge ? '<span class="card-rank">' + rankBadge.outerHTML + '</span>' : '')
@@ -617,7 +626,7 @@ function renderMobileCards() {
             + (setupBadge ? setupBadge.outerHTML : '')
             + '</div>'
           : '')
-      + '<div class="card-breakdown">' + bdContent + '</div>'
+      + (expandable ? '<div class="card-breakdown">' + bdContent + '</div>' : '')
       + '</div>';
   });
 
@@ -629,7 +638,10 @@ function renderMobileCards() {
   // state. The two are never visible at the same time (table hidden on
   // mobile, cards hidden on desktop), so independent state causes no
   // visible inconsistency.
-  Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card'), function (card) {
+  // [role="button"], not every card: a non-expandable card (see `expandable`
+  // above) has no breakdown to toggle, so a handler on it would only add an
+  // 'open' class nothing reads.
+  Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card[role="button"]'), function (card) {
     card.addEventListener('click', function () {
       var open = card.classList.toggle('open');
       card.setAttribute('aria-expanded', open ? 'true' : 'false');
