@@ -1466,3 +1466,145 @@ def test_supabase_client_asset_is_copied_when_auth_is_configured():
     missing the new fourth one."""
     build_py = (Path(__file__).parent.parent / "dashboard/build.py").read_text()
     assert 'docs_assets / "supabase-client.js"' in build_py
+
+
+def _render_mobile_cards_js():
+    """renderMobileCards()'s exact function body (brace-balanced), the same
+    technique test_level_change_bars_python_and_js_agree /
+    _apply_band_boundaries_js use elsewhere in this file."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function renderMobileCards()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_leaderboard_cards_container_exists():
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert 'class="leaderboard-cards"' in text
+    # Must be a sibling of the table inside the same .table-wrap, not a
+    # separate top-level element — CSS visibility toggling assumes this.
+    wrap_start = text.index('class="table-wrap"')
+    cards_start = text.index('class="leaderboard-cards"', wrap_start)
+    assert wrap_start < cards_start, "cards container must be inside .table-wrap"
+
+
+def test_render_mobile_cards_reads_the_table_not_a_fourth_data_source():
+    """Cards are a projection of the table's live DOM, not an independently
+    built fourth row-format — this is what keeps sort/filter/band-cuts/badges
+    working on mobile with no card-specific reimplementation of any of them."""
+    js = _render_mobile_cards_js()
+    assert "querySelectorAll" in js
+    assert "leaderboard-row" in js
+    # Must read the CURRENT DOM (rank badge text, theme name text, etc.), not
+    # a data source like RESCORE_DATA or SCAN_HISTORY that duplicates the
+    # table's own state.
+    assert "RESCORE_DATA" not in js
+    assert "SCAN_HISTORY" not in js
+
+
+def test_render_mobile_cards_reflects_band_cut_rows_too():
+    js = _render_mobile_cards_js()
+    assert "band-cut-row" in js
+
+
+def test_cards_embed_their_own_breakdown_copy_not_toggle_breakdown():
+    """Resolved during planning: toggleBreakdown() only toggles a CSS class
+    on the table's own breakdown <tr>, and the table is fully hidden on
+    mobile (display:none), so calling it from a card's tap handler would
+    toggle a class with no visible effect. Cards must embed their own copy
+    of the breakdown content and toggle it independently — this is the
+    regression a future 'simplify by reusing toggleBreakdown()' edit would
+    silently reintroduce."""
+    js = _render_mobile_cards_js()
+    assert "card-breakdown" in js
+    assert "getElementById('bd-'" in js or 'getElementById("bd-"' in js
+
+
+def test_render_mobile_cards_wired_into_apply_band_boundaries():
+    """sortTable(), applyFilters(), and applyHorizonBadges() all already call
+    applyBandBoundaries() at their own end (verified before this test was
+    written — the same class of unverified claim Stage 2's whole-branch
+    review had to catch and revert). One call inside applyBandBoundaries()
+    itself covers all of them, plus the signed-in path (auth.js dispatches
+    sm:leaderboard-upgraded after rebuilding rows, and that event already
+    triggers applyHorizonBadges()) — no direct listener needed in auth.js."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function applyBandBoundaries(")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = text[start:i + 1]
+    assert "renderMobileCards" in fn_body
+
+
+def test_render_mobile_cards_wired_into_scan_history_only():
+    """scan-history.js's showScan() is the one path that genuinely needs a
+    direct call — it deliberately never calls applyHorizonBadges() or
+    applyBandBoundaries() (its rows carry no data-rank, so that DOM pass
+    would find nothing regardless), the identical reason Stage 2 had to give
+    it its own local band-cut logic instead of reusing the shared pass."""
+    scan_history_js = (Path(__file__).parent.parent
+                        / "dashboard/assets/scan-history.js").read_text()
+    assert "renderMobileCards" in scan_history_js, (
+        "showScan() must call renderMobileCards() after rebuilding rows"
+    )
+
+
+def test_pinned_column_css_is_gone():
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    assert "#leaderboard-table th:nth-child(1)" not in css
+    assert "#leaderboard-table td:nth-child(1)" not in css
+    assert "#leaderboard-table th:nth-child(2)" not in css
+    assert "#leaderboard-table td:nth-child(2)" not in css
+
+
+def test_card_and_table_visibility_toggle_by_viewport():
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    assert "max-width: 600px" in css
+    assert ".leaderboard-cards" in css
+
+
+def test_card_line2_is_a_flex_container():
+    """Found live: renderMobileCards() copies compositeCell.innerHTML — the
+    .cbar-wrap/.cbar-val children only, not .composite-cell itself, whose
+    `display: flex` (_tables.css.j2) is what gives .cbar-wrap's `flex: 1` a
+    container to size against. Without .card-line2 also being a flex
+    container, the bar rendered at 0 width — measured live via
+    getBoundingClientRect() before this was caught."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.card-line2\s*\{[^}]*\}", css)
+    assert m, ".card-line2 rule not found"
+    assert "display: flex" in m.group(0)
+
+
+def test_card_breakdown_scrolls_instead_of_clipping():
+    """Found live: the embedded breakdown content is intrinsically wider
+    than a mobile card even in .breakdown-grid's single-column mode (~130px
+    of overflow measured at 375px via scrollWidth vs clientWidth). Without
+    overflow-x, that content is silently clipped rather than scrollable."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.card-breakdown\s*\{[^}]*\}", css)
+    assert m, ".card-breakdown rule not found"
+    assert "overflow-x: auto" in m.group(0)
