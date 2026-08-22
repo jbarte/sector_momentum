@@ -418,11 +418,21 @@ source-only and tight:
     textually no matter how many horizons it renders; and a sabotage-verify
     pass that passed against commented-out code, because the substring it
     checked for survives inside the comment itself — the same "comments are
-    page content" trap Stage 3 and 4 each hit once already, now three for
-    three.
+    page content" trap Stage 3 (once) and Stage 4 (twice) already hit, a
+    fourth time now.
   - **Dead CSS caught while reviewing the plan, before writing any code:**
     `.horizon-row label` styled the `<label>` this stage removes; left
-    behind it would have no matching element. 993 passed.
+    behind it would have no matching element.
+  - **A fourth dead-CSS find, this time by whole-branch review after both
+    tasks were green:** `#horizon-select` was still listed in the
+    `pointer: coarse` 44px touch-target rule (`_responsive.css.j2`) even
+    though it is now permanently hidden — dead weight on a control that no
+    longer needs it, while `.horizon-btn`, the real tap target, was never
+    added. The regression test hit "comments are page content" a fifth
+    time while being written: its own explanatory comment named both
+    selectors in prose, so a bare substring check on either assertion
+    passed against the comment alone — fixed by stripping `/* */` block
+    comments before asserting. 994 passed.
 
   Deliberately out of scope, split into its own Queued item so it isn't
   lost: the desktop "Controls row" filter-chip curation (a curated `Top 5` /
