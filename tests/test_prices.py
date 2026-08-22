@@ -144,6 +144,63 @@ def test_cache_stale_two_days_old_on_weekday(mock_date, tmp_path):
     assert _cache_is_fresh(path) is False
 
 
+@patch("src.data.prices.date")
+def test_cache_stale_thursday_on_saturday(mock_date, tmp_path):
+    """The weekend staleness bug (BACKLOG, confirmed live 2026-08-09).
+
+    A cache written Friday MORNING ends on Thursday, because `end` is
+    exclusive and callers pass `end=today` — Friday's own bar is not
+    obtainable until Saturday. The old rule took `expected` = Friday and
+    then applied a 1-day grace on top, landing the boundary on Thursday,
+    so a Saturday run accepted Thursday's close and never fetched
+    Friday's. Scans 155 and 156 re-scored Thursday's data twice.
+    """
+    mock_date.today.return_value = date(2026, 7, 25)  # Saturday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-23")])  # Thursday
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "sat_thursday.parquet")
+    df.to_parquet(path)
+    assert _cache_is_fresh(path) is False
+
+
+@patch("src.data.prices.date")
+def test_cache_stale_thursday_on_sunday(mock_date, tmp_path):
+    """Same bug on the other weekend day — Sunday runs hit it too."""
+    mock_date.today.return_value = date(2026, 7, 26)  # Sunday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-23")])  # Thursday
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "sun_thursday.parquet")
+    df.to_parquet(path)
+    assert _cache_is_fresh(path) is False
+
+
+@patch("src.data.prices.date")
+def test_cache_fresh_friday_on_saturday(mock_date, tmp_path):
+    """The other half of the fix: a weekend cache that DOES hold Friday's
+    close must stay fresh. Tightening the boundary must not turn every
+    weekend run into a full refetch — only the genuinely stale ones."""
+    mock_date.today.return_value = date(2026, 7, 25)  # Saturday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-24")])  # Friday
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "sat_friday.parquet")
+    df.to_parquet(path)
+    assert _cache_is_fresh(path) is True
+
+
+@patch("src.data.prices.date")
+def test_cache_fresh_friday_on_sunday(mock_date, tmp_path):
+    mock_date.today.return_value = date(2026, 7, 26)  # Sunday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-24")])  # Friday
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "sun_friday.parquet")
+    df.to_parquet(path)
+    assert _cache_is_fresh(path) is True
+
+
 def test_cache_is_fresh_handles_empty_parquet(tmp_path):
     """An empty parquet file should not be considered fresh."""
     path = str(tmp_path / "empty.parquet")
