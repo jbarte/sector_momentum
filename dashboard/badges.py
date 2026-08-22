@@ -10,7 +10,7 @@ from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_flo
 from src.universe import is_unbuyable
 from src.backtest.strategy import close_at
 from src.cohorts import cohorts, instrument_map
-from src.data.prices import capped_end, fetch_prices
+from src.data.prices import fetch_prices
 
 FORWARD_DAYS = 5
 MIN_OBS = 3
@@ -94,10 +94,9 @@ def build_badge_scorecard(
     prices = fetch_prices(
         all_tickers,
         start=earliest.strftime("%Y-%m-%d"),
-        # Clamped at today: the forward window runs past today for the newest
-        # scans, and a future `end` would admit an in-progress candle into the
-        # cache scan.py shares. See capped_end().
-        end=capped_end(latest),
+        # Runs past today for the newest scans; fetch_prices clamps it, which
+        # is where that invariant is enforced for every caller.
+        end=latest.strftime("%Y-%m-%d"),
         cache_dir=price_cache_dir,
     )
 

@@ -406,31 +406,50 @@ def test_capped_end_accepts_dates_as_well_as_timestamps():
         assert prices_mod.capped_end(pd.Timestamp("2026-09-05")) == "2026-08-22"
 
 
+def test_fetch_prices_clamps_a_future_end_at_the_chokepoint():
+    """The invariant is enforced in `fetch_prices`, not asked of each caller.
+
+    Seven call sites reach it. Two (`badges.py`, `validation.py`) size their
+    window from a forward-return horizon and legitimately overshoot today; the
+    rest already pass `end=today` or earlier. Clamping per-caller worked but
+    was opt-in, and the first audit of it undercounted the callers by two --
+    which is exactly how an opt-in invariant decays.
+    """
+    import datetime as _dt
+    from src.data import prices as prices_mod
+
+    class _FixedDate(_dt.date):
+        @classmethod
+        def today(cls):
+            return _dt.date(2026, 8, 22)
+
+    seen = {}
+
+    def _fake_fetch(ticker, start, end):
+        seen["end"] = end
+        return None, None
+
+    with patch.object(prices_mod, "date", _FixedDate), \
+         patch.object(prices_mod, "_fetch_single", _fake_fetch), \
+         patch.object(prices_mod, "_cache_is_fresh", lambda *a, **k: False):
+        prices_mod.fetch_prices(["XLK"], "2026-01-01", "2026-09-05",
+                                cache_dir="/tmp/_clamp_test_cache")
+
+    assert seen["end"] == "2026-08-22", (
+        f"fetch_prices passed end={seen['end']!r} through to the fetcher -- a "
+        f"future end admits today's partial candle into the shared cache"
+    )
+
+
 def _strip_py_comments(text: str) -> str:
     """Drop `#` comments so a name MENTIONED in prose cannot satisfy a check
     for that name being CALLED.
 
     Written after a sabotage run passed when it should have failed: removing
-    the real `capped_end(...)` call left the words "See capped_end()." in the
-    comment beside it, which a plain substring check happily accepted.
+    the real call left the function's name in the comment beside it, which a
+    plain substring check happily accepted.
     """
     return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
-
-
-def test_forward_return_consumers_route_end_through_the_cap():
-    """badges.py and validation.py are the two callers whose window is sized
-    from a forward horizon rather than the calendar, so they are the two that
-    can overshoot today. Pinned by source because both need a populated history
-    frame and a live DB to execute; the behaviour itself is covered above.
-    """
-    root = Path(__file__).parent.parent
-    for name in ("dashboard/badges.py", "dashboard/validation.py"):
-        code = _strip_py_comments((root / name).read_text())
-        call = code.split("prices = fetch_prices(", 1)[1].split("\n    )", 1)[0]
-        assert "capped_end(" in call, (
-            f"{name} passes `end` straight from the forward window -- a future "
-            f"`end` admits today's partial candle into the shared price cache"
-        )
 
 
 def test_correlation_aligns_its_cohort_before_correlating():
@@ -470,9 +489,15 @@ def test_correlation_reports_the_aligned_asof_not_the_newest_ticker():
     context is a trap for whoever first renders it, and because the correct
     value is now free -- `align_cohort_asof` already returns it.
     """
-    src = (Path(__file__).parent.parent / "dashboard/correlation.py").read_text()
-    body = src.split("def build_page_context", 1)[-1]
-    assert "max(all_dates)" not in body, (
+    # Whole file, not a split on a function name: correlation.py's builder is
+    # `build_correlation_context`, so the previous split on "build_page_context"
+    # silently matched nothing and scoped the check to the entire text anyway.
+    # An unscoped check is honest about what it covers; a split that names the
+    # wrong function is a no-op that looks precise.
+    code = _strip_py_comments(
+        (Path(__file__).parent.parent / "dashboard/correlation.py").read_text()
+    )
+    assert "max(all_dates)" not in code, (
         "correlation_date still reports the newest date any single ticker "
         "reached instead of the cohort's aligned as-of date"
     )

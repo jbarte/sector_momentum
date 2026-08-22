@@ -361,24 +361,40 @@ What remains:
   shorten its newest forward windows. Applying it there would have been a
   regression dressed as a fix.
 
-  All five `fetch_prices` callers, checked individually:
+  All **seven** `fetch_prices` callers, checked individually:
 
   | caller | `end` | shape | outcome |
   |---|---|---|---|
   | `scan.py` | today | cross-sectional | already aligned |
   | `correlation.py` | today | cross-sectional | **now aligns** |
   | `macro.py` | today | two indices vs own history | neither needed |
-  | `badges.py` | +15d | per-ticker forward returns | **`end` capped** |
-  | `validation.py` | +30d | per-ticker forward returns | **`end` capped** |
+  | `backtest.py` | today | replay over history | neither needed |
+  | `scripts/horizon_sweep.py` | today | replay over history | neither needed |
+  | `badges.py` | +15d | per-ticker forward returns | **`end` clamped** |
+  | `validation.py` | +30d | per-ticker forward returns | **`end` clamped** |
 
-  **The cap.** New `capped_end()` in `src/data/prices.py`, used by both
-  forward-return callers. No bar exists past today, so the data returned is
-  identical — what it removes is the cache hazard: `end` is exclusive and is
-  the mechanism that keeps an in-progress session out, while `_cache_is_fresh`
-  never receives `end` and always measures against today. A future `end` let
-  yfinance return today's partial candle into the same shared `data/cache/`
-  that `scan.py` reads. Extracted as a helper rather than inlined twice, so
-  the reasoning lives in one place.
+  **The clamp — and where it lives.** New `capped_end()` in
+  `src/data/prices.py`, called by **`fetch_prices` itself** rather than by each
+  caller. `end` is exclusive and is the mechanism keeping an in-progress session
+  out, while `_cache_is_fresh` never receives `end` and always measures against
+  today — so *one* caller passing a future `end` poisons the shared
+  `data/cache/` for every other caller, `scan.py` included. Enforcing it at the
+  chokepoint makes that structural instead of a rule seven call sites have to
+  remember.
+
+  It was written the opt-in way first, and review is what moved it: the initial
+  audit said "five callers" and **missed two** (`backtest.py`,
+  `scripts/horizon_sweep.py` — both safe, both already `end=today`, but the
+  table presented itself as exhaustive). Undercounting the callers of an
+  invariant while implementing it per-caller is precisely the failure mode the
+  chokepoint removes.
+
+  One claim that did not survive review either: "clamping returns identical
+  data" is false after the close. `end` is exclusive, so a post-close cache miss
+  now forgoes today's completed bar and one forward-return observation. That is
+  the same bar `scan.py` gives up, for the same reason — nothing downstream can
+  distinguish a partial candle from a real close once it is cached — but the
+  justification was wrong and is now stated properly in `capped_end`.
 
   **The alignment.** `_compute_correlation_matrix` builds `pd.DataFrame(closes)`
   across the **union** of every ticker's dates, then takes `returns.tail(60)`.
