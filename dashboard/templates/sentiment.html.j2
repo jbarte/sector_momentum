@@ -79,7 +79,25 @@
   {% else %}
   <div class="chart-container" style="padding:48px 32px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
     <p style="font-weight:600;color:var(--fg2);margin:0 0 8px" data-i18n="sentiment_empty_title">No news sentiment for this snapshot</p>
-    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto" data-i18n="sentiment_empty_body">No news sentiment appears for any theme in the snapshot shown here. This can happen when the source (GDELT / FinBERT) recorded nothing that day, or when this page is showing an earlier scan than the most recent one. Sentiment appears automatically once a scan with real readings is on display; the leaderboard and other tabs are unaffected.</p>
+    {#- Dynamic values sit OUTSIDE the data-i18n spans on purpose: applyLang()
+        replaces an element's whole textContent from the SV table, so a scan id
+        or date inside one would be wiped the moment a reader switches language.
+        Same prefix/value/suffix split the lag banner in index.html.j2 uses.
+
+        Gated on `auth` because that is what turns the lag on: build.py sets
+        `lag_active = bool(auth_ctx["auth"])`, so an unconfigured build renders
+        the LATEST scan and every word about lag and signing in would be false
+        there. -#}
+    {% if auth and scan_date %}
+    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto">
+      <span data-i18n="sentiment_empty_showing">Showing scan</span>
+      <strong>#{{ active_scan_id }}</strong> <span aria-hidden="true">&middot;</span> <strong>{{ scan_date[:10] }}</strong><span data-i18n="sentiment_empty_lag_pre">, which runs</span>
+      <strong>{{ lag_days }}</strong> <span data-i18n="sentiment_empty_lag">days behind the newest scan. No sentiment was recorded for the day shown. Signing in refreshes the Themes board but not this page, so a gap in the data surfaces here about a week after it actually happened.</span>
+    </p>
+    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:10px auto 0" data-i18n="sentiment_empty_health">To see whether sentiment is working right now, check the health panel at the foot of the Themes page — it flags a failure on the day it occurs.</p>
+    {% else %}
+    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto" data-i18n="sentiment_empty_body">No news sentiment appears for any theme in the snapshot shown here. This happens when the source (GDELT / FinBERT) recorded nothing that day. Sentiment appears automatically once a scan with real readings is on display; the leaderboard and other tabs are unaffected.</p>
+    {% endif %}
   </div>
   {% endif %}
   {% if sentiment_signal_rows %}

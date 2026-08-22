@@ -90,7 +90,7 @@ from dashboard.health import (                         # noqa: E402, F401
 from dashboard.correlation import (                    # noqa: E402, F401
     build_correlation_context,
 )
-from dashboard.gating import apply_leaderboard_lag  # noqa: E402
+from dashboard.gating import LAG_DAYS, apply_leaderboard_lag  # noqa: E402
 from dashboard.validation import (                    # noqa: E402, F401
     build_validation_context as _validation_ctx,
 )
@@ -603,6 +603,11 @@ def main() -> None:
         # Was relying on an undefined Jinja variable being falsy here. Explicit
         # now — the CSS that hides the sentiment column reads it.
         "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
+        # The empty state states this number out loud. Sourced from the
+        # constant that actually drives the gate rather than written into
+        # the copy — a hardcoded "7" goes quietly wrong the day LAG_DAYS
+        # changes, and the copy is the only place a reader could catch it.
+        "lag_days": LAG_DAYS,
         "horizons_json": _horizons_json,
         "horizon_default_json": _horizon_default_json,
     }
