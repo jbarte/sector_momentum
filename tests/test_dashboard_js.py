@@ -1979,3 +1979,27 @@ def test_render_horizon_stats_sets_the_exit_rank_stat():
     js = _render_horizon_stats_js()
     assert "hz-exit" in js
     assert "h.exit_rank" in js
+
+
+def test_horizon_btn_has_a_touch_target_not_the_dead_select():
+    """Found in whole-branch review: #horizon-select was listed in the
+    pointer:coarse 44px touch-target rule (_responsive.css.j2) before this
+    stage, and stayed listed after the swap even though it is now
+    permanently display:none — dead weight on the control that no longer
+    needs it, while .horizon-btn, the real tap target, was never added.
+
+    Strips /* */ block comments before asserting — caught live, twice: the
+    fix's own explanatory comment names both "#horizon-select" (explaining
+    why it's gone) and ".horizon-btn" (explaining why it's added), so a
+    bare substring check on either assertion is satisfied by the comment
+    alone regardless of the actual CSS rule. Same "comments are page
+    content" trap as _strip_line_comments elsewhere in this file, for CSS
+    block comments instead of // line comments."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    css_no_comments = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    m = re.search(r"@media \(pointer: coarse\) \{.*?\n\}\n", css_no_comments, re.DOTALL)
+    assert m, "pointer:coarse block not found"
+    block = m.group(0)
+    assert "#horizon-select" not in block
+    assert ".horizon-btn" in block
