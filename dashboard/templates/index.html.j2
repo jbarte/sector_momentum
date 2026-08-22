@@ -205,30 +205,55 @@
         <span data-i18n="review_next_label">Next review:</span> <b id="review-next-date">—</b>
       </span>
     </span>
-  </div>
-  <div class="utility-row">
-    <div class="filter-bar" id="leaderboard-filter-bar">
-      {#- Hidden for guests when the badge is gated: these chips filter on
-          data-setup, which is empty on every guest row, so leaving them up
-          would offer a control that can only ever empty the table.
-          applyHorizonBadges() owns the toggle. -#}
-      <div class="filter-group" role="group" aria-label="Setup" id="filter-group-setup">
-        <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Enter</button>
-        <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="hold" aria-pressed="false" data-i18n="filter_hold">● Hold</button>
-        <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false" data-i18n="filter_exit">▼ Exit</button>
-      </div>
-      <div class="filter-group" role="group" aria-label="Trend">
-        <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false" data-i18n="filter_rising">↑ Rising</button>
-        <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="flat" aria-pressed="false" data-i18n="filter_flat">→ Flat</button>
-        <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="falling" aria-pressed="false" data-i18n="filter_falling">↓ Falling</button>
-      </div>
-      <div class="filter-group" role="group" aria-label="Threshold">
-        <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false" data-i18n="filter_composite_pos">Composite &gt; 0</button>
-        <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false" data-i18n="filter_top5">Top 5</button>
-        <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="change_pos" aria-pressed="false" data-i18n="filter_change_pos">Positive change</button>
-      </div>
+
+    {#- Right-aligned controls (spec: "Controls row", Screen 1 item 5).
+        These three carry the SAME data-filter-group/data-filter-value as
+        their counterparts inside the disclosed full set below — clicking
+        either updates both (_wireFilterChips()/_syncChipState below), the
+        same shared-state pattern the horizon segmented control uses over
+        the hidden <select>. A physical move (deleting them from their
+        filter-groups) was considered and rejected: it would leave the
+        Trend group showing only Flat/Falling and the Threshold group
+        showing only Positive change once disclosed — reads as broken. -#}
+    <div class="control-chips">
+      <button type="button" class="control-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false" data-i18n="filter_top5">Top 5</button>
+      <button type="button" class="control-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false" data-i18n="filter_rising">↑ Rising</button>
+      <button type="button" class="control-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false" data-i18n="filter_composite_pos">Composite &gt; 0</button>
+      {#- filter-clear/filter-count live here, not inside the disclosure
+          below: a reader who picks a full-set-only chip (e.g. Enter) then
+          collapses More filters must still see that a filter is active
+          and have a way to clear it. Their ids are unchanged, so
+          _updateFilterCount()/_wireFilterChips()'s getElementById lookups
+          need no changes — only their position moved. -#}
       <button type="button" class="filter-clear" id="filter-clear" hidden data-i18n="filter_clear">Clear</button>
       <span class="filter-count" id="filter-count"></span>
+      {#- Native <details>, matching .rank-settings right beside it — same
+          popover positioning (_sentiment.css.j2), same mobile full-width
+          override (_responsive.css.j2), no new toggle JS needed. -#}
+      <details class="more-filters">
+        <summary data-i18n="more_filters">More filters</summary>
+        <div class="filter-bar" id="leaderboard-filter-bar">
+          {#- Hidden for guests when the badge is gated: these chips filter on
+              data-setup, which is empty on every guest row, so leaving them up
+              would offer a control that can only ever empty the table.
+              applyHorizonBadges() owns the toggle. -#}
+          <div class="filter-group" role="group" aria-label="Setup" id="filter-group-setup">
+            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Enter</button>
+            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="hold" aria-pressed="false" data-i18n="filter_hold">● Hold</button>
+            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false" data-i18n="filter_exit">▼ Exit</button>
+          </div>
+          <div class="filter-group" role="group" aria-label="Trend">
+            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false" data-i18n="filter_rising">↑ Rising</button>
+            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="flat" aria-pressed="false" data-i18n="filter_flat">→ Flat</button>
+            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="falling" aria-pressed="false" data-i18n="filter_falling">↓ Falling</button>
+          </div>
+          <div class="filter-group" role="group" aria-label="Threshold">
+            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false" data-i18n="filter_composite_pos">Composite &gt; 0</button>
+            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false" data-i18n="filter_top5">Top 5</button>
+            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="change_pos" aria-pressed="false" data-i18n="filter_change_pos">Positive change</button>
+          </div>
+        </div>
+      </details>
     </div>
     {#- Visible text rather than aria-label on a bare glyph: an aria-label would
         override the visible name for AT, and a control that silently re-ranks
@@ -1435,36 +1460,63 @@ function applyFilters() {
 
 function clearFilters() {
   _filterState = { setup: [], trend: [], thresholds: [] };
-  var chips = document.querySelectorAll('#leaderboard-filter-bar .filter-chip');
-  Array.prototype.forEach.call(chips, function (c) {
-    c.classList.remove('active');
-    c.setAttribute('aria-pressed', 'false');
-  });
+  // NOT scoped to the disclosed filter bar's id — .control-chip lives
+  // outside it and must be reset too, or Clear would leave a curated chip
+  // pressed. Shares _setChipPressed with _syncChipState below rather than
+  // toggling classList/aria-pressed inline a second time — found in
+  // whole-branch review, this used to be its own independent copy of the
+  // same two-line toggle.
+  var chips = document.querySelectorAll('[data-filter-group][data-filter-value]');
+  Array.prototype.forEach.call(chips, function (c) { _setChipPressed(c, false); });
   applyFilters();
 }
 
 function setFilterBarVisible(visible) {
+  // Both halves of the split filter UI: the disclosed full set AND the
+  // always-visible curated chips — a past scan's rows carry no filter
+  // data-attributes, so both must disappear together or a reader could
+  // tap a curated chip that silently does nothing.
   var bar = document.getElementById('leaderboard-filter-bar');
   if (bar) bar.style.display = visible ? '' : 'none';
+  var controlChips = document.querySelector('.control-chips');
+  if (controlChips) controlChips.style.display = visible ? '' : 'none';
+}
+
+// Every element sharing a data-filter-group/data-filter-value pair reflects
+// the SAME toggle — a curated .control-chip in the always-visible row and
+// its counterpart .filter-chip inside the disclosed full set. Called after
+// state changes so neither view can show a pressed state the other
+// disagrees with.
+// The one place that toggles a chip's own visual pressed state — both
+// _syncChipState (a single group/value pair) and clearFilters (every
+// chip at once) call this rather than each keeping an independent copy
+// of the same classList/aria-pressed toggle.
+function _setChipPressed(el, active) {
+  el.classList.toggle('active', active);
+  el.setAttribute('aria-pressed', active ? 'true' : 'false');
+}
+
+function _syncChipState(group, value, active) {
+  var selector = '[data-filter-group="' + group + '"][data-filter-value="' + value + '"]';
+  Array.prototype.forEach.call(document.querySelectorAll(selector), function (c) {
+    _setChipPressed(c, active);
+  });
 }
 
 (function _wireFilterChips() {
-  var chips = document.querySelectorAll('#leaderboard-filter-bar .filter-chip');
+  // NOT scoped to the disclosed filter bar's id — .control-chip lives
+  // outside it, in the always-visible row, and needs the same click wiring.
+  var chips = document.querySelectorAll('[data-filter-group][data-filter-value]');
   Array.prototype.forEach.call(chips, function (chip) {
     chip.addEventListener('click', function () {
-      var arr = _filterState[chip.dataset.filterGroup];
+      var group = chip.dataset.filterGroup;
+      var arr = _filterState[group];
       if (!arr) return;
       var val = chip.dataset.filterValue;
       var i = arr.indexOf(val);
-      if (i === -1) {
-        arr.push(val);
-        chip.classList.add('active');
-        chip.setAttribute('aria-pressed', 'true');
-      } else {
-        arr.splice(i, 1);
-        chip.classList.remove('active');
-        chip.setAttribute('aria-pressed', 'false');
-      }
+      var active = i === -1;
+      if (active) { arr.push(val); } else { arr.splice(i, 1); }
+      _syncChipState(group, val, active);
       applyFilters();
     });
   });

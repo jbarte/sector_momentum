@@ -21,24 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Desktop controls row — curated filter chips + a "More filters" disclosure
-
-Split out of "Leaderboard redesign — Stage 5" (now shipped in full — see
-Done) so this specific follow-up doesn't disappear along with that heading.
-
-Design spec: `sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md`,
-Screen 1 item 5 ("Controls row"). Describes the horizon segmented control
-(shipped) living in ONE row together with a curated three-chip subset —
-`Top 5`, `↑ Rising`, `Composite > 0` — plus a dashed `More filters` chip that
-discloses the full nine-chip set, and a `How to read this` text button. This
-is a different, smaller control row than the nine-chip `.filter-bar` that
-exists today; Stage 3 gave that existing bar a horizontal-scroll treatment
-as a stopgap (`_responsive.css.j2`, `max-width: 600px`) without this
-restructuring — don't mistake the stopgap for the spec's actual intent.
-Exact values are in the spec (`padding: 5px 12px`, `12px`,
-`border-radius: var(--radius-pill)`, etc.) — this is implementation work, not
-an open design question.
-
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
@@ -385,6 +367,80 @@ source-only and tight:
 ---
 
 # Done
+
+- **Desktop controls row — curated filter chips + a "More filters"
+  disclosure** (2026-08-22). Plan:
+  `sector_momentum-notes/plans/2026-08-22-controls-row-chip-curation.md`.
+
+  - **One "Controls row" per the spec, not two.** The old horizon row and
+    filter-bar row merge: HORIZON control and four stats stay left, three
+    curated chips (`Top 5`, `↑ Rising`, `Composite > 0`) plus a dashed
+    `More filters` chip sit right-aligned. The full nine-chip set moves,
+    unmodified, into a new `<details class="more-filters">` — the same
+    native disclosure `.rank-settings` already used one control over,
+    right down to its popover positioning and mobile full-width override.
+  - **Two structural decisions resolved with the user before planning,
+    not guessed**: curated chips are duplicates sharing state with the
+    full set (not a physical move — that would leave the Trend group
+    showing only `Flat`/`Falling` and the Threshold group showing only
+    `Positive change` once disclosed), and `More filters` is a native
+    `<details>`/`<summary>`, matching `.rank-settings` beside it.
+  - **The sync mechanism**: `_wireFilterChips()`/`clearFilters()` widen
+    from `#leaderboard-filter-bar .filter-chip` to any element carrying
+    `data-filter-group`/`data-filter-value`, and a new `_syncChipState()`
+    updates every element sharing a group/value pair — clicking either a
+    curated chip or its full-set counterpart updates both.
+    `applyFilters()`'s own matching logic is untouched.
+  - **Two follow-on fixes the restructuring itself required**:
+    `setFilterBarVisible()` (guest/history gating, `scan-history.js`) now
+    also hides/shows the curated chips, not just the disclosed set — past
+    scan rows carry no filter data-attributes, so a curated chip left
+    visible would silently do nothing. `filter-count`/`filter-clear` move
+    out of the disclosure into the always-visible row, so collapsing
+    `More filters` after picking a full-set-only chip doesn't hide the
+    only sign a filter is active.
+  - **Stage 3's mobile scroll hack for `.filter-bar` is retired**, not
+    just superseded quietly — the full set is behind a disclosure now,
+    not always visible, so wrapping reads better than a forced
+    horizontal scroll. `BACKLOG.md`'s own note on this item predicted the
+    exact reversal when Stage 3 shipped the stopgap.
+    `test_control_row_scrolls_horizontally_not_wraps` is deleted, not
+    skipped — the property it guarded is no longer true by design.
+  - **Four bugs found and fixed live, none by the plan's own tests**: a
+    regex requiring `\S+` broke against the two-word Swedish translation
+    "Fler filter"; a sync-mechanism test checked the wrong function's
+    body for the selector construction (the implementation extracted it
+    into a sibling function, `_syncChipState`, that
+    `_wireFilterChips()` merely calls); a `@media (max-width: 600px)`
+    block-delimiting regex matched clean across a boundary into an
+    unrelated `@media (pointer: coarse)` block, since this file has
+    several separate `max-width: 600px` blocks; and `.control-chips` had
+    no `flex-wrap` of its own, so its six children overflowed 7.66px past
+    a 375px viewport instead of wrapping — measured via
+    `getBoundingClientRect()`, since `document.documentElement.scrollWidth`
+    read 375 throughout and never flagged it.
+  - **Three more bugs found by a whole-branch review pass, after both
+    tasks were green:** `.control-chips` had no right-alignment
+    mechanism (`.horizon-row` is a plain flex-wrap row with no
+    `justify-content`) despite this same Done entry's own text above
+    claiming the chips "sit right-aligned" — fixed with `margin-left:
+    auto`, measured live: an 811px gap at 1280px before the fix.
+    `.control-chip`/`.more-filters summary` were missing from the
+    `pointer: coarse` 44px touch-target rule every sibling control in
+    the row already gets. `clearFilters()` hand-rolled its own copy of
+    the `_syncChipState()` pressed-state toggle — extracted into a
+    shared `_setChipPressed(el, active)` both now call. 1010 passed.
+  - **Deliberately left as follow-up, not fixed here:** `.more-filters`'s
+    popover CSS duplicates `.rank-settings`'s almost verbatim instead of
+    sharing it (the missing-touch-target bug above is a direct
+    consequence of that duplication already drifting once) — a real
+    DRY opportunity, but merging them touches `_sentiment.css.j2`,
+    untouched by this branch, for a currently-cosmetic gap. Two
+    independent `<details>` popovers (`.more-filters`, `.rank-settings`)
+    have no mutual-exclusion, so both could render stacked if opened
+    together — currently unreachable, since `.rank-settings` only
+    renders when `SENTIMENT_RANKING_ENABLED` is true. Neither is worth
+    the risk of touching more surface area for an inactive path.
 
 - **Leaderboard horizon segmented control — Stage 5 of the leaderboard
   redesign, the last stage** (2026-08-22). Plan:

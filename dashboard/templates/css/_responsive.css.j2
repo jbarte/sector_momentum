@@ -31,26 +31,6 @@
     gap: 8px;
   }
 
-  /* Control row: the filter chips (.filter-bar, _tables.css.j2) already
-     flex-wrap onto several lines at this width, which reads as a tall
-     block of pills before the leaderboard. Scrolling them horizontally
-     as one row keeps the chip row compact instead — same trade-off the
-     design spec's "Control row" point calls for. Each .filter-group
-     wraps its own buttons by default too, so it needs the same
-     nowrap/flex:none treatment as the row itself, or squeezing the row
-     would just push the wrap down a level instead of removing it.
-     .horizon-row is deliberately NOT included here: it carries a full
-     sentence (.horizon-note) and the review-status text, and forcing
-     prose onto a scrolling strip would be worse than the wrapping it
-     already does. */
-  .filter-bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .filter-bar > * { flex: none; white-space: nowrap; }
-  .filter-group { flex-wrap: nowrap; }
-
   /* Summary strip (Stage 4): one stacked block on a phone, not three columns
      — three cells at 375px give each ~125px, narrower than a single band
      pill. Cell C is hidden here because .mobile-scan-meta (Stage 3) already
@@ -224,6 +204,12 @@
 @media (pointer: coarse) {
   .tab-btn,
   .filter-chip,
+  /* .control-chip/.more-filters summary are new (desktop controls-row chip
+     curation) and were missing here in whole-branch review — every
+     sibling control in the same row (.filter-chip, .rank-settings
+     summary) already gets this treatment. */
+  .control-chip,
+  .more-filters summary,
   .segment-btn,
   .lag-banner-btn,
   .footer-link,
@@ -281,12 +267,16 @@
 /* from _tables.css.j2 */
 @media (max-width: 700px) { .breakdown-grid { grid-template-columns: 1fr; } }
 
-/* from _sentiment.css.j2 — the ranking popover anchors to the utility row and
-   spans it below 600px, instead of running off the side. */
+/* The ranking and More-filters popovers both anchor to .horizon-row (the
+   merged Controls row, since the desktop controls-row-chip-curation work
+   retired .utility-row) and span it below 600px, instead of running off
+   the side. */
 @media (max-width: 600px) {
-  .utility-row { position: relative; }
-  .rank-settings { position: static; }
-  .rank-settings .sentiment-control {
+  .horizon-row { position: relative; }
+  .rank-settings,
+  .more-filters { position: static; }
+  .rank-settings .sentiment-control,
+  .more-filters .filter-bar {
     left: 0;
     right: 0;
     min-width: 0;
