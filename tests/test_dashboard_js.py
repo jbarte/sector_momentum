@@ -1830,3 +1830,107 @@ def test_buy_band_never_calls_applylang():
     fn = _strip_line_comments(_render_buy_band_js())
     assert "applyLang(" not in fn, "renderBuyBand() must not call applyLang()"
     assert "getElementById('band-empty')" in fn
+
+
+# ---------------------------------------------------------------------------
+# Stage 5: horizon segmented control.
+# ---------------------------------------------------------------------------
+
+
+def test_horizon_toggle_buttons_exist_for_every_horizon():
+    """One .horizon-btn per horizon_list entry via a Jinja loop over the
+    same horizon_list the <select>'s <option>s already loop over — a
+    source scan sees the loop body once, not once per rendered horizon, so
+    this checks the loop is over horizon_list, not that the text repeats."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert 'class="horizon-toggle"' in text
+    toggle_start = text.index('class="horizon-toggle"')
+    toggle_block = text[toggle_start:text.index("</div>", toggle_start)]
+    assert "{% for h in horizon_list %}" in toggle_block
+    assert 'class="horizon-btn"' in toggle_block
+    assert 'data-horizon-choice="{{ h.key }}"' in toggle_block
+
+
+def test_horizon_select_is_still_in_the_dom_but_hidden():
+    """Spec: keep <select id="horizon-select">, visually hidden —
+    switchHorizon() reads document.getElementById('horizon-select') back
+    internally at two points, not only via its own onchange."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert 'id="horizon-select"' in text
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_tables.css.j2").read_text()
+    m = re.search(r"\.horizon-row select\s*\{[^}]*\}", css)
+    assert m, ".horizon-row select rule not found"
+    assert "display: none" in m.group(0)
+
+
+def test_horizon_buttons_are_wired_to_switch_horizon():
+    """A click must call the SAME switchHorizon() the <select>'s onchange
+    calls — a second, independent state-setter would let the two controls
+    disagree."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    idx = text.index("function initHorizonSelect()")
+    brace_start = text.index("{", idx)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = text[idx:i + 1]
+    assert "switchHorizon(" in fn_body
+    assert "horizon-btn" in fn_body
+
+
+def test_switch_horizon_keeps_the_toggle_buttons_in_sync():
+    """A programmatic switchHorizon() call (a deep link, a test, the
+    <select>'s own onchange) must update the buttons' aria-pressed too —
+    the same reasoning the existing _sel.value sync comment gives for the
+    hidden <select> itself.
+
+    Strips comments before asserting — caught live: a first sabotage-verify
+    pass commented out the call and this test still passed, because the
+    substring "updateHorizonToggleUI" survives in the commented-out line
+    itself. Same trap Stage 3/4's own comments hit twice already
+    (test_buy_band_never_calls_applylang uses the same _strip_line_comments
+    helper for exactly this reason)."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    idx = text.index("function switchHorizon(key)")
+    brace_start = text.index("{", idx)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = _strip_line_comments(text[idx:i + 1])
+    assert "updateHorizonToggleUI(key)" in fn_body
+
+
+def test_horizon_label_has_no_trailing_colon():
+    """Restyled as a bare eyebrow (matching .strip-eyebrow's "TODAY'S READ" /
+    "IN THE BUY BAND" — no trailing punctuation), not a form <label> — the
+    element it used to label is now display:none and no longer the focus
+    target; the segmented buttons are."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    idx = text.index('data-i18n="horizon_label"')
+    line = text[max(0, idx - 80):idx + 80]
+    assert "Horizon:" not in line
+    assert "<label" not in text[max(0, idx - 40):idx]
+
+
+def test_horizon_row_label_css_is_gone():
+    """Found while reviewing this plan: `.horizon-row label` styled the
+    <label> Task 1 Step 3 removes in favour of a plain <span> — left behind,
+    it would be dead CSS with no matching element."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_tables.css.j2").read_text()
+    assert ".horizon-row label" not in css

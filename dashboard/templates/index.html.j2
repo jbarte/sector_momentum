@@ -161,7 +161,18 @@
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <div class="horizon-row">
-    <label for="horizon-select" data-i18n="horizon_label">Horizon:</label>
+    <span class="horizon-eyebrow" data-i18n="horizon_label">Horizon</span>
+    {#- The segmented buttons are the real control now — keyboard, screen
+        reader, everything. The <select> beneath stays in the DOM purely as
+        switchHorizon()'s internal source of truth (it reads
+        getElementById('horizon-select') back at two points, not just via
+        onchange) — display:none removes it from both sight and the
+        accessibility tree, so it is never a second, competing control. -#}
+    <div class="horizon-toggle" role="group" aria-label="Horizon">
+      {% for h in horizon_list %}
+      <button type="button" class="horizon-btn" data-horizon-choice="{{ h.key }}" aria-pressed="false">{{ h.label }}</button>
+      {% endfor %}
+    </div>
     <select id="horizon-select" onchange="switchHorizon(this.value)">
       {% for h in horizon_list %}
       <option value="{{ h.key }}">{{ h.label }}</option>
@@ -1085,9 +1096,23 @@ function renderReviewStatus() {
   if (dateEl) { dateEl.textContent = status.nextDate || '—'; }
 }
 
+// Mirrors theme.js's updateControlUI(): reflect `key` on every button's
+// aria-pressed, called both on init and from switchHorizon() so a
+// programmatic call (a deep link, a test, the hidden <select>'s own
+// onchange) keeps the visible control in step, not only the state.
+function updateHorizonToggleUI(key) {
+  Array.prototype.forEach.call(document.querySelectorAll('.horizon-btn'), function (b) {
+    b.setAttribute('aria-pressed', b.getAttribute('data-horizon-choice') === key ? 'true' : 'false');
+  });
+}
+
 function initHorizonSelect() {
   var sel = document.getElementById('horizon-select');
   if (sel) { sel.value = activeHorizon; }
+  updateHorizonToggleUI(activeHorizon);
+  Array.prototype.forEach.call(document.querySelectorAll('.horizon-btn'), function (b) {
+    b.addEventListener('click', function () { switchHorizon(b.getAttribute('data-horizon-choice')); });
+  });
   renderHorizonStats(activeHorizon);
   renderReviewStatus();
   var doneBtn = document.getElementById('review-done-btn');
@@ -1118,6 +1143,7 @@ function switchHorizon(key) {
   // stats strip, the band lines and the alerts notice all describe another.
   var _sel = document.getElementById('horizon-select');
   if (_sel && _sel.value !== key) { _sel.value = key; }
+  updateHorizonToggleUI(key);
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
   renderHorizonStats(key);
   renderReviewStatus();
