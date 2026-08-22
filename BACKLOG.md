@@ -30,18 +30,58 @@ Done. Restoring it is one flag, `SENTIMENT_RANKING_ENABLED` in
 `dashboard/build.py`, but two things should be settled first.
 
 **1. Validate the sentiment pipeline.** This is the blocker and the reason the
-control went away: the FinBERT/GDELT output has not been checked against
-anything. Until there is a reason to believe a positive polarity reading means
-something, letting it move the ranking is worse than not showing it. Nothing
-below matters until this is answered.
+control went away. Until there is a reason to believe a positive polarity
+reading means something, letting it move the ranking is worse than not showing
+it. Nothing below matters until this is answered.
 
-> **The pipeline was entirely dead from 2026-08-05 to 2026-08-16** (scans
-> 153–162 wrote NULL sentiment) — fixed 2026-08-16, see Done. Validation
-> cannot start on the existing data: the newest real sentiment rows are from
-> scan 152 (2026-08-05), and everything after is NULL. **Let a few daily
-> scans accumulate fresh output first**, then validate against that. Note the
-> pre-152 history is sector-cohort-heavy, so it is not a clean sample for
-> judging the theme cohort either.
+**Measured 2026-08-22 (scans 164–169, 6 clean days, 18 themes, 107 readings).
+The answer so far is negative, and it changes what "restoring the control"
+should even mean.**
+
+`news_polarity` decomposes into a large fixed per-theme level plus daily noise:
+
+| measurement | result | interpretation |
+|---|---|---|
+| raw lag-1 autocorrelation | **0.299** (0.734 for themes with ≥50 articles/day) | looks strongly persistent |
+| lag-1 after removing each theme's own mean | **−0.245** (−0.083 for ≥50 articles) | the persistence was *not* dynamics |
+| pure-noise benchmark for this panel shape (18×6, simulated 20k draws) | mean **−0.200**, 95% range −0.388 to −0.005 | observed values sit at the 33rd and 88th percentile — **inside the noise band** |
+| per-theme mean polarity, 138–152 vs 164–169 | **r = 0.707**, ρ = 0.696 (n=17, p ≈ 0.002) | the level is stable across two unrelated news periods |
+| polarity vs composite rank | ρ = −0.189, Pearson 0.120 | negligible |
+
+The two periods compared in that fourth row are **non-overlapping and separated
+by eleven days of dead pipeline** (2026-07-22→08-05 vs 08-17→08-22). A theme's
+average tone survived a complete change of news at r = 0.71. Meanwhile its
+day-to-day movement is statistically indistinguishable from random.
+
+**So FinBERT is largely scoring the vocabulary of the topic, not the news.**
+Cybersecurity reads −0.095 in the first period and −0.104 in the second while
+sitting 4th on the board with a positive composite — security headlines are
+made of "breach", "attack", "threat" whatever the sector is doing. Data Centers
+(−0.02 → −0.09) and Blockchain (−0.08 → −0.02) behave the same way.
+
+Blending *raw* polarity into the composite would therefore apply a near-permanent
+per-theme handicap that has nothing to do with performance — worse than noise,
+because it is a **consistent** bias rather than one that averages out.
+
+Two further problems visible in the same data:
+
+- **Coverage is wildly uneven.** Article counts run 2–630/day. Eight of 18
+  themes average under 20/day (Shipping 6, Food & Beverage 10, Healthcare
+  Providers 10). Their day-to-day sd (0.19–0.29) exceeds the entire
+  cross-sectional spread of the well-covered themes (sd ≈ 0.10), so the
+  thinnest themes contribute the loudest swings. This is the estimator
+  asymmetry the GDELT item flags, now quantified.
+- **Predictive power is still unmeasured**, and cannot be measured yet: six
+  scan-days give no usable forward-return window. That test needs months, and
+  it is the only one that can actually justify the feature.
+
+**Revised recommendation.** Do not restore the control as a raw-polarity blend.
+If it is restored at all, the candidate signal is the **deviation from each
+theme's own trailing baseline** (a fixed-effects correction that removes the
+topical constant), gated on a minimum article count to suppress the thin
+themes. That is a different feature from the one that was withdrawn, and it
+still requires the forward-return test above before it earns a place in the
+ranking. Re-measure once ~3 months of clean daily scans exist.
 
 **2. It never worked signed in, and that is fixable.** `makeLeaderboardReadOnly()`
 ([`auth.js:147`](dashboard/assets/auth.js)) hides the cogwheel and disables
