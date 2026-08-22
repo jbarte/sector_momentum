@@ -168,11 +168,15 @@ tbody td:nth-child(n+4) {
   font-family: var(--font-mono);
   font-size: 12px;
 }
-/* Only the glyph (↑↑/↑/→/↓/↓↓) is meant to be monospace. Both it and the word
-   ("surging", "rising", ...) sit under `tbody td:nth-child(n+4)`, which sets
-   the whole cell to --font-mono — so without this, the word renders in mono
-   too even though .traj-glyph's own mono rule above is the one that LOOKS
-   responsible. Set the word's own span back to the body font explicitly. */
+/* Only the glyph (↑↑/↑/→/↓/↓↓) is meant to be monospace; the word ("surging",
+   "rising", ...) is body text. Kept explicit rather than left to inheritance:
+   this badge renders in three different containers — the theme cell (a table
+   <td>), a .leaderboard-card on mobile, and the signed-in rebuild — and it
+   used to sit in the last column, under `tbody td:nth-child(n+4)`, which sets
+   the whole cell to --font-mono and silently made the word mono too. That
+   column is gone and the theme cell sets no such font, so this rule is now
+   defensive rather than corrective. It stays because the next container to
+   host the badge may well set a font of its own. */
 .traj-word {
   font-family: var(--font-body);
 }

@@ -985,7 +985,9 @@ def test_leaderboard_row_builders_emit_the_same_cell_classes():
     def head(vals):
         return [v.split("{")[0].strip() for v in vals]
 
-    expected = ["rank-cell", "theme-cell", "composite-cell", "", "delta-cell", ""]
+    # Five cells since the Trend column was removed and its badge moved into
+    # the theme cell; the trailing "" is the unclassed Level/Change cell.
+    expected = ["rank-cell", "theme-cell", "composite-cell", "", "delta-cell"]
     for name, vals in got.items():
         assert head(vals) == expected, f"{name} cell classes drifted: {head(vals)}"
 
@@ -997,6 +999,171 @@ def test_every_row_builder_carries_the_level_change_sort_key():
     every one of its rows as NaN."""
     for name, frag in _row_builder_fragments().items():
         assert "data-sort-value" in frag, f"{name} omits the Level/Change sort key"
+
+
+# ---------------------------------------------------------------------------
+# Trend badge placement — the methodology says it must be read WITH the setup
+# badge, so it lives in the theme cell rather than a far-right column.
+# ---------------------------------------------------------------------------
+
+def _theme_cell_of(fragment: str) -> str:
+    """The theme cell's span of a row-building fragment.
+
+    Delimited by the two cell classes that bracket it rather than by a closing
+    `</td>`: the template's theme cell is whitespace-controlled Jinja whose
+    tags and comment markers make tag-matching unreliable, while
+    `theme-cell` -> `composite-cell` is a fixed adjacency that
+    test_leaderboard_row_builders_emit_the_same_cell_classes already pins.
+    """
+    assert "theme-cell" in fragment, "fragment has no theme cell"
+    after = fragment.split("theme-cell", 1)[1]
+    return after.split("composite-cell", 1)[0]
+
+
+def test_trend_badge_sits_in_the_theme_cell_beside_the_setup_badge():
+    """The methodology tells the reader to read the setup badge and the Trend
+    badge together: the badge describes the position band, and Trend is what
+    says the theme is deteriorating underneath it. They used to sit at opposite
+    ends of the table -- measured 651-763px apart at a desktop width, four
+    columns between them -- which is not a pairing anyone reads as one.
+
+    Both badges now live in the theme cell. Guards the builders that render a
+    real trajectory; scan-history.js is exempt because a past scan has never
+    carried a trend value (it rendered a literal placeholder).
+    """
+    frags = _row_builder_fragments()
+
+    # The template inlines the badge markup; auth.js interpolates a variable
+    # built further up. Follow that one indirection rather than accepting the
+    # bare variable name, which would pass even if trendInner stopped being a
+    # trajectory badge.
+    tpl_cell = _theme_cell_of(frags["index.html.j2"])
+    assert "traj-badge" in tpl_cell, (
+        "index.html.j2: the Trend badge is not in the theme cell -- the setup "
+        "badge and Trend must stay adjacent to be read together"
+    )
+
+    auth_cell = _theme_cell_of(frags["auth.js"])
+    assert "trendInner" in auth_cell, (
+        "auth.js: the theme cell does not render the trend badge -- the setup "
+        "badge and Trend must stay adjacent to be read together"
+    )
+    auth = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    trend_def = auth.split("var trendInner", 1)[1].split(";", 1)[0]
+    assert "traj-badge" in trend_def, (
+        "auth.js: trendInner is in the theme cell but no longer builds a "
+        "trajectory badge"
+    )
+
+
+def test_leaderboard_has_no_separate_trend_column():
+    """The Trend column was removed when its badge moved into the theme cell.
+    A header left behind produces an empty sixth column in every row."""
+    root = Path(__file__).parent.parent
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+    header = tpl.split("<thead>", 1)[1].split("</thead>", 1)[0]
+    assert "col_trend" not in header, (
+        "a Trend column header survives, but its badge now renders in the "
+        "theme cell -- the column would be empty"
+    )
+
+
+def test_trend_badge_keeps_its_explanation_in_every_builder():
+    """The removed `<th>` carried the only on-page explanation of what Trend
+    measures (`title="Rank slope over last 3-5 scans"`). Dropping the column
+    without rehoming that tooltip would delete the explanation outright, so it
+    moves onto the badge itself -- translated, like every other tooltip.
+
+    Checked in BOTH builders that render a real badge. Checking only the
+    template would leave signed-in readers -- the only readers who ever see a
+    setup badge to pair Trend with -- with no explanation at all.
+    """
+    root = Path(__file__).parent.parent
+
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+    tpl_cell = _theme_cell_of(
+        tpl.split("{% for row in leaderboard_rows %}", 1)[1].split("{% endfor %}", 1)[0]
+    )
+
+    auth = (root / "dashboard/assets/auth.js").read_text()
+    auth_badge = auth.split("var trendInner", 1)[1].split(";", 1)[0]
+
+    for name, frag in (("index.html.j2", tpl_cell), ("auth.js", auth_badge)):
+        assert 'data-i18n-title=' in frag.replace("\\", ""), (
+            f"{name}: the Trend badge carries no translated tooltip -- the "
+            f"explanation the column header used to provide is gone"
+        )
+        assert "trend_tip" in frag, f"{name}: tooltip does not use the trend_tip key"
+        assert "title=" in frag.replace("\\", ""), (
+            f"{name}: the Trend badge carries no English title fallback"
+        )
+
+
+def test_signed_in_rows_render_no_trend_placeholder_in_the_theme_cell():
+    """auth.js's trend value is optional -- `latestRowMeta` returns {} when the
+    query gives it nothing to work with. That fallback used to land in its own
+    <td>, where an em dash reads correctly as "no value". Spliced into the theme
+    cell it becomes a bare text node right after the ticker, with no margin
+    (`.theme-cell > * + *` only spaces ELEMENTS), rendering as `URA-`. The
+    absence of a badge is already the correct way to say "no trend" -- the same
+    reasoning that removed scan-history.js's placeholder in this change.
+    """
+    auth = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    fallback = auth.split("var trendInner", 1)[1].split(";", 1)[0].rsplit(":", 1)[1]
+    assert "\u2014" not in fallback and "&mdash;" not in fallback, (
+        "auth.js still falls back to an em dash for a missing trend -- inside "
+        "the theme cell that renders as a stray character beside the ticker"
+    )
+
+
+def test_horizon_badge_pass_inserts_the_setup_badge_before_the_trend_badge():
+    """applyHorizonBadges() writes the setup badge client-side, and on the build
+    that actually ships it is the ONLY writer: `badges_gated` bakes no badge, so
+    every signed-in reader gets their badge from this function. Appending it to
+    the theme cell puts it AFTER the Trend badge, silently reversing the
+    action-then-health-check order the template bakes -- so the shipped build
+    and an ungated build would disagree about the order of the two badges this
+    change exists to pair.
+    """
+    tpl = (Path(__file__).parent.parent
+           / "dashboard/templates/index.html.j2").read_text()
+    fn = tpl.split("function applyHorizonBadges", 1)[1].split("\nfunction ", 1)[0]
+    fn = _strip_line_comments(fn)
+    assert "insertBefore(" in fn, (
+        "applyHorizonBadges no longer positions the setup badge relative to the "
+        "Trend badge -- appending puts the action badge after the health check"
+    )
+    assert "traj-badge" in fn, (
+        "applyHorizonBadges positions the badge without reference to the Trend "
+        "badge, so the ordering is incidental rather than pinned"
+    )
+
+
+def test_trend_tip_i18n_key_exists():
+    """data-i18n-title resolves against the Swedish table; a missing key leaves
+    the tooltip silently English."""
+    sv = (Path(__file__).parent.parent
+          / "dashboard/templates/i18n/_core.js.j2").read_text()
+    assert re.search(r'trend_tip:\s*"[^"]+"', sv), "trend_tip missing from the SV table"
+
+
+def test_mobile_cards_find_both_badges_by_class_not_by_cell_index():
+    """renderMobileCards() reads the badges off the table row with
+    querySelector on their classes, which is why moving the Trend badge between
+    cells needed no change there at all. Pinned because the obvious
+    "simplification" -- addressing the cells positionally -- would couple the
+    card renderer to the column layout and break on the next column change.
+    """
+    tpl = (Path(__file__).parent.parent
+           / "dashboard/templates/index.html.j2").read_text()
+    fn = tpl.split("function renderMobileCards()", 1)[1].split("\nfunction ", 1)[0]
+    fn = _strip_line_comments(fn)
+    assert "querySelector('.traj-badge')" in fn.replace('"', "'"), (
+        "renderMobileCards no longer selects the Trend badge by class"
+    )
+    assert "querySelector('.setup-badge')" in fn.replace('"', "'"), (
+        "renderMobileCards no longer selects the setup badge by class"
+    )
 
 
 def test_theme_cell_is_not_a_flex_table_cell():

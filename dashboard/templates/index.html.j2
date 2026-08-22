@@ -311,7 +311,6 @@
           <th onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_composite">Composite</th>
           <th onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_levelchange">Level / Change</th>
           <th onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
-          <th data-col="5" title="Rank slope over last 3–5 scans" data-i18n="col_trend">Trend</th>
         </tr>
       </thead>
       <tbody>
@@ -338,25 +337,23 @@
             -#}{% if row.ticker %}<span class="theme-ticker">{{ row.ticker }}</span>{% endif %}{#-
             -#}{% if row.unbuyable %}<span class="unbuyable-badge" data-i18n="badge_unbuyable" data-i18n-title="unbuyable_tip" title="No UCITS equivalent exists, so this cannot be bought from an EU account. It is still scored because it shapes how every other theme ranks.">⊘ not buyable in EU</span>{% endif %}{#-
             -#}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}{#-
+            -#}<span class="traj-badge traj-{{ row.trajectory_state }}" data-i18n-title="trend_tip" title="Rank slope over last 3–5 scans"><span class="traj-glyph">{{ row.trajectory_label }}</span> <span class="traj-word">{{ row.trajectory_word }}</span></span>{#-
           -#}</td>
           <td class="composite-cell">{{ row.composite_bar | safe }}</td>
           <td data-sort-value="{{ row._raw_level if row._raw_level is not none else '' }}">{{ row.level_change_bars | safe }}</td>
           <td class="delta-cell">
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
-          <td>
-            <span class="traj-badge traj-{{ row.trajectory_state }}"><span class="traj-glyph">{{ row.trajectory_label }}</span> <span class="traj-word">{{ row.trajectory_word }}</span></span>
-          </td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
-          <td colspan="6">{{ row.breakdown_html | safe }}</td>
+          <td colspan="5">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% endfor %}
         {% if not has_any_rows %}
-        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
+        <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
-          <td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
+          <td colspan="5" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
         </tr>
       </tbody>
     </table>
@@ -903,7 +900,7 @@ function applyBandBoundaries() {
     // flex:1 on .bcr-rule lets it absorb whatever width the eyebrow/note
     // don't need, rather than a guessed calc() budget that wrapped the note
     // onto two lines the first time this was measured live.
-    return '<tr class="band-cut-row ' + kind + '"><td colspan="6">'
+    return '<tr class="band-cut-row ' + kind + '"><td colspan="5">'
       + '<div class="bcr-row">'
       + '<span class="bcr-eyebrow" data-i18n="' + eyebrowKey + '">' + t(eyebrowKey, eyebrowText) + '</span>'
       + '<span class="bcr-rule"></span>'
@@ -1023,7 +1020,14 @@ function applyHorizonBadges() {
     if (!kind) { if (badge) badge.remove(); return; }
     if (!badge) {
       badge = document.createElement('span');
-      nameCell.appendChild(badge);
+      // Before the Trend badge, not appended: on the build that ships,
+      // `badges_gated` bakes no setup badge at all, so this function is the
+      // only writer and appending would put the action badge AFTER the health
+      // check — the reverse of the order the template bakes when ungated, and
+      // the reverse of the sentence the methodology asks readers to construct
+      // ("Enter, but falling"). insertBefore(x, null) appends, so a row whose
+      // Trend badge is missing still behaves.
+      nameCell.insertBefore(badge, nameCell.querySelector('.traj-badge'));
     }
     // Mute, don't hide: the badge KIND and TEXT stay exactly what they were —
     // only the styling class changes. A reader who checks daily still sees
