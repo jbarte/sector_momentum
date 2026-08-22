@@ -159,12 +159,8 @@ of the cost by naming the lag and saying signing in will not move it.
 **Reopen if** sentiment is ever promoted out of alpha, or if the forward-return
 test the validation still owes comes back positive.
 
-- **Also open, and cheaper: the page shows no scan date on desktop at all.**
-  `.mobile-scan-meta` is `display:none` above the mobile breakpoint and the lag
-  banner is index-only, so outside the empty state a reader cannot tell which
-  snapshot they are looking at. The empty state now names it, but the populated
-  state still does not. Belongs with the header/summary-strip work across both
-  pages rather than with this item's fetch question.
+**The desktop-scan-date bullet shipped separately (2026-08-23)** — see Done.
+Only the signed-in fetch remains, above.
 
 ## Composite structure — 4.2 effective signals of 8
 
@@ -424,6 +420,49 @@ What remains:
 ---
 
 # Done
+
+- **Desktop now shows the scan id/date on the Sentiment page** (2026-08-23).
+
+  Split off the "Sentiment page pinned to lag" item once its copy-fix half
+  shipped (2026-08-22): the empty state named the snapshot, but the *populated*
+  state — sentiment actually showing — still didn't, on desktop. There was no
+  desktop element for it at all: `index.html.j2` gets its date from the Stage 4
+  summary strip (`.strip-subline`), but `sentiment.html.j2` has no strip of its
+  own, and the shared header's own comment claiming "the desktop meta-cluster
+  chips already carry the scan id/date" was stale — they carry SPY/VIX only.
+
+  Added a `.desktop-scan-meta` span to `_header.html.j2`, guarded on
+  `active_segment != "sectors" and scan_date` — the same guard, same place, and
+  same reasoning as the market-context chips the Stage 4 review restored to
+  this header for the identical reason (the sentiment page sharing a header but
+  not a strip).
+
+  **The obvious move — reuse `.scan-meta` — was the trap.** That class already
+  exists (the auth email label's style) and is hidden at `max-width: 420px`.
+  Reusing it here would have shown the scan date TWICE between 421px and
+  600px: once from `.mobile-scan-meta` (hidden above 600px), once from a
+  wrongly-still-visible `.scan-meta`. Gave it its own class instead, hidden at
+  the exact complement of `.mobile-scan-meta`'s boundary — verified live at
+  600px (mobile) and 601px (desktop): exactly one visible at each, no gap, no
+  overlap. Also confirmed `index.html.j2` renders no duplicate — its own strip
+  still covers it there.
+
+  Renamed `mobile_scan_prefix` → `scan_prefix` in the same change: it now
+  labels three renderers (the mobile echo, the strip subline, and this new
+  desktop indicator), and the old name would have been actively wrong the
+  moment a desktop element used it.
+
+  **A CSS regex test-authoring bug, caught before it shipped.** The first
+  version of the boundary tests used `[^}]*` to scope a check inside
+  `@media (max-width: 600px) { ... }` — which cannot cross the closing brace of
+  `.mobile-scan-meta { ... }`, a sibling rule inside the *same* media query, and
+  the file has **four** separate `@media (max-width: 600px)` blocks, so a
+  looser match would have silently landed in the wrong one. Same block-boundary
+  hazard CLAUDE.md documents for BACKLOG.md's `## ` scan, hit here in CSS
+  instead of Markdown. Fixed with a matcher that only accepts a closing `}` at
+  column 0 (real rules are always indented) and enumerates every matching
+  block rather than trusting the first one found.
+
 
 - **Sentiment empty state now explains itself** (2026-08-22).
 

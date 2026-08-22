@@ -58,12 +58,23 @@
 }
 
 /* ---------------------------------------------------------
-   Mobile scan-meta strip (_header.html.j2)
+   Scan meta: desktop indicator + mobile echo (_header.html.j2)
    ---------------------------------------------------------
-   Same visibility pattern as the leaderboard cards below: the markup is
-   always present, this file just decides which width sees it — the
-   desktop meta-cluster chips already carry the scan id/date/SPY/VIX,
-   this is their condensed mobile echo. */
+   Two elements, one job (name the scan id/date), split at the SAME
+   breakpoint so exactly one is ever visible. .desktop-scan-meta is new
+   2026-08-23: index.html.j2's own summary strip already shows this on
+   desktop (.strip-subline), but sentiment.html.j2 has no strip, so it
+   showed no scan date on desktop at all once data was present (the
+   2026-08-22 fix only covered the empty state). Guarded on
+   `active_segment != "sectors"` in the template, so it never renders
+   alongside the strip in the first place — these rules are what keep it
+   from ALSO colliding with .mobile-scan-meta on a narrow viewport.
+
+   Deliberately NOT reusing .scan-meta (the auth-email-label style): that
+   class is hidden at `max-width: 420px`, a different breakpoint, so
+   reusing it here would show the scan date TWICE between 421px and
+   600px — once from .mobile-scan-meta, once from a wrongly-still-visible
+   .scan-meta. */
 @media (min-width: 601px) {
   .mobile-scan-meta { display: none; }
 }
@@ -73,6 +84,7 @@
     font-size: 11px;
     color: var(--fg3);
   }
+  .desktop-scan-meta { display: none; }
 }
 
 /* ---------------------------------------------------------

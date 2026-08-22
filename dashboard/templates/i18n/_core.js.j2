@@ -8,8 +8,11 @@ Object.assign(SV, {
   // the new stat units.
   horizon_label: "Horisont",
   horizon_note: "Styr Gå in/Gå ur-bandet. Backtestade siffror, inga prognoser.",
-  // Mobile scan-meta strip (_header.html.j2), Stage 3 Task 2.
-  mobile_scan_prefix: "Skanning",
+  // Scan id/date prefix. Three renderers share it: the mobile echo
+  // (_header.html.j2, Stage 3), index.html.j2's desktop summary-strip
+  // subline, and sentiment.html.j2's own desktop indicator (added
+  // 2026-08-23 — that page has no summary strip of its own).
+  scan_prefix: "Skanning",
   // Summary strip (Stage 4). EN comes from each element's textContent on
   // applyLang()'s first pass, so only SV is listed here.
   strip_eyebrow_read: "Dagens läge",
