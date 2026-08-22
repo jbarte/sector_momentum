@@ -1461,12 +1461,13 @@ function applyFilters() {
 function clearFilters() {
   _filterState = { setup: [], trend: [], thresholds: [] };
   // NOT scoped to the disclosed filter bar's id — .control-chip lives
-  // outside it and must be reset too, or Clear would leave a curated chip pressed.
+  // outside it and must be reset too, or Clear would leave a curated chip
+  // pressed. Shares _setChipPressed with _syncChipState below rather than
+  // toggling classList/aria-pressed inline a second time — found in
+  // whole-branch review, this used to be its own independent copy of the
+  // same two-line toggle.
   var chips = document.querySelectorAll('[data-filter-group][data-filter-value]');
-  Array.prototype.forEach.call(chips, function (c) {
-    c.classList.remove('active');
-    c.setAttribute('aria-pressed', 'false');
-  });
+  Array.prototype.forEach.call(chips, function (c) { _setChipPressed(c, false); });
   applyFilters();
 }
 
@@ -1486,11 +1487,19 @@ function setFilterBarVisible(visible) {
 // its counterpart .filter-chip inside the disclosed full set. Called after
 // state changes so neither view can show a pressed state the other
 // disagrees with.
+// The one place that toggles a chip's own visual pressed state — both
+// _syncChipState (a single group/value pair) and clearFilters (every
+// chip at once) call this rather than each keeping an independent copy
+// of the same classList/aria-pressed toggle.
+function _setChipPressed(el, active) {
+  el.classList.toggle('active', active);
+  el.setAttribute('aria-pressed', active ? 'true' : 'false');
+}
+
 function _syncChipState(group, value, active) {
   var selector = '[data-filter-group="' + group + '"][data-filter-value="' + value + '"]';
   Array.prototype.forEach.call(document.querySelectorAll(selector), function (c) {
-    c.classList.toggle('active', active);
-    c.setAttribute('aria-pressed', active ? 'true' : 'false');
+    _setChipPressed(c, active);
   });
 }
 

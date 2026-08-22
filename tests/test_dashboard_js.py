@@ -2136,6 +2136,12 @@ def test_clear_filters_resets_curated_chips_too():
         "clearFilters()'s chip query must not be scoped to the filter bar's "
         "id — curated chips live outside it and must be reset too"
     )
+    assert "_setChipPressed(" in fn_body, (
+        "clearFilters() must delegate the pressed-state toggle to the "
+        "shared _setChipPressed helper, not inline its own copy of "
+        "classList.toggle/aria-pressed — found in whole-branch review, "
+        "this used to be an independent duplicate of _syncChipState's logic"
+    )
 
 
 def test_control_chip_css_matches_spec_padding():
@@ -2275,3 +2281,33 @@ def test_control_chips_wraps_instead_of_overflowing():
     m = re.search(r"\.control-chips\s*\{[^}]*\}", css)
     assert m, ".control-chips rule not found"
     assert "flex-wrap: wrap" in m.group(0)
+
+
+def test_control_chips_is_right_aligned():
+    """Found in whole-branch review (three independent reviewers, one
+    verified live): .horizon-row is a plain flex-wrap row with no
+    justify-content and .control-chips had no margin-left:auto — despite
+    the class's own code comment and BACKLOG.md both already asserting
+    "Right-aligned controls". Measured live at 1280px before the fix: an
+    811px gap between .control-chips's right edge and the row's own."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_tables.css.j2").read_text()
+    m = re.search(r"\.control-chips\s*\{[^}]*\}", css)
+    assert m, ".control-chips rule not found"
+    assert "margin-left: auto" in m.group(0)
+
+
+def test_control_chip_and_more_filters_get_touch_targets():
+    """Found in whole-branch review: every sibling control in the same row
+    (.filter-chip, .rank-settings summary) already gets the 44px
+    pointer:coarse bump — the new .control-chip and .more-filters summary
+    did not, despite the latter's own comment calling it "the same family"
+    as .rank-settings."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    css_no_comments = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    m = re.search(r"@media \(pointer: coarse\) \{.*?\n\}\n", css_no_comments, re.DOTALL)
+    assert m, "pointer:coarse block not found"
+    block = m.group(0)
+    assert ".control-chip" in block
+    assert ".more-filters summary" in block

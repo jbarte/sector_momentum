@@ -204,6 +204,12 @@
 @media (pointer: coarse) {
   .tab-btn,
   .filter-chip,
+  /* .control-chip/.more-filters summary are new (desktop controls-row chip
+     curation) and were missing here in whole-branch review — every
+     sibling control in the same row (.filter-chip, .rank-settings
+     summary) already gets this treatment. */
+  .control-chip,
+  .more-filters summary,
   .segment-btn,
   .lag-banner-btn,
   .footer-link,
