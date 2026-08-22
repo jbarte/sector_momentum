@@ -21,6 +21,39 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Price cache freshness doesn't account for callers requesting a future `end`
+
+Found in code review while fixing the weekend cache-staleness bug (see Done,
+2026-08-22) — not itself a confirmed live bug, currently masked, but worth
+recording rather than losing.
+
+`_cache_is_fresh` (`src/data/prices.py`) does not take `end` as a parameter —
+it always checks the cache's last date against *today*, regardless of what
+`end` the calling `fetch_prices()` was given. This is exactly right for
+`scan.py`, which passes `end=date.today()`: `end` is exclusive, so today's
+session is genuinely never obtainable to it and the boundary is a pure
+calendar question.
+
+`dashboard/badges.py` and `dashboard/validation.py` both request a **future**
+`end` (`max(scan_dates) + 15` and `+ 30 days`, for forward-return badge/
+validation windows) into the same shared `data/cache/` directory `scan.py`
+reads. If either of those runs during US market hours and yfinance returns
+today's in-progress candle as the newest row (possible precisely because
+their `end` doesn't cap the request at "yesterday" the way `scan.py`'s does),
+`_cache_is_fresh` would judge that partial candle fresh — `last_cached
+(today) >= required (yesterday)` — and a later `scan.py` read of that same
+cache file could score on an incomplete close.
+
+**Currently masked**, not exploitable today: the `start`-coverage check in
+`_cache_is_fresh` (the `fetched_start <= requested_start` comparison) rejects
+badges.py's/validation.py's window before the date check would matter, since
+their `start` reaches back to the earliest scan (10-30 days before the
+requested window) while `scan.py`'s `--start` is normally much narrower. That
+ordering inverts if scan history ever exceeds `scan.py`'s own lookback window,
+at which point the two callers' requested windows could overlap enough for
+this to bite. Not acted on now — reopen if that inversion is ever confirmed,
+or before deliberately widening `scan.py`'s window.
+
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in

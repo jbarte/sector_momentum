@@ -115,19 +115,32 @@ def _cache_is_fresh(path: str, start: str | None = None) -> bool:
         if df.empty:
             return False
         last_cached = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
-        # The newest bar a fetch could actually return: the last weekday
-        # strictly before today. `end` is EXCLUSIVE and callers pass
-        # `end=today`, so today's own session is never obtainable no matter
-        # what time of day the run happens — which is what keeps this a pure
-        # calendar question and needs no market-hours/timezone logic.
+        # The newest bar a fetch could actually return, for the common case:
+        # the last weekday strictly before today. `end` is EXCLUSIVE, and
+        # scan.py — the caller this freshness check protects against a
+        # partial in-progress candle — passes `end=date.today()`, so today's
+        # own session is never obtainable to it no matter what time of day the
+        # run happens; that is what keeps this boundary a pure calendar
+        # question with no market-hours/timezone logic for that caller.
         #
-        # This replaced an `_expected_latest_close(today)` + 1-day grace pair
-        # (fixed 2026-08-22). On a weekday the two agree exactly, but on a
-        # weekend `expected` had already walked back to Friday — a COMPLETED
-        # session — and the grace then walked back one more, so a Saturday or
-        # Sunday run accepted a cache written Friday morning whose last bar is
-        # Thursday, and never fetched Friday's close. Confirmed live against
-        # the cache on 2026-08-09; scans 155 and 156 re-scored Thursday twice.
+        # This function does NOT know the caller's own `end` (it isn't a
+        # parameter here) and always checks against today regardless.
+        # dashboard/badges.py and dashboard/validation.py both request a
+        # FUTURE `end` (days/weeks past today, for forward-return badges) —
+        # for them this boundary does not rule out a same-day partial candle
+        # the way it does for scan.py. Currently masked for badges.py by the
+        # `start`-coverage check below rejecting its window first; not
+        # something this fix addresses. See BACKLOG.md "Price cache freshness
+        # doesn't account for callers requesting a future `end`".
+        #
+        # This boundary replaced an `_expected_latest_close(today)` + 1-day
+        # grace pair (fixed 2026-08-22). On a weekday the two agree exactly,
+        # but on a weekend `expected` had already walked back to Friday — a
+        # COMPLETED session — and the grace then walked back one more, so a
+        # Saturday or Sunday run accepted a cache written Friday morning whose
+        # last bar is Thursday, and never fetched Friday's close. Confirmed
+        # live against the cache on 2026-08-09; scans 155 and 156 re-scored
+        # Thursday twice.
         required = _expected_latest_close(date.today() - timedelta(days=1))
         if last_cached < required:
             return False
