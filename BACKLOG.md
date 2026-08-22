@@ -169,48 +169,35 @@ names, and the cheap subset (`sector_key`, `sector_id`, `top_sector`,
 `sector_count`, the two `scans` health columns) can be renamed independently of
 the schema at much lower risk.
 
-## Design review findings (2026-08-09 audit) — P1/P2 remainder
+## Rescore path flattens the Trend badge to a bare glyph
 
-From a dual-agent design review + mechanical browser measurement. Nielsen
-score **23/40**; cognitive-load checklist fails 6 of 8.
+Found while re-measuring the 2026-08-09 audit's badge/trend P1 (see Done,
+2026-08-22). **Dormant, not live** — recorded so it isn't rediscovered from
+scratch.
 
-**All four P0s are resolved (2026-08-12)** — see Done. Two were fixed then; two
-turned out to be already fixed or overstated when re-measured against the code:
+`rescoreRows()` in `dashboard/templates/index.html.j2` does:
 
-- `RANK Δ` was *not* empty (13/20 themes carried a non-zero delta) — the weekend
-  dedup fix had already resolved it.
-- Contrast at the two cited elements already passed: column headers **4.53:1**
-  (audit said 2.95) and `.traj-badge` **4.76-5.26:1** (audit said 3.80), fixed by
-  the badge/status-token retint. The audit's wider "54 elements below 4.5:1" was
-  not re-measured element-by-element and may still hold in places.
+```js
+if (traj) { traj.className = "traj-badge traj-" + r.trajectory_state; traj.textContent = r.trajectory_label; }
+```
 
-**Two of the three P1s are resolved** (verified against the code 2026-08-14, not
-inferred from the Done list):
+`textContent` replaces the badge's children, destroying the
+`<span class="traj-glyph">` / `<span class="traj-word">` pair every other
+builder emits. The badge survives as a bare `↑` with no word — which is
+exactly the "9.84px arrow" the design audit originally complained about, and
+now also strips the tooltip and the word from a badge sitting beside the
+theme name.
 
-- *Mobile showed ~35% of the table* — fixed 2026-08-12: the first two columns
-  are `position: sticky` and seven `pointer: coarse` rules enforce 44px targets.
-  The bullet also cited "the ⚙ that changes ranking weights is 7×18px"; that
-  control no longer exists at all (withdrawn 2026-08-14 with the sentiment
-  alpha gating).
-- *The gate modal declares `aria-modal="true"` and implements none of it* —
-  fixed: `auth.js` binds `window.SMModal.bind(modal, {closeBtn: continueBtn})`,
-  and every dialog on the site now shares that helper.
+It cannot fire today: the only caller is the sentiment blend control, which
+was withdrawn 2026-08-14. It becomes live the moment that control is restored
+— and *that* is a queued item too ("Restore the sentiment blend control"), so
+whoever picks that up should fix this in the same branch rather than treat it
+as separate work.
 
-**P1 — badge/trend hierarchy is inverted against the copy.** `▲ Enter` is a
-tinted pill beside the theme name, while `Trend` sits in the last column — the
-guide says badges describe *position only* and Trend is the health check, so a
-theme can show a loud green Enter next to a red ↓. The audit's specific
-measurement ("a 9.84px arrow") is stale: Trend is now a styled `.traj-badge`.
-Whether the remaining imbalance still misleads is a judgement call and has not
-been re-measured.
-
-**Both P2 landmark/heading findings are resolved (2026-08-15)** — see Done.
-
-**The `↗` icon-link finding is stale.** Grepped templates, assets and i18n
-files: zero instances of the glyph anywhere in the codebase. Resolved by an
-unrelated redesign since the 2026-08-09 audit; not itself acted on.
-
-**"474 elements render under 12px" is resolved (2026-08-15)** — see Done.
+The fix is to write the two spans instead of `textContent`, matching
+`auth.js`'s `trendInner`. Worth extracting a shared `trajBadgeHTML(state,
+label, word)` at that point — there would then be four builders emitting the
+same markup, which is what let this one drift unnoticed in the first place.
 
 ## GDELT source alternatives — Web NGrams and BigQuery
 
@@ -385,6 +372,76 @@ source-only and tight:
 ---
 
 # Done
+
+- **Trend badge moved beside the setup badge; Trend column removed** (2026-08-22).
+
+  Closes the last open finding of the 2026-08-09 design audit ("badge/trend
+  hierarchy is inverted against the copy"), which completes that item — its
+  Queued section is deleted with this change.
+
+  **The finding as written was stale.** It described `▲ Enter` as a loud tinted
+  pill against a Trend column reduced to "a 9.84px arrow". Re-measured in the
+  browser before touching anything: the setup badge is 60.4×22.4px (1351px²,
+  12.25px/600) and the Trend badge is 49–63×24px (**1185–1523px²**, 12px/600) —
+  identical weight, identical tint alpha, and Trend is the *larger* of the two
+  in the rising state. The `.traj-badge` restyling had already closed the
+  loudness gap the audit measured. Nothing to fix there.
+
+  **What was actually wrong was distance, not weight.** `_methodology.html.j2`
+  does not treat the pairing as a contradiction — it prescribes it: the badge
+  describes the *band*, "a theme collapsing fast but still ranked first will
+  read Enter", and "the separate Trend column is what tells you it is
+  deteriorating — the two are meant to be read together." That makes adjacency a
+  layout requirement, and desktop failed it: the two badges measured **651–763px
+  apart** at 1440px wide, four columns between them. Mobile already had it right
+  (77–82px, inside one card).
+
+  Worse, the two disagreed about which signal led. Desktop gave the
+  name-adjacent slot to the setup badge and put Trend in column 6; the mobile
+  card put *Trend* on line 1 beside the theme name and demoted the setup badge
+  to a row below. Same two signals, opposite priority, same product.
+
+  The badge now renders inside `.theme-cell` after the setup badge, and the
+  Trend column is gone (6 → 5). Measured after: **8px apart, same row**, no
+  horizontal overflow at 1440px or 375px.
+
+  Three things that made this far smaller than it looked, all verified rather
+  than assumed:
+
+  - Every `cells[...]` reference in the codebase addresses index **0 or 1**, so
+    removing the *last* column shifted nothing.
+  - The Trend `<th>` carried no `onclick`, so `sortTable(0..4)` was untouched;
+    the trend filter chips read `tr.dataset.trend`, not the column.
+  - `renderMobileCards()` finds both badges by **class**, not cell index —
+    mobile needed **zero** changes and re-measured byte-identical (77px gap,
+    Trend still on line 1). The new
+    `test_mobile_cards_find_both_badges_by_class_not_by_cell_index` pins that,
+    because addressing the cells positionally is the obvious "simplification"
+    that would re-break it on the next column change.
+
+  Two details that would have been silent losses:
+
+  - The removed `<th>` held `title="Rank slope over last 3–5 scans"` — the only
+    on-page explanation of what Trend measures. Rehomed onto the badge as
+    `title` + `data-i18n-title="trend_tip"` (new SV string; `col_trend` deleted
+    as dead).
+  - `.traj-word`'s `font-family: var(--font-body)` existed to undo
+    `tbody td:nth-child(n+4)`'s mono, which no longer applies at column 2. Rule
+    kept as defensive, its comment rewritten — it had become actively
+    misleading about why it exists.
+
+  Also found while measuring, and **not fixed here** — logged as its own queued
+  item: the rescore path's `traj.textContent = ...` destroys the badge's inner
+  spans and would degrade Trend back to a bare glyph, which is precisely the
+  audit's original complaint. Dormant only because the control that triggers it
+  is withdrawn.
+
+  `colspan` went 6 → 5 in four places; the fifth `colspan="6"` in the file
+  belongs to the History *scans* table, which genuinely has six columns and was
+  verified before being left alone. Two pre-existing tests
+  (`..._emit_the_same_column_count`, `..._colspans_match_the_column_count`)
+  already guard the cross-builder invariants and stayed green throughout.
+
 
 - **Weekend scans scored Thursday's close, not Friday's** (2026-08-22).
 

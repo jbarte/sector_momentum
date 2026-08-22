@@ -81,7 +81,6 @@ Object.assign(SV, {
   col_levelchange: "Nivå / Förändring",
   col_data: "Data",
   col_rankdelta: "Rank Δ",
-  col_trend: "Trend",
   sentiment_empty_title: "Inget nyhetssentiment för denna ögonblicksbild",
   sentiment_empty_body: "Inget nyhetssentiment visas för något tema i den ögonblicksbild som visas här. Det kan bero på att källan (GDELT / FinBERT) inte registrerade något den dagen, eller att sidan visar en tidigare skanning än den senaste. Sentimentet visas automatiskt så snart en skanning med verkliga värden visas här; topplistan och övriga flikar påverkas inte.",
   leaderboard_empty: "Ingen data tillgänglig ännu.",
@@ -96,6 +95,10 @@ Object.assign(SV, {
   filter_change_pos: "Positiv förändring",
   filter_clear: "Rensa",
   more_filters: "Fler filter",
+  // Rehomed from the Trend column header, which was removed when the badge
+  // moved into the theme cell — this is the only explanation of what Trend
+  // measures that the leaderboard itself carries.
+  trend_tip: "Rankningens lutning över de senaste 3–5 skanningarna",
   filter_no_match: "Inga teman matchar filtren.",
   scans_empty: "Inga skanningar ännu.",
   guide_summary: "Hur du läser den här fliken",

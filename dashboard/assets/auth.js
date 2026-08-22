@@ -236,12 +236,11 @@
           // highlight from the active horizon.
           '<td class="rank-cell"><span class="rank-badge' + rank1Class + '">' + rank + "</span></td>" +
           "<td class=\"theme-cell\"><span class=\"theme-name\">" + r.gics_sector + "</span>" + tickerHtml
-            + (unbuyable ? UNBUYABLE_BADGE : "") + "</td>" +
+            + (unbuyable ? UNBUYABLE_BADGE : "") + trendInner + "</td>" +
           '<td class="composite-cell">' + Rescore.compositeBar(r.composite) + "</td>" +
           '<td data-sort-value="' + (r.level_score === null || r.level_score === undefined ? "" : r.level_score) + '">'
             + Rescore.levelChangeBars(r.level_score, r.change_score) + "</td>" +
-          '<td class="delta-cell">' + deltaInner + "</td>" +
-          "<td>" + trendInner + "</td>";
+          '<td class="delta-cell">' + deltaInner + "</td>";
         tbody.appendChild(tr);
         var bd = bdRows["bd-" + tr.dataset.sectorId];
         if (bd) tbody.appendChild(bd);

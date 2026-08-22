@@ -87,10 +87,14 @@
         else if (e.delta < 0) { arrow = "▼"; arrowClass = "down"; }
         var arrowHtml = arrow ? '<span class="arrow ' + arrowClass + '">' + arrow + "</span> " : "";
 
-        // This view has never shown a real trend value — the trend column was a
-        // literal "—" before the 6-column restructure too. Preserved as-is;
-        // scan-history-specific trend logic is out of scope here.
-        var trendInner = "—";
+        // This view shows no trend badge. It never had a real one — the Trend
+        // column held a literal "—" here through both the 6-column restructure
+        // and its predecessor. When that column was dropped and the badge moved
+        // into the theme cell, a placeholder had nowhere left to live: the other
+        // builders put a real .traj-badge beside the setup badge, and an em dash
+        // sitting in that slot would read as a trend value rather than as the
+        // absence of one. Deriving a real trajectory for a past scan stays out
+        // of scope.
         // Static, unlike rankClass above — applyHorizonBadges() never sets it.
         var rank1Class = (sc.rank === 1) ? " rank-1" : "";
         // Ticker: `sector` here is `e.key.split("|")[1]`, the plain theme
@@ -112,7 +116,6 @@
           + '<td data-sort-value="' + (sc.level === null || sc.level === undefined ? "" : sc.level) + '">'
             + Rescore.levelChangeBars(sc.level, sc.change) + "</td>"
           + '<td class="delta-cell">' + arrowHtml + fmtDelta(e.delta) + "</td>"
-          + "<td>" + trendInner + "</td>"
           + "</tr>";
 
         // Band cut rows — same rule as applyBandBoundaries() (index.html.j2),
