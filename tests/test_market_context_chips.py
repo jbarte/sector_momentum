@@ -36,12 +36,20 @@ def test_the_guide_body_declares_the_key_the_chips_open():
 
 
 def test_the_chips_are_one_tappable_control():
-    header = (_TPL / "_header.html.j2").read_text()
-    assert 'id="context-chips"' in header
-    assert 'class="context-chips tab-guide-btn"' in header
-    assert 'data-guide="guide_body_market_context"' in header
-    # A <button>, not a div with a click handler.
-    assert re.search(r'<button[^>]*id="context-chips"', header)
+    """Stage 4 (2026-08-21) moved the chips out of the command bar into the
+    summary strip's Cell C — spec Screen 1 item 1. The control they hang off
+    is now the cell's eyebrow label rather than a header button, but the
+    property this test exists for is unchanged: the explanation is reachable
+    from one real <button>, not a div with a click handler."""
+    index = (_TPL / "index.html.j2").read_text()
+    assert 'id="cell-market-context"' in index
+    assert 'id="market-context-chips"' in index
+    assert 'data-guide="guide_body_market_context"' in index
+    cell = index[index.index('id="cell-market-context"'):]
+    cell = cell[:cell.index("</section>")]
+    assert re.search(r'<button[^>]*class="strip-eyebrow tab-guide-btn"', cell)
+    # And nothing is left behind in the command bar to render them twice.
+    assert 'id="context-chips"' not in (_TPL / "_header.html.j2").read_text()
 
 
 @pytest.mark.parametrize("page", _PAGES)
@@ -123,5 +131,7 @@ def test_the_live_chip_is_translatable_and_explained():
     auth = (_ROOT / "dashboard" / "assets" / "auth.js").read_text()
     assert '"data-i18n", "chip_live"' in auth
     assert '"data-i18n-title", "chip_live_tip"' in auth
-    # And it lands inside the tappable control, not loose in the meta cluster.
-    assert 'getElementById("context-chips")' in auth
+    # And it lands with the chips it belongs to, not loose in the meta cluster.
+    # Stage 4 moved those into the summary strip; markLive()'s host lookup
+    # follows them, or it silently takes its .meta-cluster fallback.
+    assert 'getElementById("market-context-chips")' in auth

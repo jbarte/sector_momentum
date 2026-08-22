@@ -152,6 +152,7 @@
     // runs for it either. Cards would silently go stale on a past scan
     // without this.
     if (typeof window.renderMobileCards === "function") { window.renderMobileCards(); }
+    if (typeof window.renderBuyBand === "function") { window.renderBuyBand(); }
   }
 
   function updateShowingBadge(scanId) {

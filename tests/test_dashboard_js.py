@@ -1733,3 +1733,100 @@ def test_breakdown_lookup_skips_empty_sector_id():
     as an accidental miss that happens to return null."""
     fn_body = _render_mobile_cards_js()
     assert "sectorId ? document.getElementById('bd-' + sectorId) : null" in fn_body
+
+
+# ---------------------------------------------------------------------------
+# Stage 4: summary strip Cell B — the buy band, read from the table's live DOM.
+# ---------------------------------------------------------------------------
+
+
+def _strip_line_comments(js: str) -> str:
+    """Drop // comment lines before asserting on code.
+
+    A comment that names the very thing a test forbids will match a bare
+    substring assertion — the same trap that had a leaderboard-row tag in a
+    Stage 3 comment matching test_badge_gating's row regex.
+    """
+    return "\n".join(
+        line for line in js.splitlines() if not line.strip().startswith("//")
+    )
+
+
+def _render_buy_band_js():
+    """renderBuyBand()'s exact body, same brace-balanced extraction as
+    _render_mobile_cards_js()."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function renderBuyBand()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_buy_band_reads_the_rail_class_not_a_recomputed_rank():
+    """.in-band-rail is written by applyHorizonBadges() from the ACTIVE
+    horizon's top_n. Re-deriving the band here would be a second source of
+    truth that goes stale the moment the reader switches horizon."""
+    fn = _render_buy_band_js()
+    assert "in-band-rail" in fn
+    assert "top_n" not in fn, "read the rail class, do not recompute the band"
+
+
+def test_buy_band_skips_filtered_out_rows():
+    """applyFilters() hides rows with style.display = 'none'; a hidden row is
+    not on the board the reader is looking at."""
+    assert "style.display === 'none'" in _render_buy_band_js()
+
+
+def test_buy_band_is_called_from_the_band_boundaries_funnel():
+    """One call point covers sortTable(), applyFilters() and
+    applyHorizonBadges() — the same funnel renderMobileCards() uses."""
+    body = _apply_band_boundaries_js()
+    assert "renderBuyBand" in body
+
+
+def test_buy_band_is_called_from_scan_history():
+    """showScan() bypasses applyBandBoundaries() entirely — same reason
+    renderMobileCards() needed its own call there."""
+    js = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    assert "renderBuyBand" in js
+
+
+def test_buy_band_empty_state_is_translatable():
+    """A filter can hide every in-band theme, and a past scan carries no rail
+    at all — empty is a real state, so its copy needs a Swedish entry like any
+    other."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    sv = (Path(__file__).parent.parent / "dashboard/templates/i18n/_core.js.j2").read_text()
+    assert 'data-i18n="band_empty"' in text
+    assert re.search(r"\bband_empty:", sv), "band_empty has no SV entry"
+
+
+def test_buy_band_pills_are_rank_ordered_not_table_ordered():
+    """Every pill prints its own rank, so following a Theme or Composite sort
+    would render "1 2 4 3" — which reads as a bug rather than as the table's
+    sort. Found at the browser gate. The band is a set; rank is its order."""
+    fn = _render_buy_band_js()
+    assert "band.sort(" in fn
+    assert "a.rank - b.rank" in fn
+    assert "isNaN(a.rank)" in fn, \
+        "auth.js writes data-rank='' for a null rank; those must not scramble the rest"
+
+
+def test_buy_band_never_calls_applylang():
+    """applyLang() re-enters applyFilters() -> applyBandBoundaries() ->
+    renderBuyBand(), so calling it from inside renderBuyBand() recurses until
+    the stack blows. Reachable only by filtering the band empty, which is why
+    the empty-state note is baked into the template and toggled rather than
+    injected and translated at runtime. Found at the browser gate."""
+    fn = _strip_line_comments(_render_buy_band_js())
+    assert "applyLang(" not in fn, "renderBuyBand() must not call applyLang()"
+    assert "getElementById('band-empty')" in fn

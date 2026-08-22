@@ -59,6 +59,25 @@ def _resolved_px(value: str, context_px: float = _ROOT_PX) -> float:
 # ---------------------------------------------------------------------------
 
 
+def test_summary_strip_subline_meets_floor():
+    """The strip's scan-meta line (scan id + date) is read as text, not
+    skimmed as a qualifier, so it sits on the floor rather than below it."""
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".strip-subline")) >= 12
+
+
+def test_summary_strip_band_pill_meets_floor():
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".band-pill")) >= 12
+
+
+def test_summary_strip_band_note_meets_floor():
+    """The empty-band note is the cell's only content when it shows, so it is
+    primary text at that moment, not a qualifier."""
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".band-note")) >= 12
+
+
 def test_rank_delta_arrows_meet_floor():
     css = _css("_tables.css.j2")
     assert _resolved_px(_rule_font_size(css, ".arrow.up")) >= 12
@@ -302,3 +321,23 @@ def test_band_cut_note_is_deliberately_exempt_from_the_floor():
     quiet supporting text next to the eyebrow it belongs to."""
     css = _css("_tables.css.j2")
     assert _resolved_px(_rule_font_size(css, ".band-cut-row .bcr-note")) < 12
+
+
+def test_summary_strip_eyebrow_is_deliberately_exempt_from_the_floor():
+    """The strip's three eyebrow labels ("TODAY'S READ", "IN THE BUY BAND",
+    "MARKET CONTEXT") are uppercase tracked-out category labels that name the
+    cell they sit above — the same "quiet secondary label that must not
+    compete with what it qualifies" case as .alpha-badge. The design spec
+    (2026-08-18 leaderboard redesign, Screen 1 item 2) specifies 11px with
+    .10em tracking; uppercase at that tracking reads larger than its nominal
+    size. Pinned here rather than silently skipped."""
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".strip-eyebrow")) == 11
+
+
+def test_market_context_trailing_words_are_deliberately_exempt():
+    """"above 200-DMA" / "calm" qualify the chip number beside them — the
+    number is the content, the word is its gloss. Spec Screen 1 item 2 gives
+    these as 11px against the chip's 12px, deliberately subordinate."""
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".market-chips .chip-word")) == 11

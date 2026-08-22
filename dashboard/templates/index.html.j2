@@ -48,6 +48,76 @@
 {% endif %}
 
 <main id="main-content" tabindex="-1">
+{#- Summary strip (Stage 4). Three cells framing the board before the reader
+    reaches the table. Cell B is EMPTY here on purpose: buy-band membership
+    depends on the active horizon, which is client-side state, so it is filled
+    by renderBuyBand() from the table's live DOM — the same read-projection
+    pattern Stage 3's renderMobileCards() uses, for the same reason. -#}
+<section class="summary-strip" aria-label="Scan summary">
+  {% if todays_read %}
+  <div class="strip-cell" id="cell-todays-read">
+    <p class="strip-eyebrow" data-i18n="strip_eyebrow_read">Today's read</p>
+    <p class="strip-headline">
+      {{ todays_read.lead_theme }} <span data-i18n="read_leads">leads the board.</span>
+      {% if todays_read.drift == "rising" %}
+      <span data-i18n="read_bottom_rising">The bottom half is picking up.</span>
+      {% elif todays_read.drift == "falling" %}
+      <span data-i18n="read_bottom_falling">The bottom half keeps sliding.</span>
+      {% else %}
+      <span data-i18n="read_bottom_flat">The bottom half is holding flat.</span>
+      {% endif %}
+    </p>
+    {% if scan_date %}
+    <p class="strip-subline">
+      <span data-i18n="mobile_scan_prefix">Scan</span> #{{ active_scan_id }}
+      <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="strip-cell" id="cell-buy-band">
+    <p class="strip-eyebrow" data-i18n="strip_eyebrow_band">In the buy band</p>
+    <div class="band-pills" id="band-pills"></div>
+    {#- Baked, not injected by renderBuyBand(). Injecting it meant calling
+        applyLang() at runtime to translate it, and applyLang() re-enters
+        applyFilters() -> applyBandBoundaries() -> renderBuyBand(): infinite
+        recursion, reachable only when a filter empties the band. Baking it
+        lets the normal i18n pass translate it once, with no runtime call. -#}
+    <p class="band-note" id="band-empty" data-i18n="band_empty" hidden>No themes in the band on this view.</p>
+  </div>
+
+  {#- Same guard the old header block had (_header.html.j2, pre-Stage 4):
+      render when EITHER macro data exists (real numbers to show) OR auth is
+      configured — a build with no FRED data still needs this DOM host to
+      exist, because markLive() (auth.js) targets #market-context-chips
+      after a signed-in upgrade, which can happen on exactly that build.
+      Without this outer guard the eyebrow button rendered unconditionally —
+      an "what these mean" trigger with nothing beside it to explain on a
+      build with neither. Found in whole-branch review. -#}
+  {% if macro or auth %}
+  <div class="strip-cell" id="cell-market-context">
+    {#- The eyebrow is the guide trigger, replacing the header's #context-chips
+        button. .cc-label so the shared dispatch uses it as the dialog heading
+        rather than the live numbers beside it. -#}
+    <button type="button" class="strip-eyebrow tab-guide-btn"
+            data-guide="guide_body_market_context"
+            aria-label="Market context — what these mean"
+            data-i18n-aria="market_context_aria">
+      <span class="cc-label" data-i18n="strip_eyebrow_market">Market context</span>
+      <span class="cc-info" aria-hidden="true">&#9432;</span>
+    </button>
+    <div class="market-chips" id="market-context-chips">
+      {% if macro %}
+      <span class="chip {{ 'chip-up' if macro.spy_above else 'chip-down' }}">SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%</span>
+      <span class="chip-word" data-i18n="{{ 'macro_chip_spy_above' if macro.spy_above else 'macro_chip_spy_below' }}">{{ 'above 200-DMA' if macro.spy_above else 'below 200-DMA' }}</span>
+      <span class="chip chip-{{ macro.vix_band|lower }}">VIX {{ "%.1f"|format(macro.vix_last) }}</span>
+      <span class="chip-word" data-i18n="macro_vix_{{ macro.vix_band|lower }}">{{ macro.vix_band|lower }}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</section>
 <div class="card">
 <!-- Tab bar. A plain div, not <nav>: role="tablist" is an explicit ARIA role
      and always wins over an element's implicit one, so a <nav role="tablist">
@@ -649,6 +719,60 @@ function renderMobileCards() {
   });
 }
 
+// Cell B of the summary strip — the themes currently inside the buy band.
+// A read-projection of the table, like renderMobileCards(): a row is in the
+// band when its rank cell carries .in-band-rail, which applyHorizonBadges()
+// writes from the ACTIVE horizon's top_n. Reading that class rather than
+// recomputing the band is what keeps this correct across a horizon switch
+// without a second source of truth to keep in step.
+function renderBuyBand() {
+  var host = document.getElementById('band-pills');
+  var tbody = document.querySelector('#leaderboard-table tbody');
+  if (!host || !tbody) return;
+
+  var band = [];
+  Array.prototype.forEach.call(tbody.querySelectorAll('tr.leaderboard-row'), function (tr) {
+    if (tr.style.display === 'none') { return; }
+    if (!tr.cells[0] || !tr.cells[0].classList.contains('in-band-rail')) { return; }
+    var rankBadge = tr.querySelector('.rank-badge');
+    var themeName = tr.querySelector('.theme-name');
+    band.push({
+      rank: parseFloat(tr.dataset.rank),
+      badge: rankBadge ? rankBadge.textContent : '',
+      name: themeName ? themeName.textContent : ''
+    });
+  });
+
+  // Rank order, not table order. The band is a set, and every pill prints its
+  // own rank — so following a Theme or Composite sort would show "1 2 4 3",
+  // which reads as a bug rather than as the table's sort. Found in review at
+  // the browser gate. NaN ranks (auth.js writes data-rank="" for a null rank)
+  // sort last rather than scrambling the rest.
+  band.sort(function (a, b) {
+    if (isNaN(a.rank)) { return isNaN(b.rank) ? 0 : 1; }
+    if (isNaN(b.rank)) { return -1; }
+    return a.rank - b.rank;
+  });
+
+  var html = '';
+  band.forEach(function (b) {
+    html += '<span class="band-pill">'
+      + '<span class="bp-rank">' + b.badge + '</span>'
+      + '<span>' + b.name + '</span>'
+      + '</span>';
+  });
+
+  // Empty is a real state, not a bug — a filter can hide every in-band theme.
+  // The note is baked in the template and toggled here rather than injected:
+  // injecting it needs applyLang() to translate it, and applyLang() re-enters
+  // applyFilters() -> applyBandBoundaries() -> renderBuyBand(), which recurses
+  // until the stack blows. Found at the browser gate by filtering the band
+  // empty; nothing else reaches that path.
+  host.innerHTML = html;
+  var empty = document.getElementById('band-empty');
+  if (empty) { empty.hidden = !!html; }
+}
+
 // Per region: cohorts are ranked independently, so each gets its own pair.
 function applyBandBoundaries() {
   var h = currentHorizon();
@@ -792,6 +916,7 @@ function applyBandBoundaries() {
   // including the signed-in upgrade) — so cards stay in sync with the table
   // with no separate wiring in any of those places.
   if (typeof renderMobileCards === 'function') { renderMobileCards(); }
+  if (typeof renderBuyBand === 'function') { renderBuyBand(); }
 }
 
 function applyHorizonBadges() {

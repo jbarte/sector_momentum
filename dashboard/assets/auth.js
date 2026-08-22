@@ -259,7 +259,11 @@
     // to and inherits their tap-for-explanation affordance. It used to go
     // straight into .meta-cluster, where it was a bare hardcoded English word
     // with no tooltip and no explanation anywhere on the site.
-    var host = document.getElementById("context-chips")
+    // Stage 4 moved the market-context chips out of the command bar into the
+    // summary strip's Cell C. This lookup must follow them, or it silently
+    // takes the fallback below and Live lands back in the header, away from
+    // the chips it belongs with and away from their tap-for-explanation.
+    var host = document.getElementById("market-context-chips")
             || document.querySelector(".command-bar .meta-cluster");
     if (!host) { return; }
     var chip = document.createElement("span");
