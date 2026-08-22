@@ -607,7 +607,7 @@ tbody td:nth-child(n+4) {
 /* Curated three-chip subset in the always-visible Controls row (spec
    Screen 1 item 5) — its own values, not .filter-chip's: a more prominent
    row gets slightly larger padding (5px 12px vs. 3px 10px). */
-.control-chips { display: flex; align-items: center; gap: 8px; }
+.control-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .control-chip {
   border: 1px solid var(--border);
   background: var(--bg-raised);

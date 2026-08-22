@@ -219,6 +219,14 @@
       <button type="button" class="control-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false" data-i18n="filter_top5">Top 5</button>
       <button type="button" class="control-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false" data-i18n="filter_rising">↑ Rising</button>
       <button type="button" class="control-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false" data-i18n="filter_composite_pos">Composite &gt; 0</button>
+      {#- filter-clear/filter-count live here, not inside the disclosure
+          below: a reader who picks a full-set-only chip (e.g. Enter) then
+          collapses More filters must still see that a filter is active
+          and have a way to clear it. Their ids are unchanged, so
+          _updateFilterCount()/_wireFilterChips()'s getElementById lookups
+          need no changes — only their position moved. -#}
+      <button type="button" class="filter-clear" id="filter-clear" hidden data-i18n="filter_clear">Clear</button>
+      <span class="filter-count" id="filter-count"></span>
       {#- Native <details>, matching .rank-settings right beside it — same
           popover positioning (_sentiment.css.j2), same mobile full-width
           override (_responsive.css.j2), no new toggle JS needed. -#}
@@ -244,8 +252,6 @@
             <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false" data-i18n="filter_top5">Top 5</button>
             <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="change_pos" aria-pressed="false" data-i18n="filter_change_pos">Positive change</button>
           </div>
-          <button type="button" class="filter-clear" id="filter-clear" hidden data-i18n="filter_clear">Clear</button>
-          <span class="filter-count" id="filter-count"></span>
         </div>
       </details>
     </div>
@@ -1465,8 +1471,14 @@ function clearFilters() {
 }
 
 function setFilterBarVisible(visible) {
+  // Both halves of the split filter UI: the disclosed full set AND the
+  // always-visible curated chips — a past scan's rows carry no filter
+  // data-attributes, so both must disappear together or a reader could
+  // tap a curated chip that silently does nothing.
   var bar = document.getElementById('leaderboard-filter-bar');
   if (bar) bar.style.display = visible ? '' : 'none';
+  var controlChips = document.querySelector('.control-chips');
+  if (controlChips) controlChips.style.display = visible ? '' : 'none';
 }
 
 // Every element sharing a data-filter-group/data-filter-value pair reflects

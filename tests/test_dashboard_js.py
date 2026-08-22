@@ -1657,20 +1657,6 @@ def test_mobile_scan_meta_prefix_has_sv_translation():
     assert re.search(r"\bmobile_scan_prefix:\s*\"\S+\"", core_i18n)
 
 
-def test_control_row_scrolls_horizontally_not_wraps():
-    """The filter chips (.filter-bar) already flex-wrap onto several lines
-    at 375px — scrolling them as one row instead keeps the control row
-    compact, per the design spec's "Control row" point."""
-    css = (Path(__file__).parent.parent / "dashboard/templates/css"
-           / "_responsive.css.j2").read_text()
-    m = re.search(r"\.filter-bar\s*\{[^}]*\}", css)
-    assert m, ".filter-bar rule not found"
-    assert "overflow-x: auto" in m.group(0)
-    assert "flex-wrap: nowrap" in m.group(0)
-    # .horizon-row carries a full sentence (.horizon-note) and the
-    # review-status text — deliberately NOT put on a scrolling strip.
-    assert not re.search(r"\.horizon-row\s*\{[^}]*overflow-x", css)
-
 
 def test_mobile_scan_meta_survives_missing_scan_date():
     """Found by the full suite, not by this task's own tests above:
@@ -2181,3 +2167,111 @@ def test_more_filters_i18n_key_exists():
     assert re.search(r'\bmore_filters:\s*"[^"]+"', core_i18n)
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
     assert 'data-i18n="more_filters"' in text
+
+
+def _set_filter_bar_visible_js():
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function setFilterBarVisible(")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_set_filter_bar_visible_also_hides_curated_chips():
+    """Found while planning Task 2: scan-history.js calls this to hide
+    filters when past-scan rows carry no filter data-attributes. Before
+    this fix it only hid the disclosed full set, leaving the curated Top
+    5/Rising/Composite>0 chips tappable with no effect while viewing
+    history."""
+    js = _set_filter_bar_visible_js()
+    assert "control-chips" in js
+
+
+def test_filter_count_and_clear_live_outside_the_disclosure():
+    """A reader who picks a full-set-only chip (e.g. Enter) then collapses
+    More filters must still see that a filter is active and have a way to
+    clear it — Task 1 left both inside the <details>, invisible once
+    collapsed."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    control_chips_start = text.index('class="control-chips"')
+    more_filters_start = text.index('class="more-filters"', control_chips_start)
+    between = text[control_chips_start:more_filters_start]
+    assert 'id="filter-clear"' in between
+    assert 'id="filter-count"' in between
+    disclosure_body = text[more_filters_start:text.index('</details>', more_filters_start)]
+    assert 'id="filter-clear"' not in disclosure_body
+    assert 'id="filter-count"' not in disclosure_body
+
+
+def test_filter_bar_mobile_scroll_hack_is_gone():
+    """Superseded: the full set is behind a disclosure now, not always
+    visible, so forcing it into a horizontally-scrolling strip at 375px is
+    worse than letting it wrap. BACKLOG.md predicted this exact reversal
+    when Stage 3 shipped the stopgap."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.filter-bar\s*\{[^}]*\}", css)
+    if m:
+        assert "overflow-x: auto" not in m.group(0)
+
+
+def test_more_filters_gets_the_mobile_popover_treatment():
+    """Same static/full-width override .rank-settings already gets at
+    600px (_responsive.css.j2) — .more-filters is the same kind of control
+    in the same row and must not run off the side of a 375px screen.
+
+    Matches on the specific selector pair rather than delimiting the whole
+    @media block: this file has several separate `@media (max-width:
+    600px)` blocks, and a non-greedy regex trying to bound just one of
+    them matched clean across a block boundary into an unrelated
+    `@media (pointer: coarse)` block instead (caught live — it found
+    `.rank-settings label`, a different rule, before ever finding this
+    block's own closing brace)."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    assert re.search(
+        r"\.rank-settings,\s*\n\s*\.more-filters\s*\{\s*position:\s*static;",
+        css
+    ), "expected `.rank-settings,\\n  .more-filters { position: static; }`"
+    assert re.search(
+        r"\.rank-settings \.sentiment-control,\s*\n\s*\.more-filters \.filter-bar\s*\{",
+        css
+    ), "expected the popover-positioning rule to cover both .more-filters and .rank-settings"
+
+
+def test_horizon_row_is_the_new_popover_anchor():
+    """.utility-row { position: relative } anchored .rank-settings's
+    popover (_sentiment.css.j2's `position: absolute; right: 0`) before
+    Task 1 deleted .utility-row from the markup — the anchor must move to
+    .horizon-row, the row .rank-settings now lives inside, or the popover
+    positions against the wrong ancestor."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    assert ".utility-row { position: relative; }" not in css
+    assert re.search(r"\.horizon-row\s*\{\s*position:\s*relative;\s*\}", css)
+
+
+def test_control_chips_wraps_instead_of_overflowing():
+    """Found live at 375px, not by any test: .control-chips is a flex
+    child of .horizon-row (which does wrap), but had no flex-wrap of its
+    own — its six children (3 curated chips, Clear, count, More filters)
+    were forced onto one line and overflowed past the row's right edge
+    instead of wrapping, measured via getBoundingClientRect() (right:
+    382.66 against a 375px viewport) even though
+    document.documentElement.scrollWidth still read 375, which is why a
+    static "no horizontal overflow" check on the document alone would
+    have missed this."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_tables.css.j2").read_text()
+    m = re.search(r"\.control-chips\s*\{[^}]*\}", css)
+    assert m, ".control-chips rule not found"
+    assert "flex-wrap: wrap" in m.group(0)
