@@ -127,6 +127,50 @@ i18n key, and renumbering every `sortTable()`/`data-col` index and `colspan`
 that counts columns — meaningfully more work than the one CSS block this used
 to be. Also drop the `alpha` badge from the Sentiment nav and page note.
 
+## Sentiment page is pinned to the lagged scan, and says so misleadingly
+
+Raised 2026-08-22, when the Sentiment tab showed "No news sentiment for this
+snapshot" while the leaderboard beside it displayed a live board. Both bullets
+below share one root cause, so they are grouped.
+
+**Root cause.** `dashboard/templates/sentiment.html.j2` loads only the Plotly
+bundle and `theme.js` — **not `auth.js`**. The empty state is a build-time Jinja
+branch (`{% if sentiment_available %}`), so the published `sentiment.html` is
+byte-identical for every reader and cannot react to a session at all. On top of
+that, `dashboard/build.py` deliberately caps `sentiment_signals_df` at the
+lagged scan (see the comment there: reading the true latest scan leaked the
+current scan's News table to guests while the scatter above it stayed capped,
+so the two surfaces disagreed about "latest"). That cap is correct for guests
+and simply has no signed-in counterpart.
+
+The incident that surfaced it was not a defect: sentiment was dead for scans
+153–163 (2026-08-06 → 08-16), and the 7-day gate dragged that 11-day hole
+across the page from ~08-13 until 08-24. The page was telling the truth. What
+it could not do was explain itself.
+
+- **The empty-state copy is misleading.** It says sentiment "appears
+  automatically once a scan with real readings is on display" — true, but it
+  never says the display is pinned ~7 days back (`LAG_DAYS`), nor that signing
+  in will not move it. A signed-in reader looking at today's leaderboard
+  reasonably concludes the feature is broken. Naming the lag, and the displayed
+  scan date, would make the state self-explanatory. Cheap; no data changes.
+
+- **The page never upgrades for signed-in readers.** The leaderboard swaps in
+  the latest scan client-side after sign-in; the sentiment page does not, so
+  one page shows today and the other shows a week ago. Same shape as the parked
+  *Signed-in drill-down gap*. The fix is a gated client-side fetch of the latest
+  `sentiment_signals` plus a re-render of the scatter and table — not a one-liner,
+  and it needs the same RLS care as any other signed-in read.
+
+**Order matters:** the right wording for the first bullet depends on whether the
+second ships (if the page upgrades, the copy should stop mentioning a lag that
+only guests see). Do the copy fix alone only if the upgrade is being declined.
+
+**Worth weighing first:** the 2026-08-22 validation above found polarity is
+largely topical bias rather than news, so further investment in this surface may
+not be warranted at all. The copy fix stands on its own regardless — a page that
+misexplains itself is worth a few lines whatever happens to the signal.
+
 ## Composite structure — 4.2 effective signals of 8
 
 Same measurement run. Worth recording so the question is not re-opened from
