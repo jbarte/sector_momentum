@@ -91,8 +91,8 @@
     {% if auth and scan_date %}
     <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto">
       <span data-i18n="sentiment_empty_showing">Showing scan</span>
-      <strong>#{{ active_scan_id }}</strong> <span aria-hidden="true">&middot;</span> <strong>{{ scan_date[:10] }}</strong><span data-i18n="sentiment_empty_lag_pre">, which runs</span>
-      <strong>{{ lag_days }}</strong> <span data-i18n="sentiment_empty_lag">days behind the newest scan. No sentiment was recorded for the day shown. Signing in refreshes the Themes board but not this page, so a gap in the data surfaces here about a week after it actually happened.</span>
+      <strong>#{{ active_scan_id }}</strong> <span aria-hidden="true">&middot;</span> <strong>{{ scan_date[:10] }}</strong><span data-i18n="sentiment_empty_lag_pre">. The public view shows the newest scan at least</span>
+      <strong>{{ lag_days }}</strong> <span data-i18n="sentiment_empty_lag">days old. No sentiment was recorded for the day shown. Signing in refreshes the Themes board but not this page, so a gap in the data surfaces here about a week after it actually happened.</span>
     </p>
     <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:10px auto 0" data-i18n="sentiment_empty_health">To see whether sentiment is working right now, check the health panel at the foot of the Themes page — it flags a failure on the day it occurs.</p>
     {% else %}

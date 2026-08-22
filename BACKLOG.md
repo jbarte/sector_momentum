@@ -134,13 +134,19 @@ bullet of that item is done; this is what is left, and it is **declined for
 now** rather than pending — recorded so the reasoning is not rebuilt from
 scratch.
 
-`sentiment.html.j2` loads Plotly and `theme.js` and **not `auth.js`**, so the
-page is byte-identical for every reader and cannot react to a session.
-`build.py` caps `sentiment_signals_df` at the lagged scan deliberately (reading
-the true latest scan leaked the current News table to guests while the scatter
-above it stayed capped, so the two surfaces disagreed about "latest"). The
-leaderboard swaps in the newest scan client-side after sign-in; this page does
-not. Same shape as the parked *Signed-in drill-down gap*.
+**Corrected in review — the mechanism is not what was first recorded here.**
+`sentiment.html.j2` *does* load `auth.js`: it includes `_footer.html.j2`, which
+pulls in supabase-client, auth, positions and alert-prefs under `{% if auth %}`.
+Sign-in works on this page and it is not byte-identical for every reader. What
+is inert is the *data* refresh: `upgradeLeaderboard()` returns early without a
+`#leaderboard-table tbody`, and nothing else re-fetches `sentiment_signals`.
+So the reader-visible behaviour is unchanged — the board jumps to today, this
+page does not — but the fix is "add a fetch", not "add auth to the page".
+
+`build.py` also caps `sentiment_signals_df` at the lagged scan deliberately
+(reading the true latest scan leaked the current News table to guests while the
+scatter above it stayed capped, so the two surfaces disagreed about "latest").
+Same shape as the parked *Signed-in drill-down gap*.
 
 **Why declined:** the 2026-08-22 validation found polarity is largely topical
 bias rather than news — roughly 70% of the cross-sectional spread is a fixed
@@ -437,17 +443,28 @@ What remains:
   - It implied a fresher view existed ("or when this page is showing an earlier
     scan than the most recent one") without saying that **signing in cannot
     reach it here** — while the leaderboard beside it visibly does jump to
-    today. `sentiment.html.j2` loads no `auth.js` at all; the empty state is a
-    build-time Jinja branch, byte-identical for every reader.
+    today. The empty state is a build-time Jinja branch, so that element cannot
+    change per reader. (This entry first said the page "loads no auth.js at
+    all"; review proved that false — `_footer.html.j2` loads it under
+    `{% if auth %}`. Sign-in does work here; what is missing is any client-side
+    re-fetch of `sentiment_signals`, since `upgradeLeaderboard()` returns early
+    without a leaderboard table. The reader-visible claim in the copy is
+    unaffected.)
   - It pointed nowhere. Because of the lag, this page reflects an outage about
     a week late. The health panel flags one the same day (a FinBERT failure
     records `0/N` and scores a red badge — see the 2026-08-16 entry), so that
     is where a reader asking "is it broken *now*?" belongs.
 
-  The gated branch now names the scan and date, states the lag from
+  The gated branch now names the scan and date, states the gate rule from
   `gating.LAG_DAYS` (passed through as `lag_days`, never written into the copy
   as a literal), says signing in will not move it, and points at the health
-  panel. Guarded on `auth`: an unconfigured build has `lag_active = False` and
+  panel. The first draft said "runs N days behind the newest scan", which
+  review caught as wrong: `_pick_lagged_scan` takes the newest scan at least N
+  days old *relative to now* and never measures against the newest scan, so if
+  scans stop the lagged pick becomes the newest scan and the data can be weeks
+  stale while the copy still claims exactly N days — wrong in exactly the
+  outage the copy exists to explain. Now phrased as the rule ("the newest scan
+  at least N days old"), which stays true however stale the data gets. Guarded on `auth`: an unconfigured build has `lag_active = False` and
   renders the *latest* scan, where every word about lag and signing in would be
   false — that branch keeps the "source recorded nothing" wording.
 

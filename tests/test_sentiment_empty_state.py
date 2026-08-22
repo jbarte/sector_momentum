@@ -1,11 +1,19 @@
 """The Sentiment page's empty state must explain itself.
 
-The page is baked at the LAGGED scan and carries no client-side auth at all
-(`sentiment.html.j2` loads Plotly and theme.js, never auth.js), so the empty
-state is a build-time branch that is byte-identical for every reader. Signing
-in moves the leaderboard to today's scan and leaves this page a week behind —
-which is exactly the state a reader hit on 2026-08-22, with a live-looking
-board beside an empty sentiment tab.
+The page is baked at the LAGGED scan and has no client-side path to refresh
+that data. It *does* load auth.js — `sentiment.html.j2` includes
+`_footer.html.j2`, which pulls in supabase-client, auth, positions and
+alert-prefs under `{% if auth %}` — so sign-in works here and the page is NOT
+byte-identical for every reader. (An earlier version of this docstring claimed
+it never loaded auth.js at all; corrected in review.) What makes signing in
+inert for the sentiment data specifically is that `upgradeLeaderboard()`
+returns early without a `#leaderboard-table tbody`, and nothing else re-fetches
+`sentiment_signals`. The empty state itself is a build-time Jinja branch, so
+that element genuinely cannot change per reader.
+
+Net effect for the reader is what the copy claims: signing in moves the
+leaderboard to today's scan and leaves this page a week behind — the state hit
+on 2026-08-22, a live-looking board beside an empty sentiment tab.
 
 Worse, on desktop the page shows no scan date anywhere: `.mobile-scan-meta` is
 display:none above the mobile breakpoint, and the lag banner is index-only. So
@@ -31,7 +39,10 @@ def _render(**overrides) -> str:
     ctx = dict(
         sentiment_available=False,
         auth="supabase-config",
-        scan_date="2026-08-15T06:00:00Z",
+        # Matches _build_rows_common's real format (dashboard/rows.py), not a
+        # plausible-looking ISO string — both slice to the same 10 chars today,
+        # which is exactly how a fixture drifts from production unnoticed.
+        scan_date="2026-08-15 06:00 UTC",
         active_scan_id=162,
         lag_days=7,
         active_segment="sentiment",
@@ -108,6 +119,26 @@ def test_interpolated_values_are_separated_from_the_words_around_them():
     text = _re.sub(r"<[^>]+>", "", block)          # strip tags, keep text nodes
     assert not _re.search(r"\d(?=[A-Za-zÅÄÖåäö])", text), (
         f"a number runs straight into the following word: {text.strip()!r}"
+    )
+
+
+def test_lag_copy_describes_the_gate_rule_not_a_fixed_distance():
+    """`LAG_DAYS` is an age threshold, not a distance from the newest scan.
+    `_pick_lagged_scan` takes the newest scan at least N days old *relative to
+    now*; it never measures against the newest scan. So "N days behind the
+    newest scan" is false whenever scans stop — the lagged pick becomes the
+    newest scan, and the data can be weeks stale while the page still claims
+    exactly N days. That is precisely the outage this copy exists to explain,
+    so getting it backwards there is the worst possible case.
+    """
+    block = _empty_state(_render()).lower()
+    assert "behind the newest" not in block, (
+        "the copy states a fixed distance from the newest scan; LAG_DAYS is an "
+        "age threshold, and the two diverge exactly when scans stop"
+    )
+    assert "at least" in block, (
+        "the copy should describe the gate rule (newest scan at least N days "
+        "old), which stays true however stale the data gets"
     )
 
 
