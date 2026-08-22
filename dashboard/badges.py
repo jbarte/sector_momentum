@@ -94,6 +94,8 @@ def build_badge_scorecard(
     prices = fetch_prices(
         all_tickers,
         start=earliest.strftime("%Y-%m-%d"),
+        # Runs past today for the newest scans; fetch_prices clamps it, which
+        # is where that invariant is enforced for every caller.
         end=latest.strftime("%Y-%m-%d"),
         cache_dir=price_cache_dir,
     )

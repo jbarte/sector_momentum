@@ -11,7 +11,7 @@ import plotly.io as pio
 
 from dashboard.figures import _base_layout
 from src.cohorts import Cohort, cohorts
-from src.data.prices import fetch_prices
+from src.data.prices import align_cohort_asof, fetch_prices
 
 logger = logging.getLogger("dashboard.build")
 
@@ -196,19 +196,28 @@ def build_correlation_context(shared: dict) -> dict:
         end = date.today().isoformat()
         prices = fetch_prices(tickers, start=start, end=end, cache_dir=cache_dir)
 
+        # This heatmap correlates tickers against EACH OTHER, which makes it
+        # the same cross-sectional case scan.py aligns for. Per-ticker cache
+        # freshness is decided independently, so one refetched ticker among
+        # cache hits is enough to stagger the end dates — and
+        # _compute_correlation_matrix joins on the UNION of those dates before
+        # taking returns.tail(60). A series running three days past the rest
+        # contributes three rows that are NaN for every other ticker, leaving
+        # each pair fewer than 60 usable observations. `.corr()` drops NaN
+        # pairwise and still returns a number, so the window silently shrinks
+        # rather than failing.
+        prices, as_of = align_cohort_asof(prices)
+
         # Compute correlation
         corr = _compute_correlation_matrix(prices, tickers, window=_CORR_WINDOW)
         if corr is None:
             logger.warning("Correlation heatmap: insufficient price data")
             return none_ctx
 
-        # Find the end date of the data used
-        all_dates = set()
-        for t in tickers:
-            df = prices.get(t)
-            if df is not None and not df.empty:
-                all_dates.update(df.index)
-        corr_date = max(all_dates).strftime("%Y-%m-%d") if all_dates else None
+        # The aligned as-of date, not max() across tickers: that reported the
+        # freshest single ticker rather than the date the matrix was actually
+        # computed on, and overstated freshness whenever one series ran ahead.
+        corr_date = as_of.strftime("%Y-%m-%d") if as_of is not None else None
 
         fig_json = _build_heatmap_figure(corr, labels, tickers, block_sizes)
         logger.info("Correlation heatmap built: %d×%d, window=%d", len(tickers), len(tickers), _CORR_WINDOW)

@@ -20,10 +20,15 @@ Saturday, Sunday or Monday it is Friday's.
 See `_cache_is_fresh`.
 
 `end` is **EXCLUSIVE**: the last bar returned is the last completed session
-strictly before `end`. Callers pass `end=today`, so this is what keeps an
-in-progress session out of the data — Yahoo returns a partial candle for the
-current day during market hours, and `_cache_is_fresh` would then treat that
-half-formed close as a real one and never refetch it.
+strictly before `end`. No caller passes an `end` beyond today, so this is what
+keeps an in-progress session out of the data — Yahoo returns a partial candle
+for the current day during market hours, and `_cache_is_fresh` would then treat
+that half-formed close as a real one and never refetch it.
+
+That invariant is not free: `dashboard/badges.py` and
+`dashboard/validation.py` size their window from a forward-return horizon
+(`+15` / `+30 days` past the newest scan), which overshoots today. Both route
+`end` through `capped_end` to restore it — see that function.
 
 Callers that score a cohort cross-sectionally should still run the result
 through `align_cohort_asof`: per-ticker cache freshness is evaluated
@@ -61,6 +66,39 @@ def _expected_latest_close(ref: date) -> date:
     if weekday == 6:  # Sunday
         return ref - timedelta(days=2)
     return ref
+
+
+def capped_end(when) -> str:
+    """Clamp a requested `end` to today and render it as `YYYY-MM-DD`.
+
+    For callers whose window is sized from a forward horizon rather than from
+    the calendar — `dashboard/badges.py` and `dashboard/validation.py` measure
+    returns some number of days past each scan date, which runs past today for
+    the most recent scans.
+
+    No bar exists past today, so clamping returns identical data. What it
+    prevents is a cache hazard: `end` is EXCLUSIVE and is the mechanism that
+    keeps an in-progress session out of the data, while `_cache_is_fresh` never
+    receives `end` and always measures the cache against today. An `end` in the
+    future lets yfinance return today's partial candle, and that check then
+    judges the half-formed close fresh — in the same shared `data/cache/`
+    directory `scan.py` later reads and scores from.
+
+    The trade-off is not quite "identical data": `end` is exclusive, so after
+    the close a clamped request stops at yesterday and gives up today's
+    completed bar, costing at most one forward-return observation on the newest
+    scan. That is the same bar `scan.py` forgoes, for the same reason — a bar
+    fetched during market hours is a partial candle, and nothing downstream can
+    tell the two apart once it is cached.
+
+    Accepts an ISO `YYYY-MM-DD` string, a pandas Timestamp, a datetime, or a
+    plain `date`.
+    """
+    if isinstance(when, str):
+        when = date.fromisoformat(when)
+    elif hasattr(when, "date"):
+        when = when.date()
+    return min(when, date.today()).strftime("%Y-%m-%d")
 
 
 def _meta_path(path: str) -> str:
@@ -115,23 +153,19 @@ def _cache_is_fresh(path: str, start: str | None = None) -> bool:
         if df.empty:
             return False
         last_cached = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
-        # The newest bar a fetch could actually return, for the common case:
-        # the last weekday strictly before today. `end` is EXCLUSIVE, and
-        # scan.py — the caller this freshness check protects against a
-        # partial in-progress candle — passes `end=date.today()`, so today's
-        # own session is never obtainable to it no matter what time of day the
-        # run happens; that is what keeps this boundary a pure calendar
-        # question with no market-hours/timezone logic for that caller.
+        # The newest bar a fetch could actually return: the last weekday
+        # strictly before today. `end` is EXCLUSIVE, so today's own session is
+        # never obtainable — which is what keeps this boundary a pure calendar
+        # question, with no market-hours or timezone logic.
         #
-        # This function does NOT know the caller's own `end` (it isn't a
-        # parameter here) and always checks against today regardless.
-        # dashboard/badges.py and dashboard/validation.py both request a
-        # FUTURE `end` (days/weeks past today, for forward-return badges) —
-        # for them this boundary does not rule out a same-day partial candle
-        # the way it does for scan.py. Currently masked for badges.py by the
-        # `start`-coverage check below rejecting its window first; not
-        # something this fix addresses. See BACKLOG.md "Price cache freshness
-        # doesn't account for callers requesting a future `end`".
+        # This function does NOT receive the caller's `end` and always measures
+        # against today. That used to be a gap: `dashboard/badges.py` and
+        # `dashboard/validation.py` sized their window from a forward-return
+        # horizon and passed an `end` days past today, so for them this boundary
+        # did not rule out a same-day partial candle. Closed 2026-08-22 by
+        # clamping `end` inside `fetch_prices` (see `capped_end`), which makes
+        # "no caller requests a future `end`" an enforced invariant rather than
+        # an assumption this comment has to keep restating.
         #
         # This boundary replaced an `_expected_latest_close(today)` + 1-day
         # grace pair (fixed 2026-08-22). On a weekday the two agree exactly,
@@ -258,7 +292,17 @@ def fetch_prices(
 
     Tickers that fail to fetch are logged and omitted from the returned dict
     (soft failure — never raises).
+
+    `end` is clamped to today here rather than trusted from the caller. It is
+    EXCLUSIVE and is the one thing keeping an in-progress session out of the
+    cache, while `_cache_is_fresh` never receives it and always measures against
+    today — so a single caller passing a future `end` can poison the shared
+    cache for every other caller. Seven call sites reach this function; making
+    each one remember is the kind of invariant that holds until someone adds
+    the eighth. Clamping is a no-op for the six that already pass `end=today`
+    or earlier. See `capped_end`.
     """
+    end = capped_end(end)
     os.makedirs(cache_dir, exist_ok=True)
     result: dict[str, pd.DataFrame] = {}
     source_counts: dict[str, int] = {"cache": 0, "yfinance": 0}

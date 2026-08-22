@@ -242,6 +242,7 @@ def build_validation_context(shared: dict) -> dict:
     prices = fetch_prices(
         all_tickers,
         start=earliest.strftime("%Y-%m-%d"),
+        # Runs past today for the newest scans; fetch_prices clamps it.
         end=latest.strftime("%Y-%m-%d"),
         cache_dir=str(project_root / "data/cache"),
     )
