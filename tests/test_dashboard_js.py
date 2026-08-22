@@ -57,6 +57,7 @@ def _horizon_ctx(dumps=json.dumps):
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
              "top_n": h.top_n, "buffer": h.buffer,
+             "exit_rank": h.exit_rank,
              "trades_per_year": h.trades_per_year,
              "median_holding_days": h.median_holding_days,
              "review_dates": _review_dates(h, since="2026-01-15")} for h in hs
@@ -1830,3 +1831,175 @@ def test_buy_band_never_calls_applylang():
     fn = _strip_line_comments(_render_buy_band_js())
     assert "applyLang(" not in fn, "renderBuyBand() must not call applyLang()"
     assert "getElementById('band-empty')" in fn
+
+
+# ---------------------------------------------------------------------------
+# Stage 5: horizon segmented control.
+# ---------------------------------------------------------------------------
+
+
+def test_horizon_toggle_buttons_exist_for_every_horizon():
+    """One .horizon-btn per horizon_list entry via a Jinja loop over the
+    same horizon_list the <select>'s <option>s already loop over — a
+    source scan sees the loop body once, not once per rendered horizon, so
+    this checks the loop is over horizon_list, not that the text repeats."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert 'class="horizon-toggle"' in text
+    toggle_start = text.index('class="horizon-toggle"')
+    toggle_block = text[toggle_start:text.index("</div>", toggle_start)]
+    assert "{% for h in horizon_list %}" in toggle_block
+    assert 'class="horizon-btn"' in toggle_block
+    assert 'data-horizon-choice="{{ h.key }}"' in toggle_block
+
+
+def test_horizon_select_is_still_in_the_dom_but_hidden():
+    """Spec: keep <select id="horizon-select">, visually hidden —
+    switchHorizon() reads document.getElementById('horizon-select') back
+    internally at two points, not only via its own onchange."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert 'id="horizon-select"' in text
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_tables.css.j2").read_text()
+    m = re.search(r"\.horizon-row select\s*\{[^}]*\}", css)
+    assert m, ".horizon-row select rule not found"
+    assert "display: none" in m.group(0)
+
+
+def test_horizon_buttons_are_wired_to_switch_horizon():
+    """A click must call the SAME switchHorizon() the <select>'s onchange
+    calls — a second, independent state-setter would let the two controls
+    disagree."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    idx = text.index("function initHorizonSelect()")
+    brace_start = text.index("{", idx)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = text[idx:i + 1]
+    assert "switchHorizon(" in fn_body
+    assert "horizon-btn" in fn_body
+
+
+def test_switch_horizon_keeps_the_toggle_buttons_in_sync():
+    """A programmatic switchHorizon() call (a deep link, a test, the
+    <select>'s own onchange) must update the buttons' aria-pressed too —
+    the same reasoning the existing _sel.value sync comment gives for the
+    hidden <select> itself.
+
+    Strips comments before asserting — caught live: a first sabotage-verify
+    pass commented out the call and this test still passed, because the
+    substring "updateHorizonToggleUI" survives in the commented-out line
+    itself. Same trap Stage 3/4's own comments hit twice already
+    (test_buy_band_never_calls_applylang uses the same _strip_line_comments
+    helper for exactly this reason)."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    idx = text.index("function switchHorizon(key)")
+    brace_start = text.index("{", idx)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = _strip_line_comments(text[idx:i + 1])
+    assert "updateHorizonToggleUI(key)" in fn_body
+
+
+def test_horizon_label_has_no_trailing_colon():
+    """Restyled as a bare eyebrow (matching .strip-eyebrow's "TODAY'S READ" /
+    "IN THE BUY BAND" — no trailing punctuation), not a form <label> — the
+    element it used to label is now display:none and no longer the focus
+    target; the segmented buttons are."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    idx = text.index('data-i18n="horizon_label"')
+    line = text[max(0, idx - 80):idx + 80]
+    assert "Horizon:" not in line
+    assert "<label" not in text[max(0, idx - 40):idx]
+
+
+def test_horizon_row_label_css_is_gone():
+    """Found while reviewing this plan: `.horizon-row label` styled the
+    <label> Task 1 Step 3 removes in favour of a plain <span> — left behind,
+    it would be dead CSS with no matching element."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_tables.css.j2").read_text()
+    assert ".horizon-row label" not in css
+
+
+def test_horizons_json_carries_exit_rank():
+    """exit_rank (top_n + buffer) must come from Horizon.exit_rank
+    (src/horizons.py), not be recomputed in JS a third time — scan-history.js
+    already duplicates the formula once (_h.top_n + _h.buffer); a second JS
+    copy in renderHorizonStats() would be a third place to keep in sync."""
+    build_text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
+    assert '"exit_rank": h.exit_rank' in build_text
+
+
+def test_horizon_stats_render_all_four_in_spec_order():
+    """Spec order (Screen 1 item 5): held, sell past rank, trades/yr,
+    median hold — the pre-Stage-5 markup had held/median-hold/trades."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    strip = text[text.index('id="horizon-stats"'):text.index("</span>\n    </span>", text.index('id="horizon-stats"'))]
+    ids_in_order = re.findall(r'id="(hz-[a-z]+)"', strip)
+    assert ids_in_order == ["hz-held", "hz-exit", "hz-trades", "hz-hold"]
+
+
+def _render_horizon_stats_js():
+    """renderHorizonStats()'s exact function body (brace-balanced), the same
+    technique test_render_mobile_cards_wired_into_apply_band_boundaries and
+    _render_mobile_cards_js() use elsewhere in this file."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function renderHorizonStats(")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_render_horizon_stats_sets_the_exit_rank_stat():
+    js = _render_horizon_stats_js()
+    assert "hz-exit" in js
+    assert "h.exit_rank" in js
+
+
+def test_horizon_btn_has_a_touch_target_not_the_dead_select():
+    """Found in whole-branch review: #horizon-select was listed in the
+    pointer:coarse 44px touch-target rule (_responsive.css.j2) before this
+    stage, and stayed listed after the swap even though it is now
+    permanently display:none — dead weight on the control that no longer
+    needs it, while .horizon-btn, the real tap target, was never added.
+
+    Strips /* */ block comments before asserting — caught live, twice: the
+    fix's own explanatory comment names both "#horizon-select" (explaining
+    why it's gone) and ".horizon-btn" (explaining why it's added), so a
+    bare substring check on either assertion is satisfied by the comment
+    alone regardless of the actual CSS rule. Same "comments are page
+    content" trap as _strip_line_comments elsewhere in this file, for CSS
+    block comments instead of // line comments."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    css_no_comments = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    m = re.search(r"@media \(pointer: coarse\) \{.*?\n\}\n", css_no_comments, re.DOTALL)
+    assert m, "pointer:coarse block not found"
+    block = m.group(0)
+    assert "#horizon-select" not in block
+    assert ".horizon-btn" in block

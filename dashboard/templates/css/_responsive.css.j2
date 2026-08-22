@@ -231,14 +231,20 @@
      tooltips do not exist there, so tapping is the ONLY way to reach their
      explanation. It measured 44px from the flex row already; listed here so the
      size is guaranteed rather than incidental. */
-  .context-chips,
-  #horizon-select { min-height: 44px; }
+  .context-chips { min-height: 44px; }
 
   /* Footer anchors are plain links, not .footer-link buttons. */
   .site-footer a { display: inline-flex; align-items: center; min-height: 44px; }
 
+  /* The old horizon dropdown is NOT listed here (Stage 5, 2026-08-22): it
+     is permanently hidden now — .horizon-btn is the real, visible tap
+     target the segmented control replaced it with, sized like .theme-btn
+     below since it's the same pill-group pattern. Found in whole-branch
+     review — the dropdown's rule was dead weight left behind by the swap,
+     while the buttons that actually needed it were never added. */
   .theme-btn,
-  .lang-toggle { min-height: 44px; min-width: 44px; }
+  .lang-toggle,
+  .horizon-btn { min-height: 44px; min-width: 44px; }
 
   /* Inline text toggles need a box before a min-height can apply. */
   .digest-toggle {

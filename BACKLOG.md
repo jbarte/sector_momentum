@@ -21,32 +21,23 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Leaderboard redesign — Stage 5
+## Desktop controls row — curated filter chips + a "More filters" disclosure
 
-Stages 1 (tokens + 6-column table), 2 (labelled band cut rows), 3 (mobile
-cards) and 4 (summary strip) shipped — see Done. Stage 5 was named in Stage
-1's Done entry prose only, with no Queued section of its own; kept here so it
-doesn't get lost the way the GDELT out-of-scope items did on 2026-08-16.
+Split out of "Leaderboard redesign — Stage 5" (now shipped in full — see
+Done) so this specific follow-up doesn't disappear along with that heading.
 
-Design spec: `sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md`
-("Suggested order of work"). It is independently shippable, same as Stages
-1–4 were, and should get its own plan (`writing-plans`) when picked up —
-Stage 1's plan is a template for scope (one stage per plan file, not one plan
-for the whole redesign).
-
-- **Stage 5 — horizon segmented control.** Replaces `<select id="horizon-select">`
-  with a segmented control matching `.theme-toggle`'s pattern, plus the four
-  backtest stats. Stage 1's spec already resolved the underlying decision
-  (keep the `<select>` in the DOM, visually hidden, since `switchHorizon()`
-  reads it back internally rather than only receiving it via `onchange`) —
-  reuse that finding rather than re-deriving it. The design spec's "Control
-  row" point (item 3, "Suggested order of work") describes this segmented
-  control living in ONE scrollable row together with a curated `Top 5` /
-  `↑ Rising` / `Filters` subset — a different, smaller control row than the
-  nine-chip `.filter-bar` that exists today. Stage 3 gave the existing
-  `.filter-bar` a horizontal-scroll treatment as a stopgap
-  (`_responsive.css.j2`, `max-width: 600px`) without this restructuring;
-  don't mistake that for the spec's intent when picking Stage 5 up.
+Design spec: `sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md`,
+Screen 1 item 5 ("Controls row"). Describes the horizon segmented control
+(shipped) living in ONE row together with a curated three-chip subset —
+`Top 5`, `↑ Rising`, `Composite > 0` — plus a dashed `More filters` chip that
+discloses the full nine-chip set, and a `How to read this` text button. This
+is a different, smaller control row than the nine-chip `.filter-bar` that
+exists today; Stage 3 gave that existing bar a horizontal-scroll treatment
+as a stopgap (`_responsive.css.j2`, `max-width: 600px`) without this
+restructuring — don't mistake the stopgap for the spec's actual intent.
+Exact values are in the spec (`padding: 5px 12px`, `12px`,
+`border-radius: var(--radius-pill)`, etc.) — this is implementation work, not
+an open design question.
 
 ## Restore the sentiment blend control — and make it work when signed in
 
@@ -394,6 +385,62 @@ source-only and tight:
 ---
 
 # Done
+
+- **Leaderboard horizon segmented control — Stage 5 of the leaderboard
+  redesign, the last stage** (2026-08-22). Plan:
+  `sector_momentum-notes/plans/2026-08-22-leaderboard-redesign-stage5-horizon-control.md`.
+
+  - **`.horizon-btn` pill buttons (Medium/Long) replace the visible
+    `<select id="horizon-select">`**, matching `.theme-toggle`'s pattern
+    under new class names (`.horizon-toggle`/`.horizon-btn` — not literally
+    shared, so a future `.theme-btn` change doesn't silently reach the
+    horizon control). The `<select>` stays in the DOM, `display: none` —
+    `switchHorizon()` reads it back internally at two points, so removing it
+    would mean rewiring those reads (Stage 1's spec had already resolved
+    this: keep it, visually hidden). A click forwards to the existing
+    `switchHorizon(key)` unchanged; a new `updateHorizonToggleUI(key)` keeps
+    the buttons' `aria-pressed` in sync from both `initHorizonSelect()` and
+    `switchHorizon()`, so a programmatic call (a deep link, a test, the
+    hidden select's own `onchange`) never leaves the two controls
+    disagreeing. `label` became a plain eyebrow `<span>` (the element it
+    labelled is no longer the focus target), which also meant dropping the
+    trailing colon from `horizon_label`'s copy — restyled as an eyebrow, not
+    a form label.
+  - **A fourth backtest stat, "sell past rank N".** Reuses
+    `Horizon.exit_rank` (`src/horizons.py`, already `top_n + buffer`) rather
+    than re-deriving the formula a third time in JS — threaded through
+    `horizons_json` alongside the three fields already there. Stats now
+    render in the spec's exact order: held, sell past rank, trades/yr,
+    median hold (the pre-Stage-5 order was held, median hold, trades).
+  - **Two test bugs found and fixed while executing the plan, not by the
+    plan's own review:** a `text.count(...)` assertion that always read 1
+    against raw Jinja template source, since a `{% for %}` loop appears once
+    textually no matter how many horizons it renders; and a sabotage-verify
+    pass that passed against commented-out code, because the substring it
+    checked for survives inside the comment itself — the same "comments are
+    page content" trap Stage 3 (once) and Stage 4 (twice) already hit, a
+    fourth time now.
+  - **Dead CSS caught while reviewing the plan, before writing any code:**
+    `.horizon-row label` styled the `<label>` this stage removes; left
+    behind it would have no matching element.
+  - **A fourth dead-CSS find, this time by whole-branch review after both
+    tasks were green:** `#horizon-select` was still listed in the
+    `pointer: coarse` 44px touch-target rule (`_responsive.css.j2`) even
+    though it is now permanently hidden — dead weight on a control that no
+    longer needs it, while `.horizon-btn`, the real tap target, was never
+    added. The regression test hit "comments are page content" a fifth
+    time while being written: its own explanatory comment named both
+    selectors in prose, so a bare substring check on either assertion
+    passed against the comment alone — fixed by stripping `/* */` block
+    comments before asserting. 994 passed.
+
+  Deliberately out of scope, split into its own Queued item so it isn't
+  lost: the desktop "Controls row" filter-chip curation (a curated `Top 5` /
+  `↑ Rising` / `Composite > 0` subset + a "More filters" disclosure) the
+  same spec section describes — the spec's own "Suggested order of work"
+  list separates Stage 5 as "the horizon segmented control + the four
+  stats" only, matching the 1:1 mapping every prior stage followed between
+  a Suggested-order-of-work bullet and what it shipped.
 
 - **Leaderboard summary strip — Stage 4 of the leaderboard redesign**
   (2026-08-21). Plan:
