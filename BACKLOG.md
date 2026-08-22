@@ -418,7 +418,29 @@ source-only and tight:
     no `flex-wrap` of its own, so its six children overflowed 7.66px past
     a 375px viewport instead of wrapping — measured via
     `getBoundingClientRect()`, since `document.documentElement.scrollWidth`
-    read 375 throughout and never flagged it. 1008 passed.
+    read 375 throughout and never flagged it.
+  - **Three more bugs found by a whole-branch review pass, after both
+    tasks were green:** `.control-chips` had no right-alignment
+    mechanism (`.horizon-row` is a plain flex-wrap row with no
+    `justify-content`) despite this same Done entry's own text above
+    claiming the chips "sit right-aligned" — fixed with `margin-left:
+    auto`, measured live: an 811px gap at 1280px before the fix.
+    `.control-chip`/`.more-filters summary` were missing from the
+    `pointer: coarse` 44px touch-target rule every sibling control in
+    the row already gets. `clearFilters()` hand-rolled its own copy of
+    the `_syncChipState()` pressed-state toggle — extracted into a
+    shared `_setChipPressed(el, active)` both now call. 1010 passed.
+  - **Deliberately left as follow-up, not fixed here:** `.more-filters`'s
+    popover CSS duplicates `.rank-settings`'s almost verbatim instead of
+    sharing it (the missing-touch-target bug above is a direct
+    consequence of that duplication already drifting once) — a real
+    DRY opportunity, but merging them touches `_sentiment.css.j2`,
+    untouched by this branch, for a currently-cosmetic gap. Two
+    independent `<details>` popovers (`.more-filters`, `.rank-settings`)
+    have no mutual-exclusion, so both could render stacked if opened
+    together — currently unreachable, since `.rank-settings` only
+    renders when `SENTIMENT_RANKING_ENABLED` is true. Neither is worth
+    the risk of touching more surface area for an inactive path.
 
 - **Leaderboard horizon segmented control — Stage 5 of the leaderboard
   redesign, the last stage** (2026-08-22). Plan:
