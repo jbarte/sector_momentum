@@ -20,10 +20,15 @@ Saturday, Sunday or Monday it is Friday's.
 See `_cache_is_fresh`.
 
 `end` is **EXCLUSIVE**: the last bar returned is the last completed session
-strictly before `end`. Callers pass `end=today`, so this is what keeps an
-in-progress session out of the data — Yahoo returns a partial candle for the
-current day during market hours, and `_cache_is_fresh` would then treat that
-half-formed close as a real one and never refetch it.
+strictly before `end`. No caller passes an `end` beyond today, so this is what
+keeps an in-progress session out of the data — Yahoo returns a partial candle
+for the current day during market hours, and `_cache_is_fresh` would then treat
+that half-formed close as a real one and never refetch it.
+
+That invariant is not free: `dashboard/badges.py` and
+`dashboard/validation.py` size their window from a forward-return horizon
+(`+15` / `+30 days` past the newest scan), which overshoots today. Both route
+`end` through `capped_end` to restore it — see that function.
 
 Callers that score a cohort cross-sectionally should still run the result
 through `align_cohort_asof`: per-ticker cache freshness is evaluated
@@ -61,6 +66,29 @@ def _expected_latest_close(ref: date) -> date:
     if weekday == 6:  # Sunday
         return ref - timedelta(days=2)
     return ref
+
+
+def capped_end(when) -> str:
+    """Clamp a requested `end` to today and render it as `YYYY-MM-DD`.
+
+    For callers whose window is sized from a forward horizon rather than from
+    the calendar — `dashboard/badges.py` and `dashboard/validation.py` measure
+    returns some number of days past each scan date, which runs past today for
+    the most recent scans.
+
+    No bar exists past today, so clamping returns identical data. What it
+    prevents is a cache hazard: `end` is EXCLUSIVE and is the mechanism that
+    keeps an in-progress session out of the data, while `_cache_is_fresh` never
+    receives `end` and always measures the cache against today. An `end` in the
+    future lets yfinance return today's partial candle, and that check then
+    judges the half-formed close fresh — in the same shared `data/cache/`
+    directory `scan.py` later reads and scores from.
+
+    Accepts anything with a `.date()` (pandas Timestamp, datetime) or a plain
+    `date`.
+    """
+    when = when.date() if hasattr(when, "date") else when
+    return min(when, date.today()).strftime("%Y-%m-%d")
 
 
 def _meta_path(path: str) -> str:

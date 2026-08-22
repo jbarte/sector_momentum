@@ -339,3 +339,140 @@ def test_yfinance_end_is_passed_through_exclusive():
 
     assert fake_yf.download.call_args.kwargs["end"] == "2026-08-07"
     assert fake_yf.download.call_args.kwargs["start"] == "2026-01-01"
+
+
+# ---------------------------------------------------------------------------
+# Non-scan price consumers
+#
+# Five callers reach fetch_prices, and they are NOT all the same shape — which
+# is what makes "apply alignment everywhere" the wrong fix:
+#
+#   scan.py          end=today   cross-sectional      aligns (already)
+#   correlation.py   end=today   cross-sectional      must align
+#   macro.py         end=today   two indices, own history   neither
+#   badges.py        end=+15d    per-ticker forward returns  must cap end
+#   validation.py    end=+30d    per-ticker forward returns  must cap end
+#
+# Aligning badges/validation would DROP tickers lagging the cohort and truncate
+# every series to a shared date — deleting themes from a forward-return sample
+# and shortening its newest windows. Capping `end` is what those two need.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("requested,today,expected", [
+    # Future end -> clamped. This is the badges/validation case: their window
+    # is sized off a forward horizon, so it overshoots for the newest scans.
+    ("2026-09-05", "2026-08-22", "2026-08-22"),
+    # Already in the past -> untouched. Historical backfills must keep the
+    # narrow window they asked for rather than silently widening to today.
+    ("2026-07-01", "2026-08-22", "2026-07-01"),
+    # Exactly today -> untouched (scan.py's own case).
+    ("2026-08-22", "2026-08-22", "2026-08-22"),
+])
+def test_capped_end_clamps_a_future_end_to_today(requested, today, expected):
+    """`end` is EXCLUSIVE and is the mechanism that keeps an in-progress
+    session out of the data, but `_cache_is_fresh` never receives it -- that
+    check always measures the cache against today. So an `end` past today lets
+    yfinance return today's partial candle and then has it judged fresh, in the
+    same shared data/cache/ scan.py reads and scores from.
+
+    Clamping loses no data, because no bar exists past today.
+    """
+    import datetime as _dt
+    from src.data import prices as prices_mod
+
+    class _FixedDate(_dt.date):
+        @classmethod
+        def today(cls):
+            return _dt.date.fromisoformat(today)
+
+    with patch.object(prices_mod, "date", _FixedDate):
+        assert prices_mod.capped_end(pd.Timestamp(requested)) == expected
+
+
+def test_capped_end_accepts_dates_as_well_as_timestamps():
+    """Callers hold pandas Timestamps (`max(scan_dates.values()) + timedelta`);
+    scan.py and the tests hold plain dates. Both must work, since the point of
+    the helper is that every caller can route `end` through it."""
+    import datetime as _dt
+    from src.data import prices as prices_mod
+
+    class _FixedDate(_dt.date):
+        @classmethod
+        def today(cls):
+            return _dt.date(2026, 8, 22)
+
+    with patch.object(prices_mod, "date", _FixedDate):
+        assert prices_mod.capped_end(_dt.date(2026, 9, 5)) == "2026-08-22"
+        assert prices_mod.capped_end(pd.Timestamp("2026-09-05")) == "2026-08-22"
+
+
+def _strip_py_comments(text: str) -> str:
+    """Drop `#` comments so a name MENTIONED in prose cannot satisfy a check
+    for that name being CALLED.
+
+    Written after a sabotage run passed when it should have failed: removing
+    the real `capped_end(...)` call left the words "See capped_end()." in the
+    comment beside it, which a plain substring check happily accepted.
+    """
+    return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+
+
+def test_forward_return_consumers_route_end_through_the_cap():
+    """badges.py and validation.py are the two callers whose window is sized
+    from a forward horizon rather than the calendar, so they are the two that
+    can overshoot today. Pinned by source because both need a populated history
+    frame and a live DB to execute; the behaviour itself is covered above.
+    """
+    root = Path(__file__).parent.parent
+    for name in ("dashboard/badges.py", "dashboard/validation.py"):
+        code = _strip_py_comments((root / name).read_text())
+        call = code.split("prices = fetch_prices(", 1)[1].split("\n    )", 1)[0]
+        assert "capped_end(" in call, (
+            f"{name} passes `end` straight from the forward window -- a future "
+            f"`end` admits today's partial candle into the shared price cache"
+        )
+
+
+def test_correlation_aligns_its_cohort_before_correlating():
+    """The heatmap correlates tickers AGAINST EACH OTHER, so it is exactly the
+    cross-sectional case align_cohort_asof exists for -- and it was the one
+    cross-sectional consumer that never called it.
+
+    _compute_correlation_matrix builds `pd.DataFrame(closes)` across the UNION
+    of every ticker's dates, then takes `returns.tail(60)`. One ticker whose
+    series runs three days past the rest contributes three rows that are NaN
+    for everyone else, so the 60-row window holds fewer than 60 usable
+    observations for every pair -- silently, since `.corr()` drops NaN pairwise
+    and reports a number regardless.
+    """
+    code = _strip_py_comments(
+        (Path(__file__).parent.parent / "dashboard/correlation.py").read_text()
+    )
+    # The CALL, not the name: an import line and an explanatory comment both
+    # carry the bare name, and a substring check on it survives deleting the
+    # call itself -- confirmed by sabotage.
+    assert "align_cohort_asof(prices" in code, (
+        "correlation.py correlates tickers against each other without aligning "
+        "them to a shared as-of date first"
+    )
+
+
+def test_correlation_reports_the_aligned_asof_not_the_newest_ticker():
+    """`correlation_date` goes into the heatmap's page context. Taking max()
+    across every ticker's last date reported the freshest single ticker rather
+    than the date the matrix was actually computed on, overstating freshness
+    whenever one series ran ahead -- the same staleness the alignment above
+    removes.
+
+    No template renders this value today (checked: `correlation.py` and this
+    file plus `test_correlation.py` are its only references), so the fix has no
+    visible effect right now. Pinned anyway because a wrong date sitting in the
+    context is a trap for whoever first renders it, and because the correct
+    value is now free -- `align_cohort_asof` already returns it.
+    """
+    src = (Path(__file__).parent.parent / "dashboard/correlation.py").read_text()
+    body = src.split("def build_page_context", 1)[-1]
+    assert "max(all_dates)" not in body, (
+        "correlation_date still reports the newest date any single ticker "
+        "reached instead of the cohort's aligned as-of date"
+    )

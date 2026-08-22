@@ -21,39 +21,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
-## Price cache freshness doesn't account for callers requesting a future `end`
-
-Found in code review while fixing the weekend cache-staleness bug (see Done,
-2026-08-22) — not itself a confirmed live bug, currently masked, but worth
-recording rather than losing.
-
-`_cache_is_fresh` (`src/data/prices.py`) does not take `end` as a parameter —
-it always checks the cache's last date against *today*, regardless of what
-`end` the calling `fetch_prices()` was given. This is exactly right for
-`scan.py`, which passes `end=date.today()`: `end` is exclusive, so today's
-session is genuinely never obtainable to it and the boundary is a pure
-calendar question.
-
-`dashboard/badges.py` and `dashboard/validation.py` both request a **future**
-`end` (`max(scan_dates) + 15` and `+ 30 days`, for forward-return badge/
-validation windows) into the same shared `data/cache/` directory `scan.py`
-reads. If either of those runs during US market hours and yfinance returns
-today's in-progress candle as the newest row (possible precisely because
-their `end` doesn't cap the request at "yesterday" the way `scan.py`'s does),
-`_cache_is_fresh` would judge that partial candle fresh — `last_cached
-(today) >= required (yesterday)` — and a later `scan.py` read of that same
-cache file could score on an incomplete close.
-
-**Currently masked**, not exploitable today: the `start`-coverage check in
-`_cache_is_fresh` (the `fetched_start <= requested_start` comparison) rejects
-badges.py's/validation.py's window before the date check would matter, since
-their `start` reaches back to the earliest scan (10-30 days before the
-requested window) while `scan.py`'s `--start` is normally much narrower. That
-ordering inverts if scan history ever exceeds `scan.py`'s own lookback window,
-at which point the two callers' requested windows could overlap enough for
-this to bite. Not acted on now — reopen if that inversion is ever confirmed,
-or before deliberately widening `scan.py`'s window.
-
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
@@ -359,19 +326,88 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 Follow-ups deliberately left out of the 2026-08-09 alignment fix to keep it
 source-only and tight:
 
-- **Other cross-sectional consumers don't align.** `dashboard/correlation.py`,
-  `dashboard/badges.py` and `dashboard/validation.py` all call `fetch_prices`
-  and compare tickers against each other without calling `align_cohort_asof`.
-  Same defect, lower stakes (none of them feed the composite).
+**The "other consumers don't align" bullet is resolved (2026-08-22)** — see
+Done — and its framing turned out to be wrong. Only `correlation.py` was the
+same defect; it now aligns. `badges.py` and `validation.py` compute *per-ticker
+forward returns*, not a cross-section, so aligning them would have dropped
+tickers and truncated the newest windows — they got an `end` cap instead. See
+the Done entry for the caller-by-caller breakdown.
+
+What remains:
+
 - **The as-of date isn't persisted.** `align_cohort_asof` reports it via
   `stats_out` and the scan logs it, but nothing writes it to `scans`. A
   `prices_asof` column (plus `asof_spread_days`) would make "which date was
-  this snapshot actually scored on?" answerable after the fact, and would show
-  the weekend-staleness item above directly in the health panel.
+  this snapshot actually scored on?" answerable after the fact — and would have
+  made the weekend cache-staleness bug (Done, 2026-08-22) visible in the health
+  panel instead of needing a hand check against the cache to find.
 
 ---
 
 # Done
+
+- **Non-scan price consumers: correlation aligned, forward-return windows capped** (2026-08-22).
+
+  Ships two queued items that turned out to touch the same files — and the
+  backlog was wrong about one of them, which changed what got built.
+
+  **"Same defect, lower stakes" did not hold.** The as-of item listed
+  `correlation.py`, `badges.py` and `validation.py` together as consumers that
+  should call `align_cohort_asof`. But that function slices every series to a
+  shared as-of date and **drops** tickers lagging the cohort by more than
+  `MAX_ASOF_LAG_DAYS` (4). That is right for a cross-section and wrong for
+  `badges.py`/`validation.py`, which measure per-ticker forward returns from
+  past scan dates: aligning them would delete themes from the sample and
+  shorten its newest forward windows. Applying it there would have been a
+  regression dressed as a fix.
+
+  All five `fetch_prices` callers, checked individually:
+
+  | caller | `end` | shape | outcome |
+  |---|---|---|---|
+  | `scan.py` | today | cross-sectional | already aligned |
+  | `correlation.py` | today | cross-sectional | **now aligns** |
+  | `macro.py` | today | two indices vs own history | neither needed |
+  | `badges.py` | +15d | per-ticker forward returns | **`end` capped** |
+  | `validation.py` | +30d | per-ticker forward returns | **`end` capped** |
+
+  **The cap.** New `capped_end()` in `src/data/prices.py`, used by both
+  forward-return callers. No bar exists past today, so the data returned is
+  identical — what it removes is the cache hazard: `end` is exclusive and is
+  the mechanism that keeps an in-progress session out, while `_cache_is_fresh`
+  never receives `end` and always measures against today. A future `end` let
+  yfinance return today's partial candle into the same shared `data/cache/`
+  that `scan.py` reads. Extracted as a helper rather than inlined twice, so
+  the reasoning lives in one place.
+
+  **The alignment.** `_compute_correlation_matrix` builds `pd.DataFrame(closes)`
+  across the **union** of every ticker's dates, then takes `returns.tail(60)`.
+  One series running three days past the rest contributes three rows that are
+  NaN for everyone else, so each pair gets fewer than 60 usable observations —
+  silently, because `.corr()` drops NaN pairwise and still returns a number.
+  Verified live after the change: today's cohort logs *"all 18 ticker(s)
+  already as-of 2026-08-21"*, so the matrix is unchanged and the guard is in
+  place for when they do stagger. (That 2026-08-21 as-of on a Saturday is the
+  weekend-staleness fix from earlier the same day working.)
+
+  Two things found while doing it, both recorded rather than glossed:
+
+  - `correlation_date` is computed and returned in the page context but **no
+    template renders it**, so switching it from `max(all_dates)` to the aligned
+    as-of has no visible effect today. Fixed anyway (the correct value is free
+    now) and the test says plainly that it is currently unrendered — the first
+    draft of that test claimed it "labels the heatmap", which is not true.
+  - The module docstring asserted "Callers pass `end=today`" as a flat fact
+    while two callers did not. Rewritten to state the invariant *and* name the
+    two callers that need `capped_end` to hold it up.
+
+  Sabotage-verifying the new tests caught two of them passing when they should
+  have failed — the same comment-trap that bit repeatedly during the leaderboard
+  work. Deleting the real `capped_end(...)` call left "See capped_end()." in the
+  comment beside it, and deleting the `align_cohort_asof(prices)` call left the
+  name in the import line. Both now strip `#` comments and match on the call
+  (`align_cohort_asof(prices`), not the bare name.
+
 
 - **Trend badge moved beside the setup badge; Trend column removed** (2026-08-22).
 

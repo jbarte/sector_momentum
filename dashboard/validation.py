@@ -9,7 +9,7 @@ import pandas as pd
 from dashboard.badges import _forward_date
 from src.backtest.strategy import close_at
 from src.cohorts import cohorts, instrument_map
-from src.data.prices import fetch_prices
+from src.data.prices import capped_end, fetch_prices
 
 RANK_THRESHOLD = 5
 MIN_SCANS = 10
@@ -242,7 +242,9 @@ def build_validation_context(shared: dict) -> dict:
     prices = fetch_prices(
         all_tickers,
         start=earliest.strftime("%Y-%m-%d"),
-        end=latest.strftime("%Y-%m-%d"),
+        # Clamped at today — see capped_end(); a future `end` would let an
+        # in-progress candle into the cache scan.py shares.
+        end=capped_end(latest),
         cache_dir=str(project_root / "data/cache"),
     )
 
