@@ -514,6 +514,7 @@ def main() -> None:
     _horizons_json = _json.dumps([
         {"key": h.key, "label": h.label, "rebalance": h.rebalance,
          "top_n": h.top_n, "buffer": h.buffer,
+         "exit_rank": h.exit_rank,
          "trades_per_year": h.trades_per_year,
          "median_holding_days": h.median_holding_days,
          # Next ~6 review dates, ISO strings, so the client can say whether

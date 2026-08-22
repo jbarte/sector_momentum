@@ -57,6 +57,7 @@ def _horizon_ctx(dumps=json.dumps):
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
              "top_n": h.top_n, "buffer": h.buffer,
+             "exit_rank": h.exit_rank,
              "trades_per_year": h.trades_per_year,
              "median_holding_days": h.median_holding_days,
              "review_dates": _review_dates(h, since="2026-01-15")} for h in hs
@@ -1934,3 +1935,47 @@ def test_horizon_row_label_css_is_gone():
     css = (Path(__file__).parent.parent / "dashboard/templates/css"
            / "_tables.css.j2").read_text()
     assert ".horizon-row label" not in css
+
+
+def test_horizons_json_carries_exit_rank():
+    """exit_rank (top_n + buffer) must come from Horizon.exit_rank
+    (src/horizons.py), not be recomputed in JS a third time — scan-history.js
+    already duplicates the formula once (_h.top_n + _h.buffer); a second JS
+    copy in renderHorizonStats() would be a third place to keep in sync."""
+    build_text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
+    assert '"exit_rank": h.exit_rank' in build_text
+
+
+def test_horizon_stats_render_all_four_in_spec_order():
+    """Spec order (Screen 1 item 5): held, sell past rank, trades/yr,
+    median hold — the pre-Stage-5 markup had held/median-hold/trades."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    strip = text[text.index('id="horizon-stats"'):text.index("</span>\n    </span>", text.index('id="horizon-stats"'))]
+    ids_in_order = re.findall(r'id="(hz-[a-z]+)"', strip)
+    assert ids_in_order == ["hz-held", "hz-exit", "hz-trades", "hz-hold"]
+
+
+def _render_horizon_stats_js():
+    """renderHorizonStats()'s exact function body (brace-balanced), the same
+    technique test_render_mobile_cards_wired_into_apply_band_boundaries and
+    _render_mobile_cards_js() use elsewhere in this file."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function renderHorizonStats(")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_render_horizon_stats_sets_the_exit_rank_stat():
+    js = _render_horizon_stats_js()
+    assert "hz-exit" in js
+    assert "h.exit_rank" in js

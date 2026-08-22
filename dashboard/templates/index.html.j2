@@ -186,8 +186,9 @@
         tabulates every preset and highlights the active row. -#}
     <span class="horizon-stats" id="horizon-stats">
       <span class="hz-stat"><b id="hz-held">—</b> <span data-i18n="hz_held">held</span></span>
-      <span class="hz-stat"><b id="hz-hold">—</b> <span data-i18n="hz_hold">median hold</span></span>
+      <span class="hz-stat"><span data-i18n="hz_exit_prefix">sell past rank</span> <b id="hz-exit">—</b></span>
       <span class="hz-stat"><b id="hz-trades">—</b> <span data-i18n="hz_trades">trades/yr</span></span>
+      <span class="hz-stat"><b id="hz-hold">—</b> <span data-i18n="hz_hold">median hold</span></span>
     </span>
     <span class="horizon-note" data-i18n="horizon_note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
     {#- Review-due status: which of the two states below is showing is decided
@@ -1075,6 +1076,7 @@ function renderHorizonStats(key) {
   // trades_per_year / median_holding_days are optional in config — a preset
   // with no recorded backtest shows an em dash rather than "NaN".
   set('hz-held', h.top_n);
+  set('hz-exit', h.exit_rank);
   set('hz-hold', h.median_holding_days == null
       ? '—' : '~' + Math.round(h.median_holding_days) + 'd');
   set('hz-trades', h.trades_per_year == null
