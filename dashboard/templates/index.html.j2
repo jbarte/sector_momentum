@@ -1020,7 +1020,14 @@ function applyHorizonBadges() {
     if (!kind) { if (badge) badge.remove(); return; }
     if (!badge) {
       badge = document.createElement('span');
-      nameCell.appendChild(badge);
+      // Before the Trend badge, not appended: on the build that ships,
+      // `badges_gated` bakes no setup badge at all, so this function is the
+      // only writer and appending would put the action badge AFTER the health
+      // check — the reverse of the order the template bakes when ungated, and
+      // the reverse of the sentence the methodology asks readers to construct
+      // ("Enter, but falling"). insertBefore(x, null) appends, so a row whose
+      // Trend badge is missing still behaves.
+      nameCell.insertBefore(badge, nameCell.querySelector('.traj-badge'));
     }
     // Mute, don't hide: the badge KIND and TEXT stay exactly what they were —
     // only the styling class changes. A reader who checks daily still sees

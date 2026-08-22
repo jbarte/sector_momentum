@@ -219,10 +219,18 @@
         var deltaInner = m.arrow
           ? '<span class="arrow ' + m.arrow_class + '">' + m.arrow + "</span> " + (m.delta_rank || "—")
           : (m.delta_rank || "—");
+        // Tooltip mirrors the template's: it is the only explanation of what
+        // Trend measures since the column header that carried it was removed.
+        // Empty (not an em dash) when there is no trajectory: this now sits
+        // INSIDE the theme cell, where a bare text node gets no margin from
+        // `.theme-cell > * + *` and would render jammed against the ticker.
+        // No badge is already how the board says "no trend".
         var trendInner = m.trajectory_state
-          ? '<span class="traj-badge traj-' + m.trajectory_state + '"><span class="traj-glyph">'
+          ? '<span class="traj-badge traj-' + m.trajectory_state + '"'
+            + ' data-i18n-title="trend_tip" title="Rank slope over last 3–5 scans">'
+            + '<span class="traj-glyph">'
             + m.trajectory_label + '</span> <span class="traj-word">' + (m.trajectory_word || "") + '</span></span>'
-          : "—";
+          : "";
         var ticker = (window.THEME_TICKERS || {})[r.gics_sector] || "";
         var tickerHtml = ticker ? '<span class="theme-ticker">' + ticker + '</span>' : "";
         // rank-1 is a static fact about this row (not horizon-dependent, unlike

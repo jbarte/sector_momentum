@@ -1068,21 +1068,75 @@ def test_leaderboard_has_no_separate_trend_column():
     )
 
 
-def test_trend_badge_keeps_its_explanation():
+def test_trend_badge_keeps_its_explanation_in_every_builder():
     """The removed `<th>` carried the only on-page explanation of what Trend
     measures (`title="Rank slope over last 3-5 scans"`). Dropping the column
     without rehoming that tooltip would delete the explanation outright, so it
-    moves onto the badge itself -- translated, like every other tooltip."""
+    moves onto the badge itself -- translated, like every other tooltip.
+
+    Checked in BOTH builders that render a real badge. Checking only the
+    template would leave signed-in readers -- the only readers who ever see a
+    setup badge to pair Trend with -- with no explanation at all.
+    """
     root = Path(__file__).parent.parent
+
     tpl = (root / "dashboard/templates/index.html.j2").read_text()
-    cell = _theme_cell_of(
+    tpl_cell = _theme_cell_of(
         tpl.split("{% for row in leaderboard_rows %}", 1)[1].split("{% endfor %}", 1)[0]
     )
-    assert 'data-i18n-title="trend_tip"' in cell, (
-        "the Trend badge carries no translated tooltip -- the explanation the "
-        "column header used to provide is gone"
+
+    auth = (root / "dashboard/assets/auth.js").read_text()
+    auth_badge = auth.split("var trendInner", 1)[1].split(";", 1)[0]
+
+    for name, frag in (("index.html.j2", tpl_cell), ("auth.js", auth_badge)):
+        assert 'data-i18n-title=' in frag.replace("\\", ""), (
+            f"{name}: the Trend badge carries no translated tooltip -- the "
+            f"explanation the column header used to provide is gone"
+        )
+        assert "trend_tip" in frag, f"{name}: tooltip does not use the trend_tip key"
+        assert "title=" in frag.replace("\\", ""), (
+            f"{name}: the Trend badge carries no English title fallback"
+        )
+
+
+def test_signed_in_rows_render_no_trend_placeholder_in_the_theme_cell():
+    """auth.js's trend value is optional -- `latestRowMeta` returns {} when the
+    query gives it nothing to work with. That fallback used to land in its own
+    <td>, where an em dash reads correctly as "no value". Spliced into the theme
+    cell it becomes a bare text node right after the ticker, with no margin
+    (`.theme-cell > * + *` only spaces ELEMENTS), rendering as `URA-`. The
+    absence of a badge is already the correct way to say "no trend" -- the same
+    reasoning that removed scan-history.js's placeholder in this change.
+    """
+    auth = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    fallback = auth.split("var trendInner", 1)[1].split(";", 1)[0].rsplit(":", 1)[1]
+    assert "\u2014" not in fallback and "&mdash;" not in fallback, (
+        "auth.js still falls back to an em dash for a missing trend -- inside "
+        "the theme cell that renders as a stray character beside the ticker"
     )
-    assert "title=" in cell, "the Trend badge carries no English title fallback"
+
+
+def test_horizon_badge_pass_inserts_the_setup_badge_before_the_trend_badge():
+    """applyHorizonBadges() writes the setup badge client-side, and on the build
+    that actually ships it is the ONLY writer: `badges_gated` bakes no badge, so
+    every signed-in reader gets their badge from this function. Appending it to
+    the theme cell puts it AFTER the Trend badge, silently reversing the
+    action-then-health-check order the template bakes -- so the shipped build
+    and an ungated build would disagree about the order of the two badges this
+    change exists to pair.
+    """
+    tpl = (Path(__file__).parent.parent
+           / "dashboard/templates/index.html.j2").read_text()
+    fn = tpl.split("function applyHorizonBadges", 1)[1].split("\nfunction ", 1)[0]
+    fn = _strip_line_comments(fn)
+    assert "insertBefore(" in fn, (
+        "applyHorizonBadges no longer positions the setup badge relative to the "
+        "Trend badge -- appending puts the action badge after the health check"
+    )
+    assert "traj-badge" in fn, (
+        "applyHorizonBadges positions the badge without reference to the Trend "
+        "badge, so the ordering is incidental rather than pinned"
+    )
 
 
 def test_trend_tip_i18n_key_exists():

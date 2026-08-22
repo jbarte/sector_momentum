@@ -442,6 +442,29 @@ source-only and tight:
   (`..._emit_the_same_column_count`, `..._colspans_match_the_column_count`)
   already guard the cross-builder invariants and stayed green throughout.
 
+  **Code review caught three regressions, all in the paths the first live check
+  could not see.** Worth recording because two of them were invisible precisely
+  *because* of how the badge is gated:
+
+  - `applyHorizonBadges()` appended the setup badge to the theme cell, landing
+    it **after** the Trend badge. On the build that ships this is the only
+    writer — `badges_gated` bakes no badge — so production would have had the
+    reverse of the order this change exists to create, while an ungated build
+    had it right. The first live verification missed it because the check
+    hand-injected the badge in the intended position instead of letting the
+    real function place it; re-verified afterwards by driving
+    `applyHorizonBadges()` itself, which is what the fix is pinned on.
+  - `auth.js` fell back to `"—"` when a row had no trajectory. Harmless in its
+    own `<td>`; inside the theme cell it is a bare text node, and
+    `.theme-cell > * + *` spaces only *elements*, so it rendered jammed onto the
+    ticker as `URA—`. Now empty — absence of a badge is already how the board
+    says "no trend", which is the same reasoning that dropped
+    `scan-history.js`'s placeholder in this change.
+  - The rehomed tooltip was added to the template but not to `auth.js`, so the
+    explanation would have been missing for exactly the readers who see a setup
+    badge to pair Trend with. The test now asserts it across both builders
+    rather than the template alone.
+
 
 - **Weekend scans scored Thursday's close, not Friday's** (2026-08-22).
 
