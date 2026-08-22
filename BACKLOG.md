@@ -127,49 +127,44 @@ i18n key, and renumbering every `sortTable()`/`data-col` index and `colspan`
 that counts columns — meaningfully more work than the one CSS block this used
 to be. Also drop the `alpha` badge from the Sentiment nav and page note.
 
-## Sentiment page is pinned to the lagged scan, and says so misleadingly
+## Sentiment page never upgrades for signed-in readers
 
-Raised 2026-08-22, when the Sentiment tab showed "No news sentiment for this
-snapshot" while the leaderboard beside it displayed a live board. Both bullets
-below share one root cause, so they are grouped.
+Split out 2026-08-22 when the empty-state copy shipped (see Done). The copy
+bullet of that item is done; this is what is left, and it is **declined for
+now** rather than pending — recorded so the reasoning is not rebuilt from
+scratch.
 
-**Root cause.** `dashboard/templates/sentiment.html.j2` loads only the Plotly
-bundle and `theme.js` — **not `auth.js`**. The empty state is a build-time Jinja
-branch (`{% if sentiment_available %}`), so the published `sentiment.html` is
-byte-identical for every reader and cannot react to a session at all. On top of
-that, `dashboard/build.py` deliberately caps `sentiment_signals_df` at the
-lagged scan (see the comment there: reading the true latest scan leaked the
-current scan's News table to guests while the scatter above it stayed capped,
-so the two surfaces disagreed about "latest"). That cap is correct for guests
-and simply has no signed-in counterpart.
+**Corrected in review — the mechanism is not what was first recorded here.**
+`sentiment.html.j2` *does* load `auth.js`: it includes `_footer.html.j2`, which
+pulls in supabase-client, auth, positions and alert-prefs under `{% if auth %}`.
+Sign-in works on this page and it is not byte-identical for every reader. What
+is inert is the *data* refresh: `upgradeLeaderboard()` returns early without a
+`#leaderboard-table tbody`, and nothing else re-fetches `sentiment_signals`.
+So the reader-visible behaviour is unchanged — the board jumps to today, this
+page does not — but the fix is "add a fetch", not "add auth to the page".
 
-The incident that surfaced it was not a defect: sentiment was dead for scans
-153–163 (2026-08-06 → 08-16), and the 7-day gate dragged that 11-day hole
-across the page from ~08-13 until 08-24. The page was telling the truth. What
-it could not do was explain itself.
+`build.py` also caps `sentiment_signals_df` at the lagged scan deliberately
+(reading the true latest scan leaked the current News table to guests while the
+scatter above it stayed capped, so the two surfaces disagreed about "latest").
+Same shape as the parked *Signed-in drill-down gap*.
 
-- **The empty-state copy is misleading.** It says sentiment "appears
-  automatically once a scan with real readings is on display" — true, but it
-  never says the display is pinned ~7 days back (`LAG_DAYS`), nor that signing
-  in will not move it. A signed-in reader looking at today's leaderboard
-  reasonably concludes the feature is broken. Naming the lag, and the displayed
-  scan date, would make the state self-explanatory. Cheap; no data changes.
+**Why declined:** the 2026-08-22 validation found polarity is largely topical
+bias rather than news — roughly 70% of the cross-sectional spread is a fixed
+per-theme constant that survives a complete change of news. A surface showing a
+signal that may not survive its own validation does not warrant a gated
+client-side fetch plus a scatter/table re-render, with the RLS care any
+signed-in read needs. The shipped copy fix closes the *confusion* at a fraction
+of the cost by naming the lag and saying signing in will not move it.
 
-- **The page never upgrades for signed-in readers.** The leaderboard swaps in
-  the latest scan client-side after sign-in; the sentiment page does not, so
-  one page shows today and the other shows a week ago. Same shape as the parked
-  *Signed-in drill-down gap*. The fix is a gated client-side fetch of the latest
-  `sentiment_signals` plus a re-render of the scatter and table — not a one-liner,
-  and it needs the same RLS care as any other signed-in read.
+**Reopen if** sentiment is ever promoted out of alpha, or if the forward-return
+test the validation still owes comes back positive.
 
-**Order matters:** the right wording for the first bullet depends on whether the
-second ships (if the page upgrades, the copy should stop mentioning a lag that
-only guests see). Do the copy fix alone only if the upgrade is being declined.
-
-**Worth weighing first:** the 2026-08-22 validation above found polarity is
-largely topical bias rather than news, so further investment in this surface may
-not be warranted at all. The copy fix stands on its own regardless — a page that
-misexplains itself is worth a few lines whatever happens to the signal.
+- **Also open, and cheaper: the page shows no scan date on desktop at all.**
+  `.mobile-scan-meta` is `display:none` above the mobile breakpoint and the lag
+  banner is index-only, so outside the empty state a reader cannot tell which
+  snapshot they are looking at. The empty state now names it, but the populated
+  state still does not. Belongs with the header/summary-strip work across both
+  pages rather than with this item's fetch question.
 
 ## Composite structure — 4.2 effective signals of 8
 
@@ -429,6 +424,67 @@ What remains:
 ---
 
 # Done
+
+- **Sentiment empty state now explains itself** (2026-08-22).
+
+  Reported as a bug — the Sentiment tab read "No news sentiment for this
+  snapshot" while the leaderboard beside it looked live. It was not a bug: the
+  7-day content gate was dragging an 11-day hole in the data across the page
+  (FinBERT was dead for scans 153–163, 2026-08-06→08-16), and the page was
+  faithfully reporting an absence. It just could not explain itself.
+
+  Three things made it unreadable, and the last one is why the copy alone was
+  not the whole fix:
+
+  - It said "the snapshot shown here" while **never naming the snapshot**. On
+    desktop this page shows no date anywhere: `.mobile-scan-meta` is
+    `display:none` above the mobile breakpoint and the lag banner is
+    index-only.
+  - It implied a fresher view existed ("or when this page is showing an earlier
+    scan than the most recent one") without saying that **signing in cannot
+    reach it here** — while the leaderboard beside it visibly does jump to
+    today. The empty state is a build-time Jinja branch, so that element cannot
+    change per reader. (This entry first said the page "loads no auth.js at
+    all"; review proved that false — `_footer.html.j2` loads it under
+    `{% if auth %}`. Sign-in does work here; what is missing is any client-side
+    re-fetch of `sentiment_signals`, since `upgradeLeaderboard()` returns early
+    without a leaderboard table. The reader-visible claim in the copy is
+    unaffected.)
+  - It pointed nowhere. Because of the lag, this page reflects an outage about
+    a week late. The health panel flags one the same day (a FinBERT failure
+    records `0/N` and scores a red badge — see the 2026-08-16 entry), so that
+    is where a reader asking "is it broken *now*?" belongs.
+
+  The gated branch now names the scan and date, states the gate rule from
+  `gating.LAG_DAYS` (passed through as `lag_days`, never written into the copy
+  as a literal), says signing in will not move it, and points at the health
+  panel. The first draft said "runs N days behind the newest scan", which
+  review caught as wrong: `_pick_lagged_scan` takes the newest scan at least N
+  days old *relative to now* and never measures against the newest scan, so if
+  scans stop the lagged pick becomes the newest scan and the data can be weeks
+  stale while the copy still claims exactly N days — wrong in exactly the
+  outage the copy exists to explain. Now phrased as the rule ("the newest scan
+  at least N days old"), which stays true however stale the data gets. Guarded on `auth`: an unconfigured build has `lag_active = False` and
+  renders the *latest* scan, where every word about lag and signing in would be
+  false — that branch keeps the "source recorded nothing" wording.
+
+  Interpolated values sit outside the `data-i18n` spans, following the lag
+  banner's prefix/value/suffix split: `applyLang()` replaces an element's whole
+  `textContent` from the SV table, so a scan id inside one would be wiped the
+  moment a reader switched language.
+
+  **A defect the tests missed and the browser caught.** All assertions passed
+  while the page rendered *"which runs 7days behind"* — each test checked its
+  own substring in isolation and none looked at the seam between an
+  interpolated `<strong>` and the span after it. Fixed with a text node between
+  the elements (not leading whitespace inside the translatable span, which the
+  SV string would drop), and pinned by a test that strips tags and rejects a
+  digit running into a word. Verified live in both languages afterwards: the
+  scan id, date and lag survive the EN→SV switch intact.
+
+  The signed-in-upgrade half of the original item was **declined**, not
+  deferred — see Queued for the reasoning.
+
 
 - **Non-scan price consumers: correlation aligned, forward-return windows capped** (2026-08-22).
 

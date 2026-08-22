@@ -82,7 +82,15 @@ Object.assign(SV, {
   col_data: "Data",
   col_rankdelta: "Rank Δ",
   sentiment_empty_title: "Inget nyhetssentiment för denna ögonblicksbild",
-  sentiment_empty_body: "Inget nyhetssentiment visas för något tema i den ögonblicksbild som visas här. Det kan bero på att källan (GDELT / FinBERT) inte registrerade något den dagen, eller att sidan visar en tidigare skanning än den senaste. Sentimentet visas automatiskt så snart en skanning med verkliga värden visas här; topplistan och övriga flikar påverkas inte.",
+  sentiment_empty_body: "Inget nyhetssentiment visas för något tema i den ögonblicksbild som visas här. Det beror på att källan (GDELT / FinBERT) inte registrerade något den dagen. Sentimentet visas automatiskt så snart en skanning med verkliga värden visas här; topplistan och övriga flikar påverkas inte.",
+  // Gated build only — the branch that names the snapshot, the lag, and the
+  // fact that signing in does not move this page. Split into fragments because
+  // the scan id, date and lag sit between them as live values; applyLang()
+  // overwrites an element's whole textContent, so they cannot live inside one.
+  sentiment_empty_showing: "Visar skanning",
+  sentiment_empty_lag_pre: ". Den publika vyn visar den senaste skanningen som är minst",
+  sentiment_empty_lag: "dagar gammal. Inget sentiment registrerades för den dag som visas. Att logga in uppdaterar temalistan men inte den här sidan, så ett glapp i datan syns här ungefär en vecka efter att det faktiskt inträffade.",
+  sentiment_empty_health: "Vill du veta om sentimentet fungerar just nu, se hälsopanelen längst ned på Teman-sidan — den flaggar ett fel samma dag som det inträffar.",
   leaderboard_empty: "Ingen data tillgänglig ännu.",
   filter_entry: "▲ Gå in",
   filter_hold: "● Behåll",
