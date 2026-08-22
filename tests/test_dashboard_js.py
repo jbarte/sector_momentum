@@ -2003,3 +2003,181 @@ def test_horizon_btn_has_a_touch_target_not_the_dead_select():
     block = m.group(0)
     assert "#horizon-select" not in block
     assert ".horizon-btn" in block
+
+
+# ---------------------------------------------------------------------------
+# Desktop controls row: curated filter chips + a "More filters" disclosure.
+# ---------------------------------------------------------------------------
+
+
+def test_control_chips_share_data_attributes_with_the_full_set():
+    """The curated chips are duplicates that share state with their
+    full-set counterparts, not a physical relocation — same
+    data-filter-group/data-filter-value pair on both, so one sync
+    mechanism (Step 5 below) drives both from the same click."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert text.count('class="control-chip"') == 3
+    for group, value in [("thresholds", "top5"), ("trend", "rising"),
+                          ("thresholds", "composite_pos")]:
+        pattern = ('class="control-chip" data-filter-group="%s" '
+                   'data-filter-value="%s"' % (group, value))
+        assert pattern in text, "missing curated chip: %s/%s" % (group, value)
+
+
+def test_full_filter_set_moved_into_a_details_disclosure():
+    """The nine-chip #leaderboard-filter-bar is unmodified in shape — only
+    relocated inside a <details class="more-filters">, the same native
+    pattern .rank-settings already uses one control over."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    details_start = text.index('class="more-filters"')
+    details_block_start = text.rindex("<details", 0, details_start)
+    bar_pos = text.index('id="leaderboard-filter-bar"')
+    filter_group_setup_pos = text.index('id="filter-group-setup"')
+    assert details_block_start < bar_pos < filter_group_setup_pos, (
+        "expected <details class=\"more-filters\"> to wrap #leaderboard-filter-bar"
+    )
+
+
+def test_horizon_row_and_utility_row_are_merged():
+    """One "Controls row" per the spec, not two separate rows, on the
+    LEADERBOARD tab specifically — its former .utility-row's children
+    (filter bar, rank-settings, guide button) now live inside .horizon-row
+    alongside the horizon control.
+
+    Does NOT assert `.utility-row` is gone from the whole document: RRG,
+    Drill-down, Movers, and History each have their own unrelated
+    `.utility-row` (a bare "How to read this tab" button, nothing this
+    task touches) — a global absence check would fail against a correct
+    implementation. Caught live while executing this plan, before writing
+    the actual test."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    horizon_row_start = text.index('class="horizon-row"')
+    horizon_row_end = text.index('id="scan-digest-banner"')
+    row = text[horizon_row_start:horizon_row_end]
+    assert 'class="utility-row"' not in row, (
+        "the leaderboard tab's own .utility-row must be gone — merged into .horizon-row"
+    )
+    assert 'id="leaderboard-filter-bar"' in row
+    assert 'data-guide="guide_body_leaderboard"' in row
+
+
+def _wire_filter_chips_js():
+    """_wireFilterChips()'s exact IIFE body (brace-balanced), the same
+    technique _render_horizon_stats_js() uses elsewhere in this file."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("(function _wireFilterChips()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_wire_filter_chips_matches_curated_chips_too():
+    """Scoped to #leaderboard-filter-bar .filter-chip before this task —
+    a curated .control-chip outside that container would never receive a
+    click listener at all, let alone stay in sync."""
+    js = _wire_filter_chips_js()
+    assert "leaderboard-filter-bar" not in js, (
+        "must not scope the chip query to the filter bar's id — "
+        "curated chips live outside it"
+    )
+    assert "data-filter-group" in js and "data-filter-value" in js
+
+
+def _sync_chip_state_js():
+    """_syncChipState()'s exact function body (brace-balanced) — the actual
+    sync contract lives here, not in _wireFilterChips() itself, which only
+    calls it."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function _syncChipState(")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
+def test_clicking_a_curated_chip_syncs_its_full_set_counterpart():
+    """The actual sync contract: _syncChipState must update EVERY element
+    sharing a data-filter-group/data-filter-value pair, not just the one
+    clicked — otherwise the curated Top 5 chip and the full set's Top 5
+    chip could show different pressed states for the same underlying
+    filter. _wireFilterChips() only needs to call it (checked separately
+    below) — the selector construction itself lives in _syncChipState's
+    own body, a sibling function, not inside _wireFilterChips()."""
+    wire_js = _wire_filter_chips_js()
+    assert "_syncChipState(" in wire_js, \
+        "_wireFilterChips() must call _syncChipState after updating _filterState"
+    sync_js = _sync_chip_state_js()
+    assert "querySelectorAll" in sync_js
+    assert 'data-filter-group="' in sync_js and 'data-filter-value="' in sync_js, (
+        "expected a selector built from both attributes, matching every "
+        "element sharing them — not just the one clicked"
+    )
+
+
+def test_clear_filters_resets_curated_chips_too():
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function clearFilters()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = text[start:i + 1]
+    assert "leaderboard-filter-bar" not in fn_body, (
+        "clearFilters()'s chip query must not be scoped to the filter bar's "
+        "id — curated chips live outside it and must be reset too"
+    )
+
+
+def test_control_chip_css_matches_spec_padding():
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_tables.css.j2").read_text()
+    m = re.search(r"\.control-chip\s*\{[^}]*\}", css)
+    assert m, ".control-chip rule not found"
+    assert "padding: 5px 12px" in m.group(0)
+
+
+def test_more_filters_chip_has_a_dashed_border():
+    """Spec: "a dashed More filters chip" — same border style this codebase
+    already uses for a hint-style chip (_tables.css.j2's tooltip-cursor
+    badge), reused here rather than inventing a new dash pattern."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_tables.css.j2").read_text()
+    m = re.search(r"\.more-filters summary\s*\{[^}]*\}", css)
+    assert m, ".more-filters summary rule not found"
+    assert "dashed" in m.group(0)
+
+
+def test_more_filters_i18n_key_exists():
+    """The [^"]+ (not \\S+) matters: the Swedish translation is two words
+    ("Fler filter") — a \\S+-based pattern stops at the first space and
+    never reaches the closing quote, failing against a correct
+    translation. Caught live while executing this plan."""
+    core_i18n = (Path(__file__).parent.parent
+                 / "dashboard/templates/i18n/_core.js.j2").read_text()
+    assert re.search(r'\bmore_filters:\s*"[^"]+"', core_i18n)
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert 'data-i18n="more_filters"' in text
