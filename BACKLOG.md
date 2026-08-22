@@ -21,6 +21,39 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Price cache freshness doesn't account for callers requesting a future `end`
+
+Found in code review while fixing the weekend cache-staleness bug (see Done,
+2026-08-22) — not itself a confirmed live bug, currently masked, but worth
+recording rather than losing.
+
+`_cache_is_fresh` (`src/data/prices.py`) does not take `end` as a parameter —
+it always checks the cache's last date against *today*, regardless of what
+`end` the calling `fetch_prices()` was given. This is exactly right for
+`scan.py`, which passes `end=date.today()`: `end` is exclusive, so today's
+session is genuinely never obtainable to it and the boundary is a pure
+calendar question.
+
+`dashboard/badges.py` and `dashboard/validation.py` both request a **future**
+`end` (`max(scan_dates) + 15` and `+ 30 days`, for forward-return badge/
+validation windows) into the same shared `data/cache/` directory `scan.py`
+reads. If either of those runs during US market hours and yfinance returns
+today's in-progress candle as the newest row (possible precisely because
+their `end` doesn't cap the request at "yesterday" the way `scan.py`'s does),
+`_cache_is_fresh` would judge that partial candle fresh — `last_cached
+(today) >= required (yesterday)` — and a later `scan.py` read of that same
+cache file could score on an incomplete close.
+
+**Currently masked**, not exploitable today: the `start`-coverage check in
+`_cache_is_fresh` (the `fetched_start <= requested_start` comparison) rejects
+badges.py's/validation.py's window before the date check would matter, since
+their `start` reaches back to the earliest scan (10-30 days before the
+requested window) while `scan.py`'s `--start` is normally much narrower. That
+ordering inverts if scan history ever exceeds `scan.py`'s own lookback window,
+at which point the two callers' requested windows could overlap enough for
+this to bite. Not acted on now — reopen if that inversion is ever confirmed,
+or before deliberately widening `scan.py`'s window.
+
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
@@ -334,21 +367,6 @@ their own rate limits, so it is its own integration + test surface, not a
 same-day fix. Reopen this if yfinance actually fails a scan, rather than
 speculatively — the caching layer already absorbs most single-day hiccups.
 
-## Weekend scans score Thursday's close, not Friday's
-
-The `_cache_is_fresh` 1-day grace (`src/data/prices.py`) exists so a weekday
-morning run does not refetch every ticker just because today's US close has not
-happened yet. That same grace makes a Saturday or Sunday run accept a cache
-written Friday morning — whose last bar is **Thursday** — so weekend scans miss
-Friday's close entirely. Confirmed against the live cache on 2026-08-09: every
-cohort ticker's last bar was 2026-08-06 while 2026-08-07 was a completed
-session.
-
-The cohort stays internally consistent (the 2026-08-09 alignment fix guarantees
-that), so this is staleness, not skew — scans 155 and 156 simply re-scored
-Thursday's data twice. A correct rule has to be market-hours aware ("has the US
-close happened yet?"), which is why it was not slipped into the alignment PR.
-
 ## As-of alignment — remaining consumers and observability
 
 Follow-ups deliberately left out of the 2026-08-09 alignment fix to keep it
@@ -367,6 +385,38 @@ source-only and tight:
 ---
 
 # Done
+
+- **Weekend scans scored Thursday's close, not Friday's** (2026-08-22).
+
+  `_cache_is_fresh` (`src/data/prices.py`) took `expected` =
+  `_expected_latest_close(today)` and then applied a 1-day grace on top. On a
+  weekday the two agree exactly — `end` is exclusive and callers pass
+  `end=today`, so a cache fetched today legitimately ends yesterday, and the
+  grace is what makes that pass rather than slack. On a **weekend** `expected`
+  had already walked back to Friday, a COMPLETED session, and the grace then
+  walked back one more — so a Saturday or Sunday run accepted a cache written
+  Friday morning (last bar: Thursday) and never fetched Friday's close.
+
+  Fixed by requiring the last completed session strictly before today
+  (`_expected_latest_close(today - 1 day)`) with no grace. Verified this
+  preserves all six pre-existing freshness behaviours exactly: on a weekday the
+  new boundary and the old grace boundary are the same date, so the only
+  behaviour that changes is the weekend one that was wrong.
+
+  **No market-hours/timezone logic was needed**, which the Queued item had
+  assumed ("a correct rule has to be market-hours aware"). Because `end` is
+  exclusive, a session's bar only becomes obtainable the calendar day *after*
+  that session regardless of what time the run happens — so "newest obtainable
+  close" is a pure calendar question. The holiday grace turned out not to be
+  load-bearing either: the pre-existing
+  `test_cache_stale_friday_on_tuesday_after_holiday` already asserted that a
+  Monday holiday causes a refetch and called it harmless.
+
+  **Confirmed live on the production cache**, on the Saturday this shipped:
+  20 of the 50 cached tickers held Thursday 2026-08-20 as their last bar while
+  Friday 2026-08-21 was a completed session — all 20 would have been served
+  stale to that day's scan under the old rule, and are correctly refetched
+  under the new one. 1014 passed.
 
 - **Desktop controls row — curated filter chips + a "More filters"
   disclosure** (2026-08-22). Plan:

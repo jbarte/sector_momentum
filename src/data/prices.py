@@ -13,10 +13,10 @@ URL fix gets past that; see BACKLOG.md Done for the investigation. yfinance
 had already been carrying 100% of live fetches in practice.
 
 Cache location: data/cache/<ticker>_prices.parquet
-Cache validity: the cache must reach the most recent expected trading day
-(the last weekday on or before today, with a 1-day grace for single market
-holidays). On a normal weekday this means yesterday's or today's close is
-required; over weekends, Friday's close bridges to Monday.
+Cache validity: the cache must reach the last completed session strictly
+before today — the newest bar a fetch could actually return, since `end` is
+exclusive (below). On a normal weekday that is yesterday's close; on a
+Saturday, Sunday or Monday it is Friday's.
 See `_cache_is_fresh`.
 
 `end` is **EXCLUSIVE**: the last bar returned is the last completed session
@@ -99,10 +99,15 @@ def _read_cache_meta_start(path: str):
 
 
 def _cache_is_fresh(path: str, start: str | None = None) -> bool:
-    """Return True if the cache file exists, its last date reaches the most
-    recent expected trading day (weekday walk-back from today, with a 1-day
-    grace for single market holidays), and — when ``start`` is given — its
-    earliest date covers the requested range."""
+    """Return True if the cache file exists, its last date reaches the last
+    completed session strictly before today (the newest bar an `end`-exclusive
+    fetch could return), and — when ``start`` is given — its earliest date
+    covers the requested range.
+
+    A market holiday makes the required session produce no bar, so the cache
+    cannot reach it and is refetched until the next real session — the same
+    harmless extra fetch the pre-2026-08-22 rule already made after a Monday
+    holiday (see test_cache_stale_friday_on_tuesday_after_holiday)."""
     if not os.path.exists(path):
         return False
     try:
@@ -110,12 +115,34 @@ def _cache_is_fresh(path: str, start: str | None = None) -> bool:
         if df.empty:
             return False
         last_cached = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
-        expected = _expected_latest_close(date.today())
-        # 1-day grace, walked back over weekends: the grace boundary is the
-        # prior *trading* day before `expected`, not merely a calendar day
-        # earlier (which would land on a weekend after a Monday `expected`).
-        grace_boundary = _expected_latest_close(expected - timedelta(days=1))
-        if last_cached < grace_boundary:
+        # The newest bar a fetch could actually return, for the common case:
+        # the last weekday strictly before today. `end` is EXCLUSIVE, and
+        # scan.py — the caller this freshness check protects against a
+        # partial in-progress candle — passes `end=date.today()`, so today's
+        # own session is never obtainable to it no matter what time of day the
+        # run happens; that is what keeps this boundary a pure calendar
+        # question with no market-hours/timezone logic for that caller.
+        #
+        # This function does NOT know the caller's own `end` (it isn't a
+        # parameter here) and always checks against today regardless.
+        # dashboard/badges.py and dashboard/validation.py both request a
+        # FUTURE `end` (days/weeks past today, for forward-return badges) —
+        # for them this boundary does not rule out a same-day partial candle
+        # the way it does for scan.py. Currently masked for badges.py by the
+        # `start`-coverage check below rejecting its window first; not
+        # something this fix addresses. See BACKLOG.md "Price cache freshness
+        # doesn't account for callers requesting a future `end`".
+        #
+        # This boundary replaced an `_expected_latest_close(today)` + 1-day
+        # grace pair (fixed 2026-08-22). On a weekday the two agree exactly,
+        # but on a weekend `expected` had already walked back to Friday — a
+        # COMPLETED session — and the grace then walked back one more, so a
+        # Saturday or Sunday run accepted a cache written Friday morning whose
+        # last bar is Thursday, and never fetched Friday's close. Confirmed
+        # live against the cache on 2026-08-09; scans 155 and 156 re-scored
+        # Thursday twice.
+        required = _expected_latest_close(date.today() - timedelta(days=1))
+        if last_cached < required:
             return False
         if start is not None:
             requested_start = pd.Timestamp(start).date()
