@@ -2735,6 +2735,18 @@ def test_auth_js_row_builder_escapes_the_theme_name():
     assert "function escapeHtml(" in src
 
 
+def test_auth_js_row_builder_escapes_the_ticker_too():
+    """The ticker symbol is built into the SAME innerHTML string as
+    r.gics_sector, from the same config/themes.yaml source, but was left
+    unescaped when the theme name was first hardened — caught in a second
+    review pass, 2026-08-23."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    assert "escapeHtml(ticker)" in src, (
+        "renderLatestRows no longer escapes ticker before interpolating it "
+        "into tickerHtml"
+    )
+
+
 def test_scan_digest_js_chip_builder_escapes_sector_and_region():
     """Pins the CALL SITE — same shape as the auth.js test above."""
     src = (Path(__file__).parent.parent / "dashboard/assets/scan-digest.js").read_text()
@@ -2758,3 +2770,50 @@ def test_scan_history_js_row_builder_escapes_the_theme_name():
         "it into innerHTML"
     )
     assert "function escapeHtml(" in src
+
+
+def test_scan_history_js_row_builder_escapes_the_ticker_too():
+    """Same second-review-pass gap as auth.js: the ticker symbol shares the
+    tickerHtml/innerHTML sink but was left unescaped when `sector` was
+    hardened."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    assert "escapeHtml(ticker)" in src, (
+        "renderScanLeaderboard no longer escapes ticker before interpolating "
+        "it into tickerHtml"
+    )
+
+
+def test_mobile_card_theme_name_uses_innerhtml_not_textcontent():
+    """The severer finding from the same review round: renderMobileCards()
+    (index.html.j2) re-derives the mobile card view from the LEADERBOARD
+    TABLE's own rendered DOM. `.textContent` on the theme-name span DECODES
+    entities back to plain text ("&lt;img..." -> literal "<img...") before
+    that string gets concatenated into a NEW innerHTML assignment a few
+    lines below — silently undoing whatever escaping the table builder
+    (auth.js's escapeHtml()/scan-history.js's escapeHtml()) already did.
+
+    Confirmed live in a browser 2026-08-23: escapeHtml() itself verified
+    correct in isolation (a debug-instrumented rebuild showed it correctly
+    producing "&lt;img ...&gt;"), yet an injected theme name still executed
+    as a real <img onerror=...> element — through exactly this read
+    projection, on the mobile card view, at a 375px viewport. `.innerHTML`
+    returns the SAME text RE-SERIALIZED with entities intact, safe to
+    reinject; `.theme-name` holds only a single text node in every table
+    builder, so this is a pure fix with no behavior change for real data.
+
+    Source-pinned rather than run under Node: renderMobileCards() reads
+    throughout from `tr.querySelector(...)`, so a real test needs a DOM
+    (jsdom or a browser), which is not part of this project's JS test
+    infrastructure — see the live browser verification above for the
+    behavioral proof this source assertion cannot provide on its own."""
+    src = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert "themeName.innerHTML" in src, (
+        "renderMobileCards() reads themeName.textContent (or similar) instead "
+        "of .innerHTML -- .textContent decodes HTML entities back to plain "
+        "text, which then gets reinjected unescaped into the card's innerHTML, "
+        "undoing whatever the table builder's escapeHtml() already did"
+    )
+    assert "themeName.textContent" not in src, (
+        "themeName.textContent still appears in index.html.j2 -- the fixed "
+        "call site must be the only reference"
+    )

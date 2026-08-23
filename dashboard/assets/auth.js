@@ -12,10 +12,11 @@
   var sb = window.SMSupabase;  // shared client — see assets/supabase-client.js
 
   // renderLatestRows() below builds rows by string concatenation and
-  // interpolates r.gics_sector unescaped. Not exploitable today — theme
-  // names come from config/themes.yaml via the pipeline, never from a
-  // reader — but hardening against the day any row field stops being
-  // repo-controlled. Found in the 2026-08-23 sweep.
+  // interpolates r.gics_sector and the theme's ticker symbol unescaped. Not
+  // exploitable today — both come from config/themes.yaml via the pipeline,
+  // never from a reader — but hardening against the day any row field stops
+  // being repo-controlled. Found in the 2026-08-23 sweep; the ticker call
+  // site was missed in the original pass and added in review the same day.
   function escapeHtml(s) {
     return String(s)
       .replace(/&/g, "&amp;")
@@ -246,7 +247,7 @@
             + m.trajectory_label + '</span> <span class="traj-word">' + (m.trajectory_word || "") + '</span></span>'
           : "";
         var ticker = (window.THEME_TICKERS || {})[r.gics_sector] || "";
-        var tickerHtml = ticker ? '<span class="theme-ticker">' + ticker + '</span>' : "";
+        var tickerHtml = ticker ? '<span class="theme-ticker">' + escapeHtml(ticker) + '</span>' : "";
         // rank-1 is a static fact about this row (not horizon-dependent, unlike
         // in-buy-band/in-band-rail below), so it's baked here rather than left
         // to applyHorizonBadges() — that function only ever toggles the two
