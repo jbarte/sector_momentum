@@ -186,3 +186,72 @@ def test_theme_signals_query_is_deterministically_ordered(monkeypatch):
     seen = _capture(monkeypatch)
     state.get_theme_signals_for_latest_scan(_FakeConn())
     assert "order by t.region, t.gics_sector, t.signal_name" in seen["q"]
+
+
+# ---------------------------------------------------------------------------
+# get_rrg_history(end_scan_id=...) — the empty-RRG-for-guests fix
+# ---------------------------------------------------------------------------
+#
+# Found 2026-08-23: dashboard/build.py fetched the newest 6 scans, then
+# filtered them down to `scan_id <= lb_scan_id` for gated guests. LAG_DAYS=7
+# against daily scans puts lb_scan_id ~7 scans behind the newest, so 6 < 7
+# meant the filter discarded every row every time — the RRG tab rendered
+# empty for every guest, as a steady state rather than an edge case.
+# end_scan_id anchors the window at the scan actually being rendered instead.
+
+
+def test_rrg_history_end_scan_id_anchors_the_window(monkeypatch):
+    """`end_scan_id` must reach the SQL as the window's endpoint, not just as
+    an extra unused parameter — asserted against the query text and the
+    param tuple, the same way test_theme_rrg_history_reads_shared_table
+    above pins the SELECT."""
+    seen = _capture(monkeypatch)
+    state.get_rrg_history(_FakeConn(), n_scans=6, end_scan_id=163)
+    assert "scan_id <= %s" in seen["q"], (
+        "end_scan_id is not being applied as an upper bound in the SQL"
+    )
+    assert 163 in seen["p"], "end_scan_id (163) never reached the query params"
+    assert 6 in seen["p"], "n_scans (6) missing from the query params"
+
+
+def test_rrg_history_without_end_scan_id_is_unchanged(monkeypatch):
+    """The default (no end_scan_id) path — used by every non-gated build —
+    must keep querying the true newest n_scans, not silently pick up a
+    scan_id <= bound with no value to compare against."""
+    seen = _capture(monkeypatch)
+    state.get_rrg_history(_FakeConn(), n_scans=6)
+    assert "scan_id <= %s" not in seen["q"]
+    assert "order by scan_id desc limit %s" in seen["q"]
+    assert seen["p"][0] == 6
+
+
+def test_theme_rrg_history_forwards_end_scan_id(monkeypatch):
+    """The THEME-cohort wrapper must pass end_scan_id through, or the fix
+    above is unreachable from the one call site that actually needs it
+    (dashboard/build.py uses get_rrg_history directly today, but the wrapper
+    exists for exactly this shape of call and must not silently drop the
+    argument)."""
+    seen = _capture(monkeypatch)
+    state.get_theme_rrg_history(_FakeConn(), n_scans=6, end_scan_id=163)
+    assert 163 in seen["p"]
+    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
+
+
+def test_recent_scan_filter_end_scan_id_param_order():
+    """Direct unit test on the helper itself: params must be
+    (end_scan_id, n_scans), matching the SQL's `<= %s ... LIMIT %s` order.
+    Swapped params would silently cap the scan COUNT at end_scan_id's value
+    and the scan ID at n_scans — wrong in a way no query-text assertion
+    catches, since both are just %s placeholders."""
+    condition, params = state._recent_scan_filter(6, end_scan_id=163)
+    assert params == (163, 6)
+    assert "scan_id <= %s" in condition
+    assert "LIMIT %s" in condition
+    # <= appears before LIMIT, matching the (end_scan_id, n_scans) param order
+    assert condition.index("<=") < condition.index("LIMIT")
+
+
+def test_recent_scan_filter_end_scan_id_none_is_the_old_behavior():
+    condition, params = state._recent_scan_filter(6, end_scan_id=None)
+    assert params == (6,)
+    assert "scan_id <=" not in condition

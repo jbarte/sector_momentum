@@ -316,7 +316,15 @@ def main() -> None:
                      lb_scan_id, lag_banner_date)
         all_scores_df = all_scores_df[all_scores_df["scan_id"] <= lb_scan_id].copy()
         history_df = history_df[history_df["scan_id"] <= lb_scan_id].copy()
-        rrg_df = rrg_df[rrg_df["scan_id"] <= lb_scan_id].copy()
+        # NOT the same fix as the two lines above. Those filter a window that
+        # is guaranteed to still overlap lb_scan_id (n_scans=20 against a lag
+        # of ~7 scans). rrg_df was fetched with n_scans=6 — LESS than the lag
+        # — so filtering the newest 6 down to `<= lb_scan_id` discarded every
+        # row every time, not as an edge case but as the steady state: the RRG
+        # tab rendered an empty chart for every guest. Re-fetching anchored at
+        # lb_scan_id gets the right 6 scans instead of filtering the wrong 6.
+        # Found in code review, 2026-08-23.
+        rrg_df = get_rrg_history(conn, n_scans=6, end_scan_id=lb_scan_id)
         signals_df = get_signals_for_scan(conn, lb_scan_id)
         # sentiment_signals_df otherwise reads the true latest scan
         # unconditionally (see get_sentiment_signals_for_latest_scan below) —
