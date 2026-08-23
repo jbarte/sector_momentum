@@ -315,6 +315,20 @@ def test_backup_called_when_health_check_raises(monkeypatch):
     assert len(calls) == 1
 
 
+def test_backup_called_when_prior_asof_is_unparseable(monkeypatch):
+    """A malformed prices_asof (e.g. a full timestamp string rather than
+    'YYYY-MM-DD') must not crash the scan -- _same_market_date's own
+    ValueError has to fall through to 'back up anyway', not propagate out
+    of run(). Found in code review, 2026-08-23: the comparison originally
+    sat outside the try/except meant to make this fail-safe."""
+    import scan
+    calls = []
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    rc = _run_minimal_scan(monkeypatch, prior_health={"prices_asof": "2026-02-24T00:00:00"})
+    assert rc in (0, None)
+    assert len(calls) == 1
+
+
 def test_same_market_date_normalizes_str_date_and_timestamp():
     """_same_market_date compares prior_asof against as_of regardless of
     which type the DATE column round-tripped as (str, datetime.date, or

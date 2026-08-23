@@ -496,14 +496,19 @@ def run(args: argparse.Namespace) -> int:
             # prior scan's as-of matches this one, there is nothing new to
             # protect; skip the upload. A failure determining that defaults
             # to backing up anyway — the safe side of "not sure".
-            prior_asof = None
+            # Both the DB read and the comparison (_same_market_date can
+            # raise on an unexpected prices_asof shape) stay inside this
+            # try — any failure here must fall through to "back up anyway",
+            # never propagate and abort the whole scan.
+            skip_backup = False
             try:
                 prior_health = get_latest_health(conn)
                 prior_asof = prior_health.get("prices_asof") if prior_health else None
+                skip_backup = prior_asof is not None and _same_market_date(prior_asof, as_of)
             except Exception as exc:
                 logger.warning("Could not check prior scan's as-of date (%s) — backing up anyway", exc)
 
-            if prior_asof is not None and _same_market_date(prior_asof, as_of):
+            if skip_backup:
                 logger.info(
                     "Skipping pre-run backup — prices as-of unchanged since the last scan (%s)",
                     as_of.date(),
