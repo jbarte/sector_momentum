@@ -390,46 +390,41 @@ backup exists at every instant.
 ## Three of seven weekly scans still persist duplicate scores/signals
 
 Found in the 2026-08-23 sweep, measured against production. **Not a
-correctness bug** — waste and history noise. The redundant *backup* half of
-this shipped 2026-08-23 (see Done); this is what's left.
+correctness bug** — waste and history noise. Two of three sub-parts have
+shipped (see Done): the redundant *backup* upload is skipped, and the health
+panel now *surfaces* the duplication so a human reading history doesn't
+mistake N scan_ids for N independent days of signal. What's left is the
+actual row-write waste — each duplicate-date scan still writes a full
+scores+signals row set (18 scores + ~250 signals).
 
 `_cache_is_fresh` requires the cache to reach
 `_expected_latest_close(date.today() - 1 day)`. That resolves to **Friday for
-Saturday, Sunday *and* Monday** runs, so all three score identical prices:
+Saturday, Sunday *and* Monday** runs, so all three score identical prices —
+this is *correct* (the 06:00 UTC cron fires before the US close), not a bug.
 
-| run day | `today - 1` | required bar |
-|---|---|---|
-| Sat | Fri | **Fri** |
-| Sun | Sat | **Fri** |
-| Mon | Sun | **Fri** |
-| Tue | Mon | Mon |
+**Investigated 2026-08-23 and deliberately not fixed**: the obvious fix —
+skip the price/scoring persist on a duplicate-date scan, keep sentiment since
+GDELT genuinely differs each run — turned out to have a much bigger blast
+radius than it looked. A scan_id with sentiment rows but no scores/signals
+breaks every "latest scan" reader that keys off `MAX(scan_id) FROM scans`
+directly instead of joining through `scores` (which naturally skips an
+empty scan_id): `get_signals_for_latest_scan()` / `get_theme_signals_for_
+latest_scan()` in `src/state.py`, and `load_last_scan()` in `scan.py` (breaks
+`compute_deltas`'s rank-delta/emerging-flag continuity across the skip). Worse:
+the live Supabase view `v_recent_scores` (`scripts/content_gating_migration.sql`,
+granted to `authenticated`) hardcodes `scan_id IN (SELECT scan_id FROM scans
+ORDER BY scan_id DESC LIMIT 6)` — an unconditional "last 6 scan_ids" window,
+not "last 6 scans with scores." Every skip-day scan_id would eat one of
+those 6 slots without contributing a real score row, quietly shrinking the
+signed-in leaderboard's real trailing history below 6 scans whenever a skip
+day falls in that window. Fixing this properly means migrating a **live
+production SQL view** granted to `authenticated`, not just touching Python.
 
-This is *correct* — the 06:00 UTC cron fires before the US close, so a Monday
-morning scan genuinely has no bar newer than Friday's. But each duplicate
-still writes a full row set (18 scores + ~250 signals) and burns Actions
-minutes.
-
-Verified: scans 168 (Fri 08-21) and 169 (Sat 08-22) are identical on **54/54**
-theme×signal raw values. Scan 169 ran ~14h before the weekend-staleness fix
-merged, so it reproduced the old two-duplicate pattern; post-fix the count goes
-to three, because Saturday now correctly picks up Friday's close where Monday
-used to be the first scan to see it.
-
-**Sentiment is the complication.** GDELT is fetched fresh every run, so
-`sentiment_signals` rows genuinely differ on all three days. A blanket "skip
-the scan" would lose that history. The remaining honest options are (a) skip
-only the price/scoring persist and still write sentiment — changes what a
-`scan_id` can mean (a scan_id with sentiment rows but no scores/signals is a
-new shape nothing downstream currently expects — dashboard health panel,
-`get_latest_health`, etc. would need auditing), or (c) leave the rows alone
-and just *surface* it, so three scans sharing one market date read as one in
-the UI/health panel. Deliberately not picked without a decision on which
-shape to commit to — same trap as the union-merge and false-green bugs this
-project has already hit from an under-designed "what does this row mean" call.
-
-`prices_asof` (persisted on `scans` since 2026-08-23) makes "same market date
-as the previous scan" one column comparison, so either option is cheap to
-detect once the persistence-shape question is settled.
+Reopen only with a real plan for reconciling every "last N scans" window
+(Python readers + the live view) to mean "last N scans with real data," not
+"last N scan_ids" — brainstorm/spec first per CLAUDE.md's guidance on when a
+wrong early call on data shape is expensive to unwind, same trap as the
+union-merge and false-green bugs this project has already hit.
 
 ## Holding-period panel is denominated in scans
 
@@ -644,6 +639,34 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Surfaced when scans share a market date (2026-08-23)
+
+Three of seven weekly scans land on the same market date (06:00 UTC cron
+fires before the US close, so Sat/Sun/Mon all score off Friday's bar). A
+naive fix (skip persisting scores/signals on the duplicate-date scan) was
+investigated and rejected — real blast radius, see the rewritten Queued item
+for the details (several Python "latest scan" readers plus a live Supabase
+view granted to `authenticated`, all keyed off `MAX(scan_id)` rather than
+"scan with real data"). Went with surface-only instead, matching the option
+picked when this was scoped down mid-implementation.
+
+New `get_same_asof_streak(conn, scan_id)` in `src/state.py` counts
+consecutive scan_ids, ending at and including `scan_id`, that share its
+`prices_asof`. `dashboard/build.py` computes it from `latest_scan_id` (the
+already gating-resolved scan_id — no separate recap needed, unlike
+`health_row`/`rrg_df`, since `lb_scan_id` itself is never reassigned inside
+the lag-gating block) and passes it into `build_health_context`. The health
+panel's Prices row notes it when 2+: "as of 2026-08-21 (shared with 2 prior
+scans)" — informational only (`health-muted` styling), never a badge color,
+since a shared as-of is correct behavior, not a fetch failure.
+
+7 new tests for `get_same_asof_streak` (`tests/test_state_health.py`), 8 for
+the footer rendering + `build_health_context` wiring + a source-pin on the
+`build.py` call sites (`tests/test_health.py`). Sabotage-verified: broke the
+streak-counting mismatch check, the template's `> 1` guard, and the
+`build.py` → `build_health_context` wire, each caught by its matching new
+test, each restored and re-verified green.
 
 ## Skipped the pre-run backup when as-of is unchanged (2026-08-23)
 
