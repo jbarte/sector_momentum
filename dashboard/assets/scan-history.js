@@ -17,6 +17,23 @@
   var sentimentControl = document.getElementById("sentiment-control");
   var latestScanId = SCAN_HISTORY.scans[0].id;
 
+  // renderScanLeaderboard() below builds row HTML by string concatenation
+  // and interpolates `sector` (the theme name) unescaped. Not exploitable
+  // today — theme names come from config/themes.yaml via the pipeline,
+  // never from a reader — but hardening against the day any row field stops
+  // being repo-controlled, same as auth.js's renderLatestRows() and
+  // scan-digest.js's fmtChip(). Missed in the 2026-08-23 sweep that hardened
+  // those two despite this file's own comment (below) citing auth.js's
+  // identical pattern by name; caught in code review the same day.
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function fmtDelta(d) {
     if (d === 0) return "—";
     return (d > 0 ? "+" : "") + d.toFixed(1);
@@ -111,7 +128,7 @@
         var railClass = rankClass ? " in-band-rail" : "";
         html += '<tr class="leaderboard-row">'
           + '<td class="rank-cell' + railClass + '"><span class="rank-badge' + rankClass + rank1Class + '">' + sc.rank + "</span></td>"
-          + "<td class=\"theme-cell\"><span class=\"theme-name\">" + sector + "</span>" + tickerHtml + "</td>"
+          + "<td class=\"theme-cell\"><span class=\"theme-name\">" + escapeHtml(sector) + "</span>" + tickerHtml + "</td>"
           + '<td class="composite-cell">' + Rescore.compositeBar(sc.composite) + "</td>"
           + '<td data-sort-value="' + (sc.level === null || sc.level === undefined ? "" : sc.level) + '">'
             + Rescore.levelChangeBars(sc.level, sc.change) + "</td>"

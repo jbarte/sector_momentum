@@ -1582,6 +1582,36 @@ def test_every_aria_modal_dialog_is_bound_to_the_helper():
             assert "_modal.js.j2" in src, f"{page} has a modal but never includes the helper"
 
 
+def test_modal_helper_include_precedes_footer_and_methodology():
+    """_footer.html.j2 and _methodology.html.j2 stopped including
+    _modal.js.j2 themselves (2026-08-23 sweep — it was the third of three
+    copies inlined into every page) and now rely on window.SMModal already
+    existing from the PAGE's own earlier include. That traded an idempotent,
+    order-independent safety net (each partial self-included the guarded
+    `window.SMModal = window.SMModal || (...)` definition) for a document-
+    order dependency previously documented only in a comment — code review
+    the same day flagged that nothing enforced it, so a future reorder (or a
+    new page including either partial without _modal.js.j2 first) would
+    throw `TypeError: Cannot read properties of undefined (reading 'bind')`
+    at runtime with every test here still green. This is that enforcement."""
+    root = Path(__file__).parent.parent
+    for page in ("dashboard/templates/index.html.j2",
+                 "dashboard/templates/sentiment.html.j2"):
+        src = (root / page).read_text()
+        modal_at = src.find('{% include "_modal.js.j2" %}')
+        assert modal_at != -1, f"{page} never includes _modal.js.j2 directly"
+        for partial in ("_footer.html.j2", "_methodology.html.j2"):
+            partial_at = src.find(f"{{% include '{partial}' %}}")
+            if partial_at == -1:
+                partial_at = src.find(f'{{% include "{partial}" %}}')
+            assert partial_at != -1, f"{page} never includes {partial}"
+            assert modal_at < partial_at, (
+                f"{page}: _modal.js.j2 is included AFTER {partial} — "
+                f"{partial}'s window.SMModal.bind(...) call would run before "
+                f"window.SMModal is defined"
+            )
+
+
 # ---------------------------------------------------------------------------
 # One shared Supabase client — auth.js / positions.js / alert-prefs.js
 # ---------------------------------------------------------------------------
@@ -2648,7 +2678,7 @@ def test_control_chip_and_more_filters_get_touch_targets():
 
 
 # ---------------------------------------------------------------------------
-# escapeHtml — auth.js / scan-digest.js interpolation hardening
+# escapeHtml — auth.js / scan-digest.js / scan-history.js interpolation hardening
 # ---------------------------------------------------------------------------
 #
 # Found in the 2026-08-23 sweep: renderLatestRows() (auth.js) and fmtChip()
@@ -2656,6 +2686,10 @@ def test_control_chip_and_more_filters_get_touch_targets():
 # interpolating theme/sector names unescaped. Not exploitable today — the
 # names come from config/themes.yaml via the pipeline, never from a reader —
 # but hardening against the day any row field stops being repo-controlled.
+#
+# scan-history.js's renderScanLeaderboard() has the identical pattern (its
+# own comment even cites auth.js's r.gics_sector by name) but was missed by
+# the original sweep — caught in code review the same day, fixed alongside.
 
 def _extract_escape_html_js(filename: str) -> str:
     """Pull escapeHtml() verbatim out of the named asset file."""
@@ -2666,7 +2700,7 @@ def _extract_escape_html_js(filename: str) -> str:
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
-@pytest.mark.parametrize("filename", ["auth.js", "scan-digest.js"])
+@pytest.mark.parametrize("filename", ["auth.js", "scan-digest.js", "scan-history.js"])
 def test_escape_html_neutralizes_markup(filename):
     """Executes the real production function, not a re-implementation —
     same discipline as test_item_for_row_classifies_by_region_not_dataset_shape
@@ -2709,5 +2743,18 @@ def test_scan_digest_js_chip_builder_escapes_sector_and_region():
     )
     assert "escapeHtml(item.region)" in src, (
         "fmtChip no longer escapes item.region before interpolating it into innerHTML"
+    )
+    assert "function escapeHtml(" in src
+
+
+def test_scan_history_js_row_builder_escapes_the_theme_name():
+    """Pins the CALL SITE — same shape as the auth.js test above. Added in
+    code review, 2026-08-23: this file was the one call site the original
+    sweep missed, despite its own comment citing auth.js's identical
+    pattern by name."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    assert "escapeHtml(sector)" in src, (
+        "renderScanLeaderboard no longer escapes sector before interpolating "
+        "it into innerHTML"
     )
     assert "function escapeHtml(" in src
