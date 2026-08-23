@@ -103,7 +103,7 @@ def test_plotly_cdn_version_matches_the_installed_plotly_py():
     requirements.lock without bumping PLOTLY_CDN now fails here, instead of
     quietly shipping figure JSON to a runtime two majors behind it.
     """
-    from plotly.offline.offline import get_plotlyjs_version
+    from plotly.offline import get_plotlyjs_version
 
     from dashboard.build import PLOTLY_CDN
 
@@ -134,22 +134,3 @@ def test_every_vendored_bundle_url_has_a_pinned_sha256():
             f"downloaded at build time and served to readers must be pinned by "
             f"content, not just by URL."
         )
-
-
-def test_bundles_are_verified_by_hash_not_by_file_existence():
-    """The cached copy must be hash-checked, not merely existence-checked.
-
-    Sabotage-verified: reverting `_ensure_bundle` to `if not bundle.exists()`
-    fails this. That regression is why the 2.27.0 -> 3.7.0 bump would otherwise
-    have landed only in CI (cold asset cache every run) and never on a machine
-    that already had the old file — `dashboard/assets/` is gitignored.
-    """
-    import inspect
-
-    from dashboard.build import _ensure_bundle
-
-    src = inspect.getsource(_ensure_bundle)
-    assert "_sha256(cached)" in src, (
-        "_ensure_bundle does not hash its cached copy — a stale bundle from "
-        "before a version bump would be served forever"
-    )

@@ -97,7 +97,10 @@ def test_download_failure_degrades_gracefully_when_not_required(assets):
 def test_the_two_real_bundles_wire_the_right_digest_and_failure_mode(assets):
     """Guards the call sites, not the helper: swapping the two digests, or
     flipping `required`, is invisible to every test above."""
-    with patch.object(B, "_ensure_bundle", return_value=None) as ens:
+    # Returns a Path, not None: _ensure_plotly_bundle asserts non-None (its
+    # required=True contract), so a None stub would fail on the stub rather
+    # than on the wiring this test is about.
+    with patch.object(B, "_ensure_bundle", return_value=Path("stub")) as ens:
         B._ensure_plotly_bundle()
         assert ens.call_args.args == ("plotly.min.js", B.PLOTLY_CDN, B.PLOTLY_SHA256)
         assert ens.call_args.kwargs == {"required": True}
@@ -108,3 +111,65 @@ def test_the_two_real_bundles_wire_the_right_digest_and_failure_mode(assets):
             "supabase.min.js", B.SUPABASE_JS_CDN, B.SUPABASE_JS_SHA256,
         )
         assert ens.call_args.kwargs == {"required": False}
+
+
+# ---------------------------------------------------------------------------
+# Is each digest the digest of the RIGHT artifact?
+# ---------------------------------------------------------------------------
+#
+# Code review (2026-08-23) found the gap these close. Every test above pins a
+# digest to whatever constant the call site passes, so SWAPPING THE TWO
+# CONSTANTS' VALUES moves both sides together and all of them still pass —
+# confirmed by running that exact sabotage. Nothing tied a pinned digest to the
+# bytes its own URL actually serves.
+#
+# The bytes are the only ground truth, so these check against them. They are
+# offline-safe: each skips when the artifact it needs is not on disk (a clean
+# checkout, before the first build), which is the same condition under which
+# `_ensure_bundle` would download and verify anyway — a wrong pin still fails
+# the build loudly there. What these add is catching it in the test suite, on
+# any machine that has already built once.
+
+import re
+from pathlib import Path
+
+_ASSETS = Path(__file__).parent.parent / "dashboard" / "assets"
+
+
+@pytest.mark.parametrize(
+    "filename, digest_name",
+    [("plotly.min.js", "PLOTLY_SHA256"), ("supabase.min.js", "SUPABASE_JS_SHA256")],
+)
+def test_pinned_digest_is_the_digest_of_the_vendored_artifact(filename, digest_name):
+    path = _ASSETS / filename
+    if not path.exists():
+        pytest.skip(f"{filename} not vendored yet — nothing to compare against")
+    expected = getattr(B, digest_name)
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    assert actual == expected, (
+        f"{digest_name} does not match the vendored {filename}.\n"
+        f"  pinned   {expected}\n"
+        f"  on disk  {actual}\n"
+        f"Either the constant is wrong (e.g. two digests swapped), or the file "
+        f"on disk is stale/tampered. `_ensure_bundle` would re-download it — "
+        f"delete it and rebuild to find out which."
+    )
+
+
+def test_vendored_plotly_is_the_version_plotly_cdn_names():
+    """Ties the URL, the digest and the bytes into one chain.
+
+    The digest test above proves PLOTLY_SHA256 matches the file; this proves the
+    file is the version PLOTLY_CDN advertises. Without it, a self-consistent but
+    wrong pin (right hash of the wrong bundle) reads as healthy.
+    """
+    path = _ASSETS / "plotly.min.js"
+    if not path.exists():
+        pytest.skip("plotly.min.js not vendored yet")
+    want = re.search(r"plotly-\w+-([0-9.]+)\.min\.js", B.PLOTLY_CDN).group(1)
+    head = path.read_bytes()[:400].decode("utf-8", "replace")
+    got = re.search(r"plotly\.js \(\w+ - minified\) v([0-9.]+)", head)
+    assert got, f"no version banner in the first 400 bytes of {path}"
+    assert got.group(1) == want, (
+        f"PLOTLY_CDN names v{want} but the vendored bundle is v{got.group(1)}"
+    )

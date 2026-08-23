@@ -771,10 +771,22 @@ than assumed:
 - the **empty RRG tab** is empty on both — a real bug, but a pre-existing data
   one. Logged as its own Queued item rather than folded into this PR.
 
-13 tests added (5 static in `test_build_assets.py`, 7 behavioural in the new
-`test_bundle_integrity.py`, plus the call-site wiring guard). All five sabotages
-caught by the intended test: existence-check-instead-of-hash, write-before-verify,
-mismatch-tolerated-when-not-required, version-reverted, digests-swapped.
+**12 test cases added** — 2 static in `test_build_assets.py`, 10 in the new
+`tests/test_bundle_integrity.py`. Sabotage-verified: existence-check-instead-of-hash,
+write-before-verify, mismatch-tolerated-when-not-required, version-reverted, and
+plotly-wired-to-the-supabase-digest are each caught by the intended test.
+
+**Review caught a real gap in that set.** The original sabotage list claimed
+"digests-swapped", but only the *call site* had been sabotaged; swapping the two
+constants' **values** moved both sides of every assertion together and left
+12/12 green. Nothing tied a pinned digest to the bytes its own URL serves.
+Closed by two tests reading the vendored artifact itself —
+`test_pinned_digest_is_the_digest_of_the_vendored_artifact` (parametrized over
+both bundles) and `test_vendored_plotly_is_the_version_plotly_cdn_names`, which
+chains URL → digest → bytes so a self-consistent but wrong pin cannot read as
+healthy. Both skip when the artifact is absent (clean checkout), where
+`_ensure_bundle` fails the build loudly anyway. Re-running the reviewer's exact
+sabotage now fails both parametrized cases.
 
 - **The price as-of date is now persisted, and shown in the health panel** (2026-08-23).
 
