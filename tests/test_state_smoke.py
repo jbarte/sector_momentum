@@ -226,6 +226,42 @@ def test_compute_deltas_columns(db_conn):
 
 
 @skipif_no_db
+def test_init_db_indexes_exist_in_a_real_database(db_conn):
+    """End-to-end proof, not just a source-scan: the `db_conn` fixture already
+    calls the real init_db() against the throwaway test Postgres, so by the
+    time this test body runs the indexes either exist or they don't — no
+    mocking involved. Queries pg_indexes directly, the same system catalog
+    used to confirm production had zero non-PK indexes on these tables
+    2026-08-23."""
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT tablename, indexname, indexdef FROM pg_indexes "
+            "WHERE schemaname = 'public' AND tablename IN "
+            "('signals', 'scores', 'sentiment_signals') "
+            "ORDER BY tablename, indexname"
+        )
+        rows = cur.fetchall()
+    by_table = {}
+    for tablename, indexname, indexdef in rows:
+        by_table.setdefault(tablename, []).append((indexname, indexdef))
+
+    for table, expected_idx in [
+        ("signals", "signals_scan_region_idx"),
+        ("scores", "scores_scan_region_idx"),
+        ("sentiment_signals", "sentiment_signals_scan_region_idx"),
+    ]:
+        names = [n for n, _ in by_table.get(table, [])]
+        assert expected_idx in names, (
+            f"{expected_idx} does not exist on {table} in a real database "
+            f"-- found indexes: {names}"
+        )
+        indexdef = next(d for n, d in by_table[table] if n == expected_idx)
+        assert "scan_id" in indexdef and "region" in indexdef, (
+            f"{expected_idx} exists but does not cover (scan_id, region): {indexdef}"
+        )
+
+
+@skipif_no_db
 def test_get_scan_history_row_count(db_conn):
     """get_scan_history returns n_sectors * n_scans rows."""
     signals_df, scores_df = _make_scan_data()
