@@ -211,3 +211,69 @@ class TestPricesAsofDisplay:
         assert "None" not in prices_row, (
             f"the Prices row renders the literal word 'None': {prices_row!r}"
         )
+
+
+class TestHealthPanelGating:
+    """The lag-gating block re-caps every other per-scan data source
+    (all_scores_df, history_df, rrg_df, signals_df, sentiment_signals_df) to
+    the lagged scan a guest actually sees. health_row was never touched by
+    it -- get_latest_health(conn) ran once, unconditionally, before the gate
+    -- so a guest's health panel showed the TRUE latest scan's run_at (and,
+    once prices_asof/asof_spread_days were added, the true price as-of date)
+    regardless of the 7-day lag. Found in code review, 2026-08-23; same class
+    of leak the sentiment_signals_df re-fetch two lines below already exists
+    to prevent, with an explicit comment saying so.
+
+    Source-scan, not a real build.py run: build.py's main body is a
+    procedural script with a live DB connection, not a unit-testable
+    function -- the same reason no other part of this gating block (the
+    sentiment_signals_df re-fetch it mirrors) has a behavioural test either.
+    """
+
+    _BUILD_PY = Path(__file__).parent.parent / "dashboard" / "build.py"
+
+    def _gating_block(self) -> str:
+        """The `if lag_active and lb_scan_id is not None:` block, bounded by
+        INDENTATION rather than a fixed marker string. A first attempt used
+        "next line that doesn't start with whitespace" as the end -- but
+        this `if` sits inside a function, so almost every line for the rest
+        of that function is indented, and the match ran all the way to a
+        `print()` call near the very end of the file. Tracking the `if`
+        line's own indentation and stopping at the first non-blank line at
+        or below it is what actually bounds a Python block."""
+        lines = self._BUILD_PY.read_text().splitlines()
+        start = next(
+            i for i, l in enumerate(lines)
+            if l.strip() == "if lag_active and lb_scan_id is not None:"
+        )
+        if_indent = len(lines[start]) - len(lines[start].lstrip())
+        end = len(lines)
+        for i in range(start + 1, len(lines)):
+            stripped = lines[i].strip()
+            if not stripped:
+                continue
+            indent = len(lines[i]) - len(lines[i].lstrip())
+            if indent <= if_indent:
+                end = i
+                break
+        return "\n".join(lines[start:end])
+
+    def test_get_health_for_scan_is_imported(self):
+        """Scoped to the `from src.state import (...)` block specifically —
+        a substring check against the WHOLE file would still pass with the
+        import removed, because the function is also called later in the
+        gating block; confirmed by sabotage."""
+        text = self._BUILD_PY.read_text()
+        block = text.split("from src.state import (", 1)[1].split(")", 1)[0]
+        assert "get_health_for_scan" in block, (
+            "dashboard/build.py never imports get_health_for_scan — the "
+            "gated build has no way to ask for a specific scan's health"
+        )
+
+    def test_health_row_is_recapped_inside_the_gating_block(self):
+        block = self._gating_block()
+        assert "health_row" in block and "get_health_for_scan(conn, lb_scan_id)" in block, (
+            "health_row is not re-fetched for the lagged scan inside the "
+            "gating block — a guest's health panel would still show the "
+            "true latest scan's data regardless of the 7-day lag"
+        )

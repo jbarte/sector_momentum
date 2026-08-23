@@ -142,6 +142,71 @@ def test_get_latest_health_returns_dict():
     assert result["finbert_scored"] == 11
 
 
+def test_get_health_for_scan_selects_a_specific_scan():
+    """Mirrors get_sentiment_signals_for_scan / get_signals_for_scan: the
+    gated build needs the health of the scan a GUEST ACTUALLY SEES (the
+    lagged scan_id), not the true latest one. Code review, 2026-08-23: this
+    function did not exist, so dashboard/build.py had no way to ask for it --
+    `health_row = get_latest_health(conn)` ran unconditionally and was never
+    touched by the lag-gating block below it, leaking the true latest scan's
+    run_at (and, after this branch, prices_asof/asof_spread_days) to every
+    guest regardless of the 7-day lag. Same class of leak the sentiment_signals_df
+    re-fetch two lines below it in build.py already exists to prevent.
+    """
+    from src.state import get_health_for_scan
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame([{
+            "run_at": "2026-08-06T06:00:00+00:00",
+            "prices_asof": "2026-08-06", "asof_spread_days": 0,
+        }])
+        result = get_health_for_scan(conn, 162)
+
+    assert result["run_at"] == "2026-08-06T06:00:00+00:00"
+    call_args = mock_read.call_args
+    sql = str(call_args)
+    assert "WHERE" in sql and "scan_id" in sql, (
+        "get_health_for_scan does not scope its query to a specific scan_id"
+    )
+    # _read_sql(conn, query, params) — params is a tuple, so 162 lives INSIDE
+    # the third positional arg, not as a bare positional arg itself.
+    all_args = call_args.args + tuple(call_args.kwargs.values())
+    flattened = [v for a in all_args if isinstance(a, tuple) for v in a] + list(all_args)
+    assert 162 in flattened, (
+        "get_health_for_scan does not pass scan_id as a query parameter"
+    )
+
+
+def test_get_health_for_scan_returns_none_for_a_scan_with_no_health_row():
+    from src.state import get_health_for_scan
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame()
+        result = get_health_for_scan(conn, 1)
+
+    assert result is None
+
+
+def test_get_health_for_scan_shares_the_same_column_set_as_get_latest_health():
+    """The two functions must request the SAME columns, or the gated and
+    ungated health panels would silently show different information --
+    exactly the kind of drift a hand-duplicated column list invites (code
+    review flagged the three-way duplication across init_db/save_scan/
+    get_latest_health; this pins the fourth call site to the same source)."""
+    from src.state import get_health_for_scan
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame()
+        get_health_for_scan(conn, 1)
+
+    sql = str(mock_read.call_args)
+    for col in HEALTH_COLUMNS:
+        assert col in sql, f"get_health_for_scan's SELECT omits {col}"
+
+
 def test_prices_asof_and_asof_spread_days_round_trip():
     """`align_cohort_asof` (src/data/prices.py) computes both values into
     `stats_out`, but scan.py never carried them into the persisted `_health`

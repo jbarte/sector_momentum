@@ -268,6 +268,7 @@ def main() -> None:
         init_db, get_scan_history, get_signals_for_latest_scan, get_rrg_history,
         get_sentiment_signals_for_latest_scan,
         get_latest_health,
+        get_health_for_scan,
         get_signals_for_scan,
         get_sentiment_signals_for_scan,
     )
@@ -323,6 +324,14 @@ def main() -> None:
         # the Data <-> Sentiment scatter above it stayed capped at lb_scan_id,
         # so the two surfaces disagreed about what "latest" meant.
         sentiment_signals_df = get_sentiment_signals_for_scan(conn, lb_scan_id)
+        # Same leak, same fix: health_row was set once, above, from
+        # get_latest_health(conn) — unconditionally, with nothing in this
+        # block re-capping it the way every other per-scan source here is.
+        # A guest's "Data Health — Last scan: ..." line (and, since this was
+        # added in the same branch, "· as of ...") showed the TRUE latest
+        # scan's timing regardless of the 7-day lag. Found in code review,
+        # 2026-08-23.
+        health_row = get_health_for_scan(conn, lb_scan_id)
 
     # Load config. Themes are needed early — the per-scan reports below are
     # generated per-cohort.

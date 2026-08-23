@@ -453,6 +453,40 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   Also added: a `_persist_scan` unit test (scan.py), which had zero coverage
   at that granularity before this change.
 
+  **Code review found a real content-gating leak this change would have made
+  worse, and it's fixed.** `dashboard/build.py`'s lag-gating block re-caps
+  every other per-scan data source (`all_scores_df`, `history_df`, `rrg_df`,
+  `signals_df`, `sentiment_signals_df`) to the lagged scan a guest actually
+  sees — `health_row` was the one source never touched by it.
+  `get_latest_health(conn)` ran once, unconditionally, before the gate, so a
+  guest's health panel showed the **true** latest scan's `run_at` regardless
+  of the 7-day lag — and, once this branch added `prices_asof`/
+  `asof_spread_days`, would have leaked the true price as-of date too. Same
+  class of leak the `sentiment_signals_df` re-fetch already exists to
+  prevent, with an explicit comment saying so — the health panel was missed
+  when that fix landed.
+
+  Fixed with a new `get_health_for_scan(conn, scan_id)`, mirroring the
+  existing `get_signals_for_scan`/`get_sentiment_signals_for_scan` pattern,
+  called from inside the gating block. **Verified live, both directions**:
+  reverted the fix, rebuilt with gating active (auth configured locally) —
+  the panel showed `2026-08-23T07:04:01` (today's true latest scan, scan_id
+  170); restored the fix, rebuilt again — the panel showed
+  `2026-08-16T08:09:22` (scan_id 163, the lagged scan `apply_leaderboard_lag`
+  actually selected for this build). Confirmed in the browser as well as the
+  built HTML.
+
+  Review's second finding — the three-way hand-duplicated `_health_cols` list
+  across `init_db`, `save_scan` and `get_latest_health` — is fixed in the
+  same change: extracted to a single module-level `_HEALTH_COLUMNS`, shared
+  by `save_scan`, `get_latest_health` and the new `get_health_for_scan`
+  (`init_db`'s own DDL loop keeps separate `(name, type)` pairs, since a
+  plain name list can't carry the SQL type and the two lists can't
+  meaningfully diverge — `init_db` only ever *adds* columns). A new test
+  reads the actual SQL `get_health_for_scan` sends, asserting it requests
+  every name in `_HEALTH_COLUMNS`, so the two functions can't silently drift
+  apart on which columns they read.
+
 - **Desktop now shows the scan id/date on the Sentiment page** (2026-08-23).
 
   Split off the "Sentiment page pinned to lag" item once its copy-fix half
