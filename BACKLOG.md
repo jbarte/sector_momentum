@@ -425,33 +425,6 @@ Newly cheap to detect: `prices_asof` has been persisted on `scans` since
 2026-08-23, so "same market date as the previous scan" is one column comparison
 rather than a re-derivation.
 
-## 24% of `index.html` is duplicated Plotly `template` JSON
-
-Found in the 2026-08-23 sweep. Every serialized figure carries Plotly's full
-default-styling `template` object — **26 copies**, describing defaults for
-`choropleth`, `scatter3d`, `mesh3d`, `parcoords`, `scatterternary` and 20 other
-trace types the project never draws. Only `scatter`, `bar` and `heatmap` are
-real (`go.Scatter` ×8, `go.Bar` ×1, `go.Heatmap` ×1 across `dashboard/`).
-
-| variable | serialized | of which `template` |
-|---|---:|---:|
-| `COHORT_CHARTS` | 240,125 | 152,283 (63%) — 187 KB of it is the 18 drill-down figures |
-| `BACKTEST_DATA` | 45,887 | 13,242 (29%) |
-| `CORRELATION_DATA` | 15,036 | 6,621 (44%) |
-
-**Measured honestly, the wire saving is small.** Stripping every `template`
-takes `index.html` from 796,775 → 609,206 bytes raw, but gzipped only
-114,141 → 108,796 — **5.2 KB, under 5%**. gzip already dedupes near-identical
-blobs well. Recorded with the number attached precisely so this is not
-re-discovered and over-sold as a bandwidth win.
-
-The real payoff is parse time and mobile memory: 188 KB less JSON for the
-browser to parse before the first chart draws. Fix is setting the figure's
-`layout.template` to `None` before serialization in `dashboard/figures.py`;
-Plotly.js falls back to its built-in default, which is what the template
-was restating. Verify the charts still look right in both themes — pairs
-naturally with the Plotly major bump above, which needs the same eyeball.
-
 ## Holding-period panel is denominated in scans
 
 `validation._holding_stats` measures top-5 run lengths in scan-index units and
@@ -665,6 +638,50 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Stripped Plotly's default template from every serialized figure (2026-08-23)
+
+Every serialized figure carried Plotly's full default-styling `template`
+object — 26 copies, describing defaults for `choropleth`, `scatter3d`,
+`mesh3d`, `parcoords`, `scatterternary` and 20 other trace types the project
+never draws. Only `scatter`, `bar` and `heatmap` are real. Nothing in
+`dashboard/` reads from `layout.template` — every color, font and layout
+value is set explicitly — so the template was purely restating Plotly.js's
+own built-in default.
+
+Fix: one chokepoint, `_fig_to_json()` in `dashboard/figures.py`, calling
+`fig.update_layout(template=None)` before `pio.to_json(fig)`. Replaced 11
+independent `pio.to_json(fig)` call sites in `figures.py`. `dashboard/
+correlation.py` had its own, separate `pio.to_json` call site — not part of
+`figures.py` and easy to miss — found by grepping the whole `dashboard/`
+tree rather than trusting the 11-site count in `figures.py` alone; imports
+`_fig_to_json` from `figures.py` instead (it already imported `_base_layout`
+from there, same precedent), and its now-unused `import plotly.io as pio`
+was removed.
+
+**Measured precisely, matching the backlog item's own prediction almost
+exactly**: built the pre-fix commit in an isolated git worktree against the
+same live scan data for an apples-to-apples comparison (not gzip estimates
+computed separately at different times) — `index.html` raw
+805,084 → 617,931 bytes (187 KB / 23.2%), gzipped 117,280 → 111,525 bytes
+(5.8 KB / 4.9%). The wire saving stays genuinely small, exactly as this item
+warned when it was written — the real payoff is 187 KB less JSON for the
+browser to parse before the first chart draws.
+
+5 tests added in the new `tests/test_figures_template_strip.py`: a direct
+unit test on `_fig_to_json`, a size-ratio test (stripped output under 10% of
+unstripped), and three end-to-end tests proving real builder output — in
+*both* `figures.py` and the separate `correlation.py` — actually routes
+through the helper rather than calling `pio.to_json` directly. Sabotage-verified
+both fixes independently (the `template=None` call removed from the helper;
+`correlation.py` reverted to a raw, re-imported `pio.to_json`) — each caught
+by a different test, confirming the two chokepoints are independently real,
+not one test accidentally covering both.
+
+Verified live in a browser: all six chart tabs (RRG, drill-down, movers,
+history, backtest, correlation) render with every trace populated and
+`layout.template` empty; dark-theme re-theming still works (all 20 History
+lines survive `theme.js`'s recolor pass with correct dark hex values).
 
 ## Swept 3 small cleanups: modal dedup, XSS hardening, cache double-read (2026-08-23)
 
