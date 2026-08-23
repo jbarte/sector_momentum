@@ -699,19 +699,20 @@ and rewriting all of them for a return-type change would have been a much
 bigger, riskier diff than the fix itself. `fetch_prices` now calls
 `_load_fresh_cache` directly and reuses its frame.
 
-19 tests added/updated: 8 in `test_prices.py` (direct `_load_fresh_cache`
-tests, an end-to-end test asserting `pd.read_parquet` is called exactly once
-per cached ticker via a real — not mocked — cache file, and the 8 existing
-`fetch_prices`-integration tests re-pointed from mocking `_cache_is_fresh`
-with booleans to mocking `_load_fresh_cache` with frames), 4 in
-`test_dashboard_js.py` (a Node-execution test proving `escapeHtml()` itself
-neutralizes `<script>` tags correctly, plus source-pinned call-site
-assertions for both files), 2 rewritten in `test_alerts_modal.py`/
-`test_methodology.py` (their literal-include / "Escape" text assertions no
-longer held once the include moved — replaced with assertions on the actual
-contract, `window.SMModal.bind(...)` being called, with Escape-handling
-itself already pinned directly against `_modal.js.j2`'s own source by an
-existing `test_dashboard_js.py` test).
+5 new test functions in `test_prices.py` (direct `_load_fresh_cache` tests,
+plus an end-to-end test asserting `pd.read_parquet` is called exactly once
+per cached ticker via a real — not mocked — cache file) and 7 existing
+`fetch_prices`-integration tests in the same file re-pointed from mocking
+`_cache_is_fresh` with booleans to mocking `_load_fresh_cache` with frames.
+3 new test functions in `test_dashboard_js.py` (a Node-execution test
+proving `escapeHtml()` itself neutralizes `<script>` tags correctly, plus
+source-pinned call-site assertions for both files). 2 existing tests
+rewritten in `test_alerts_modal.py`/`test_methodology.py` — their
+literal-include / "Escape" text assertions no longer held once the include
+moved, replaced with assertions on the actual contract,
+`window.SMModal.bind(...)` being called, with Escape-handling itself already
+pinned directly against `_modal.js.j2`'s own source by an existing
+`test_dashboard_js.py` test.
 
 Sabotage-verified: escaping removed at either call site, and the double-read
 reintroduced, all caught by name.
@@ -722,6 +723,97 @@ a dispatched `Escape` keydown closes it — on `sentiment.html.j2` too, proving
 its own direct `_modal.js.j2` include (unchanged) is what now supplies
 `window.SMModal` to the `_footer.html.j2`/`_methodology.html.j2` partials it
 pulls in later, rather than either partial's own now-removed copy.
+
+**Full-branch code review (8 finder angles) caught a real gap, then live
+verification found a more serious one behind it:**
+
+- **CONFIRMED — a third file had the identical unescaped interpolation.**
+  `scan-history.js`'s `renderScanLeaderboard()` builds the History tab's
+  past-scan rows with the exact same pattern as `auth.js`/`scan-digest.js`
+  — its own comment even cites `auth.js`'s `r.gics_sector` by name — but
+  the original sweep missed it. Fixed the same way: local `escapeHtml()`,
+  wrapped call site, source-pinned test.
+- **A deeper bug, found only by testing the fix live rather than trusting the
+  passing test suite.** Verifying the `scan-history.js` fix in a browser by
+  injecting an adversarial theme name (`<img src=x onerror=...>`) into
+  `SCAN_HISTORY` still executed the payload — even though a debug-instrumented
+  rebuild proved `escapeHtml()` itself was correctly producing
+  `&lt;img ...&gt;` at that exact call site. The real bug: `renderMobileCards()`
+  and `renderBuyBand()` (`index.html.j2`) both **re-derive** their output from
+  the leaderboard table's own rendered DOM, reading `themeName.textContent` —
+  which DECODES HTML entities back to plain text — and reinjecting that
+  decoded string into a *new* `innerHTML` assignment a few lines later. This
+  silently undid the escaping every table builder had just done, in two more
+  places neither the sweep nor the code review caught, because both operate
+  purely on source text and neither exercises the actual render pipeline.
+  Fixed by reading `.innerHTML` instead of `.textContent` — the same content,
+  re-serialized with entities intact, safe to reinject; `.theme-name` holds
+  only a single text node in every table builder, so this is a pure fix with
+  no behavior change for real data.
+
+3 more test functions added to `test_dashboard_js.py`: 1 for the
+`scan-history.js` call site (plus extending the existing Node-execution test
+to cover it as a third parametrized case), 1 pinning the mobile-card/buy-band
+`.innerHTML` fix (source-level — `renderMobileCards()`/`renderBuyBand()` read
+throughout from `tr.querySelector(...)`, so a real behavioral test needs a
+DOM, which is not part of this project's JS test infrastructure; the live
+browser verification below is what actually proves it), and 1 pinning that
+`index.html.j2` includes `_modal.js.j2` *before*
+`_footer.html.j2`/`_methodology.html.j2` —
+review separately flagged that removing their redundant includes traded an
+idempotent, order-independent safety net for a document-order dependency
+enforced only by a comment; this closes that gap without reintroducing the
+duplication the whole item exists to remove.
+
+Sabotage-verified: escaping removed at the `scan-history.js` call site, the
+`.innerHTML` fix reverted at either site, and the include order swapped — all
+four caught.
+
+**Verified live in a browser** — this is the part that actually caught the
+deeper bug, not just confirmed it after the fact: injected an adversarial
+theme name into a past scan's `SCAN_HISTORY` data and clicked through to it
+(`scan-history.js`'s live path), then separately tampered with the current
+leaderboard's live DOM and re-ran `renderBuyBand()`/`renderMobileCards()`
+exactly as a sort/filter/horizon-switch would (the live-scan path). Both
+confirmed clean after the fix: zero live `<img onerror>` elements in the DOM,
+the payload appearing only as inert escaped text in the table, the mobile
+card view (at a 375px viewport), and the buy-band summary pills.
+
+**A second, multi-angle review round on the resulting branch caught two more
+real gaps, both fixed, plus one considered and declined:**
+
+- **The ticker symbol was left unescaped**, in the exact same `innerHTML`
+  string as the now-escaped theme name, in both `auth.js` and
+  `scan-history.js` — the theme name got the fix, the ticker beside it in the
+  same line did not. Same source (`config/themes.yaml` via the pipeline), same
+  "not exploitable today, hardening for the day it isn't" rationale already
+  stated for the theme name. Fixed the same way (`escapeHtml(ticker)`), with
+  a dedicated pinned test per file.
+- **`_modal.js.j2`'s own header comment went stale.** It still said
+  `_methodology.html.j2` includes this partial directly — true before this
+  branch, false after. Every other touched file's comments were updated to
+  describe the new include-once-per-page shape; this one, the file the whole
+  mechanism actually lives in, was missed. Rewritten to describe the current
+  shape and point at the test that now enforces the ordering it depends on.
+- **Declined: centralizing the three `escapeHtml()` copies into
+  `rescore.js`.** Multiple review passes flagged the duplication (auth.js,
+  scan-digest.js, scan-history.js all carry byte-identical copies) and
+  suggested moving it into `rescore.js`'s shared `Rescore` namespace, which
+  `auth.js` and `scan-history.js` already depend on for other helpers and
+  which loads before both on `index.html.j2`. Checked before acting on it:
+  `sentiment.html.j2` never loads `rescore.js` at all, but does load
+  `auth.js` (via `_footer.html.j2`) — centralizing would silently break
+  `auth.js`'s escaping on that page (`Rescore.escapeHtml` undefined) unless
+  `rescore.js` were also added there, which is a bigger, unrelated change for
+  a 6-line pure function. Left as three local copies, matching every other
+  file's existing per-file-IIFE convention.
+
+2 more test functions added, pinning the ticker call site in both files,
+matching the existing theme-name pin pattern. Full suite green throughout
+(1114 passed at the end, 13 new test functions total across this whole item's
+three rounds); the ticker fix was verified live in the same browser session
+as the `.innerHTML` fix above — real ticker symbols (`CIBR`, `GDX`, `BOAT`)
+still render correctly post-escaping.
 
 ## Persisted align_cohort_asof's dropped-theme count to health (2026-08-23)
 
