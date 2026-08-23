@@ -157,3 +157,123 @@ class TestFooterNeverGuessesHealthy:
         badge would lose its weight and read as ordinary prose."""
         css = (self._TPL / "css" / "_health.css.j2").read_text()
         assert ".badge-unknown" in css, "badge-unknown has no CSS rule"
+
+
+class TestPricesAsofDisplay:
+    """The health panel's Prices row now shows when the snapshot was
+    actually scored (2026-08-23) -- persisted from align_cohort_asof's
+    stats_out (see src/state.py, scan.py). Real Jinja renders, not source
+    scans: the guard has to handle None correctly (old scan rows predate
+    these two columns), which a substring check on the template source
+    can't verify.
+    """
+
+    _TPL = Path(__file__).parent.parent / "dashboard" / "templates"
+
+    def _render(self, health, health_badges=None, health_any_warn=False):
+        from jinja2 import Environment, FileSystemLoader
+        env = Environment(loader=FileSystemLoader(str(self._TPL)))
+        return env.get_template("_footer.html.j2").render(
+            health=health,
+            health_badges=health_badges or {},
+            health_any_warn=health_any_warn,
+        )
+
+    def _base_health(self, **overrides):
+        h = {
+            "run_at": "2026-08-09T06:00:00+00:00",
+            "duration_s": 12.0,
+            "prices_yfinance": 18, "prices_cache": 0, "prices_failed": 0,
+            "sectors_produced": 18, "sectors_expected": 18,
+            "finbert_scored": None, "finbert_total": None, "gdelt_articles": None,
+            "prices_asof": None, "asof_spread_days": None,
+        }
+        h.update(overrides)
+        return h
+
+    def test_shows_the_asof_date_when_present(self):
+        html = self._render(self._base_health(prices_asof="2026-08-06"))
+        assert "2026-08-06" in html
+
+    def test_shows_the_spread_when_nonzero(self):
+        html = self._render(self._base_health(
+            prices_asof="2026-08-06", asof_spread_days=2,
+        ))
+        assert "2" in html.split("Prices</span>", 1)[1].split("</div>", 1)[0]
+
+    def test_renders_without_crashing_on_old_scan_rows_missing_asof(self):
+        """Old scan rows predate `prices_asof`/`asof_spread_days` -- both
+        None, not absent keys, since get_latest_health's own NaN->None
+        conversion runs over the full health-columns list regardless of scan
+        age. Must render clean, not `as of None`."""
+        html = self._render(self._base_health())  # both None
+        prices_row = html.split('class="health-label">Prices', 1)[1].split("</div>", 1)[0]
+        assert "None" not in prices_row, (
+            f"the Prices row renders the literal word 'None': {prices_row!r}"
+        )
+
+
+class TestHealthPanelGating:
+    """The lag-gating block re-caps every other per-scan data source
+    (all_scores_df, history_df, rrg_df, signals_df, sentiment_signals_df) to
+    the lagged scan a guest actually sees. health_row was never touched by
+    it -- get_latest_health(conn) ran once, unconditionally, before the gate
+    -- so a guest's health panel showed the TRUE latest scan's run_at (and,
+    once prices_asof/asof_spread_days were added, the true price as-of date)
+    regardless of the 7-day lag. Found in code review, 2026-08-23; same class
+    of leak the sentiment_signals_df re-fetch two lines below already exists
+    to prevent, with an explicit comment saying so.
+
+    Source-scan, not a real build.py run: build.py's main body is a
+    procedural script with a live DB connection, not a unit-testable
+    function -- the same reason no other part of this gating block (the
+    sentiment_signals_df re-fetch it mirrors) has a behavioural test either.
+    """
+
+    _BUILD_PY = Path(__file__).parent.parent / "dashboard" / "build.py"
+
+    def _gating_block(self) -> str:
+        """The `if lag_active and lb_scan_id is not None:` block, bounded by
+        INDENTATION rather than a fixed marker string. A first attempt used
+        "next line that doesn't start with whitespace" as the end -- but
+        this `if` sits inside a function, so almost every line for the rest
+        of that function is indented, and the match ran all the way to a
+        `print()` call near the very end of the file. Tracking the `if`
+        line's own indentation and stopping at the first non-blank line at
+        or below it is what actually bounds a Python block."""
+        lines = self._BUILD_PY.read_text().splitlines()
+        start = next(
+            i for i, l in enumerate(lines)
+            if l.strip() == "if lag_active and lb_scan_id is not None:"
+        )
+        if_indent = len(lines[start]) - len(lines[start].lstrip())
+        end = len(lines)
+        for i in range(start + 1, len(lines)):
+            stripped = lines[i].strip()
+            if not stripped:
+                continue
+            indent = len(lines[i]) - len(lines[i].lstrip())
+            if indent <= if_indent:
+                end = i
+                break
+        return "\n".join(lines[start:end])
+
+    def test_get_health_for_scan_is_imported(self):
+        """Scoped to the `from src.state import (...)` block specifically —
+        a substring check against the WHOLE file would still pass with the
+        import removed, because the function is also called later in the
+        gating block; confirmed by sabotage."""
+        text = self._BUILD_PY.read_text()
+        block = text.split("from src.state import (", 1)[1].split(")", 1)[0]
+        assert "get_health_for_scan" in block, (
+            "dashboard/build.py never imports get_health_for_scan — the "
+            "gated build has no way to ask for a specific scan's health"
+        )
+
+    def test_health_row_is_recapped_inside_the_gating_block(self):
+        block = self._gating_block()
+        assert "health_row" in block and "get_health_for_scan(conn, lb_scan_id)" in block, (
+            "health_row is not re-fetched for the lagged scan inside the "
+            "gating block — a guest's health panel would still show the "
+            "true latest scan's data regardless of the 7-day lag"
+        )

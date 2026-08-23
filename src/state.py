@@ -76,6 +76,24 @@ _SCAN_CHILD_TABLES = (
     "signals",
 )
 
+# The `scans` health columns, shared by every reader and writer of them
+# (save_scan's INSERT, get_latest_health's and get_health_for_scan's SELECT).
+# One list, not three independently hand-maintained copies: code review
+# (2026-08-23) flagged the prior three-way duplication as the kind of drift a
+# column silently dropped from one of them — a real DB simply never returning
+# a key nobody asked for — has no test watching for it by construction.
+# init_db()'s own ALTER TABLE loop keeps its own (name, type) pairs rather
+# than reusing this: it needs a SQL type per column, which this plain name
+# list does not carry, and the two lists cannot silently diverge in a way
+# that matters — init_db() only ever ADDS columns, it never omits one that
+# the readers/writers above expect.
+_HEALTH_COLUMNS = [
+    "duration_s", "prices_total", "prices_cache", "prices_stooq",
+    "prices_yfinance", "prices_failed", "sectors_expected",
+    "sectors_produced", "finbert_scored", "finbert_total",
+    "gdelt_articles", "prices_asof", "asof_spread_days",
+]
+
 # Cohort discriminator on the shared scores/signals/sentiment_signals tables.
 THEME_REGION = "THEME"
 
@@ -133,6 +151,11 @@ def init_db() -> psycopg2.extensions.connection:
                 ("finbert_scored", "INTEGER"),
                 ("finbert_total", "INTEGER"),
                 ("gdelt_articles", "INTEGER"),
+                # Populated from align_cohort_asof's stats_out (scan.py) —
+                # answers "which date was this snapshot actually scored on?"
+                # without reading scan logs or hand-diffing the price cache.
+                ("prices_asof", "DATE"),
+                ("asof_spread_days", "INTEGER"),
             ]:
                 cur.execute(
                     f"ALTER TABLE scans ADD COLUMN IF NOT EXISTS {col} {col_type}"
@@ -191,12 +214,7 @@ def save_scan(
                     dup_ids,
                 )
 
-            _health_cols = [
-                "duration_s", "prices_total", "prices_cache", "prices_stooq",
-                "prices_yfinance", "prices_failed", "sectors_expected",
-                "sectors_produced", "finbert_scored", "finbert_total",
-                "gdelt_articles",
-            ]
+            _health_cols = _HEALTH_COLUMNS
             if health:
                 cols = "run_at, config_hash, " + ", ".join(_health_cols)
                 placeholders = ", ".join(["%s"] * (2 + len(_health_cols)))
@@ -555,28 +573,56 @@ def get_scan_history(
     return _read_sql(conn, query, params + rparams)
 
 
+def _health_row_from_df(df: pd.DataFrame) -> dict | None:
+    """Shared by get_latest_health and get_health_for_scan: one row of
+    `scans` health columns, with NaN normalized to None (old scan rows
+    predate a given column and read back as NaN, not absent)."""
+    if df.empty:
+        return None
+    row = df.iloc[0].to_dict()
+    for col in _HEALTH_COLUMNS:
+        if col in row and pd.isna(row[col]):
+            row[col] = None
+    return row
+
+
 def get_latest_health(
     conn: psycopg2.extensions.connection,
 ) -> dict | None:
     """Return health metadata for the most recent scan, or None if empty."""
-    _health_cols = [
-        "duration_s", "prices_total", "prices_cache", "prices_stooq",
-        "prices_yfinance", "prices_failed", "sectors_expected",
-        "sectors_produced", "finbert_scored", "finbert_total",
-        "gdelt_articles",
-    ]
-    col_list = "run_at, " + ", ".join(_health_cols)
+    col_list = "run_at, " + ", ".join(_HEALTH_COLUMNS)
     df = _read_sql(
         conn,
         f"SELECT {col_list} FROM scans ORDER BY scan_id DESC LIMIT 1",
     )
-    if df.empty:
-        return None
-    row = df.iloc[0].to_dict()
-    for col in _health_cols:
-        if col in row and pd.isna(row[col]):
-            row[col] = None
-    return row
+    return _health_row_from_df(df)
+
+
+def get_health_for_scan(
+    conn: psycopg2.extensions.connection, scan_id: int,
+) -> dict | None:
+    """Return health metadata for a SPECIFIC scan_id, or None if it has none.
+
+    For the gated build (dashboard/build.py): a guest's page shows the
+    LAGGED scan, not the true latest one, and get_latest_health always reads
+    the true latest — unconditionally, with nothing downstream re-capping it
+    the way history_df/all_scores_df/rrg_df/signals_df/sentiment_signals_df
+    all are. That left `health.run_at` (and, once prices_asof/
+    asof_spread_days were added, the price as-of date too) leaking the true
+    latest scan's timing to every guest regardless of the 7-day lag — found
+    in code review, 2026-08-23, the same class of leak
+    get_sentiment_signals_for_scan already exists to prevent for the News
+    table. Same column set as get_latest_health (_HEALTH_COLUMNS, shared),
+    so the gated and ungated panels never silently disagree about what they
+    show for the scan they are each actually displaying.
+    """
+    col_list = "run_at, " + ", ".join(_HEALTH_COLUMNS)
+    df = _read_sql(
+        conn,
+        f"SELECT {col_list} FROM scans WHERE scan_id = %s",
+        (scan_id,),
+    )
+    return _health_row_from_df(df)
 
 
 def get_all_positions(conn: psycopg2.extensions.connection) -> list[dict]:

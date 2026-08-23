@@ -14,6 +14,7 @@ from scan import (
     _build_long_signals_df,
     _build_scored_df_for_db,
     _parse_args,
+    _persist_scan,
 )
 
 
@@ -389,3 +390,83 @@ def test_conn_closed_on_exception(monkeypatch):
         scan.run(args)
 
     fake_conn.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _persist_scan's health dict — carries align_cohort_asof's stats_out into
+# the persisted row (feature/persist-prices-asof, 2026-08-23)
+# ---------------------------------------------------------------------------
+
+def test_persist_scan_carries_asof_into_the_health_dict(monkeypatch):
+    """align_cohort_asof (src/data/prices.py) already computes `asof` and
+    `asof_spread_days` into its stats_out dict -- scan.py received them into
+    `_price_stats` but never carried them into the `_health` dict that
+    `save_scan` actually persists, so "which date was this snapshot scored
+    on?" was answerable only from a scan's log line, or (as the 2026-08-22
+    weekend-staleness bug was actually found) by hand-diffing the price
+    cache. Pins that `price_stats["asof"]`/`["asof_spread_days"]` reach the
+    persisted health dict under the DB column names.
+    """
+    from datetime import datetime, timezone
+    import src.state as _state_mod
+
+    captured = {}
+
+    def fake_save_scan(**kwargs):
+        captured.update(kwargs["health"])
+        return 99
+
+    # save_scan is imported LOCALLY inside _persist_scan (`from src.state
+    # import save_scan`), so patching scan.save_scan would silently miss —
+    # the same shape test_conn_closed_on_exception above already patches
+    # _state_mod.save_scan for the same reason.
+    monkeypatch.setattr(_state_mod, "save_scan", fake_save_scan)
+
+    scan_id = _persist_scan(
+        conn=object(),
+        run_at=datetime(2026, 8, 9, 6, 0, tzinfo=timezone.utc),
+        long_signals_df=pd.DataFrame(),
+        scored_with_deltas=pd.DataFrame(),
+        sentiment_signals_df=pd.DataFrame(),
+        finbert_health={"finbert_scored": 0, "finbert_total": 0, "gdelt_articles": 0},
+        t0=0.0,
+        price_stats={
+            "cache": 20, "yfinance": 0, "stooq": 0,
+            "asof": "2026-08-06", "asof_spread_days": 2,
+        },
+        prices_total=20, prices_failed=0,
+        sectors_expected=18, sectors_produced=18,
+    )
+
+    assert scan_id == 99
+    assert captured["prices_asof"] == "2026-08-06"
+    assert captured["asof_spread_days"] == 2
+
+
+def test_persist_scan_handles_missing_asof(monkeypatch):
+    """align_cohort_asof returns (`{}`, None) when nothing is usable, and
+    scan.py aborts before reaching _persist_scan in that case -- but
+    stats_out is also updated (asof=None) on the same code path, so a
+    caller reaching this function with a stale/incomplete price_stats dict
+    (e.g. a future refactor) must not KeyError."""
+    from datetime import datetime, timezone
+    import src.state as _state_mod
+
+    captured = {}
+    monkeypatch.setattr(_state_mod, "save_scan", lambda **kw: captured.update(kw["health"]) or 1)
+
+    _persist_scan(
+        conn=object(),
+        run_at=datetime(2026, 8, 9, 6, 0, tzinfo=timezone.utc),
+        long_signals_df=pd.DataFrame(),
+        scored_with_deltas=pd.DataFrame(),
+        sentiment_signals_df=pd.DataFrame(),
+        finbert_health={"finbert_scored": 0, "finbert_total": 0, "gdelt_articles": 0},
+        t0=0.0,
+        price_stats={"cache": 0, "yfinance": 0, "stooq": 0},
+        prices_total=0, prices_failed=0,
+        sectors_expected=18, sectors_produced=0,
+    )
+
+    assert captured["prices_asof"] is None
+    assert captured["asof_spread_days"] is None
