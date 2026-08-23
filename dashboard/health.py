@@ -54,16 +54,20 @@ def _badge(metric: str, value: int | float | None, denominator: int | None) -> s
     return None
 
 
-def build_health_context(health: dict | None) -> dict:
+def build_health_context(health: dict | None, same_asof_streak: int | None = None) -> dict:
     """Build template context for the data-health footer panel.
 
     ``health`` is the dict returned by ``get_latest_health`` (or None).
+    ``same_asof_streak`` is ``get_same_asof_streak``'s count for the scan
+    ``health`` describes -- 1 (or None) means nothing to note; the template
+    only renders a note when it is 2 or more.
     """
     if health is None:
         return {
             "health": None,
             "health_badges": {},
             "health_any_warn": False,
+            "same_asof_streak": None,
         }
 
     badges = {
@@ -87,4 +91,5 @@ def build_health_context(health: dict | None) -> dict:
         "health": health,
         "health_badges": badges,
         "health_any_warn": any_warn,
+        "same_asof_streak": same_asof_streak,
     }

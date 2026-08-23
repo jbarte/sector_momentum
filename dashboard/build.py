@@ -326,6 +326,7 @@ def main() -> None:
         get_health_for_scan,
         get_signals_for_scan,
         get_sentiment_signals_for_scan,
+        get_same_asof_streak,
     )
 
     conn = init_db()
@@ -460,6 +461,10 @@ def main() -> None:
 
     latest_scan_id = lb_scan_id
     latest_scores  = lb_history_df[lb_history_df["scan_id"] == lb_scan_id]
+    # "Three of seven weekly scans are byte-identical" (2026-08-23 backlog) --
+    # surfaced here, not fixed at persistence: how many scans ending at the
+    # one actually being displayed share its market date.
+    same_asof_streak = get_same_asof_streak(conn, latest_scan_id) if latest_scan_id is not None else None
 
     for row in leaderboard_rows:
         key = f"{row['region']}|{row['sector']}"
@@ -650,7 +655,7 @@ def main() -> None:
     sectors_ctx.update(_validation_ctx(shared))
     sectors_ctx.update(macro_page_ctx)
     sectors_ctx.update(auth_ctx)
-    sectors_ctx.update(build_health_context(health_row))
+    sectors_ctx.update(build_health_context(health_row, same_asof_streak=same_asof_streak))
 
     logger.info("Building correlation heatmap …")
     sectors_ctx.update(build_correlation_context(shared))

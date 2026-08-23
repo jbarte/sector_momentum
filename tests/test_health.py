@@ -81,6 +81,17 @@ class TestBuildHealthContext:
         ctx = build_health_context(None)
         assert ctx["health"] is None
         assert ctx["health_any_warn"] is False
+        assert ctx["same_asof_streak"] is None
+
+    def test_same_asof_streak_defaults_to_none(self):
+        health = {"run_at": "2026-07-20T06:00:00+00:00"}
+        ctx = build_health_context(health)
+        assert ctx["same_asof_streak"] is None
+
+    def test_same_asof_streak_passed_through(self):
+        health = {"run_at": "2026-07-20T06:00:00+00:00"}
+        ctx = build_health_context(health, same_asof_streak=3)
+        assert ctx["same_asof_streak"] == 3
 
     def test_returns_badges_for_healthy_scan(self):
         health = {
@@ -210,13 +221,14 @@ class _FooterRenderHelper:
 
     _TPL = Path(__file__).parent.parent / "dashboard" / "templates"
 
-    def _render(self, health, health_badges=None, health_any_warn=False):
+    def _render(self, health, health_badges=None, health_any_warn=False, same_asof_streak=None):
         from jinja2 import Environment, FileSystemLoader
         env = Environment(loader=FileSystemLoader(str(self._TPL)))
         return env.get_template("_footer.html.j2").render(
             health=health,
             health_badges=health_badges or {},
             health_any_warn=health_any_warn,
+            same_asof_streak=same_asof_streak,
         )
 
     def _base_health(self, **overrides):
@@ -308,6 +320,50 @@ class TestAsofDroppedDisplay(_FooterRenderHelper):
         )
 
 
+class TestSameAsofStreakDisplay(_FooterRenderHelper):
+    """The Prices row notes when the displayed scan shares its market date
+    with prior scans (2026-08-23 backlog: byte-identical weekend scans) --
+    informational only (health-muted), never a badge color, since a shared
+    as-of is correct behavior, not a fetch failure."""
+
+    def _prices_row(self, html: str) -> str:
+        return html.split('class="health-label">Prices', 1)[1].split("</div>", 1)[0]
+
+    def test_silent_when_streak_is_one(self):
+        """streak=1 means nothing shares this scan's as-of -- no note."""
+        html = self._render(
+            self._base_health(prices_asof="2026-08-21"), same_asof_streak=1,
+        )
+        assert "shared with" not in self._prices_row(html)
+
+    def test_silent_when_streak_is_none(self):
+        html = self._render(
+            self._base_health(prices_asof="2026-08-21"), same_asof_streak=None,
+        )
+        assert "shared with" not in self._prices_row(html)
+
+    def test_shows_prior_count_for_a_streak_of_three(self):
+        html = self._render(
+            self._base_health(prices_asof="2026-08-21"), same_asof_streak=3,
+        )
+        prices_row = self._prices_row(html)
+        assert "shared with 2 prior scans" in prices_row
+
+    def test_singular_wording_for_a_streak_of_two(self):
+        html = self._render(
+            self._base_health(prices_asof="2026-08-21"), same_asof_streak=2,
+        )
+        prices_row = self._prices_row(html)
+        assert "shared with 1 prior scan" in prices_row
+        assert "1 prior scans" not in prices_row
+
+    def test_silent_without_a_prices_asof_even_if_streak_given(self):
+        """Guarded inside the `if health.prices_asof` block -- no as-of date
+        to attach the note to means no note, regardless of streak."""
+        html = self._render(self._base_health(), same_asof_streak=3)  # prices_asof=None
+        assert "shared with" not in self._prices_row(html)
+
+
 class TestHealthPanelGating:
     """The lag-gating block re-caps every other per-scan data source
     (all_scores_df, history_df, rrg_df, signals_df, sentiment_signals_df) to
@@ -371,6 +427,44 @@ class TestHealthPanelGating:
             "health_row is not re-fetched for the lagged scan inside the "
             "gating block — a guest's health panel would still show the "
             "true latest scan's data regardless of the 7-day lag"
+        )
+
+
+class TestSameAsofStreakWiring:
+    """same_asof_streak (2026-08-23 backlog: byte-identical scans, surfaced
+    not fixed) is computed from `latest_scan_id`, which is already the final,
+    gating-resolved scan_id (`lb_scan_id` itself is never reassigned inside
+    the lag-gating block -- only the OTHER per-scan sources are re-capped
+    against it). So unlike health_row/rrg_df/signals_df, there is no
+    separate recap step to verify here; this class only pins that the value
+    is actually computed and actually reaches build_health_context, so a
+    future edit can't silently drop the wiring.
+
+    Source-scan, not a real build.py run -- same reasoning as
+    TestHealthPanelGating above.
+    """
+
+    _BUILD_PY = TestHealthPanelGating._BUILD_PY
+
+    def test_get_same_asof_streak_is_imported(self):
+        text = self._BUILD_PY.read_text()
+        block = text.split("from src.state import (", 1)[1].split(")", 1)[0]
+        assert "get_same_asof_streak" in block, (
+            "dashboard/build.py never imports get_same_asof_streak"
+        )
+
+    def test_same_asof_streak_is_computed_from_latest_scan_id(self):
+        text = self._BUILD_PY.read_text()
+        assert "get_same_asof_streak(conn, latest_scan_id)" in text, (
+            "same_asof_streak is not computed from the final, "
+            "gating-resolved latest_scan_id"
+        )
+
+    def test_same_asof_streak_reaches_build_health_context(self):
+        text = self._BUILD_PY.read_text()
+        assert "build_health_context(health_row, same_asof_streak=same_asof_streak)" in text, (
+            "same_asof_streak is computed but never passed into "
+            "build_health_context — the footer would never see it"
         )
 
 

@@ -667,6 +667,42 @@ def get_health_for_scan(
     return _health_row_from_df(df)
 
 
+def get_same_asof_streak(conn: psycopg2.extensions.connection, scan_id: int) -> int:
+    """Count consecutive scans, ending at and including `scan_id` in
+    descending scan_id order, that share `scan_id`'s prices_asof.
+
+    Surfaces the "three of seven weekly scans are byte-identical" pattern
+    (06:00 UTC cron fires before the US close, so Sat/Sun/Mon all score off
+    Friday's bar) without changing what gets persisted -- a human reading
+    scan history sees that N scan_ids share one market date, rather than
+    reading them as N independent days of signal.
+
+    Returns 1 (no streak beyond itself) when `scan_id` doesn't exist, or its
+    prices_asof is unknown (old scan row, or a real fetch failure) -- both
+    are "nothing to compare", not "shares with 0 others". The window is
+    bounded at 20 scans: the real-world streak is 3, so this is a defensive
+    cap against runaway comparison, not a tuned limit.
+    """
+    df = _read_sql(
+        conn,
+        "SELECT scan_id, prices_asof FROM scans WHERE scan_id <= %s "
+        "ORDER BY scan_id DESC LIMIT 20",
+        (scan_id,),
+    )
+    if df.empty or df.iloc[0]["scan_id"] != scan_id:
+        return 1
+    target_asof = df.iloc[0]["prices_asof"]
+    if pd.isna(target_asof):
+        return 1
+
+    streak = 0
+    for _, row in df.iterrows():
+        if pd.isna(row["prices_asof"]) or row["prices_asof"] != target_asof:
+            break
+        streak += 1
+    return streak
+
+
 def get_all_positions(conn: psycopg2.extensions.connection) -> list[dict]:
     """Return every position row across all users.
 

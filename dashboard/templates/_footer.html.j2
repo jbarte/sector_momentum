@@ -21,6 +21,14 @@
             calendar accounts for is visible here, not just in a log line. -#}
         {%- if health.prices_asof %}
         &middot; as of {{ health.prices_asof }}{% if health.asof_spread_days %} ({{ health.asof_spread_days }}d spread){% endif %}
+        {#- The 06:00 UTC cron fires before the US close, so Sat/Sun/Mon scans
+            can all resolve to Friday's bar -- correct, not a fetch failure,
+            so this is informational (health-muted), never a badge color.
+            same_asof_streak counts the CURRENT scan too, so 1 means "nothing
+            shared" and is deliberately silent; only 2+ renders a note. -#}
+        {%- if same_asof_streak and same_asof_streak > 1 %}
+        <span class="health-muted">(shared with {{ same_asof_streak - 1 }} prior scan{{ 's' if same_asof_streak > 2 else '' }})</span>
+        {%- endif %}
         {%- endif %}
       </span>
     </div>
