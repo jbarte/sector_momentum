@@ -469,22 +469,41 @@ Fix: dedupe runs by distinct market date and report market days. `prices_asof`
 on `scans` (persisted since 2026-08-23) is exactly the column that makes this
 possible without re-deriving dates from `run_at`.
 
-## `align_cohort_asof` can drop themes with no health signal
+## Health panel has no signal for themes missing for reasons other than a stale as-of drop
 
-`align_cohort_asof` already computes `asof_dropped` into `stats_out`, but
-`scan.py` never carries it into the persisted `_health` dict — only `asof` and
-`asof_spread_days` made it in on 2026-08-23.
+Code review, 2026-08-23, on the `asof_dropped_count` PR (see Done). Recorded,
+**not obviously worth acting on yet** — a real gap, but the fix is a design
+question, not a bug.
 
-A dropped ticker removes that theme from the run entirely. The coverage guard
-in `scan.py` only aborts below 80%, which at 18 themes means **up to 3 themes can
-silently vanish** from a scan and still ship, with nothing on the health panel
-saying so. `prices_failed` does not cover it — a drop is not a fetch failure,
-which is exactly the distinction `scan.py:_prices_fetched` already comments on.
+`sectors_produced < sectors_expected` (the coverage badge) can happen for at
+least three independent reasons, and the health panel now names only one of
+them:
 
-Fix: persist the dropped count as a `scans` column (the same self-migrating
-`ADD COLUMN IF NOT EXISTS` path the as-of columns used) and give it a badge in
-`dashboard/health.py` — green at 0, red otherwise. Small, and it closes the last
-gap between what the alignment step knows and what the panel can show.
+1. the ticker fetch failed outright — tracked (`prices_failed`)
+2. `align_cohort_asof` dropped it for lagging the cohort's as-of date —
+   tracked as of 2026-08-23 (`asof_dropped_count`)
+3. `compute_signals_for_sector` (`src/pipeline.py`) returns `None` for a
+   ticker that IS present in `prices` — e.g. insufficient history for a
+   signal calculator — **not tracked anywhere**
+
+A scan where 2 themes vanish for reason 3 shows coverage red/amber with both
+`prices_failed` and `asof_dropped_count` reading a healthy 0 — a reader has no
+way to tell why, and the panel's own honest badges actively point away from
+the real cause.
+
+**The naive fix — a fourth single-purpose column for reason 3 — is exactly the
+pattern this note exists to interrupt.** Each of the three causes so far
+became its own dedicated `scans` column, badge, and footer line, requiring the
+same 4-file edit (`scan.py`, `_HEALTH_COLUMNS`, `dashboard/health.py`,
+`_footer.html.j2`). A fourth cause would make it four copies of that edit; a
+fifth would make five. The design question worth answering before adding
+reason 3 (or the next one after it) is whether to keep doing that, or
+converge on one extensible mechanism — e.g. a small `dropped_themes` JSON/text
+column recording `{ticker: reason}` pairs, with one badge and one footer line
+reading from it regardless of how many reasons exist. That is a real design
+decision (schema shape, how much detail to surface, whether reason 1 and 2
+should migrate into it too) rather than a three-line addition, so it belongs
+in front of brainstorming, not skipped straight to implementation.
 
 ## Feature: UCITS tracking-difference monitor
 
@@ -658,6 +677,82 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Persisted align_cohort_asof's dropped-theme count to health (2026-08-23)
+
+`align_cohort_asof` already computed `asof_dropped` (the sorted list of
+tickers it drops for lagging the cohort's modal as-of date by more than
+`MAX_ASOF_LAG_DAYS`) into its `stats_out` dict, but `scan.py` never carried it
+into the persisted `_health` dict — only `asof`/`asof_spread_days` made it in
+earlier the same day. A dropped ticker removes its whole theme from the run;
+the 80% coverage guard in `scan.py` tolerates up to 3 of 18 themes vanishing
+that way and still shipping the scan, with nothing on the health panel saying
+so. `prices_failed` doesn't cover it — a drop is a stale cache, not a fetch
+failure, the same distinction `scan.py`'s `_prices_fetched` comment already
+draws for the coverage guard itself.
+
+Same shape as `prices_asof`/`asof_spread_days`: a self-migrating `scans`
+column (`asof_dropped_count INTEGER`), threaded through the single shared
+`_HEALTH_COLUMNS` list so `init_db()`'s ALTER loop, `save_scan`'s INSERT, and
+both `get_latest_health`/`get_health_for_scan`'s SELECTs stay in sync by
+construction. New badge in `dashboard/health.py` — green at 0, red for any
+drop, deliberately **no amber tier** (unlike `prices`): a drop isn't a fetch
+failure with a fuzzy severity, it's `align_cohort_asof` deciding a theme's
+price series is too stale to score at all, which is binary. Rendered in the
+Themes row of the health footer, next to the existing coverage badge.
+
+11 tests added across `tests/test_scan_smoke.py` (the `_persist_scan` health
+dict, including a dedicated test that a real dropped-ticker *list* persists
+as its *count* — the scans column is `INTEGER`, not the list),
+`tests/test_state_health.py` (write→read round trip with a real value, plus
+the shared column-list tests inherited it for free), and `tests/test_health.py`
+(badge logic, `build_health_context` wiring, and a real Jinja render). All
+four layers sabotage-verified (scan.py never sets the key, the column dropped
+from the shared list, the badge hardcoded green, the footer line removed) —
+each caught by a different test.
+
+Verified live against the real built page: an old scan (predating this
+column) renders `badge-unknown` in the Themes row — not a false green, not a
+crash.
+
+**Full-branch code review (8 finder angles) caught two real issues before
+merge, both fixed:**
+
+- **The footer's fallback read a genuinely-unknown value the same as a
+  confirmed healthy zero.** The first draft used `{{ health.asof_dropped_count
+  or 0 }}`, so an old scan row (predating this column, value `None`) rendered
+  "0 dropped" — a reader skimming the number rather than the grey badge color
+  reads that as a clean bill of health, exactly the false-green trap this same
+  file's `finbert` badge comment already warns against. Now
+  `{{ ... if ... is not none else '?' }}`, matching the coverage badge's own
+  `'?'` convention for the identical state one line above it in the same row.
+  Safe specifically because `_health_row_from_df` (shared by
+  `get_latest_health`/`get_health_for_scan`) always includes this key —
+  never Jinja `Undefined` on the real render path, which is what made
+  `prices_asof`'s own guard (right above it) avoid the same `is not none`
+  form for a different, older reason.
+- **`tests/test_health.py` copy-pasted its Jinja-render harness.** The new
+  `TestAsofDroppedDisplay` duplicated `TestPricesAsofDisplay`'s `_render`/
+  `_base_health` verbatim — its own docstring said "mirrors
+  TestPricesAsofDisplay" without acting on it. Factored into a shared
+  `_FooterRenderHelper` base class both now inherit.
+
+Two redundant assertions were also trimmed (one in `test_scan_smoke.py`, one
+in `test_health.py`) that re-proved a fallback branch or a generic `any()`
+fold already covered elsewhere — flagged by the review's simplification
+angle.
+
+**One review finding recorded rather than fixed here** — see *Health panel
+has no signal for themes missing for reasons other than a stale as-of drop*,
+below: a real scope question (a general "why did this theme not produce a
+signal" mechanism vs. one column per cause), not a defect in what shipped.
+
+**One review finding declined**: no structural/typed link ties `align_cohort_asof`'s
+`stats_out` key names to what `scan.py` reads and what `_HEALTH_COLUMNS`
+expects — correctness rests on the test suite, not the type system. Real, but
+identical to the pre-existing exposure on `prices_asof`/`asof_spread_days`
+(shipped the same day, same pattern, no structural link either) — hardening
+just the newest field would be inconsistent altitude, not a real fix.
 
 ## Added scope="col" to every <th> — WCAG 1.3.1 (2026-08-23)
 
