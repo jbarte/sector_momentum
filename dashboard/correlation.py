@@ -7,9 +7,8 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.io as pio
 
-from dashboard.figures import _base_layout
+from dashboard.figures import _base_layout, _fig_to_json
 from src.cohorts import Cohort, cohorts
 from src.data.prices import align_cohort_asof, fetch_prices
 
@@ -153,7 +152,7 @@ def _build_heatmap_figure(
         shapes=shapes,
     )
     fig.update_layout(**layout)
-    return pio.to_json(fig)
+    return _fig_to_json(fig)
 
 
 def build_correlation_context(shared: dict) -> dict:

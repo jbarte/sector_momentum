@@ -132,6 +132,27 @@ def _base_layout(**overrides) -> dict:
     return base
 
 
+def _fig_to_json(fig: go.Figure) -> str:
+    """Serialize a figure, stripping Plotly's auto-applied default `template`.
+
+    `pio.to_json` bakes in the FULL default-styling template — every trace
+    type Plotly ships (choropleth, scatter3d, mesh3d, parcoords, and 20
+    others this project never draws), not just the ones actually used
+    (scatter/bar/heatmap). Found in the 2026-08-23 sweep: 26 serialized
+    figures each carried their own copy, 63% of COHORT_CHARTS' bytes.
+
+    Every visual property this project actually sets (colors, fonts,
+    layout) is explicit in the figure already — nothing here reads from
+    `layout.template`, confirmed by grep — so `template=None` is a pure
+    strip: Plotly.js falls back to its own built-in default, which is
+    exactly what the stripped blob was restating. Single chokepoint rather
+    than the 11 independent `pio.to_json(fig)` call sites this replaced,
+    so there is one place to keep this correct rather than 11 to remember.
+    """
+    fig.update_layout(template=None)
+    return pio.to_json(fig)
+
+
 # ---------------------------------------------------------------------------
 # Figure builders
 # ---------------------------------------------------------------------------
@@ -148,7 +169,7 @@ def _build_rrg_figure(rrg_df) -> str:
         fig.update_layout(**_base_layout(
             title=dict(text="RRG — no data", font=dict(size=13, color="#3E392B")),
         ))
-        return pio.to_json(fig)
+        return _fig_to_json(fig)
 
     import pandas as pd
 
@@ -159,7 +180,7 @@ def _build_rrg_figure(rrg_df) -> str:
             title=dict(text="RRG — no RS signals in DB yet",
                        font=dict(size=13, color="#3E392B")),
         ))
-        return pio.to_json(fig)
+        return _fig_to_json(fig)
 
     latest_scan_id = rrg_df["scan_id"].max()
     latest = rrg_df[rrg_df["scan_id"] == latest_scan_id].copy()
@@ -254,7 +275,7 @@ def _build_rrg_figure(rrg_df) -> str:
         yaxis=dict(title="RS-Momentum (>100 = RS-Ratio rising)",
                    range=[y_min, y_max], gridcolor="#DFD5BE", zeroline=False),
     ))
-    return pio.to_json(fig)
+    return _fig_to_json(fig)
 
 
 def _build_sentiment_scatter_figure(history_df) -> str:
@@ -265,7 +286,7 @@ def _build_sentiment_scatter_figure(history_df) -> str:
             title=dict(text="Data ⇄ Sentiment — no data",
                        font=dict(size=13, color="#3E392B")),
         ))
-        return pio.to_json(fig)
+        return _fig_to_json(fig)
 
     latest_id = history_df["scan_id"].max()
     df = history_df[history_df["scan_id"] == latest_id].copy()
@@ -336,7 +357,7 @@ def _build_sentiment_scatter_figure(history_df) -> str:
         yaxis=dict(title="Sentiment Score", gridcolor="#DFD5BE", zeroline=False),
         height=520,
     ))
-    return pio.to_json(fig)
+    return _fig_to_json(fig)
 
 
 def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
@@ -385,7 +406,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
             xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
             yaxis=dict(title="Score / Rank", gridcolor="#DFD5BE"),
         ))
-        sector_signal_data[sk] = pio.to_json(fig)
+        sector_signal_data[sk] = _fig_to_json(fig)
 
     return sector_signal_data, sector_keys, score_signals
 
@@ -400,7 +421,7 @@ def _build_movers_figure(history_df) -> str:
             title=dict(text="Movers — need at least 2 scans",
                        font=dict(size=13, color="#3E392B")),
         ))
-        return pio.to_json(fig)
+        return _fig_to_json(fig)
 
     scan_ids = sorted(history_df["scan_id"].unique())
     latest_id = scan_ids[-1]
@@ -442,7 +463,7 @@ def _build_movers_figure(history_df) -> str:
         margin=dict(l=180, r=30, t=50, b=50),
         height=max(300, len(merged) * 28 + 80),
     ))
-    return pio.to_json(fig)
+    return _fig_to_json(fig)
 
 
 def _build_history_figure(history_df) -> str:
@@ -455,7 +476,7 @@ def _build_history_figure(history_df) -> str:
             title=dict(text="History — no data",
                        font=dict(size=13, color="#3E392B")),
         ))
-        return pio.to_json(fig)
+        return _fig_to_json(fig)
 
     df = history_df.copy()
     df["sector_label"] = df["gics_sector"] + " (" + df["region"] + ")"
@@ -479,7 +500,7 @@ def _build_history_figure(history_df) -> str:
         xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
         yaxis=dict(title="Composite score", gridcolor="#DFD5BE"),
     ))
-    return pio.to_json(fig)
+    return _fig_to_json(fig)
 
 
 def _track_label(track: dict, key: str) -> str:
@@ -514,7 +535,7 @@ def _build_backtest_figures(summary) -> dict:
             xaxis=dict(title="Date", gridcolor="#DFD5BE"),
             yaxis=dict(title="Equity (×)", gridcolor="#DFD5BE"),
         ))
-        figs[region] = pio.to_json(fig)
+        figs[region] = _fig_to_json(fig)
     return figs
 
 
