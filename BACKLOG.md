@@ -463,6 +463,26 @@ What remains:
   column 0 (real rules are always indented) and enumerates every matching
   block rather than trusting the first one found.
 
+  **Code review found two real cleanup defects, both fixed.** `.desktop-scan-meta`
+  had been given a byte-identical, second copy of `.scan-meta`'s four
+  declarations rather than sharing them — three independent review angles
+  flagged it, since nothing tied the two rule bodies together and a future
+  visual tweak (e.g. the dark-theme retint already on the backlog) could hit
+  one and silently miss the other. Merged into one comma-selector rule; the
+  two classes still get separate `display` rules in `_responsive.css.j2`,
+  which is the only thing that legitimately needs to differ between them.
+  Fixing this broke `test_scan_meta_meets_floor` — its `_rule_font_size()`
+  helper required a selector to be followed immediately by `{`, which a
+  comma-selector list never is. Generalized the helper to accept `,` or `{`
+  and added `test_desktop_scan_meta_meets_floor` alongside it, so the new
+  class carries its own floor assertion rather than inheriting one silently.
+  Separately, the page-scoping guard (`active_segment != "sectors"`) was
+  checked twice — once per conditional block in the meta-cluster — instead of
+  once around both; consolidated into a single wrapping `{% if %}`, each inner
+  block keeping only the condition specific to it. Both fixes verified live
+  (chips and scan-meta both still render correctly at 1440px) and pinned by
+  new regression tests, each sabotage-verified.
+
 
 - **Sentiment empty state now explains itself** (2026-08-22).
 

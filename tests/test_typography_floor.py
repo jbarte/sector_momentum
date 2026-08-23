@@ -33,12 +33,16 @@ def _css(name: str) -> str:
 
 
 def _rule_font_size(css: str, selector: str) -> str:
-    """Extract the literal `font-size: X;` value from `selector { ... }`.
-    Requires `{` (whitespace-tolerant) immediately after the selector text,
-    so `.chip` cannot accidentally match `.chip-up { ... }` and `.health-panel`
-    cannot match `.health-panel summary { ... }` — deliberately dumb regex,
-    not a CSS parser, matching this codebase's existing test style."""
-    pattern = re.escape(selector) + r"\s*\{[^}]*font-size:\s*([0-9.]+(?:px|rem|em));"
+    """Extract the literal `font-size: X;` value from `selector { ... }` OR
+    from `selector, other-selector { ... }` (a comma-separated selector list).
+    Requires `,` or `{` (whitespace-tolerant) immediately after the selector
+    text, so `.chip` cannot accidentally match `.chip-up { ... }` and
+    `.health-panel` cannot match `.health-panel summary { ... }` — deliberately
+    dumb regex, not a CSS parser, matching this codebase's existing test
+    style. The comma branch exists because `.scan-meta` and `.desktop-scan-meta`
+    share one declaration (`.scan-meta,\n.desktop-scan-meta { ... }`,
+    2026-08-23) rather than repeating identical typography twice."""
+    pattern = re.escape(selector) + r"\s*[,{][^}]*font-size:\s*([0-9.]+(?:px|rem|em));"
     m = re.search(pattern, css)
     assert m, f"could not find `font-size` in `{selector} {{ ... }}`"
     return m.group(1)
@@ -150,6 +154,14 @@ def test_drilldown_controls_label_meets_floor():
 def test_scan_meta_meets_floor():
     css = _css("_chrome.css.j2")
     assert _resolved_px(_rule_font_size(css, ".scan-meta")) >= 12
+
+
+def test_desktop_scan_meta_meets_floor():
+    """Shares `.scan-meta`'s declaration (2026-08-23) but gets its own
+    assertion: a future change that un-merges the two classes must not
+    silently drop this one from the floor check."""
+    css = _css("_chrome.css.j2")
+    assert _resolved_px(_rule_font_size(css, ".desktop-scan-meta")) >= 12
 
 
 def test_auth_form_email_input_meets_floor():

@@ -1936,6 +1936,51 @@ def test_desktop_scan_meta_hidden_at_and_below_600px():
     ), ".desktop-scan-meta is not hidden at <=600px"
 
 
+def test_desktop_scan_meta_shares_its_style_with_scan_meta_not_a_copy():
+    """`.desktop-scan-meta` was introduced as a BYTE-IDENTICAL copy of the
+    pre-existing `.scan-meta` (font-size, color, font-variant-numeric,
+    white-space) -- flagged independently by three code-review angles
+    (2026-08-23): nothing ties the two rule bodies together, so a future
+    visual tweak (e.g. the dark-theme retint already on the backlog) can be
+    made to one and silently miss the other. The two classes exist ONLY
+    because they need different visibility breakpoints (see
+    _responsive.css.j2) -- that is a reason to keep separate display rules
+    there, not a reason to duplicate the typography here. Merged into one
+    comma-selector declaration.
+    """
+    css = (Path(__file__).parent.parent
+           / "dashboard/templates/css/_chrome.css.j2").read_text()
+    assert re.search(r"\.scan-meta\s*,\s*\.desktop-scan-meta\s*\{", css), (
+        ".scan-meta and .desktop-scan-meta declare their typography "
+        "separately -- merge into one comma-selector rule"
+    )
+    # And .desktop-scan-meta must not ALSO still have its own standalone rule
+    # left behind (a merge that adds the comma selector without deleting the
+    # old block would pass the check above while leaving the duplicate).
+    assert not re.search(r"(?<!,\n)\.desktop-scan-meta\s*\{", css), (
+        ".desktop-scan-meta still has a separate declaration block of its "
+        "own alongside the merged comma-selector rule"
+    )
+
+
+def test_meta_cluster_page_scoping_guard_is_not_duplicated():
+    """The desktop scan-meta row and the market-context chips both exist only
+    on pages sharing this header without their own summary strip -- today that
+    means `active_segment != "sectors"`, checked twice: once per block. Code
+    review (2026-08-23, three independent angles) flagged this as the kind of
+    duplication that drifts silently -- a third segment added later would need
+    the same edit made twice to opt out correctly, and nothing forces that.
+    Consolidated into one wrapping guard; each inner block keeps only the
+    condition specific to it (`scan_date` vs `macro or auth`).
+    """
+    header = (Path(__file__).parent.parent
+              / "dashboard/templates/_header.html.j2").read_text()
+    assert header.count('active_segment != "sectors"') == 1, (
+        'the page-scoping guard is checked more than once in this file -- '
+        'consolidate into a single wrapping {% if %}'
+    )
+
+
 def test_desktop_scan_meta_and_mobile_scan_meta_boundaries_are_complementary():
     """Pins the pairing directly: whatever breakpoint .mobile-scan-meta uses
     for "hidden above", .desktop-scan-meta must use for "hidden at or below"
