@@ -177,6 +177,11 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
 </div>
 
 <script>
+{#- The canonical include on this page: _footer.html.j2 (alerts modal) and
+    _methodology.html.j2 (methodology + tab-guide modals), both included
+    later in this page, rely on window.SMModal already existing rather than
+    re-including this partial themselves. Keep this include ahead of both in
+    document order if either moves. -#}
 {% include "_modal.js.j2" %}
 /* Tab guides: one modal, bodies pre-rendered inside it and toggled by key.
    The bodies stay in the DOM (rather than being cloned in on open) so the i18n

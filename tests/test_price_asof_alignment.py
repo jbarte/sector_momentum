@@ -431,7 +431,7 @@ def test_fetch_prices_clamps_a_future_end_at_the_chokepoint():
 
     with patch.object(prices_mod, "date", _FixedDate), \
          patch.object(prices_mod, "_fetch_single", _fake_fetch), \
-         patch.object(prices_mod, "_cache_is_fresh", lambda *a, **k: False):
+         patch.object(prices_mod, "_load_fresh_cache", lambda *a, **k: None):
         prices_mod.fetch_prices(["XLK"], "2026-01-01", "2026-09-05",
                                 cache_dir="/tmp/_clamp_test_cache")
 

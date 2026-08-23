@@ -16,6 +16,7 @@ from src.data.prices import (
     _cache_path,
     _expected_latest_close,
     _fetch_single,
+    _load_fresh_cache,
     _normalize_columns,
     _sanitize_ticker,
     _write_cache_meta,
@@ -216,6 +217,99 @@ def test_cache_is_fresh_handles_corrupted_file(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# _load_fresh_cache — returns the frame, not just a bool
+# ---------------------------------------------------------------------------
+#
+# Found in the 2026-08-23 sweep: the bool-returning predecessor of this
+# function made fetch_prices read every fresh-cache parquet file TWICE — once
+# inside the freshness check to inspect its index, once more immediately
+# after in fetch_prices itself to actually load it. 20 tickers x 2 reads per
+# scan. _load_fresh_cache returns the frame it already loaded; _cache_is_fresh
+# (tested above) is now a thin bool wrapper over it, kept for the many
+# existing tests/callers that only want yes/no.
+
+@patch("src.data.prices.date")
+def test_load_fresh_cache_returns_the_dataframe_not_a_bool(mock_date, tmp_path):
+    mock_date.today.return_value = date(2026, 7, 22)  # Wednesday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-22")])
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "fresh.parquet")
+    df.to_parquet(path)
+
+    result = _load_fresh_cache(path)
+    assert result is not None
+    assert isinstance(result, pd.DataFrame)
+    assert len(result) == 1
+    assert result["Close"].iloc[0] == 100.0
+
+
+@patch("src.data.prices.date")
+def test_load_fresh_cache_returns_none_when_stale(mock_date, tmp_path):
+    mock_date.today.return_value = date(2026, 7, 22)  # Wednesday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-10")])  # long stale
+    df = pd.DataFrame({"Close": [100.0], "Open": [99.5], "High": [100.5], "Low": [99.0], "Volume": [1_000_000]}, index=idx)
+    path = str(tmp_path / "stale.parquet")
+    df.to_parquet(path)
+
+    assert _load_fresh_cache(path) is None
+
+
+def test_load_fresh_cache_returns_none_for_missing_file():
+    assert _load_fresh_cache("/nonexistent/path/foo.parquet") is None
+
+
+def test_cache_is_fresh_delegates_to_load_fresh_cache(tmp_path):
+    """The bool wrapper must not re-implement the freshness rules
+    independently — that would be exactly the kind of drift a second copy of
+    the same logic invites."""
+    with patch("src.data.prices._load_fresh_cache") as mock_load:
+        mock_load.return_value = None
+        assert _cache_is_fresh("/some/path", start="2026-01-01") is False
+        mock_load.assert_called_once_with("/some/path", "2026-01-01")
+
+
+@patch("src.data.prices.date")
+def test_fetch_prices_reads_a_fresh_cache_file_exactly_once(mock_date, tmp_path):
+    """The actual regression this sweep item fixed: on a cache hit,
+    fetch_prices must call pd.read_parquet exactly once per ticker, not
+    twice (once inside the freshness check, once again to load it).
+
+    Uses a real cache file and real dates (not a mocked _load_fresh_cache)
+    so the count reflects the actual code path, not a mock's bookkeeping."""
+    mock_date.today.return_value = date(2026, 7, 22)  # Wednesday
+    mock_date.side_effect = lambda *a, **k: date(*a, **k)
+    mock_date.fromisoformat = date.fromisoformat  # capped_end() needs the real one
+
+    cache_dir = str(tmp_path / "cache")
+    os.makedirs(cache_dir)
+    # Spans requested start (2026-06-01) through the fresh boundary
+    # (2026-07-22, a Wednesday, with "today" mocked to the same date).
+    idx = pd.bdate_range("2026-06-01", "2026-07-22")
+    n = len(idx)
+    df = pd.DataFrame({
+        "Close": [100.0] * n, "Open": [99.5] * n, "High": [100.5] * n,
+        "Low": [99.0] * n, "Volume": [1_000_000] * n,
+    }, index=idx)
+    cache_file = os.path.join(cache_dir, "XLK_prices.parquet")
+    df.to_parquet(cache_file)
+
+    real_read_parquet = pd.read_parquet
+    with patch("src.data.prices.pd.read_parquet", side_effect=real_read_parquet) as mock_read, \
+         patch("src.data.prices._fetch_single") as mock_fetch:
+        result = fetch_prices(["XLK"], "2026-06-01", "2026-07-23", cache_dir=cache_dir)
+
+    mock_fetch.assert_not_called()
+    assert "XLK" in result
+    assert mock_read.call_count == 1, (
+        f"pd.read_parquet was called {mock_read.call_count} times for one "
+        f"cached ticker — expected exactly 1 (the double-read this sweep "
+        f"item fixed would call it twice)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # _expected_latest_close
 # ---------------------------------------------------------------------------
 
@@ -328,16 +422,21 @@ def test_fetch_single_returns_none_on_empty(mock_yf):
 # ---------------------------------------------------------------------------
 
 @patch("src.data.prices._fetch_single")
-@patch("src.data.prices._cache_is_fresh")
+@patch("src.data.prices._load_fresh_cache")
 def test_fetch_prices_uses_cache_when_fresh(mock_fresh, mock_fetch, tmp_path):
-    """When cache is fresh, no live fetch happens — cached data is returned."""
+    """When cache is fresh, no live fetch happens — cached data is returned.
+
+    Patches _load_fresh_cache, not _cache_is_fresh: fetch_prices calls the
+    former directly and reuses its returned frame, rather than checking a
+    boolean and then reading the file a second time itself (2026-08-23 sweep
+    — see _load_fresh_cache's docstring)."""
     cache_dir = str(tmp_path / "cache")
     os.makedirs(cache_dir)
     df = _make_price_df(n=5)
     cache_file = os.path.join(cache_dir, "XLK_prices.parquet")
     df.to_parquet(cache_file)
 
-    mock_fresh.return_value = True
+    mock_fresh.return_value = df
     result = fetch_prices(["XLK"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
 
     assert "XLK" in result
@@ -346,11 +445,12 @@ def test_fetch_prices_uses_cache_when_fresh(mock_fresh, mock_fetch, tmp_path):
 
 
 @patch("src.data.prices._fetch_single")
-@patch("src.data.prices._cache_is_fresh")
+@patch("src.data.prices._load_fresh_cache")
 def test_fetch_prices_fetches_when_cache_stale(mock_fresh, mock_fetch, tmp_path):
-    """When cache is stale, a live fetch is performed."""
+    """When cache is stale (_load_fresh_cache returns None), a live fetch
+    is performed."""
     cache_dir = str(tmp_path / "cache")
-    mock_fresh.return_value = False
+    mock_fresh.return_value = None
     mock_fetch.return_value = ("yfinance", _make_price_df(n=5))
 
     result = fetch_prices(["XLK"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
@@ -360,11 +460,11 @@ def test_fetch_prices_fetches_when_cache_stale(mock_fresh, mock_fetch, tmp_path)
 
 
 @patch("src.data.prices._fetch_single")
-@patch("src.data.prices._cache_is_fresh")
+@patch("src.data.prices._load_fresh_cache")
 def test_fetch_prices_writes_cache_after_fetch(mock_fresh, mock_fetch, tmp_path):
     """After a successful fetch, the result is cached to disk."""
     cache_dir = str(tmp_path / "cache")
-    mock_fresh.return_value = False
+    mock_fresh.return_value = None
     mock_fetch.return_value = ("yfinance", _make_price_df(n=5))
 
     fetch_prices(["XLK"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
@@ -376,11 +476,11 @@ def test_fetch_prices_writes_cache_after_fetch(mock_fresh, mock_fetch, tmp_path)
 
 
 @patch("src.data.prices._fetch_single")
-@patch("src.data.prices._cache_is_fresh")
+@patch("src.data.prices._load_fresh_cache")
 def test_fetch_prices_omits_failed_tickers(mock_fresh, mock_fetch, tmp_path):
     """Tickers that fail to fetch are silently omitted."""
     cache_dir = str(tmp_path / "cache")
-    mock_fresh.return_value = False
+    mock_fresh.return_value = None
     mock_fetch.return_value = (None, None)
 
     result = fetch_prices(["XLK", "BAD"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)
@@ -391,7 +491,7 @@ def test_fetch_prices_omits_failed_tickers(mock_fresh, mock_fetch, tmp_path):
 
 
 @patch("src.data.prices._fetch_single")
-@patch("src.data.prices._cache_is_fresh")
+@patch("src.data.prices._load_fresh_cache")
 def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tmp_path):
     """One ticker is cached, another needs fetching — both returned."""
     cache_dir = str(tmp_path / "cache")
@@ -400,7 +500,7 @@ def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tm
     cached_df.to_parquet(os.path.join(cache_dir, "XLK_prices.parquet"))
 
     def fresh_side_effect(path, start=None):
-        return "XLK" in path
+        return cached_df if "XLK" in path else None
 
     mock_fresh.side_effect = fresh_side_effect
     fetched_df = _make_price_df(n=3)
@@ -415,7 +515,7 @@ def test_fetch_prices_handles_mix_of_cached_and_fresh(mock_fresh, mock_fetch, tm
 
 
 @patch("src.data.prices._fetch_single")
-@patch("src.data.prices._cache_is_fresh")
+@patch("src.data.prices._load_fresh_cache")
 def test_fetch_prices_populates_stats_out(mock_fresh, mock_fetch, tmp_path):
     """When stats_out dict is provided, it is populated with source counts."""
     cache_dir = str(tmp_path / "cache")
@@ -424,7 +524,7 @@ def test_fetch_prices_populates_stats_out(mock_fresh, mock_fetch, tmp_path):
     cached_df.to_parquet(os.path.join(cache_dir, "XLK_prices.parquet"))
 
     def fresh_side_effect(path, start=None):
-        return "XLK" in path
+        return cached_df if "XLK" in path else None
 
     mock_fresh.side_effect = fresh_side_effect
     mock_fetch.return_value = ("yfinance", _make_price_df(n=3))
@@ -441,11 +541,11 @@ def test_fetch_prices_populates_stats_out(mock_fresh, mock_fetch, tmp_path):
 
 
 @patch("src.data.prices._fetch_single")
-@patch("src.data.prices._cache_is_fresh")
+@patch("src.data.prices._load_fresh_cache")
 def test_fetch_prices_works_without_stats_out(mock_fresh, mock_fetch, tmp_path):
     """Omitting stats_out does not break fetch_prices (backward compat)."""
     cache_dir = str(tmp_path / "cache")
-    mock_fresh.return_value = False
+    mock_fresh.return_value = None
     mock_fetch.return_value = ("yfinance", _make_price_df(n=5))
 
     result = fetch_prices(["XLK"], "2026-01-01", "2026-06-01", cache_dir=cache_dir)

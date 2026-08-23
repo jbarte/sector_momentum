@@ -98,9 +98,15 @@ def test_availability_is_written_in_one_place():
 def test_the_modal_uses_the_shared_helper_rather_than_a_hand_rolled_one():
     """The 2026-08-09 audit's P1 finding was a modal that declared
     aria-modal="true" and implemented none of it. Focus trap, Escape,
-    backdrop-close and focus restore come from _modal.js.j2."""
+    backdrop-close and focus restore come from _modal.js.j2.
+
+    _footer.html.j2 no longer includes _modal.js.j2 itself (2026-08-23 sweep
+    — it was the third of three copies inlined into every page; see
+    test_every_aria_modal_dialog_is_bound_to_the_helper in test_dashboard_js.py
+    for the guarantee that the pages that include this partial always include
+    _modal.js.j2 earlier in the document). window.SMModal.bind(...) being
+    called here is still the guarantee this test exists to pin."""
     text = _footer()
-    assert '{% include "_modal.js.j2" %}' in text
     assert "window.SMModal.bind(" in text
     # Nothing hand-rolled alongside it.
     assert "keydown" not in text.split("SMModal.bind(")[1][:600]

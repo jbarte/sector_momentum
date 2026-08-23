@@ -172,7 +172,12 @@
   </div>
 </div>
 <script>
-{% include "_modal.js.j2" %}
+{#- window.SMModal is defined once, earlier in the page (both index.html.j2
+    and sentiment.html.j2 include _modal.js.j2 directly, before this partial
+    is included) — not re-included here. Three copies of the same
+    focus-trap implementation were harmless (the guard inside _modal.js.j2
+    makes a second definition a no-op) but still three things that had to
+    stay byte-identical; found in the 2026-08-23 sweep. -#}
 (function () {
   var overlay = document.getElementById("methodology-modal");
   if (!overlay) { return; }

@@ -93,9 +93,19 @@ def test_methodology_states_the_backtest_caveats():
 
 
 def test_methodology_script_binds_trigger():
+    """Esc-to-close itself is pinned directly against _modal.js.j2's own
+    source by
+    test_dashboard_js.py::test_shared_modal_helper_implements_the_aria_modal_contract
+    (not re-checked here): _methodology.html.j2 no longer includes _modal.js.j2
+    itself when rendered (2026-08-23 sweep — the partial relies on
+    window.SMModal already existing from the page's own earlier include; see
+    test_every_aria_modal_dialog_is_bound_to_the_helper in test_dashboard_js.py
+    for that guarantee), so rendering this partial in isolation no longer
+    contains the literal word "Escape". What this test still owns: that the
+    partial actually calls the shared helper rather than hand-rolling."""
     html = _render("_methodology.html.j2")
     assert "methodology-link" in html          # trigger id referenced by the script
-    assert "Escape" in html                    # Esc-to-close
+    assert "window.SMModal.bind(" in html      # shared helper, not hand-rolled
     assert "#methodology" in html              # hash auto-open
 
 
