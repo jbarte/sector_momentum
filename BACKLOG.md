@@ -356,35 +356,6 @@ per week for ~8 weeks, then one per month), plus `delete` in the storage client.
 Prune *after* the new upload succeeds, never before — the whole point is that a
 backup exists at every instant.
 
-## No indexes on `signals`, `scores`, `sentiment_signals`
-
-Confirmed live against production on 2026-08-23 — `pg_indexes` for schema
-`public` returns exactly four rows, all primary keys:
-
-```
-alert_prefs_pkey, alert_prefs_ntfy_topic_key, positions_pkey, scans_pkey
-```
-
-So the three tables every read and write actually touches have none. `signals`
-is 21k rows / 1.5 MB today and grows ~250 rows a day.
-
-Postgres **does not** auto-index a foreign-key column, which is the part that
-bites: the same-UTC-day replace in `save_scan` runs
-`DELETE FROM signals WHERE scan_id IN (...)` and seq-scans the whole table to do
-it, as does every `WHERE scan_id = %s AND region = ...` read in `build.py`.
-
-Small enough not to hurt yet — recorded because the fix is three lines in
-`init_db()`'s existing idempotent ALTER loop and costs nothing to do early:
-
-```sql
-CREATE INDEX IF NOT EXISTS signals_scan_region_idx ON signals (scan_id, region);
-CREATE INDEX IF NOT EXISTS scores_scan_region_idx ON scores (scan_id, region);
-CREATE INDEX IF NOT EXISTS sentiment_signals_scan_region_idx ON sentiment_signals (scan_id, region);
-```
-
-`init_db()` is the right home — it already self-migrates and runs before every
-scan, so no Supabase-side migration script is needed.
-
 ## Three of seven weekly scans are now byte-identical
 
 Found in the 2026-08-23 sweep, measured against production. **Not a correctness
@@ -676,6 +647,33 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Indexed signals/scores/sentiment_signals on (scan_id, region) (2026-08-23)
+
+Confirmed live against production 2026-08-23 that these three tables — the
+only ones every scan-scoped read/write touches — had zero non-primary-key
+indexes: `pg_indexes` for schema `public` returned exactly four rows, all PKs
+(`alert_prefs_pkey`, `alert_prefs_ntfy_topic_key`, `positions_pkey`,
+`scans_pkey`). Postgres does not auto-index a foreign-key column, so the
+same-UTC-day replace's `DELETE FROM signals WHERE scan_id IN (...)` and every
+`WHERE scan_id = %s AND region = ...` read in `dashboard/build.py` were
+seq-scanning `signals` (21k rows / 1.5 MB, growing ~250 rows/day) on every
+scan and every build.
+
+Three `CREATE INDEX IF NOT EXISTS ... (scan_id, region)` statements added to
+`init_db()`'s existing self-migrating loop — the same idempotent pattern
+already used for every `scans` health column. The composite covers both real
+query shapes via the leftmost-prefix rule: the scan_id-only `DELETE`, and the
+scan_id+region reads.
+
+4 tests added: 2 mocked-cursor (SQL text + idempotency, mirroring
+`test_init_db_adds_health_columns`), sabotage-verified against 4 mutations
+(loop removed, `IF NOT EXISTS` dropped, region dropped from the index, only
+one of three tables indexed — all caught); 1 real end-to-end test querying
+`pg_indexes` directly against the throwaway test database via the existing
+`db_conn` fixture, which already calls the real `init_db()` — no mocking. No
+local Postgres was available to run it by hand; it runs for real in CI's
+`postgres:17` service container.
 
 ## RRG tab rendered an empty chart for every guest (2026-08-23)
 
