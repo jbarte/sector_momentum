@@ -18,8 +18,44 @@ HORIZON_LABELS = {5: "5d", 21: "1m"}
 CONCLUSIVE_SPAN_DAYS = 365
 
 
+def _market_day_index(scan_ids: list, asof_lookup: dict) -> dict:
+    """Map each scan_id to a "market-day index": scans sharing the same
+    prices_asof collapse to the same index.
+
+    Without this, a run's duration was measured in scan-index units — but a
+    scan is not a market day (seven scans a week against five market days),
+    and since 2026-08-23 up to three of those seven can share one market
+    date outright (the 06:00 UTC cron fires before the US close, so
+    Sat/Sun/Mon can all score off Friday's bar — see "Three of seven weekly
+    scans..." in BACKLOG.md). Collapsing same-asof scans to one index makes
+    `duration = last_idx - entry_idx + 1` count distinct market days, which
+    is what the panel's "how long do positions last" question actually asks.
+
+    A scan whose prices_asof is unknown -- missing from `asof_lookup` (older
+    DataFrame shapes, e.g. some test fixtures) or NaN (old scan rows
+    predating the column) -- gets its own index, never merged with anything:
+    unknown must never equal unknown, or two unrelated gaps in history would
+    silently collapse into one.
+    """
+    idx_by_scan: dict = {}
+    next_idx = -1
+    prev_asof = object()  # sentinel: never equal to a real value or itself
+    for sid in scan_ids:
+        asof = asof_lookup.get(sid)
+        known = asof is not None and not pd.isna(asof)
+        if not known or asof != prev_asof:
+            next_idx += 1
+        idx_by_scan[sid] = next_idx
+        prev_asof = asof if known else object()
+    return idx_by_scan
+
+
 def _top5_runs(history_df: pd.DataFrame, region: str) -> list[dict]:
-    """Extract contiguous top-5 rank streaks per sector for a single region."""
+    """Extract contiguous top-5 rank streaks per sector for a single region.
+
+    `duration` is in market-day units (see `_market_day_index`), not raw
+    scan count.
+    """
     if history_df.empty:
         return []
 
@@ -28,7 +64,16 @@ def _top5_runs(history_df: pd.DataFrame, region: str) -> list[dict]:
         return []
 
     scan_ids = sorted(history_df["scan_id"].unique())
-    scan_id_to_idx = {sid: idx for idx, sid in enumerate(scan_ids)}
+    if "prices_asof" in history_df.columns:
+        asof_lookup = (
+            history_df[["scan_id", "prices_asof"]]
+            .drop_duplicates(subset="scan_id")
+            .set_index("scan_id")["prices_asof"]
+            .to_dict()
+        )
+    else:
+        asof_lookup = {}
+    scan_id_to_idx = _market_day_index(scan_ids, asof_lookup)
 
     runs: list[dict] = []
     for sector, group in region_df.groupby("gics_sector"):

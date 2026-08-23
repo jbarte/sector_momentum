@@ -10,6 +10,7 @@ import pytest
 from dashboard.validation import (
     _top5_runs,
     _holding_stats,
+    _market_day_index,
     _compute_forward_returns,
     _aggregate_fwd_returns,
     build_validation_context,
@@ -18,11 +19,20 @@ from dashboard.validation import (
 
 
 def _history(rows: list[tuple]) -> pd.DataFrame:
-    """Build a scan-history DataFrame from (scan_id, run_at, region, sector, composite, change_score, rank)."""
-    return pd.DataFrame(
+    """Build a scan-history DataFrame from (scan_id, run_at, region, sector, composite, change_score, rank).
+
+    prices_asof defaults to run_at's own value -- every existing test gives
+    each scan_id a distinct run_at, so this reproduces "one market day per
+    scan_id" (the pre-market-day-dedup behavior) without every call site
+    needing to pass it explicitly. Tests exercising the dedup itself build
+    their DataFrame directly with an explicit prices_asof column instead.
+    """
+    df = pd.DataFrame(
         rows,
         columns=["scan_id", "run_at", "region", "gics_sector", "composite", "change_score", "rank"],
     )
+    df["prices_asof"] = df["run_at"]
+    return df
 
 
 class TestTop5Runs:
@@ -103,6 +113,73 @@ class TestTop5Runs:
             columns=["scan_id", "run_at", "region", "gics_sector", "composite", "change_score", "rank"]
         )
         assert _top5_runs(df, "US") == []
+
+    def test_duplicate_asof_scans_collapse_to_one_market_day(self):
+        """Three scans sharing one prices_asof (the Sat/Sun/Mon-share-
+        Friday's-bar pattern, 2026-08-23) must count as ONE market day in
+        the run's duration, not three. Built directly rather than via
+        _history() -- this is exactly the case _history()'s default
+        (prices_asof == run_at) does not exercise."""
+        df = pd.DataFrame([
+            (1, "2026-01-02", "2026-01-02", "US", "Energy", 1),
+            (2, "2026-01-03", "2026-01-02", "US", "Energy", 2),  # dup asof
+            (3, "2026-01-04", "2026-01-02", "US", "Energy", 3),  # dup asof
+            (4, "2026-01-05", "2026-01-05", "US", "Energy", 4),
+        ], columns=["scan_id", "run_at", "prices_asof", "region", "gics_sector", "rank"])
+        runs = _top5_runs(df, "US")
+        assert len(runs) == 1
+        # 4 scans, but only 2 distinct market days (2026-01-02, 2026-01-05).
+        assert runs[0]["duration"] == 2
+
+    def test_unknown_asof_scans_never_merge(self):
+        """A NaN prices_asof (old scan rows predating the column) must never
+        collapse with another NaN, or two unrelated scans would silently
+        merge into one market day."""
+        df = pd.DataFrame([
+            (1, "2026-01-02", None, "US", "Energy", 1),
+            (2, "2026-01-03", None, "US", "Energy", 2),
+            (3, "2026-01-04", None, "US", "Energy", 3),
+        ], columns=["scan_id", "run_at", "prices_asof", "region", "gics_sector", "rank"])
+        runs = _top5_runs(df, "US")
+        assert len(runs) == 1
+        assert runs[0]["duration"] == 3
+
+    def test_missing_asof_column_falls_back_to_one_index_per_scan(self):
+        """No prices_asof column at all (older DataFrame shape) must not
+        crash -- every scan gets its own index, matching the pre-dedup
+        behavior exactly."""
+        df = pd.DataFrame([
+            (1, "2026-01-02", "US", "Energy", 1),
+            (2, "2026-01-03", "US", "Energy", 2),
+        ], columns=["scan_id", "run_at", "region", "gics_sector", "rank"])
+        runs = _top5_runs(df, "US")
+        assert len(runs) == 1
+        assert runs[0]["duration"] == 2
+
+
+class TestMarketDayIndex:
+    def test_distinct_asof_values_get_distinct_indices(self):
+        idx = _market_day_index([1, 2, 3], {1: "d1", 2: "d2", 3: "d3"})
+        assert idx == {1: 0, 2: 1, 3: 2}
+
+    def test_consecutive_duplicate_asof_collapses(self):
+        idx = _market_day_index([1, 2, 3], {1: "d1", 2: "d1", 3: "d2"})
+        assert idx == {1: 0, 2: 0, 3: 1}
+
+    def test_nonconsecutive_duplicate_asof_does_not_collapse(self):
+        """d1, d2, d1 (asof goes backward then repeats) must NOT merge scan
+        1 and scan 3 -- only genuinely consecutive same-asof runs collapse."""
+        idx = _market_day_index([1, 2, 3], {1: "d1", 2: "d2", 3: "d1"})
+        assert idx == {1: 0, 2: 1, 3: 2}
+
+    def test_missing_scan_id_treated_as_unknown(self):
+        idx = _market_day_index([1, 2], {1: "d1"})  # 2 absent from lookup
+        assert idx == {1: 0, 2: 1}
+
+    def test_nan_asof_never_merges_with_nan(self):
+        import math
+        idx = _market_day_index([1, 2], {1: math.nan, 2: math.nan})
+        assert idx == {1: 0, 2: 1}
 
 
 class TestHoldingStats:
