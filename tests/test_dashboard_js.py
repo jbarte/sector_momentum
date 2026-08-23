@@ -2645,3 +2645,69 @@ def test_control_chip_and_more_filters_get_touch_targets():
     block = m.group(0)
     assert ".control-chip" in block
     assert ".more-filters summary" in block
+
+
+# ---------------------------------------------------------------------------
+# escapeHtml — auth.js / scan-digest.js interpolation hardening
+# ---------------------------------------------------------------------------
+#
+# Found in the 2026-08-23 sweep: renderLatestRows() (auth.js) and fmtChip()
+# (scan-digest.js) both build row/chip HTML by string concatenation,
+# interpolating theme/sector names unescaped. Not exploitable today — the
+# names come from config/themes.yaml via the pipeline, never from a reader —
+# but hardening against the day any row field stops being repo-controlled.
+
+def _extract_escape_html_js(filename: str) -> str:
+    """Pull escapeHtml() verbatim out of the named asset file."""
+    src = (Path(__file__).parent.parent / "dashboard/assets" / filename).read_text()
+    match = re.search(r"function escapeHtml\(s\) \{.*?\n  \}", src, re.S)
+    assert match, f"escapeHtml() not found in dashboard/assets/{filename}"
+    return match.group(0)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+@pytest.mark.parametrize("filename", ["auth.js", "scan-digest.js"])
+def test_escape_html_neutralizes_markup(filename):
+    """Executes the real production function, not a re-implementation —
+    same discipline as test_item_for_row_classifies_by_region_not_dataset_shape
+    above."""
+    fn_src = _extract_escape_html_js(filename)
+    script = f"""
+        {fn_src}
+        const out = escapeHtml('<script>alert(1)</script> & "quoted" \\'text\\'');
+        process.stdout.write(out);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    out = res.stdout
+    assert "<script>" not in out and "</script>" not in out, (
+        f"escapeHtml did not neutralize a <script> tag: {out!r}"
+    )
+    assert out == (
+        "&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;quoted&quot; &#39;text&#39;"
+    )
+
+
+def test_auth_js_row_builder_escapes_the_theme_name():
+    """Pins the CALL SITE, not just that escapeHtml() exists somewhere in the
+    file — confirmed by sabotage: removing only the escapeHtml(...) wrapper
+    around r.gics_sector (leaving the function definition untouched) must
+    fail this test."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    assert "escapeHtml(r.gics_sector)" in src, (
+        "renderLatestRows no longer escapes r.gics_sector before interpolating "
+        "it into innerHTML"
+    )
+    # And the function must actually be defined in this file, not just called.
+    assert "function escapeHtml(" in src
+
+
+def test_scan_digest_js_chip_builder_escapes_sector_and_region():
+    """Pins the CALL SITE — same shape as the auth.js test above."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-digest.js").read_text()
+    assert "escapeHtml(item.sector)" in src, (
+        "fmtChip no longer escapes item.sector before interpolating it into innerHTML"
+    )
+    assert "escapeHtml(item.region)" in src, (
+        "fmtChip no longer escapes item.region before interpolating it into innerHTML"
+    )
+    assert "function escapeHtml(" in src
