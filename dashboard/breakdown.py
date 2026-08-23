@@ -104,14 +104,15 @@ def _build_instruments_html(
         )
 
     title = "UCITS Alternative" if is_ucits else "Instruments"
-    match_header = "<th>Match</th>" if is_ucits else ""
+    match_header = '<th scope="col">Match</th>' if is_ucits else ""
     return (
         f'<div class="bd-instruments">'
         f'<div class="sig-title">{title}</div>'
         f'<table class="etf-table">'
         f"<thead><tr>"
-        f"<th>Ticker</th><th>Name</th><th>TER</th><th>ISIN</th>"
-        f"{match_header}<th></th>"
+        f'<th scope="col">Ticker</th><th scope="col">Name</th>'
+        f'<th scope="col">TER</th><th scope="col">ISIN</th>'
+        f'{match_header}<th scope="col"></th>'
         f"</tr></thead>"
         f"<tbody>{rows}</tbody>"
         f"</table>"

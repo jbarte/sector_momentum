@@ -452,26 +452,6 @@ Plotly.js falls back to its built-in default, which is what the template
 was restating. Verify the charts still look right in both themes — pairs
 naturally with the Plotly major bump above, which needs the same eyeball.
 
-## No `scope` on any `<th>`
-
-Found in the 2026-08-23 sweep, measured in a live browser: `#leaderboard-table`
-has **107 `<th>` elements and zero with a `scope` attribute**; the drill-down
-and backtest tables are the same.
-
-WCAG 1.3.1. Without `scope="col"` / `scope="row"`, a screen reader cannot
-reliably associate a cell with its header — and this is a wide table (rank,
-theme, composite, level/change, delta) whose cells are meaningless unlabelled.
-The nested drill-down tables make it worse: they sit *inside* the leaderboard
-table's rows, so header inference has two tables to guess between.
-
-Cheap and isolated: add `scope` in `index.html.j2`, `_validation.html.j2` and the
-`auth.js` / `scan-history.js` row builders that emit headers. Worth a test in
-`tests/test_a11y_landmarks.py`, which already owns this class of assertion.
-
-The rest of the a11y sweep came back **clean** — no missing `alt`, no control
-without an accessible name, no duplicate `id`, and `documentElement.lang`
-correctly flips to `sv` on the language toggle.
-
 ## Holding-period panel is denominated in scans
 
 `validation._holding_stats` measures top-5 run lengths in scan-index units and
@@ -678,6 +658,39 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Added scope="col" to every <th> — WCAG 1.3.1 (2026-08-23)
+
+Found live in a browser 2026-08-23: `#leaderboard-table` alone had 107 `<th>`
+elements, zero with a `scope` attribute; the nested drill-down instruments
+table (which sits *inside* leaderboard rows), the scan-index, backtest, and
+badge-scorecard tables on `index.html.j2`, both tables on `_validation.html.j2`
+(forward-return and holding-period), and the News table on `sentiment.html.j2`
+were all the same.
+
+**One correction to how the item was originally scoped:** it named `auth.js` /
+`scan-history.js` as row builders needing the fix. Checked before touching
+them — neither emits a `<th>` at all. Both only ever rebuild `<tbody>` rows
+(the signed-in live-upgrade path and the History tab's client-side render);
+every `<thead>` on both pages is baked once by Jinja and never rebuilt
+client-side. The actual fix touched four Jinja templates
+(`index.html.j2` ×4 tables, `_validation.html.j2` ×2, `sentiment.html.j2` ×1)
+and one Python HTML builder (`dashboard/breakdown.py`'s
+`_build_instruments_html`, which is not reachable by resolving `{% include %}`
+directives — it's injected as a pre-rendered string via `row.breakdown_html`,
+not a Jinja include, so it needed its own test).
+
+3 tests added to `tests/test_a11y_landmarks.py`. Sabotage-verified against 4
+mutations (one leaderboard `<th>` unscoped, the include-only-reachable
+validation table, the Python-built breakdown table, the sentiment page) — all
+caught. Verified live in a rebuilt browser: 239 `<th>` on the leaderboard page,
+0 unscoped; clicking a sortable header still re-sorts correctly (scope has no
+effect on `auth.js`'s `thead th[onclick]` selector, confirmed by clicking one
+and watching rank order reverse).
+
+The rest of the 2026-08-23 a11y sweep stays **clean** — no missing `alt`, no
+control without an accessible name, no duplicate `id`, and
+`documentElement.lang` correctly flips to `sv` on the language toggle.
 
 ## Indexed signals/scores/sentiment_signals on (scan_id, region) (2026-08-23)
 

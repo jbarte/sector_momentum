@@ -232,3 +232,62 @@ def test_promoted_standalone_headings_kept_their_styling():
         r'<h2 style="margin:24px 0 8px 4px" data-i18n="sent_news_heading">',
         sentiment,
     ), "sent_news_heading must be an h2 with its original inline style"
+
+
+# ---------------------------------------------------------------------------
+# <th scope> — WCAG 1.3.1
+# ---------------------------------------------------------------------------
+#
+# Found in the 2026-08-23 sweep, measured in a live browser: 107 <th>
+# elements on #leaderboard-table alone, zero with a scope attribute. Without
+# scope="col"/"row" a screen reader cannot reliably associate a data cell
+# with its header — worse here because the drill-down panel's own <table>
+# sits INSIDE a leaderboard row, so header inference has two tables to guess
+# between.
+
+_TH_RE = re.compile(r"<th\b[^>]*>")
+
+
+def _unscoped_th(text: str) -> list[str]:
+    """Every <th ...> opening tag in `text` that has no scope= attribute."""
+    return [tag for tag in _TH_RE.findall(text) if "scope=" not in tag]
+
+
+def test_no_unscoped_th_on_either_page():
+    """Includes resolved first (see _resolve_includes), the same way the
+    heading-skip test above does — _validation.html.j2's two tables and
+    sentiment.html.j2's News table are both reached only through resolution,
+    not from index.html.j2's own raw text."""
+    for page in _PAGES:
+        resolved = _resolve_includes(_text(page))
+        unscoped = _unscoped_th(resolved)
+        assert not unscoped, f"{page}: unscoped <th> tags: {unscoped}"
+
+
+def test_th_count_sanity_scoped_scan_still_finds_real_tables():
+    """A regex that silently stopped matching (e.g. a typo in _TH_RE) would
+    make the test above pass vacuously — pins a known-present count so a
+    parsing regression fails loudly instead."""
+    resolved = _resolve_includes(_text("index.html.j2"))
+    assert len(_TH_RE.findall(resolved)) >= 20, (
+        "found suspiciously few <th> tags in index.html.j2 (with includes "
+        "resolved) — the scan regex is likely broken, not the page"
+    )
+
+
+def test_breakdown_instruments_table_th_are_scoped():
+    """dashboard/breakdown.py builds this table's HTML in Python, not Jinja —
+    _resolve_includes only inlines {% include %} directives, so this table
+    (injected into the page as a pre-rendered string, `row.breakdown_html`)
+    is invisible to the test above and needs its own check."""
+    from dashboard.breakdown import _build_instruments_html
+
+    themes_cfg = {"ucits": {"Semiconductors": [
+        {"ticker": "SOXX", "name": "test", "ter": 0.4, "isin": "IE00X",
+         "url": "https://example.com", "match": "exact"},
+    ]}}
+    html = _build_instruments_html("THEME|Semiconductors", {}, themes_cfg)
+    all_th = _TH_RE.findall(html)
+    assert all_th, "test fixture produced no <th> at all — fixture is broken"
+    unscoped = _unscoped_th(html)
+    assert not unscoped, f"unscoped <th> in breakdown HTML: {unscoped}"
