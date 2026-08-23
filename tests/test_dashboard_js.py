@@ -1805,7 +1805,7 @@ def test_mobile_scan_meta_markup_exists():
     header = (Path(__file__).parent.parent
               / "dashboard/templates/_header.html.j2").read_text()
     assert 'class="mobile-scan-meta"' in header
-    assert 'data-i18n="mobile_scan_prefix"' in header
+    assert 'data-i18n="scan_prefix"' in header
     assert "{{ active_scan_id }}" in header
     assert "{{ scan_date[:10] }}" in header
     # Guarded by the same `{% if macro %}` the desktop chips use — a build
@@ -1814,14 +1814,17 @@ def test_mobile_scan_meta_markup_exists():
     assert "{%- if macro %}" in header[meta_start:]
 
 
-def test_mobile_scan_meta_prefix_has_sv_translation():
-    """data-i18n="mobile_scan_prefix" without an SV entry would silently
-    fall back to English on language switch — the same gap the horizon
+def test_scan_prefix_has_sv_translation():
+    """data-i18n="scan_prefix" without an SV entry would silently fall
+    back to English on language switch — the same gap the horizon
     control's own SV keys were added to close (see the comment above
-    horizon_label in this same file)."""
+    horizon_label in this same file). Shared by the mobile echo, the
+    desktop summary-strip subline, and the sentiment page's own desktop
+    indicator (see test_desktop_scan_meta_* below) — one key, one
+    translation, three renderers."""
     core_i18n = (Path(__file__).parent.parent
                  / "dashboard/templates/i18n/_core.js.j2").read_text()
-    assert re.search(r"\bmobile_scan_prefix:\s*\"\S+\"", core_i18n)
+    assert re.search(r"\bscan_prefix:\s*\"\S+\"", core_i18n)
 
 
 
@@ -1838,6 +1841,170 @@ def test_mobile_scan_meta_survives_missing_scan_date():
     env = Environment(loader=FileSystemLoader(str(tpl_dir)))
     html = env.get_template("_header.html.j2").render(active_segment="sectors")
     assert "mobile-scan-meta" not in html
+
+
+# ---------------------------------------------------------------------------
+# Desktop scan indicator (sentiment.html.j2 has no summary strip of its own)
+# ---------------------------------------------------------------------------
+
+def _render_header_full(active_segment, scan_date=None, active_scan_id=None,
+                         macro=None, auth=False):
+    from jinja2 import Environment, FileSystemLoader
+    tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)))
+    return env.get_template("_header.html.j2").render(
+        active_segment=active_segment, scan_date=scan_date,
+        active_scan_id=active_scan_id, macro=macro, auth=auth)
+
+
+def test_desktop_scan_meta_markup_exists():
+    """index.html.j2's own summary strip already prints the scan id/date on
+    desktop (.strip-subline); sentiment.html.j2 shares this header but has no
+    strip. Without a header-level echo, the Sentiment page shows no scan date
+    anywhere on desktop once data IS present — the fix landed 2026-08-22 only
+    covers the empty state, this covers the populated one.
+    """
+    header = (Path(__file__).parent.parent
+              / "dashboard/templates/_header.html.j2").read_text()
+    assert 'class="desktop-scan-meta"' in header
+    meta_start = header.index('class="desktop-scan-meta"')
+    block = header[meta_start:meta_start + 400]
+    assert 'data-i18n="scan_prefix"' in block
+    assert "{{ active_scan_id }}" in block
+    assert "{{ scan_date[:10] }}" in block
+
+
+def test_desktop_scan_meta_renders_on_the_sentiment_page():
+    html = _render_header_full("sentiment", scan_date="2026-08-15 06:00 UTC",
+                               active_scan_id=162)
+    assert 'class="desktop-scan-meta"' in html
+    assert "#162" in html
+    assert "2026-08-15" in html
+
+
+def test_desktop_scan_meta_absent_on_the_leaderboard_page():
+    """index.html.j2's own summary strip already covers this on desktop
+    (.strip-subline) — a second copy from the shared header would print the
+    scan id and date twice on the same page."""
+    html = _render_header_full("sectors", scan_date="2026-08-15 06:00 UTC",
+                               active_scan_id=162)
+    assert "desktop-scan-meta" not in html
+
+
+def test_desktop_scan_meta_survives_missing_scan_date():
+    """Same Undefined-slicing hazard as the mobile echo above:
+    `scan_date[:10]` on Jinja's default Undefined raises rather than
+    rendering blank."""
+    html = _render_header_full("sentiment")
+    assert "desktop-scan-meta" not in html
+
+
+def _media_blocks(css: str, kind: str):
+    """Every top-level `@media (KIND: Npx) { ... }` block, matched to its OWN
+    close: a media block's closing brace sits at column 0, while every rule
+    inside it is indented — so a newline immediately followed by `}` (no
+    leading space) finds the block's real end even when an inner rule
+    (e.g. `.mobile-scan-meta { ... }`)
+    closes its own brace first. `[^}]*`, tried first, cannot cross that inner
+    brace and silently matches nothing whenever a sibling rule sits between
+    the query and the selector being checked — the same block-boundary trap
+    CLAUDE.md documents for BACKLOG.md's `## ` scan, here in CSS instead of
+    Markdown. Returns [(breakpoint_px, block_body), ...] for every such block,
+    since this file has four separate `@media (max-width: 600px)` sections and
+    a check must land in the right one, not merely find "a" 600px block.
+    """
+    pattern = re.compile(
+        r"@media\s*\(" + re.escape(kind) + r":\s*(\d+)px\)\s*\{(.*?)\n\}",
+        re.S,
+    )
+    return [(int(m.group(1)), m.group(2)) for m in pattern.finditer(css)]
+
+
+def test_desktop_scan_meta_hidden_at_and_below_600px():
+    """The exact complement of .mobile-scan-meta's own boundary (hidden at
+    >=601px). Reusing .scan-meta instead of a distinct class was the trap
+    here: that rule lives in `@media (max-width: 420px)`, not 600px, so
+    reusing it would print the scan date TWICE between 421px and 600px —
+    once from .mobile-scan-meta, once from a wrongly-still-visible
+    .scan-meta."""
+    css = (Path(__file__).parent.parent
+           / "dashboard/templates/css/_responsive.css.j2").read_text()
+    blocks = _media_blocks(css, "max-width")
+    assert any(
+        bp == 600 and re.search(r"\.desktop-scan-meta\s*\{\s*display:\s*none", body)
+        for bp, body in blocks
+    ), ".desktop-scan-meta is not hidden at <=600px"
+
+
+def test_desktop_scan_meta_shares_its_style_with_scan_meta_not_a_copy():
+    """`.desktop-scan-meta` was introduced as a BYTE-IDENTICAL copy of the
+    pre-existing `.scan-meta` (font-size, color, font-variant-numeric,
+    white-space) -- flagged independently by three code-review angles
+    (2026-08-23): nothing ties the two rule bodies together, so a future
+    visual tweak (e.g. the dark-theme retint already on the backlog) can be
+    made to one and silently miss the other. The two classes exist ONLY
+    because they need different visibility breakpoints (see
+    _responsive.css.j2) -- that is a reason to keep separate display rules
+    there, not a reason to duplicate the typography here. Merged into one
+    comma-selector declaration.
+    """
+    css = (Path(__file__).parent.parent
+           / "dashboard/templates/css/_chrome.css.j2").read_text()
+    assert re.search(r"\.scan-meta\s*,\s*\.desktop-scan-meta\s*\{", css), (
+        ".scan-meta and .desktop-scan-meta declare their typography "
+        "separately -- merge into one comma-selector rule"
+    )
+    # And .desktop-scan-meta must not ALSO still have its own standalone rule
+    # left behind (a merge that adds the comma selector without deleting the
+    # old block would pass the check above while leaving the duplicate).
+    assert not re.search(r"(?<!,\n)\.desktop-scan-meta\s*\{", css), (
+        ".desktop-scan-meta still has a separate declaration block of its "
+        "own alongside the merged comma-selector rule"
+    )
+
+
+def test_meta_cluster_page_scoping_guard_is_not_duplicated():
+    """The desktop scan-meta row and the market-context chips both exist only
+    on pages sharing this header without their own summary strip -- today that
+    means `active_segment != "sectors"`, checked twice: once per block. Code
+    review (2026-08-23, three independent angles) flagged this as the kind of
+    duplication that drifts silently -- a third segment added later would need
+    the same edit made twice to opt out correctly, and nothing forces that.
+    Consolidated into one wrapping guard; each inner block keeps only the
+    condition specific to it (`scan_date` vs `macro or auth`).
+    """
+    header = (Path(__file__).parent.parent
+              / "dashboard/templates/_header.html.j2").read_text()
+    assert header.count('active_segment != "sectors"') == 1, (
+        'the page-scoping guard is checked more than once in this file -- '
+        'consolidate into a single wrapping {% if %}'
+    )
+
+
+def test_desktop_scan_meta_and_mobile_scan_meta_boundaries_are_complementary():
+    """Pins the pairing directly: whatever breakpoint .mobile-scan-meta uses
+    for "hidden above", .desktop-scan-meta must use for "hidden at or below"
+    — same number, so there is no width where both or neither is visible."""
+    css = (Path(__file__).parent.parent
+           / "dashboard/templates/css/_responsive.css.j2").read_text()
+
+    mobile_bp = next(
+        (bp for bp, body in _media_blocks(css, "min-width")
+         if re.search(r"\.mobile-scan-meta\s*\{\s*display:\s*none", body)),
+        None,
+    )
+    desktop_bp = next(
+        (bp for bp, body in _media_blocks(css, "max-width")
+         if re.search(r"\.desktop-scan-meta\s*\{\s*display:\s*none", body)),
+        None,
+    )
+    assert mobile_bp is not None, "could not find .mobile-scan-meta's own hide rule"
+    assert desktop_bp is not None, "could not find .desktop-scan-meta's hide rule"
+    assert mobile_bp == desktop_bp + 1, (
+        f".mobile-scan-meta hides above {mobile_bp}px but .desktop-scan-meta "
+        f"hides at/below {desktop_bp}px — a gap or overlap between them means "
+        f"a width where both or neither element is visible"
+    )
 
 
 def test_site_footer_stacks_on_mobile():

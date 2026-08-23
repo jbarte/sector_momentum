@@ -16,18 +16,39 @@
     {% endif %}
   </div>
   <div class="meta-cluster">
-    {#- Sentiment page only. Stage 4 (2026-08-21) moved these chips out of
-        the header into index.html.j2's summary strip (Cell C,
-        #cell-market-context) — but that strip is index-only, and
-        sentiment.html.j2 (which shares this header) has no strip of its
-        own. Without this, SPY/VIX/Live existed nowhere on the Sentiment
-        page at all — Stage 4's plan never listed sentiment.html.j2 in its
-        file scope, so the gap shipped unnoticed. Found in whole-branch
-        review. Same #market-context-chips id markLive() (auth.js) already
-        targets, and the same guard (`macro or auth`) the pre-Stage-4
-        header block used — never both on screen at once, since Cell C
-        only renders on index.html.j2 (active_segment == "sectors"). -#}
-    {% if active_segment != "sectors" and (macro or auth) %}
+    {#- Both blocks below exist only on pages sharing this header without
+        their own summary strip — today that is the Sentiment page, checked
+        once here rather than per block (code review, 2026-08-23: the guard
+        was duplicated on each conditional, which a future third segment
+        could silently opt into by half-editing). Each block keeps only the
+        condition specific to it. -#}
+    {% if active_segment != "sectors" %}
+    {#- index.html.j2's summary strip prints the scan id/date on desktop via
+        .strip-subline; sentiment.html.j2 has no strip of its own, so without
+        this row the Sentiment page showed no scan date anywhere on desktop
+        once data WAS present — the 2026-08-22 fix only covered the empty
+        state. Own condition (scan_date alone, not `macro or auth`): a build
+        with neither macro nor auth still has a scan to name. Hidden at/below
+        600px — .mobile-scan-meta already covers the row there (see
+        _responsive.css.j2's paired boundary). -#}
+    {% if scan_date %}
+    <span class="desktop-scan-meta">
+      <span data-i18n="scan_prefix">Scan</span> #{{ active_scan_id }}
+      <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
+    </span>
+    {% endif %}
+    {#- Stage 4 (2026-08-21) moved these chips out of the header into
+        index.html.j2's summary strip (Cell C, #cell-market-context) — but
+        that strip is index-only, and sentiment.html.j2 (which shares this
+        header) has no strip of its own. Without this, SPY/VIX/Live existed
+        nowhere on the Sentiment page at all — Stage 4's plan never listed
+        sentiment.html.j2 in its file scope, so the gap shipped unnoticed.
+        Found in whole-branch review. Same #market-context-chips id
+        markLive() (auth.js) already targets, and the same own condition
+        (`macro or auth`) the pre-Stage-4 header block used — never both on
+        screen at once, since Cell C only renders on index.html.j2
+        (active_segment == "sectors"). -#}
+    {% if macro or auth %}
     <button type="button" class="context-chips tab-guide-btn"
             data-guide="guide_body_market_context"
             aria-label="Market context — what these mean"
@@ -43,6 +64,7 @@
       <span class="chip-word" data-i18n="macro_vix_{{ macro.vix_band|lower }}">{{ macro.vix_band|lower }}</span>
       {% endif %}
     </div>
+    {% endif %}
     {% endif %}
     {% if auth %}
     <span class="auth-root" id="auth-root">
@@ -84,7 +106,7 @@
       passes no scan_date at all. -#}
   {% if scan_date %}
   <div class="mobile-scan-meta">
-    <span data-i18n="mobile_scan_prefix">Scan</span> #{{ active_scan_id }}
+    <span data-i18n="scan_prefix">Scan</span> #{{ active_scan_id }}
     <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
     {%- if macro %}
     <span aria-hidden="true">&middot;</span> SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%
