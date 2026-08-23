@@ -157,3 +157,57 @@ class TestFooterNeverGuessesHealthy:
         badge would lose its weight and read as ordinary prose."""
         css = (self._TPL / "css" / "_health.css.j2").read_text()
         assert ".badge-unknown" in css, "badge-unknown has no CSS rule"
+
+
+class TestPricesAsofDisplay:
+    """The health panel's Prices row now shows when the snapshot was
+    actually scored (2026-08-23) -- persisted from align_cohort_asof's
+    stats_out (see src/state.py, scan.py). Real Jinja renders, not source
+    scans: the guard has to handle None correctly (old scan rows predate
+    these two columns), which a substring check on the template source
+    can't verify.
+    """
+
+    _TPL = Path(__file__).parent.parent / "dashboard" / "templates"
+
+    def _render(self, health, health_badges=None, health_any_warn=False):
+        from jinja2 import Environment, FileSystemLoader
+        env = Environment(loader=FileSystemLoader(str(self._TPL)))
+        return env.get_template("_footer.html.j2").render(
+            health=health,
+            health_badges=health_badges or {},
+            health_any_warn=health_any_warn,
+        )
+
+    def _base_health(self, **overrides):
+        h = {
+            "run_at": "2026-08-09T06:00:00+00:00",
+            "duration_s": 12.0,
+            "prices_yfinance": 18, "prices_cache": 0, "prices_failed": 0,
+            "sectors_produced": 18, "sectors_expected": 18,
+            "finbert_scored": None, "finbert_total": None, "gdelt_articles": None,
+            "prices_asof": None, "asof_spread_days": None,
+        }
+        h.update(overrides)
+        return h
+
+    def test_shows_the_asof_date_when_present(self):
+        html = self._render(self._base_health(prices_asof="2026-08-06"))
+        assert "2026-08-06" in html
+
+    def test_shows_the_spread_when_nonzero(self):
+        html = self._render(self._base_health(
+            prices_asof="2026-08-06", asof_spread_days=2,
+        ))
+        assert "2" in html.split("Prices</span>", 1)[1].split("</div>", 1)[0]
+
+    def test_renders_without_crashing_on_old_scan_rows_missing_asof(self):
+        """Old scan rows predate `prices_asof`/`asof_spread_days` -- both
+        None, not absent keys, since get_latest_health's own NaN->None
+        conversion runs over the full health-columns list regardless of scan
+        age. Must render clean, not `as of None`."""
+        html = self._render(self._base_health())  # both None
+        prices_row = html.split('class="health-label">Prices', 1)[1].split("</div>", 1)[0]
+        assert "None" not in prices_row, (
+            f"the Prices row renders the literal word 'None': {prices_row!r}"
+        )

@@ -10,6 +10,18 @@
         yfinance {{ health.prices_yfinance or 0 }}
         &middot; cache {{ health.prices_cache or 0 }}
         &middot; failed <span class="badge-{{ health_badges.prices or 'unknown' }}">{{ health.prices_failed or 0 }}</span>
+        {#- Guarded on prices_asof itself, not `is not none`: scan rows from
+            before 2026-08-23 have the column but no value, and Jinja's
+            default Undefined is falsy the same way None is, so `if
+            health.prices_asof` is the one condition that is correct whether
+            the key is present-and-null or genuinely absent. The weekend
+            cache-staleness bug (Done, 2026-08-22) was found by hand-diffing
+            the price cache; this line is what would have shown it instead —
+            a scan whose run date and as-of date disagree by more than the
+            calendar accounts for is visible here, not just in a log line. -#}
+        {%- if health.prices_asof %}
+        &middot; as of {{ health.prices_asof }}{% if health.asof_spread_days %} ({{ health.asof_spread_days }}d spread){% endif %}
+        {%- endif %}
       </span>
     </div>
     <div class="health-row">

@@ -133,6 +133,11 @@ def init_db() -> psycopg2.extensions.connection:
                 ("finbert_scored", "INTEGER"),
                 ("finbert_total", "INTEGER"),
                 ("gdelt_articles", "INTEGER"),
+                # Populated from align_cohort_asof's stats_out (scan.py) —
+                # answers "which date was this snapshot actually scored on?"
+                # without reading scan logs or hand-diffing the price cache.
+                ("prices_asof", "DATE"),
+                ("asof_spread_days", "INTEGER"),
             ]:
                 cur.execute(
                     f"ALTER TABLE scans ADD COLUMN IF NOT EXISTS {col} {col_type}"
@@ -195,7 +200,7 @@ def save_scan(
                 "duration_s", "prices_total", "prices_cache", "prices_stooq",
                 "prices_yfinance", "prices_failed", "sectors_expected",
                 "sectors_produced", "finbert_scored", "finbert_total",
-                "gdelt_articles",
+                "gdelt_articles", "prices_asof", "asof_spread_days",
             ]
             if health:
                 cols = "run_at, config_hash, " + ", ".join(_health_cols)
@@ -563,7 +568,7 @@ def get_latest_health(
         "duration_s", "prices_total", "prices_cache", "prices_stooq",
         "prices_yfinance", "prices_failed", "sectors_expected",
         "sectors_produced", "finbert_scored", "finbert_total",
-        "gdelt_articles",
+        "gdelt_articles", "prices_asof", "asof_spread_days",
     ]
     col_list = "run_at, " + ", ".join(_health_cols)
     df = _read_sql(

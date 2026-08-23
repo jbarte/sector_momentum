@@ -396,30 +396,62 @@ their own rate limits, so it is its own integration + test surface, not a
 same-day fix. Reopen this if yfinance actually fails a scan, rather than
 speculatively — the caching layer already absorbs most single-day hiccups.
 
-## As-of alignment — remaining consumers and observability
-
-Follow-ups deliberately left out of the 2026-08-09 alignment fix to keep it
-source-only and tight:
-
-**The "other consumers don't align" bullet is resolved (2026-08-22)** — see
-Done — and its framing turned out to be wrong. Only `correlation.py` was the
-same defect; it now aligns. `badges.py` and `validation.py` compute *per-ticker
-forward returns*, not a cross-section, so aligning them would have dropped
-tickers and truncated the newest windows — they got an `end` cap instead. See
-the Done entry for the caller-by-caller breakdown.
-
-What remains:
-
-- **The as-of date isn't persisted.** `align_cohort_asof` reports it via
-  `stats_out` and the scan logs it, but nothing writes it to `scans`. A
-  `prices_asof` column (plus `asof_spread_days`) would make "which date was
-  this snapshot actually scored on?" answerable after the fact — and would have
-  made the weekend cache-staleness bug (Done, 2026-08-22) visible in the health
-  panel instead of needing a hand check against the cache to find.
-
 ---
 
 # Done
+
+- **The price as-of date is now persisted, and shown in the health panel** (2026-08-23).
+
+  Closes the last remaining bullet of the "As-of alignment — remaining
+  consumers and observability" Parked item, which is deleted with this change.
+
+  `align_cohort_asof` (`src/data/prices.py`) already computed `asof` and
+  `asof_spread_days` into its `stats_out` dict, and `scan.py` already read
+  that into a local `_price_stats` dict — but never carried the two values
+  into the `_health` dict that `save_scan` actually persists. "Which date was
+  this snapshot scored on?" was answerable only from a scan's log line, or —
+  how the weekend cache-staleness bug (Done, 2026-08-22) was actually found —
+  by hand-diffing the price cache against `date.today()`.
+
+  Not a Supabase migration: this repo's convention for a new `scans` column is
+  entirely code-side. `init_db()` runs an idempotent `ALTER TABLE ... ADD
+  COLUMN IF NOT EXISTS` for every health column on each scan/build run, so
+  adding `prices_asof DATE` and `asof_spread_days INTEGER` to that list is the
+  whole migration — no CLI, no view, no RLS surface, since `get_latest_health`
+  reads `scans` directly over the same privileged connection that writes it.
+
+  The health panel's existing "Prices" row now appends `· as of 2026-08-06 (2d
+  spread)` when the column is populated — verified live by simulating the
+  fragment client-side, since the DB's current latest scan predates this
+  column and legitimately has nothing to show yet (confirmed: no literal
+  "None" leaks, the row degrades to its pre-existing three fields). Guarded on
+  `health.prices_asof` truthiness rather than `is not none`, deliberately: old
+  scan rows carry the column with a null value, not a missing key, and Jinja's
+  Undefined is falsy the same way None is — so the truthiness check is the one
+  guard that is correct whether the key is null or genuinely absent.
+
+  **Deliberately not built: a colored staleness badge.** The backlog text said
+  persisting this "would have made the weekend bug visible in the health
+  panel" — a bare informational value already delivers that (a reader on a
+  Saturday scan seeing "as of Thursday" is the same mismatch caught earlier by
+  hand-querying SQL). Green/amber/red thresholds and whether weekends need
+  special-casing are a real design decision the backlog text never asked for;
+  shipped the plain value and left the badge as a follow-on rather than
+  silently inventing thresholds.
+
+  **Code review's own sabotage-verification caught a real coverage gap.**
+  Removing the two columns from `get_latest_health`'s `_health_cols` list left
+  every existing test in `test_state_health.py` green, because every test that
+  exercises that function mocks `_read_sql` wholesale and hands back an
+  already-complete row — none of them inspect the constructed SQL text, so a
+  column silently dropped from the SELECT (which a real DB would then simply
+  never return) had no test watching for it. Added a test that reads the
+  actual query `_read_sql` was called with, mirroring how
+  `test_init_db_adds_health_columns` already checks `init_db`'s executed SQL
+  rather than trusting a mocked return value.
+
+  Also added: a `_persist_scan` unit test (scan.py), which had zero coverage
+  at that granularity before this change.
 
 - **Desktop now shows the scan id/date on the Sentiment page** (2026-08-23).
 

@@ -296,6 +296,15 @@ def _persist_scan(conn, run_at, long_signals_df, scored_with_deltas,
         "finbert_scored": finbert_health["finbert_scored"],
         "finbert_total": finbert_health["finbert_total"],
         "gdelt_articles": finbert_health["gdelt_articles"],
+        # From align_cohort_asof's stats_out (via the caller's price_stats
+        # dict) — the date every ticker was actually scored as-of, and how
+        # many calendar days the cohort's cache dates spanned before that
+        # alignment ran. Answers "which date was this snapshot scored on?"
+        # after the fact, without reading a scan's log line or hand-diffing
+        # the price cache — the weekend cache-staleness bug (Done,
+        # 2026-08-22) was found the hand-diffing way.
+        "prices_asof": price_stats.get("asof"),
+        "asof_spread_days": price_stats.get("asof_spread_days"),
     }
     scan_id = save_scan(
         conn=conn,
