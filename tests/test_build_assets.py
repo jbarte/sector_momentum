@@ -75,3 +75,62 @@ def test_referenced_and_copied_sets_are_not_trivially_empty():
     assert "theme.js" in copied, "build.py parsing found nothing — regex likely broken"
     assert len(referenced) >= 5
     assert len(copied) >= 5
+
+
+# ---------------------------------------------------------------------------
+# Vendored browser bundles: version skew + integrity
+# ---------------------------------------------------------------------------
+#
+# Added 2026-08-23 with the Plotly 2.27.0 -> 3.7.0 bump. Two separate defects
+# shared these ~40 lines of build.py, and each needs its own guard:
+#
+#   1. The served plotly.js had drifted TWO MAJORS behind the plotly.py that
+#      writes the figure JSON (2.27.0, from 2023, against plotly.py 6.9.0 /
+#      plotly.js 3.7.0). Nothing errored — an older runtime silently ignores
+#      attributes it does not know — so the skew was invisible until measured.
+#   2. Neither bundle's bytes were verified. Pinning a version pins a URL, not
+#      an artifact.
+
+
+def _build_py_text() -> str:
+    return _BUILD_PY.read_text()
+
+
+def test_plotly_cdn_version_matches_the_installed_plotly_py():
+    """The served plotly.js must be the version the installed plotly.py targets.
+
+    This is the guard that makes the skew self-reporting: bumping `plotly` in
+    requirements.lock without bumping PLOTLY_CDN now fails here, instead of
+    quietly shipping figure JSON to a runtime two majors behind it.
+    """
+    from plotly.offline import get_plotlyjs_version
+
+    from dashboard.build import PLOTLY_CDN
+
+    expected = get_plotlyjs_version()
+    m = re.search(r"plotly-\w+-([0-9]+\.[0-9]+\.[0-9]+)\.min\.js", PLOTLY_CDN)
+    assert m, f"could not parse a version out of PLOTLY_CDN={PLOTLY_CDN!r}"
+    assert m.group(1) == expected, (
+        f"PLOTLY_CDN serves plotly.js {m.group(1)} but the installed plotly.py "
+        f"generates figure JSON for plotly.js {expected}. Bump PLOTLY_CDN (and "
+        f"PLOTLY_SHA256 with it) to match, then rebuild and eyeball every chart "
+        f"in both themes — a major bump changes defaults silently."
+    )
+
+
+def test_every_vendored_bundle_url_has_a_pinned_sha256():
+    """Each *_CDN constant must have a 64-hex *_SHA256 beside it.
+
+    Pins the shape rather than the values: a third vendored bundle added later
+    without a digest is the regression this catches.
+    """
+    text = _build_py_text()
+    urls = set(re.findall(r"^(\w+?)_CDN\b", text, re.M))
+    assert urls, "no *_CDN constants found — regex likely broken"
+    for name in sorted(urls):
+        m = re.search(rf'^{name}_SHA256 = "([0-9a-f]{{64}})"$', text, re.M)
+        assert m, (
+            f"{name}_CDN has no 64-hex {name}_SHA256 beside it. Every bundle "
+            f"downloaded at build time and served to readers must be pinned by "
+            f"content, not just by URL."
+        )

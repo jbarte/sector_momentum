@@ -334,45 +334,42 @@ naming in the data layer* above, which recommends leaving them alone. A rebrand
 is a rename of the *product*, not a schema migration; conflating the two is how
 a cosmetic PR turns into a live-database risk.
 
-## Vendored browser bundles — stale Plotly major, and no integrity check
+## RRG tab renders an empty chart for every guest
 
-Found in the 2026-08-23 project sweep. Two defects in the same ~40 lines of
-`dashboard/build.py` (the "Plotly bundle management" block, from line 124), so
-they ship together.
+Found 2026-08-23 while visually verifying the Plotly 3.7.0 bump — **not caused
+by it**: A/B-confirmed identical on 2.27.0, so this has been live for as long as
+content gating and the 6-scan RRG window have coexisted.
 
-**1. The served Plotly is two majors behind the one generating the figures.**
+Two lines in `dashboard/build.py` that cannot both be satisfied:
 
-| side | version |
-|---|---|
-| `plotly.py` (writes the figure JSON) | **6.9.0** — `get_plotlyjs_version()` reports **3.7.0** |
-| `PLOTLY_CDN` (renders it in the browser) | **`plotly-cartesian-2.27.0.min.js`** — "Copyright 2012-2023" |
+```
+:339   rrg_df = get_rrg_history(conn, n_scans=6)     # newest 6 scans: 165-170
+:374   rrg_df = rrg_df[rrg_df["scan_id"] <= lb_scan_id]   # gate caps at 163
+```
 
-Charts render today, so this is latent rather than broken: figure JSON from a
-6.x generator is being fed to a 2.x runtime across two majors of schema drift,
-and any attribute the newer generator emits that 2.27 does not know is silently
-ignored rather than erroring. It also means the site serves a ~3-year-old JS
-bundle with whatever has been patched since.
+The fetch takes the newest 6 scans, *then* the content gate discards everything
+newer than the lagged scan. 165–170 ∩ ≤163 = ∅, so `COHORT_CHARTS.THEME.rrg.data`
+is `[]` and the tab paints axes with nothing on them.
 
-`plotly-cartesian-3.7.0.min.js` exists on the CDN (1,424,820 bytes — slightly
-*larger* than the 1,278,307 currently served, so this is a correctness bump, not
-a weight one). **Needs visual verification of every chart after the bump**: 3.x
-removed `titlefont` and changed default templates. RRG, movers, history,
-drill-down, backtest and the correlation heatmap all need an eyeball, in both
-themes — `tests/test_color_theme.py` checks the theme mapping but nothing
-asserts a chart actually drew.
+This is the **steady state**, not an edge case: `LAG_DAYS` is 7 and scans are
+daily, so the gate always sits ~7 scans back while the window only reaches 6.
+The tab can only be non-empty if scanning pauses long enough for the two ranges
+to overlap. Verified live — `get_rrg_history(conn)` returns 108 healthy rows
+(6 scans × 18 themes, zero NaN in `rs_ratio`/`rs_momentum`); the data is fine,
+it is discarded after being fetched.
 
-**2. Neither bundle's bytes are verified.** `_ensure_plotly_bundle` and
-`_ensure_supabase_bundle` fetch a pinned *URL* and write the response straight
-to disk. `dashboard/assets/` is gitignored and neither workflow caches it, so CI
-re-downloads both on every cold run and serves the result to readers. Pinning a
-version is not pinning an artifact. `supabase.min.js` is the one that matters —
-it runs with access to the signed-in reader's auth session.
+Same class as the health-panel leak fixed 2026-08-23 — a per-scan source
+resolved *before* the gate — but inverted: that one showed too much, this shows
+nothing.
 
-Fix: store the expected SHA-256 beside each URL constant, verify after download,
-`sys.exit(1)` on mismatch (fail-*closed* for both, unlike the current
-supabase fail-open — a bundle that fails its hash is not the same condition as a
-bundle that failed to download). ~10 lines plus a test. Do this in the same PR
-as the version bump, since the bump invalidates the hash anyway.
+**Fix:** anchor the window to the scan actually being rendered rather than to
+`MAX(scan_id)` — fetch `n_scans` ending at `lb_scan_id`, the way
+`get_signals_for_scan` / `get_health_for_scan` already take an explicit
+scan_id. Filtering after a fixed-window fetch is the shape of the bug.
+
+**Test it against the gated build**, not the ungated one: the ungated path
+(`lag_active` False) has always worked, which is why this survived — a signed-in
+reader and a local unauthenticated build both see a populated RRG.
 
 ## Nothing prunes the backup bucket
 
@@ -716,6 +713,80 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Plotly bumped 2.27.0 → 3.7.0; vendored bundles now verified by SHA-256 (2026-08-23)
+
+The served plotly.js had drifted **two majors** behind the plotly.py writing the
+figure JSON — `plotly-cartesian-2.27.0` (©2023) against plotly.py 6.9.0, whose
+`get_plotlyjs_version()` reports 3.7.0. Nothing errored, because an older
+runtime silently ignores attributes it does not know; the skew was invisible
+until measured.
+
+Shipped together, since they share the same ~40 lines and the bump invalidates
+any recorded digest:
+
+- **`PLOTLY_CDN` → `plotly-cartesian-3.7.0.min.js`**, with
+  `test_plotly_cdn_version_matches_the_installed_plotly_py` pinning the two in
+  step — the next `plotly` bump in `requirements.lock` now fails a test instead
+  of drifting again.
+- **`_ensure_plotly_bundle` / `_ensure_supabase_bundle` collapsed into one
+  `_ensure_bundle(..., required=)`**, keyed on **content hash, not file
+  existence**. Pinning a version pins a URL, not an artifact; these bytes are
+  served to readers, and `supabase.min.js` runs with access to a signed-in
+  reader's auth session. A digest mismatch is fatal for *both* bundles and the
+  bytes are never written to disk — caching them would serve them on the next
+  build before the check could run again. `required=False` still softens a
+  download *failure* (no login beats no dashboard), which is a different
+  condition from a substitution.
+
+Hash-keying is also what makes a bump *land*. `dashboard/assets/` is gitignored,
+so the old existence check meant any machine holding 2.27.0 kept serving it
+forever after the constant moved — the bump would have taken effect in CI (cold
+cache every run) and on no developer's laptop. Confirmed on the real rebuild:
+the stale bundle was detected and replaced automatically.
+
+**Verified in a browser, both themes, 1400×1000** (a collapsed viewport makes
+Plotly size charts to 2px and emit `<text> attribute y: "-Infinity"` — an
+artifact that cost some time to rule out):
+
+| chart | on 3.7.0 |
+|---|---|
+| Drill-down | 5 traces, 5 lines + 65 points |
+| Movers | 18 bars |
+| History | 20 traces, 20 lines + 239 points |
+| Backtest | 2 lines, legend and axes intact |
+| Correlation | 18×18 heatmap, colorbar, both axes labelled |
+
+Dark/light re-theming round-trips (`paper` `#F5F0E6` ↔ `#2A2619`, trace
+`#5A6F49` ↔ `#A9C48E`, all 20 history traces surviving the `newPlot` re-theme),
+and a clean tab sweeping all six chart tabs in both themes logs **zero console
+errors**.
+
+Two things were A/B'd against 2.27.0 on an otherwise byte-identical page rather
+than assumed:
+
+- the **correlation heatmap's narrow aspect** (304×304 inside a 1296px svg) is
+  **pixel-identical** on both bundles — pre-existing layout, not a 3.x default
+  change;
+- the **empty RRG tab** is empty on both — a real bug, but a pre-existing data
+  one. Logged as its own Queued item rather than folded into this PR.
+
+**12 test cases added** — 2 static in `test_build_assets.py`, 10 in the new
+`tests/test_bundle_integrity.py`. Sabotage-verified: existence-check-instead-of-hash,
+write-before-verify, mismatch-tolerated-when-not-required, version-reverted, and
+plotly-wired-to-the-supabase-digest are each caught by the intended test.
+
+**Review caught a real gap in that set.** The original sabotage list claimed
+"digests-swapped", but only the *call site* had been sabotaged; swapping the two
+constants' **values** moved both sides of every assertion together and left
+12/12 green. Nothing tied a pinned digest to the bytes its own URL serves.
+Closed by two tests reading the vendored artifact itself —
+`test_pinned_digest_is_the_digest_of_the_vendored_artifact` (parametrized over
+both bundles) and `test_vendored_plotly_is_the_version_plotly_cdn_names`, which
+chains URL → digest → bytes so a self-consistent but wrong pin cannot read as
+healthy. Both skip when the artifact is absent (clean checkout), where
+`_ensure_bundle` fails the build loudly anyway. Re-running the reviewer's exact
+sabotage now fails both parametrized cases.
 
 - **The price as-of date is now persisted, and shown in the health panel** (2026-08-23).
 

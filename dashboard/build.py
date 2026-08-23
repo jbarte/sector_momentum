@@ -121,62 +121,117 @@ SENTIMENT_RANKING_ENABLED = False
 # Plotly bundle management
 # ---------------------------------------------------------------------------
 
-PLOTLY_CDN = "https://cdn.plot.ly/plotly-cartesian-2.27.0.min.js"
+# The served plotly.js MUST track the plotly.py that writes the figure JSON.
+# `plotly.io.get_plotlyjs_version()` reports what the installed plotly.py
+# targets; pinning a bundle two majors behind it (2.27.0 against plotly.py
+# 6.9.0 / plotly.js 3.7.0, until 2026-08-23) does not error — the older runtime
+# silently ignores attributes it does not know. tests/test_build_assets.py
+# asserts the two stay in step, so the next `plotly` bump in requirements.lock
+# fails a test instead of drifting again.
+PLOTLY_CDN = "https://cdn.plot.ly/plotly-cartesian-3.7.0.min.js"
+PLOTLY_SHA256 = "7c593b9eda0e74a1d07335cf89cbf7a55ffc114909980c3729af835453bdb02a"
 # Pinned supabase-js v2 UMD build, vendored like Plotly (downloaded once,
 # gitignored). Bump deliberately; the dashboard has no JS build toolchain.
 SUPABASE_JS_CDN = (
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.7"
     "/dist/umd/supabase.min.js"
 )
+SUPABASE_JS_SHA256 = "61010a711aa585660cc5132babd6da57fd89a973b845412c8916f8573a455c2b"
 _ASSETS_DIR = Path(__file__).parent / "assets"
 
 
-def _ensure_plotly_bundle() -> Path:
-    """Download plotly.min.js once to dashboard/assets/ if not present."""
-    _ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-    bundle = _ASSETS_DIR / "plotly.min.js"
-    if not bundle.exists():
-        import requests
+def _sha256(data: bytes) -> str:
+    import hashlib
 
-        logger.info("Downloading Plotly bundle from %s …", PLOTLY_CDN)
-        try:
-            resp = requests.get(PLOTLY_CDN, timeout=30)
-            resp.raise_for_status()
-            bundle.write_bytes(resp.content)
-            logger.info("Downloaded plotly bundle (%d KB)", len(resp.content) // 1024)
-        except Exception as exc:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _ensure_bundle(filename: str, url: str, sha256: str, *, required: bool) -> Path | None:
+    """Vendor one pinned browser bundle into dashboard/assets/, hash-verified.
+
+    Keyed on the CONTENT HASH, not on the file merely existing. Two reasons:
+
+    1. **Supply chain.** These bytes are downloaded at build time and served to
+       readers; `supabase.min.js` in particular runs with access to a signed-in
+       reader's auth session. Pinning a version pins a *URL*, not an artifact —
+       a re-published tag or a compromised CDN would ship arbitrary JS with the
+       pin untouched. The digest is the thing that actually pins it.
+    2. **Bumping works.** `dashboard/assets/` is gitignored, so an existence
+       check meant a machine that had already downloaded 2.27.0 kept serving it
+       forever after PLOTLY_CDN moved to 3.7.0 — the bump would have landed in
+       CI (cold cache every run) and silently not on any developer's laptop.
+       Verifying the cached bytes makes a version bump self-healing.
+
+    ``required`` picks the failure mode. Plotly is required: a dashboard whose
+    charts cannot render is not shippable, so a failure exits non-zero. The
+    supabase bundle is not: it degrades to a dashboard without login, so a
+    download failure returns None and the build continues.
+
+    A HASH MISMATCH IS ALWAYS FATAL, for both bundles. It is not the same
+    condition as "the network was down" — it means the bytes at a pinned URL
+    are not the bytes we pinned, and silently shipping them to readers is the
+    outcome this function exists to prevent.
+    """
+    _ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+    bundle = _ASSETS_DIR / filename
+
+    if bundle.exists():
+        cached = bundle.read_bytes()
+        if _sha256(cached) == sha256:
+            return bundle
+        logger.info(
+            "Cached %s does not match its pinned digest (stale or corrupt) — re-downloading",
+            filename,
+        )
+
+    import requests
+
+    logger.info("Downloading %s from %s …", filename, url)
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        content = resp.content
+    except Exception as exc:
+        if required:
             logger.error(
-                "Failed to download Plotly bundle from %s: %s\n"
-                "Fix: manually download plotly.min.js from https://cdn.plot.ly/ "
-                "and place it at dashboard/assets/plotly.min.js",
-                PLOTLY_CDN, exc
+                "Failed to download %s from %s: %s\n"
+                "Fix: manually download it and place it at %s",
+                filename, url, exc, bundle,
             )
             sys.exit(1)
+        logger.warning("Failed to download %s: %s — auth disabled", filename, exc)
+        return None
+
+    actual = _sha256(content)
+    if actual != sha256:
+        # Never write these bytes to disk: a cached bad bundle would be served
+        # on the next build before this check could run again.
+        logger.error(
+            "SHA-256 mismatch for %s from %s\n"
+            "  expected %s\n"
+            "  actual   %s\n"
+            "Refusing to vendor it. If the upstream artifact changed "
+            "legitimately, verify the new bytes and update the pinned digest "
+            "in dashboard/build.py.",
+            filename, url, sha256, actual,
+        )
+        sys.exit(1)
+
+    bundle.write_bytes(content)
+    logger.info("Vendored %s (%d KB, sha256 verified)", filename, len(content) // 1024)
     return bundle
+
+
+def _ensure_plotly_bundle() -> Path:
+    """Vendor the pinned Plotly bundle. Fails the build if unavailable."""
+    return _ensure_bundle("plotly.min.js", PLOTLY_CDN, PLOTLY_SHA256, required=True)
 
 
 def _ensure_supabase_bundle() -> Path | None:
-    """Download supabase.min.js once to dashboard/assets/ if not present.
-
-    Fail-open (returns None) unlike the Plotly bundle: a missing auth bundle
-    degrades to a dashboard without login, not a broken build.
-    """
-    _ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-    bundle = _ASSETS_DIR / "supabase.min.js"
-    if not bundle.exists():
-        import requests
-
-        logger.info("Downloading supabase-js bundle from %s …", SUPABASE_JS_CDN)
-        try:
-            resp = requests.get(SUPABASE_JS_CDN, timeout=30)
-            resp.raise_for_status()
-            bundle.write_bytes(resp.content)
-        except Exception as exc:
-            logger.warning(
-                "Failed to download supabase-js bundle: %s — auth disabled", exc
-            )
-            return None
-    return bundle
+    """Vendor the pinned supabase-js bundle. Fail-open (None) if unavailable."""
+    return _ensure_bundle(
+        "supabase.min.js", SUPABASE_JS_CDN, SUPABASE_JS_SHA256, required=False
+    )
 
 
 def _auth_ctx() -> dict:
