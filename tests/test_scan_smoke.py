@@ -441,6 +441,11 @@ def test_persist_scan_carries_asof_into_the_health_dict(monkeypatch):
     assert scan_id == 99
     assert captured["prices_asof"] == "2026-08-06"
     assert captured["asof_spread_days"] == 2
+    # asof_dropped_count is NOT asserted here even though this test's
+    # price_stats also omits "asof_dropped" -- that exact missing-key
+    # resilience is test_persist_scan_handles_missing_asof's whole point,
+    # immediately below, and re-asserting it here would only be exercising
+    # the same fallback branch a second time (code review, 2026-08-23).
 
 
 def test_persist_scan_handles_missing_asof(monkeypatch):
@@ -470,3 +475,42 @@ def test_persist_scan_handles_missing_asof(monkeypatch):
 
     assert captured["prices_asof"] is None
     assert captured["asof_spread_days"] is None
+    assert captured["asof_dropped_count"] == 0
+
+
+def test_persist_scan_carries_asof_dropped_count_into_the_health_dict(monkeypatch):
+    """align_cohort_asof already computes `asof_dropped` (the sorted list of
+    tickers it dropped for lagging the cohort's modal as-of date) into its
+    stats_out dict -- each dropped ticker removes its whole theme from the
+    run, and the 80% coverage guard in scan.py tolerates up to 3 of 18 themes
+    vanishing that way before it aborts. Pins that `price_stats["asof_dropped"]`
+    (a LIST of ticker names) reaches the persisted health dict as its COUNT
+    under the DB column name -- the shape actually stored is int, not the
+    list itself.
+    """
+    from datetime import datetime, timezone
+    import src.state as _state_mod
+
+    captured = {}
+    monkeypatch.setattr(_state_mod, "save_scan", lambda **kw: captured.update(kw["health"]) or 42)
+
+    scan_id = _persist_scan(
+        conn=object(),
+        run_at=datetime(2026, 8, 9, 6, 0, tzinfo=timezone.utc),
+        long_signals_df=pd.DataFrame(),
+        scored_with_deltas=pd.DataFrame(),
+        sentiment_signals_df=pd.DataFrame(),
+        finbert_health={"finbert_scored": 0, "finbert_total": 0, "gdelt_articles": 0},
+        t0=0.0,
+        price_stats={
+            "cache": 15, "yfinance": 3, "stooq": 0,
+            "asof": "2026-08-06", "asof_spread_days": 4,
+            "asof_dropped": ["BOTZ", "URA"],
+        },
+        prices_total=20, prices_failed=0,
+        sectors_expected=18, sectors_produced=16,
+    )
+
+    assert scan_id == 42
+    # The COUNT, not the list -- the scans table column is INTEGER.
+    assert captured["asof_dropped_count"] == 2

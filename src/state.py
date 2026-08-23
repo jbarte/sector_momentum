@@ -92,6 +92,7 @@ _HEALTH_COLUMNS = [
     "prices_yfinance", "prices_failed", "sectors_expected",
     "sectors_produced", "finbert_scored", "finbert_total",
     "gdelt_articles", "prices_asof", "asof_spread_days",
+    "asof_dropped_count",
 ]
 
 # Cohort discriminator on the shared scores/signals/sentiment_signals tables.
@@ -156,6 +157,13 @@ def init_db() -> psycopg2.extensions.connection:
                 # without reading scan logs or hand-diffing the price cache.
                 ("prices_asof", "DATE"),
                 ("asof_spread_days", "INTEGER"),
+                # How many tickers align_cohort_asof dropped for lagging the
+                # cohort's modal as-of date by more than MAX_ASOF_LAG_DAYS —
+                # each one removes its whole theme from the run. The 80%
+                # coverage guard in scan.py tolerates up to 3 of 18 themes
+                # vanishing silently; this is what lets the health panel say
+                # so instead of shipping with nothing showing it.
+                ("asof_dropped_count", "INTEGER"),
             ]:
                 cur.execute(
                     f"ALTER TABLE scans ADD COLUMN IF NOT EXISTS {col} {col_type}"

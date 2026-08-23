@@ -28,6 +28,17 @@
       <span class="health-label">Themes</span>
       <span class="health-values">
         <span class="badge-{{ health_badges.coverage or 'unknown' }}">{{ health.sectors_produced or '?' }}/{{ health.sectors_expected or '?' }}</span> signals produced
+        {#- `or 0` would read an unknown (None, old scan row) the same as a
+            confirmed healthy 0 — exactly the false-green trap the finbert
+            badge above goes out of its way to avoid. `is not none` is safe
+            here specifically because `_health_row_from_df` (shared by
+            get_latest_health/get_health_for_scan) always includes this key,
+            NaN normalized to None — never Jinja Undefined on this path,
+            unlike prices_asof's own guard above (which predates that
+            normalization existing for every column and still has to allow
+            for it). '?' matches the coverage badge's own convention for the
+            identical "we don't know" state, two lines up. -#}
+        &middot; dropped (stale as-of) <span class="badge-{{ health_badges.asof_dropped or 'unknown' }}">{{ health.asof_dropped_count if health.asof_dropped_count is not none else '?' }}</span>
       </span>
     </div>
     <div class="health-row">

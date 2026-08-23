@@ -24,6 +24,14 @@ def _badge(metric: str, value: int | float | None, denominator: int | None) -> s
             return "amber"
         return "red"
 
+    if metric == "asof_dropped":
+        # No amber tier, unlike "prices": a dropped ticker isn't a fetch
+        # failure with a fuzzy severity — it's align_cohort_asof deciding a
+        # theme's price series is too stale to score at all, which is
+        # binary. Any drop is worth a red badge, since it means a theme the
+        # reader expects to see is silently missing from the run.
+        return "green" if value == 0 else "red"
+
     if metric == "finbert":
         if denominator is None:
             return None
@@ -65,6 +73,7 @@ def build_health_context(health: dict | None) -> dict:
             health.get("sectors_expected"),
         ),
         "prices": _badge("prices", health.get("prices_failed"), None),
+        "asof_dropped": _badge("asof_dropped", health.get("asof_dropped_count"), None),
         "finbert": _badge(
             "finbert",
             health.get("finbert_scored"),

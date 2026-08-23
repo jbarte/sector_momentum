@@ -60,6 +60,21 @@ class TestBadge:
     def test_coverage_none(self):
         assert _badge("coverage", None, 25) is None
 
+    def test_asof_dropped_green_at_zero(self):
+        assert _badge("asof_dropped", 0, None) == "green"
+
+    def test_asof_dropped_red_for_any_drop(self):
+        """No amber tier, unlike prices: a drop is align_cohort_asof deciding
+        a theme's price series is too stale to score at all — binary, not a
+        fuzzy severity."""
+        assert _badge("asof_dropped", 1, None) == "red"
+        assert _badge("asof_dropped", 3, None) == "red"
+
+    def test_asof_dropped_none(self):
+        """Old scan rows predate this column — None (not 0) must stay
+        judgeable-as-unknown, not silently read as a healthy 0."""
+        assert _badge("asof_dropped", None, None) is None
+
 
 class TestBuildHealthContext:
     def test_returns_none_health_when_no_data(self):
@@ -109,6 +124,25 @@ class TestBuildHealthContext:
         assert ctx["health_badges"]["prices"] == "red"
         assert ctx["health_any_warn"] is True
 
+    def test_asof_dropped_count_wired_into_context(self):
+        """Confirms `asof_dropped` reaches `health_badges` at all (a KeyError
+        below would catch it being dropped from build_health_context's dict
+        entirely). Whether a red badge trips `health_any_warn` is the same
+        generic `any(v in ('amber','red') ...)` fold already proven for
+        coverage/prices/finbert elsewhere in this class — not re-tested here
+        (code review, 2026-08-23: a dedicated "trips the panel open" test for
+        this metric added no coverage over this test plus TestBadge's
+        `test_asof_dropped_red_for_any_drop` combined)."""
+        health = {
+            "run_at": "2026-07-20T06:00:00+00:00",
+            "prices_failed": 0, "sectors_expected": 18, "sectors_produced": 18,
+            "finbert_scored": 18, "finbert_total": 18, "gdelt_articles": 900,
+            "asof_dropped_count": 0,
+        }
+        ctx = build_health_context(health)
+        assert ctx["health_badges"]["asof_dropped"] == "green"
+        assert ctx["health_any_warn"] is False
+
     def test_finbert_skipped(self):
         health = {
             "run_at": "2026-07-20T06:00:00+00:00",
@@ -148,7 +182,7 @@ class TestFooterNeverGuessesHealthy:
             "judge the metric — that asserts health the data does not support"
         )
 
-    @pytest.mark.parametrize("metric", ["prices", "coverage", "finbert"])
+    @pytest.mark.parametrize("metric", ["prices", "coverage", "finbert", "asof_dropped"])
     def test_each_metric_falls_back_to_unknown(self, metric):
         footer = (self._TPL / "_footer.html.j2").read_text()
         assert f"badge-{{{{ health_badges.{metric} or 'unknown' }}}}" in footer
@@ -160,13 +194,18 @@ class TestFooterNeverGuessesHealthy:
         assert ".badge-unknown" in css, "badge-unknown has no CSS rule"
 
 
-class TestPricesAsofDisplay:
-    """The health panel's Prices row now shows when the snapshot was
-    actually scored (2026-08-23) -- persisted from align_cohort_asof's
-    stats_out (see src/state.py, scan.py). Real Jinja renders, not source
-    scans: the guard has to handle None correctly (old scan rows predate
-    these two columns), which a substring check on the template source
-    can't verify.
+class _FooterRenderHelper:
+    """Shared by every test class below that renders `_footer.html.j2`
+    directly (as opposed to only source-scanning it, like
+    TestFooterNeverGuessesHealthy above). Deliberately NOT named `Test...` --
+    pytest would otherwise try to collect it as a test class in its own
+    right, find no `test_*` methods, and warn.
+
+    Code review, 2026-08-23: `TestAsofDroppedDisplay` first copy-pasted this
+    verbatim from `TestPricesAsofDisplay`, which the class comment even said
+    out loud ("mirrors TestPricesAsofDisplay") without acting on it. A third
+    health column added the same way would have made it three copies to keep
+    in sync by hand.
     """
 
     _TPL = Path(__file__).parent.parent / "dashboard" / "templates"
@@ -188,9 +227,20 @@ class TestPricesAsofDisplay:
             "sectors_produced": 18, "sectors_expected": 18,
             "finbert_scored": None, "finbert_total": None, "gdelt_articles": None,
             "prices_asof": None, "asof_spread_days": None,
+            "asof_dropped_count": None,
         }
         h.update(overrides)
         return h
+
+
+class TestPricesAsofDisplay(_FooterRenderHelper):
+    """The health panel's Prices row now shows when the snapshot was
+    actually scored (2026-08-23) -- persisted from align_cohort_asof's
+    stats_out (see src/state.py, scan.py). Real Jinja renders, not source
+    scans: the guard has to handle None correctly (old scan rows predate
+    these two columns), which a substring check on the template source
+    can't verify.
+    """
 
     def test_shows_the_asof_date_when_present(self):
         html = self._render(self._base_health(prices_asof="2026-08-06"))
@@ -211,6 +261,50 @@ class TestPricesAsofDisplay:
         prices_row = html.split('class="health-label">Prices', 1)[1].split("</div>", 1)[0]
         assert "None" not in prices_row, (
             f"the Prices row renders the literal word 'None': {prices_row!r}"
+        )
+
+
+class TestAsofDroppedDisplay(_FooterRenderHelper):
+    """The health panel's Themes row now shows how many tickers
+    align_cohort_asof dropped (2026-08-23) -- up to 3 of 18 themes can vanish
+    from a scan under the 80% coverage guard, silently before this. Real
+    Jinja renders: the guard has to handle both None (old scan rows predating
+    this column) and 0 (the common, healthy case) as visibly DIFFERENT
+    states, not both a bare "0" -- see the unknown-vs-zero test below.
+    """
+
+    def _themes_row(self, html: str) -> str:
+        return html.split('class="health-label">Themes', 1)[1].split("</div>", 1)[0]
+
+    def test_shows_the_dropped_count_when_positive(self):
+        html = self._render(self._base_health(asof_dropped_count=2))
+        themes_row = self._themes_row(html)
+        assert "2" in themes_row
+        assert "dropped" in themes_row
+
+    def test_shows_zero_when_nothing_was_dropped(self):
+        html = self._render(self._base_health(asof_dropped_count=0))
+        themes_row = self._themes_row(html)
+        assert ">0<" in themes_row
+
+    def test_old_scan_rows_missing_asof_dropped_show_unknown_not_a_false_zero(self):
+        """Old scan rows predate asof_dropped_count -- None, not an absent
+        key, since get_latest_health's NaN->None conversion runs over the
+        full health-columns list regardless of scan age.
+
+        Must NOT render as 0: a reader skimming the number, not the badge
+        color, would read "0 dropped" as a confirmed clean scan rather than
+        "we don't know" -- the exact false-green trap the finbert badge's own
+        comment two rows up exists to avoid, caught in review 2026-08-23.
+        Renders '?' instead, matching the coverage badge's own convention for
+        the identical unknown state, one line above in the same row."""
+        html = self._render(self._base_health())  # asof_dropped_count=None
+        themes_row = self._themes_row(html)
+        assert "None" not in themes_row, (
+            f"the Themes row renders the literal word 'None': {themes_row!r}"
+        )
+        assert ">?<" in themes_row, (
+            f"None must render as '?' (unknown), not a bare 0: {themes_row!r}"
         )
 
 
