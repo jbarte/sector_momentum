@@ -387,10 +387,11 @@ per week for ~8 weeks, then one per month), plus `delete` in the storage client.
 Prune *after* the new upload succeeds, never before — the whole point is that a
 backup exists at every instant.
 
-## Three of seven weekly scans are now byte-identical
+## Three of seven weekly scans still persist duplicate scores/signals
 
-Found in the 2026-08-23 sweep, measured against production. **Not a correctness
-bug** — waste and history noise.
+Found in the 2026-08-23 sweep, measured against production. **Not a
+correctness bug** — waste and history noise. The redundant *backup* half of
+this shipped 2026-08-23 (see Done); this is what's left.
 
 `_cache_is_fresh` requires the cache to reach
 `_expected_latest_close(date.today() - 1 day)`. That resolves to **Friday for
@@ -404,9 +405,9 @@ Saturday, Sunday *and* Monday** runs, so all three score identical prices:
 | Tue | Mon | Mon |
 
 This is *correct* — the 06:00 UTC cron fires before the US close, so a Monday
-morning scan genuinely has no bar newer than Friday's. But each duplicate still
-writes a full row set (18 scores + ~250 signals), uploads a full backup zip, and
-burns Actions minutes.
+morning scan genuinely has no bar newer than Friday's. But each duplicate
+still writes a full row set (18 scores + ~250 signals) and burns Actions
+minutes.
 
 Verified: scans 168 (Fri 08-21) and 169 (Sat 08-22) are identical on **54/54**
 theme×signal raw values. Scan 169 ran ~14h before the weekend-staleness fix
@@ -415,15 +416,20 @@ to three, because Saturday now correctly picks up Friday's close where Monday
 used to be the first scan to see it.
 
 **Sentiment is the complication.** GDELT is fetched fresh every run, so
-`sentiment_signals` rows genuinely differ on all three days. A blanket "skip the
-scan" would lose that history. The honest options are (a) skip only the
-price/scoring persist and still write sentiment, (b) skip the pre-run backup
-when the as-of is unchanged — the cheapest single win — or (c) leave the rows
-alone and just *surface* it, so three scans sharing one market date read as one.
+`sentiment_signals` rows genuinely differ on all three days. A blanket "skip
+the scan" would lose that history. The remaining honest options are (a) skip
+only the price/scoring persist and still write sentiment — changes what a
+`scan_id` can mean (a scan_id with sentiment rows but no scores/signals is a
+new shape nothing downstream currently expects — dashboard health panel,
+`get_latest_health`, etc. would need auditing), or (c) leave the rows alone
+and just *surface* it, so three scans sharing one market date read as one in
+the UI/health panel. Deliberately not picked without a decision on which
+shape to commit to — same trap as the union-merge and false-green bugs this
+project has already hit from an under-designed "what does this row mean" call.
 
-Newly cheap to detect: `prices_asof` has been persisted on `scans` since
-2026-08-23, so "same market date as the previous scan" is one column comparison
-rather than a re-derivation.
+`prices_asof` (persisted on `scans` since 2026-08-23) makes "same market date
+as the previous scan" one column comparison, so either option is cheap to
+detect once the persistence-shape question is settled.
 
 ## Holding-period panel is denominated in scans
 
@@ -638,6 +644,31 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Skipped the pre-run backup when as-of is unchanged (2026-08-23)
+
+Three of seven weekly scans land on the same market date (06:00 UTC cron
+fires before the US close, so Sat/Sun/Mon all score off Friday's bar) —
+each one still uploaded a full backup zip of data identical to the previous
+scan's. `scan.py`'s pre-run backup step now checks the prior scan's
+`prices_asof` (via `get_latest_health`) against this run's just-computed
+as-of date; if they match, the upload is skipped. A failure determining the
+prior as-of (e.g. `get_latest_health` raising) defaults to backing up
+anyway — the safe side of "not sure".
+
+New `_same_market_date()` helper normalizes `prices_asof`'s type (str,
+`datetime.date`, or `pandas.Timestamp`, depending on driver/pandas version)
+before comparing. 6 new tests in `tests/test_scan_smoke.py`: skip-when-
+unchanged, backup-when-changed, backup-on-no-prior-scan, backup-on-health-
+check-failure, and a direct unit test of `_same_market_date` across all
+three input types. Sabotage-verified: inverting the skip condition and
+disabling the `str` branch of the type-normalization each failed the
+matching new test as expected.
+
+Deliberately scoped to only the backup half — the duplicate-row-write half
+of the same finding is still Queued (see "Three of seven weekly scans still
+persist duplicate scores/signals"), pending a decision on what a `scan_id`
+should mean when nothing changed.
 
 ## Stripped Plotly's default template from every serialized figure (2026-08-23)
 
