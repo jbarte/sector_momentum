@@ -21,6 +21,54 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Consider dropping the Market Context chips, keep only the Live indicator
+
+**Thinking out loud, not decided.** Jonas: the SPY/VIX chips may serve no
+purpose — worth just keeping the Live indicator.
+
+The section ("Market context — what these mean", SPY vs 200-DMA + VIX band
+chips) renders in **three** places, all gated on `macro`: `index.html.j2`'s
+summary strip Cell C (`#cell-market-context`, lines ~99-119, chips + guide
+button), `_header.html.j2`'s desktop chips (lines ~51-65, not dead code —
+it's the *only* place SPY/VIX/Live appear on `sentiment.html.j2`, which has
+no strip of its own, a Stage 4 gap fixed 2026-08-21), and `_header.html.j2`'s
+`.mobile-scan-meta` inline fallback (lines ~107-116, plain text, no chip
+styling, no guide, no Live host). All three share the guide dialog
+`_guide_market_context.html.j2` and `market_context_*`/`macro_*` i18n keys.
+Confirmed `macro` (from `dashboard/macro.py`, fetched once in `build.py`) is
+consumed nowhere else — display-only, exactly these three sites — so this is
+a self-contained removal, not one with a hidden fourth consumer.
+
+**Why it might be worth cutting**: SPY-vs-200-DMA and a VIX band are generic
+market-regime trivia — nothing on the page conditions its own behavior on
+them (no signal, badge, or ranking reacts to VIX), so it's read-only context
+a reader could get anywhere, not something this tool specifically informs.
+
+**The wrinkle if it goes**: `markLive()` (`dashboard/assets/auth.js`) inserts
+the "Live" chip *into* `#market-context-chips` as its host — removing the
+section means relocating Live's home in the two desktop templates (the
+mobile fallback never hosted Live). A fallback host already exists in the
+code (`.command-bar .meta-cluster`, the pre-Stage-4 location) but whether
+it's still the *right* place, or whether Live needs a small purpose-built
+host instead, hasn't been looked at. Also touches the guide dialog content
+and several i18n keys (EN + SV) that would go unused.
+
+Needs a brainstorm before implementation — "remove a whole visible section
+plus relocate a different feature that depends on it" is a real design
+decision, not a mechanical deletion.
+
+**Follow-up idea, also undecided**: rather than just deleting the chips and
+leaving a gap, replace them with something the reader can act on — a
+strategy-vs-benchmark comparison for a recent window (e.g. "this strategy vs
+[index] over the last month"), instead of generic market-regime trivia. Open
+questions Jonas flagged: which comparison exactly (the live top-N picks?
+one of the precomputed Backtest-tab operating points?) and which timeframe
+(a fixed "last month," or something tied to the selected horizon). Would
+reuse machinery that already exists — `dashboard/validation.py`'s forward-
+return computation and the Backtest tab's benchmark-CAGR columns — rather
+than a fresh calculation, but placement (this strip vs. inside the Backtest
+tab where equivalent numbers already live) and scope are still open.
+
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
