@@ -160,6 +160,24 @@ def init_db() -> psycopg2.extensions.connection:
                 cur.execute(
                     f"ALTER TABLE scans ADD COLUMN IF NOT EXISTS {col} {col_type}"
                 )
+            # Postgres does not auto-index a foreign-key column. Confirmed live
+            # against production 2026-08-23: `signals`/`scores`/`sentiment_signals`
+            # had zero non-primary-key indexes despite every read and write
+            # filtering on scan_id (and often region) — the same-UTC-day
+            # replace's `DELETE FROM signals WHERE scan_id IN (...)` and every
+            # `WHERE scan_id = %s AND region = ...` read in dashboard/build.py
+            # were seq-scanning a table that already held 21k rows. (scan_id,
+            # region) as a composite covers both shapes: scan_id-only queries
+            # (the DELETE) use it via the leftmost-prefix rule, and scan_id+region
+            # reads use the full key.
+            for idx, table in [
+                ("signals_scan_region_idx", "signals"),
+                ("scores_scan_region_idx", "scores"),
+                ("sentiment_signals_scan_region_idx", "sentiment_signals"),
+            ]:
+                cur.execute(
+                    f"CREATE INDEX IF NOT EXISTS {idx} ON {table} (scan_id, region)"
+                )
     logger.info("Database initialised (Supabase/Postgres)")
     return conn
 

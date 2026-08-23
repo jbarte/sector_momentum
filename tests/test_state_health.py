@@ -41,6 +41,58 @@ def test_init_db_adds_health_columns():
             assert col in executed_sql, f"Missing ALTER TABLE for {col}"
 
 
+def test_init_db_creates_indexes_on_scan_scoped_tables():
+    """init_db should CREATE INDEX IF NOT EXISTS on (scan_id, region) for each
+    of the three tables every scan-scoped read/write actually touches.
+
+    Confirmed live against production 2026-08-23: signals/scores/
+    sentiment_signals had zero non-PK indexes despite every read filtering
+    on scan_id (and often region), and the same-day-replace DELETE filtering
+    on scan_id alone.
+    """
+    from src.state import init_db
+
+    with patch("src.state.os.environ", {"DATABASE_URL": "fake"}), \
+         patch("src.state.psycopg2.connect") as mock_connect:
+        conn, cur = _mock_conn_and_cursor()
+        mock_connect.return_value = conn
+
+        init_db()
+
+        executed_sql = " ".join(
+            str(call) for call in cur.execute.call_args_list
+        )
+        for table in ("signals", "scores", "sentiment_signals"):
+            assert f"CREATE INDEX IF NOT EXISTS" in executed_sql, (
+                "init_db never issues a CREATE INDEX IF NOT EXISTS statement"
+            )
+            assert f"ON {table} (scan_id, region)" in executed_sql, (
+                f"init_db does not index {table} on (scan_id, region)"
+            )
+
+
+def test_init_db_index_creation_uses_if_not_exists():
+    """Every CREATE INDEX must be idempotent (IF NOT EXISTS) — init_db runs
+    on every scan (production) and every test-suite DB-backed test, so a
+    plain CREATE INDEX would fail on the second call."""
+    from src.state import init_db
+
+    with patch("src.state.os.environ", {"DATABASE_URL": "fake"}), \
+         patch("src.state.psycopg2.connect") as mock_connect:
+        conn, cur = _mock_conn_and_cursor()
+        mock_connect.return_value = conn
+
+        init_db()
+
+        for call in cur.execute.call_args_list:
+            sql = str(call)
+            if "CREATE INDEX" in sql:
+                assert "IF NOT EXISTS" in sql, (
+                    f"non-idempotent CREATE INDEX would fail on init_db's "
+                    f"next call: {sql}"
+                )
+
+
 def test_save_scan_includes_health_columns():
     """save_scan with health dict should INSERT health values."""
     from datetime import datetime, timezone
