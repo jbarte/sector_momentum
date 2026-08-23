@@ -579,25 +579,13 @@ restores it into the service container, asserting row counts per table. It needs
 on 2026-06-25, and a restore drill is precisely the shape of job that could do
 it again.
 
-## Small cleanups from the 2026-08-23 sweep
+## Audit record from the 2026-08-23 sweep
 
-Grouped because none of them individually justifies a PR; take them alongside
-whatever else touches the same file.
-
-- **`_modal.js.j2` is inlined three times** in `index.html` (~12 KB total). The
-  `window.SMModal = window.SMModal || (...)` guard makes it idempotent, so this
-  is pure duplication, not a bug — but it is three copies of a focus-trap
-  implementation that must not drift.
-- **Unescaped `innerHTML` interpolation.** `auth.js:241` and
-  `scan-digest.js:93` build rows by string concatenation, interpolating
-  `r.gics_sector` without escaping. **Not exploitable** — theme names come from
-  `config/themes.yaml` via the pipeline, so the data is repo-controlled — but it
-  is the kind of thing that becomes exploitable the day any of it comes from
-  somewhere else. Hardening only.
-- **Each price parquet is read twice per scan.** `_cache_is_fresh` does a full
-  `pd.read_parquet` to inspect the index, then `fetch_prices` immediately reads
-  the same file again on a cache hit. 20 tickers × 2 reads. Trivially fixed by
-  having `_cache_is_fresh` return the frame it already loaded.
+The three actionable findings from this sweep (`_modal.js.j2` inlined three
+times, unescaped `innerHTML` interpolation in `auth.js`/`scan-digest.js`, each
+price parquet read twice per scan) shipped 2026-08-23 — see Done. What
+remains here is the audit record itself: negative findings with no other item
+to attach to, kept so the same sweep is not repeated.
 
 **Swept and found clean** (recorded so the sweep is not repeated): no
 `TODO`/`FIXME`/`XXX`/`HACK` anywhere in `src/`, `dashboard/` or `scan.py`; no
@@ -677,6 +665,63 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Swept 3 small cleanups: modal dedup, XSS hardening, cache double-read (2026-08-23)
+
+Grouped, from the 2026-08-23 project sweep — none individually justified its
+own PR.
+
+**`_modal.js.j2` was inlined three times per page** (~12 KB). The
+`window.SMModal = window.SMModal || (...)` guard made it idempotent, not a
+bug, but three copies of a focus-trap implementation that had to stay
+byte-identical. Both `index.html.j2` and `sentiment.html.j2` already included
+it once directly, ahead of `_footer.html.j2` and `_methodology.html.j2` in
+document order — removed the two redundant includes inside those partials,
+which now rely on `window.SMModal` already existing.
+
+**Unescaped `innerHTML` interpolation** in `auth.js`'s `renderLatestRows()`
+and `scan-digest.js`'s `fmtChip()` — both interpolate theme/sector names by
+string concatenation with no escaping. Not exploitable today (names come from
+`config/themes.yaml` via the pipeline, never from a reader), hardening only.
+Added a local `escapeHtml()` to each file (no shared always-loaded JS module
+exists to put one helper in — matches the codebase's existing per-file IIFE
+convention) and wrapped the two interpolation sites.
+
+**Each price parquet was read twice per scan.** `_cache_is_fresh` did a full
+`pd.read_parquet` just to inspect the index; `fetch_prices` then immediately
+read the identical file again on every cache hit — 20 tickers × 2 reads.
+Renamed to `_load_fresh_cache`, returning the DataFrame it already loaded
+(`None` when stale) instead of a bare bool. `_cache_is_fresh` stays as a thin
+bool wrapper (`_load_fresh_cache(...) is not None`) — kept specifically
+because it already had ~20 pinned tests exercising every freshness-boundary
+edge case (weekend bridges, holiday gaps, the 2026-08-09 Thursday-twice bug),
+and rewriting all of them for a return-type change would have been a much
+bigger, riskier diff than the fix itself. `fetch_prices` now calls
+`_load_fresh_cache` directly and reuses its frame.
+
+19 tests added/updated: 8 in `test_prices.py` (direct `_load_fresh_cache`
+tests, an end-to-end test asserting `pd.read_parquet` is called exactly once
+per cached ticker via a real — not mocked — cache file, and the 8 existing
+`fetch_prices`-integration tests re-pointed from mocking `_cache_is_fresh`
+with booleans to mocking `_load_fresh_cache` with frames), 4 in
+`test_dashboard_js.py` (a Node-execution test proving `escapeHtml()` itself
+neutralizes `<script>` tags correctly, plus source-pinned call-site
+assertions for both files), 2 rewritten in `test_alerts_modal.py`/
+`test_methodology.py` (their literal-include / "Escape" text assertions no
+longer held once the include moved — replaced with assertions on the actual
+contract, `window.SMModal.bind(...)` being called, with Escape-handling
+itself already pinned directly against `_modal.js.j2`'s own source by an
+existing `test_dashboard_js.py` test).
+
+Sabotage-verified: escaping removed at either call site, and the double-read
+reintroduced, all caught by name.
+
+Verified live in a browser, both pages: `window.SMModal` exists globally,
+opening the methodology modal moves focus inside it (focus trap engaged), and
+a dispatched `Escape` keydown closes it — on `sentiment.html.j2` too, proving
+its own direct `_modal.js.j2` include (unchanged) is what now supplies
+`window.SMModal` to the `_footer.html.j2`/`_methodology.html.j2` partials it
+pulls in later, rather than either partial's own now-removed copy.
 
 ## Persisted align_cohort_asof's dropped-theme count to health (2026-08-23)
 
