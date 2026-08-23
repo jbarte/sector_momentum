@@ -277,6 +277,23 @@ def _compute_finbert_sentiment(wide_df, themes_cfg, args):
     return sentiment_score, sentiment_signals_df, finbert_health
 
 
+def _same_market_date(prior_asof, as_of: pd.Timestamp) -> bool:
+    """True when `prior_asof` names the same calendar date as `as_of`.
+
+    `prior_asof` comes back from `get_latest_health()`'s DATE column, whose
+    Python type depends on the driver/pandas version in play (str,
+    datetime.date, or pandas.Timestamp have all been observed) — normalize
+    before comparing rather than assume one.
+    """
+    if isinstance(prior_asof, str):
+        prior_date = date.fromisoformat(prior_asof)
+    elif isinstance(prior_asof, pd.Timestamp):
+        prior_date = prior_asof.date()
+    else:
+        prior_date = prior_asof  # already a datetime.date
+    return prior_date == as_of.date()
+
+
 def _persist_scan(conn, run_at, long_signals_df, scored_with_deltas,
                   sentiment_signals_df, finbert_health, *, t0, price_stats,
                   prices_total, prices_failed, sectors_expected, sectors_produced):
@@ -360,7 +377,7 @@ def run(args: argparse.Namespace) -> int:
     _t0 = time.time()
     from src.data.prices import align_cohort_asof, fetch_prices
     from src.scoring import score_all, zscore_cross_section
-    from src.state import init_db, load_last_scan, compute_deltas
+    from src.state import init_db, load_last_scan, compute_deltas, get_latest_health
     from src.report import build_ranked_table, build_movers, write_report
     from src.cohorts import cohorts
 
@@ -472,11 +489,36 @@ def run(args: argparse.Namespace) -> int:
     conn = init_db()
     try:
         if not args.no_backup:
+            # Three of seven weekly scans land on the same market date (the
+            # 06:00 UTC cron fires before the US close, so Sat/Sun/Mon all
+            # score off Friday's bar) — each one still uploaded a full
+            # backup zip of data identical to the previous scan. If the
+            # prior scan's as-of matches this one, there is nothing new to
+            # protect; skip the upload. A failure determining that defaults
+            # to backing up anyway — the safe side of "not sure".
+            # Both the DB read and the comparison (_same_market_date can
+            # raise on an unexpected prices_asof shape) stay inside this
+            # try — any failure here must fall through to "back up anyway",
+            # never propagate and abort the whole scan.
+            skip_backup = False
             try:
-                name = backup_to_storage(conn)
-                logger.info("Pre-run DB backup uploaded to Storage (%s)", name)
-            except Exception as exc:  # non-fatal: a backup failure must not fail the scan
-                logger.warning("Pre-run backup failed (%s) — continuing", exc)
+                prior_health = get_latest_health(conn)
+                prior_asof = prior_health.get("prices_asof") if prior_health else None
+                skip_backup = prior_asof is not None and _same_market_date(prior_asof, as_of)
+            except Exception as exc:
+                logger.warning("Could not check prior scan's as-of date (%s) — backing up anyway", exc)
+
+            if skip_backup:
+                logger.info(
+                    "Skipping pre-run backup — prices as-of unchanged since the last scan (%s)",
+                    as_of.date(),
+                )
+            else:
+                try:
+                    name = backup_to_storage(conn)
+                    logger.info("Pre-run DB backup uploaded to Storage (%s)", name)
+                except Exception as exc:  # non-fatal: a backup failure must not fail the scan
+                    logger.warning("Pre-run backup failed (%s) — continuing", exc)
 
         # 10. Load prior scan + compute deltas
         prior_scan = load_last_scan(conn)
