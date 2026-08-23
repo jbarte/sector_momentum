@@ -121,11 +121,15 @@ def _make_minimal_scored():
     )
 
 
-def _run_minimal_scan(monkeypatch, extra_argv=None):
+def _run_minimal_scan(monkeypatch, extra_argv=None, prior_health=None, health_check_error=None):
     """
     Invoke scan.run() with all external dependencies stubbed out.
     Returns the exit code (or None if run() returns None).
     extra_argv is appended to sys.argv after 'scan.py'.
+
+    prior_health: value get_latest_health() returns (default None — no
+    prior scan). health_check_error: if set, get_latest_health() raises
+    this instead of returning prior_health.
     """
     import sys
     import pandas as pd
@@ -184,6 +188,13 @@ def _run_minimal_scan(monkeypatch, extra_argv=None):
     monkeypatch.setattr(_state_mod, "init_db", lambda: fake_conn)
     monkeypatch.setattr(_state_mod, "save_scan", lambda *a, **k: 42)
     monkeypatch.setattr(_state_mod, "load_last_scan", lambda *a, **k: None)
+
+    def _fake_get_latest_health(*a, **k):
+        if health_check_error is not None:
+            raise health_check_error
+        return prior_health
+    monkeypatch.setattr(_state_mod, "get_latest_health", _fake_get_latest_health)
+
     monkeypatch.setattr(_state_mod, "compute_deltas", lambda *a, **k: scored_with_deltas)
     monkeypatch.setattr(_report_mod, "build_ranked_table", lambda *a, **k: scored_with_deltas)
     monkeypatch.setattr(_report_mod, "build_movers", lambda *a, **k: {})
@@ -253,6 +264,70 @@ def test_pre_run_backup_skipped_with_no_backup_flag(monkeypatch):
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append("backup"))
     _run_minimal_scan(monkeypatch, extra_argv=["--no-backup"])
     assert calls == []
+
+
+# ---------------------------------------------------------------------------
+# Redundant-backup skip: three of seven weekly scans share a market date
+# (2026-08-23 backlog item) -- the fixture's price series is 300 business
+# days from 2025-01-01, so align_cohort_asof's as-of lands on 2026-02-24.
+# ---------------------------------------------------------------------------
+
+_FIXTURE_ASOF = "2026-02-24"
+
+
+def test_backup_skipped_when_asof_unchanged(monkeypatch):
+    """The prior scan's prices_asof matching this scan's as-of date means
+    nothing changed since it was last backed up -- skip the upload."""
+    import scan
+    calls = []
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    _run_minimal_scan(monkeypatch, prior_health={"prices_asof": _FIXTURE_ASOF})
+    assert calls == []
+
+
+def test_backup_called_when_asof_changed(monkeypatch):
+    """A prior scan with a different prices_asof still gets backed up --
+    there is new data to protect."""
+    import scan
+    calls = []
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    _run_minimal_scan(monkeypatch, prior_health={"prices_asof": "2026-02-20"})
+    assert len(calls) == 1
+
+
+def test_backup_called_when_no_prior_scan(monkeypatch):
+    """First-ever scan (no prior health row at all) always backs up --
+    there is nothing to compare the as-of date against."""
+    import scan
+    calls = []
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    _run_minimal_scan(monkeypatch, prior_health=None)
+    assert len(calls) == 1
+
+
+def test_backup_called_when_health_check_raises(monkeypatch):
+    """A failure determining the prior as-of date must not silently skip
+    the backup -- the safe default on doubt is to back up anyway."""
+    import scan
+    calls = []
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    _run_minimal_scan(monkeypatch, health_check_error=RuntimeError("db down"))
+    assert len(calls) == 1
+
+
+def test_same_market_date_normalizes_str_date_and_timestamp():
+    """_same_market_date compares prior_asof against as_of regardless of
+    which type the DATE column round-tripped as (str, datetime.date, or
+    pandas.Timestamp all appear in the wild depending on driver/pandas
+    version)."""
+    import scan
+    from datetime import date as date_cls
+
+    as_of = pd.Timestamp("2026-02-24")
+    assert scan._same_market_date("2026-02-24", as_of) is True
+    assert scan._same_market_date(date_cls(2026, 2, 24), as_of) is True
+    assert scan._same_market_date(pd.Timestamp("2026-02-24"), as_of) is True
+    assert scan._same_market_date("2026-02-20", as_of) is False
 
 
 def test_coverage_guard_aborts_on_partial_scan(monkeypatch):
