@@ -717,6 +717,56 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## RRG tab rendered an empty chart for every guest (2026-08-23)
+
+**Note for whoever merges this alongside PR #242** (the Plotly bundle bump,
+still open when this was written): that PR's Done entry mentions finding this
+exact bug and queues it separately rather than fixing it inline. This PR
+fixes it. If #242 merges first, its Queued section for this bug should be
+deleted rather than surviving alongside this Done entry — run `/backlog-sync`
+after both land if that reconciliation didn't happen automatically.
+
+`dashboard/build.py`'s content-gating block re-caps every per-scan data source
+to the lagged scan a guest actually sees. `all_scores_df` and `history_df` are
+fetched with `n_scans=20` — comfortably wider than the ~7-scan lag `LAG_DAYS=7`
+produces against daily scans — so filtering them to `scan_id <= lb_scan_id`
+still leaves rows. `rrg_df` was fetched with `n_scans=6`, **narrower** than the
+lag, so the same filter discarded every row every time. Confirmed live:
+`get_rrg_history(conn)` returned 108 healthy rows (6 scans × 18 themes, zero
+NaN in `rs_ratio`/`rs_momentum`) — the data was fine, it was fetched as the
+wrong 6 scans and then discarded.
+
+This was the steady state, not an edge case — the RRG tab has rendered empty
+for every guest since content gating and the 6-scan RRG window first
+coexisted, silently.
+
+**Fix:** `_recent_scan_filter` (src/state.py) gained an `end_scan_id`
+parameter that anchors "last n_scans" to end AT a given scan rather than at
+the true newest one — `WHERE scan_id <= %s ORDER BY scan_id DESC LIMIT %s`
+instead of the unbounded `ORDER BY ... LIMIT %s`. `get_rrg_history` (and its
+`get_theme_rrg_history` wrapper) expose it. The gating block in `build.py` now
+re-fetches `rrg_df = get_rrg_history(conn, n_scans=6, end_scan_id=lb_scan_id)`
+instead of filtering the unrelated newest-6 window — the same "re-fetch
+anchored at the rendered scan" shape as the `signals_df`/`sentiment_signals_df`/
+`health_row` re-fetches immediately above it in the same block.
+
+7 tests added across `tests/test_theme_state.py` (SQL/param shape of
+`end_scan_id`, including a direct unit test on `_recent_scan_filter` pinning
+the `(end_scan_id, n_scans)` param order — a swap silently caps the scan COUNT
+at the scan ID and vice versa, invisible to a query-text-only assertion) and
+`tests/test_health.py` (source-scan of the gating block itself, mirroring the
+existing `TestHealthPanelGating` pattern for the same class of leak). Five
+sabotages confirmed caught: filter-only revert (the original bug),
+re-fetch-without-`end_scan_id`, call-but-assign-elsewhere, import removed, and
+params swapped inside `_recent_scan_filter`.
+
+Verified against the real database, not just source-scanned: rebuilt the gated
+page and confirmed `COHORT_CHARTS.THEME.rrg.data` went from 0 traces to 19 (18
+themes + benchmark), 6 points each; a real browser screenshot shows the RRG
+scatter fully populated with quadrant labels. Also rebuilt with
+`SUPABASE_PUBLISHABLE_KEY` unset (the ungated/local path) to confirm it was
+already correct and stays unaffected — 19 traces, 6 points, same as before.
+
 - **The price as-of date is now persisted, and shown in the health panel** (2026-08-23).
 
   Closes the last remaining bullet of the "As-of alignment — remaining
