@@ -494,14 +494,19 @@ def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> p
 def get_theme_rrg_history(
     conn: psycopg2.extensions.connection,
     n_scans: int = 6,
+    end_scan_id: int | None = None,
 ) -> pd.DataFrame:
     """rs_ratio and rs_momentum for themes over the last n_scans, for RRG tail traces.
 
     Reads the shared `signals` table filtered to the THEME cohort. Columns:
     scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum — identical to
     get_rrg_history, which is what _build_rrg_figure expects.
+
+    `end_scan_id` — see get_rrg_history.
     """
-    return get_rrg_history(conn, n_scans=n_scans, regions=(THEME_REGION,))
+    return get_rrg_history(
+        conn, n_scans=n_scans, regions=(THEME_REGION,), end_scan_id=end_scan_id
+    )
 
 
 def get_theme_scan_history(
@@ -523,13 +528,24 @@ def get_rrg_history(
     conn: psycopg2.extensions.connection,
     n_scans: int = 6,
     regions=DEFAULT_REGIONS,
+    end_scan_id: int | None = None,
 ) -> pd.DataFrame:
     """
     Return rs_ratio and rs_momentum for the last n_scans scans, for RRG tail traces.
     `regions` restricts the cohort; None selects every cohort.
     Columns: scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum
+
+    `end_scan_id`, when given, anchors the window to end at that scan instead
+    of at the true newest one. dashboard/build.py's content gate needs this:
+    it used to fetch the newest 6 scans unconditionally, then filter them down
+    to `scan_id <= lb_scan_id` for guests. LAG_DAYS=7 against daily scans puts
+    lb_scan_id roughly 7 scans behind the newest, so that filter discarded
+    every row the fetch had returned — the RRG tab rendered an empty chart for
+    every guest, every day, not as an edge case but as the steady state. Found
+    2026-08-23. `end_scan_id=lb_scan_id` fetches the right 6 scans instead of
+    filtering a fixed window that may not overlap them at all.
     """
-    condition, params = _recent_scan_filter(n_scans)
+    condition, params = _recent_scan_filter(n_scans, end_scan_id=end_scan_id)
     rcond, rparams = _region_filter(regions, "sig")
     query = f"""
         SELECT sc.scan_id, sc.run_at, sig.region, sig.gics_sector,
@@ -712,15 +728,31 @@ def _latest_scan_query(conn, table: str, columns: str, regions=None) -> pd.DataF
     )
 
 
-def _recent_scan_filter(n_scans: int | None) -> tuple[str, tuple]:
+def _recent_scan_filter(
+    n_scans: int | None, end_scan_id: int | None = None
+) -> tuple[str, tuple]:
     """Returns (SQL boolean condition on sc.scan_id, params) restricting to
     the last n_scans scans — assumes the query aliases the scans table as
-    'sc'. When n_scans is None, returns a condition matching all rows."""
+    'sc'. When n_scans is None, returns a condition matching all rows.
+
+    ``end_scan_id``, when given, anchors "last n_scans" to end AT that scan
+    rather than at the true newest one — i.e. the n_scans scans ending at
+    end_scan_id, inclusive. Without this, a caller who wants "the last
+    n_scans as of some earlier scan" has to fetch the newest n_scans and
+    filter down afterward, which silently returns fewer rows than requested
+    (or none) whenever end_scan_id is more than n_scans behind the newest
+    scan — see get_rrg_history's docstring for the bug this caused."""
     if n_scans is None:
         return "TRUE", ()
+    if end_scan_id is None:
+        return (
+            "sc.scan_id IN (SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s)",
+            (n_scans,),
+        )
     return (
-        "sc.scan_id IN (SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT %s)",
-        (n_scans,),
+        "sc.scan_id IN (SELECT scan_id FROM scans WHERE scan_id <= %s "
+        "ORDER BY scan_id DESC LIMIT %s)",
+        (end_scan_id, n_scans),
     )
 
 

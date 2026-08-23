@@ -1,4 +1,5 @@
 """Tests for dashboard/health.py badge logic."""
+import re
 from pathlib import Path
 
 import pytest
@@ -276,4 +277,60 @@ class TestHealthPanelGating:
             "health_row is not re-fetched for the lagged scan inside the "
             "gating block — a guest's health panel would still show the "
             "true latest scan's data regardless of the 7-day lag"
+        )
+
+
+class TestRrgHistoryGating:
+    """The RRG tab was empty for every guest. `rrg_df` was fetched with
+    `n_scans=6` (dashboard/build.py:284, before the gating block), then the
+    gating block filtered it down to `scan_id <= lb_scan_id` -- the same
+    shape as `all_scores_df`/`history_df` two lines above it. But those two
+    are fetched with `n_scans=20`, comfortably wider than the ~7-scan lag, so
+    the post-fetch filter still leaves rows. rrg_df's window (6) was
+    NARROWER than the lag (~7), so the filter discarded every row every
+    time -- not an edge case, the steady state. Found 2026-08-23 while
+    visually verifying an unrelated Plotly bump; confirmed live that
+    get_rrg_history(conn) returns 108 healthy rows with zero NaN, so the data
+    was fine and simply never reached the gated page.
+
+    Same gating block as TestHealthPanelGating above, reusing its
+    block-extraction helper (see that class's docstring for why block
+    extraction is indentation-bounded rather than marker-bounded, and why
+    this is a source-scan rather than a real build.py run).
+    """
+
+    _BUILD_PY = TestHealthPanelGating._BUILD_PY
+    _gating_block = TestHealthPanelGating._gating_block
+
+    def test_rrg_df_is_refetched_anchored_at_lb_scan_id_not_merely_filtered(self):
+        """Distinguishes a real fix from a no-op one: the naive-looking fix
+        of just filtering `rrg_df` again (`rrg_df[rrg_df["scan_id"] <=
+        lb_scan_id]`, unchanged from before) would still pass a check for
+        "some reference to lb_scan_id near rrg_df" without fixing anything --
+        the window it filters is still the wrong 6 scans. Requires the
+        window to be RE-FETCHED anchored at lb_scan_id, which is the only
+        change that can put overlapping rows back into rrg_df."""
+        block = self._gating_block()
+        assert "get_rrg_history(conn" in block and "end_scan_id=lb_scan_id" in block, (
+            "rrg_df is not re-fetched anchored at lb_scan_id inside the "
+            "gating block -- filtering the original 6-scan window can never "
+            "overlap a lag of ~7 scans, so the RRG tab renders empty for "
+            "every guest"
+        )
+        # The specific self-assignment shape this bug needs, not just "the
+        # call exists somewhere in the block" -- confirmed by sabotage that
+        # the call could exist without actually reaching rrg_df.
+        assert re.search(r"rrg_df\s*=\s*get_rrg_history\(", block), (
+            "get_rrg_history(...) is called in the gating block but its "
+            "result is not assigned back to rrg_df"
+        )
+
+    def test_get_rrg_history_is_imported(self):
+        """Scoped to the `from src.state import (...)` block -- a
+        whole-file substring check would still pass with the import
+        removed, since the name also appears at the call site."""
+        text = self._BUILD_PY.read_text()
+        block = text.split("from src.state import (", 1)[1].split(")", 1)[0]
+        assert "get_rrg_history" in block, (
+            "dashboard/build.py never imports get_rrg_history"
         )

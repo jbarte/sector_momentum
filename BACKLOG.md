@@ -334,43 +334,6 @@ naming in the data layer* above, which recommends leaving them alone. A rebrand
 is a rename of the *product*, not a schema migration; conflating the two is how
 a cosmetic PR turns into a live-database risk.
 
-## RRG tab renders an empty chart for every guest
-
-Found 2026-08-23 while visually verifying the Plotly 3.7.0 bump — **not caused
-by it**: A/B-confirmed identical on 2.27.0, so this has been live for as long as
-content gating and the 6-scan RRG window have coexisted.
-
-Two lines in `dashboard/build.py` that cannot both be satisfied:
-
-```
-:339   rrg_df = get_rrg_history(conn, n_scans=6)     # newest 6 scans: 165-170
-:374   rrg_df = rrg_df[rrg_df["scan_id"] <= lb_scan_id]   # gate caps at 163
-```
-
-The fetch takes the newest 6 scans, *then* the content gate discards everything
-newer than the lagged scan. 165–170 ∩ ≤163 = ∅, so `COHORT_CHARTS.THEME.rrg.data`
-is `[]` and the tab paints axes with nothing on them.
-
-This is the **steady state**, not an edge case: `LAG_DAYS` is 7 and scans are
-daily, so the gate always sits ~7 scans back while the window only reaches 6.
-The tab can only be non-empty if scanning pauses long enough for the two ranges
-to overlap. Verified live — `get_rrg_history(conn)` returns 108 healthy rows
-(6 scans × 18 themes, zero NaN in `rs_ratio`/`rs_momentum`); the data is fine,
-it is discarded after being fetched.
-
-Same class as the health-panel leak fixed 2026-08-23 — a per-scan source
-resolved *before* the gate — but inverted: that one showed too much, this shows
-nothing.
-
-**Fix:** anchor the window to the scan actually being rendered rather than to
-`MAX(scan_id)` — fetch `n_scans` ending at `lb_scan_id`, the way
-`get_signals_for_scan` / `get_health_for_scan` already take an explicit
-scan_id. Filtering after a fixed-window fetch is the shape of the bug.
-
-**Test it against the gated build**, not the ungated one: the ungated path
-(`lag_active` False) has always worked, which is why this survived — a signed-in
-reader and a local unauthenticated build both see a populated RRG.
-
 ## Nothing prunes the backup bucket
 
 Found in the 2026-08-23 sweep. `backup_to_storage` (`src/backup.py:192`) uploads
@@ -714,6 +677,57 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## RRG tab rendered an empty chart for every guest (2026-08-23)
+
+PR #242 (the Plotly bundle bump) merged first and, as flagged when this branch
+was opened, its Done entry's mention of this bug had queued a section for it
+without fixing it. Merging `main` into this branch reproduced exactly the
+"item in both Queued and Done" symptom `/backlog-sync` exists to catch — no
+conflict markers (BACKLOG.md's `merge=union` driver combined both additions
+silently), caught instead by the drift check CLAUDE.md prescribes after any
+merge touching this file. The now-redundant Queued section was deleted as
+part of this merge.
+
+`dashboard/build.py`'s content-gating block re-caps every per-scan data source
+to the lagged scan a guest actually sees. `all_scores_df` and `history_df` are
+fetched with `n_scans=20` — comfortably wider than the ~7-scan lag `LAG_DAYS=7`
+produces against daily scans — so filtering them to `scan_id <= lb_scan_id`
+still leaves rows. `rrg_df` was fetched with `n_scans=6`, **narrower** than the
+lag, so the same filter discarded every row every time. Confirmed live:
+`get_rrg_history(conn)` returned 108 healthy rows (6 scans × 18 themes, zero
+NaN in `rs_ratio`/`rs_momentum`) — the data was fine, it was fetched as the
+wrong 6 scans and then discarded.
+
+This was the steady state, not an edge case — the RRG tab has rendered empty
+for every guest since content gating and the 6-scan RRG window first
+coexisted, silently.
+
+**Fix:** `_recent_scan_filter` (src/state.py) gained an `end_scan_id`
+parameter that anchors "last n_scans" to end AT a given scan rather than at
+the true newest one — `WHERE scan_id <= %s ORDER BY scan_id DESC LIMIT %s`
+instead of the unbounded `ORDER BY ... LIMIT %s`. `get_rrg_history` (and its
+`get_theme_rrg_history` wrapper) expose it. The gating block in `build.py` now
+re-fetches `rrg_df = get_rrg_history(conn, n_scans=6, end_scan_id=lb_scan_id)`
+instead of filtering the unrelated newest-6 window — the same "re-fetch
+anchored at the rendered scan" shape as the `signals_df`/`sentiment_signals_df`/
+`health_row` re-fetches immediately above it in the same block.
+
+7 tests added across `tests/test_theme_state.py` (SQL/param shape of
+`end_scan_id`, including a direct unit test on `_recent_scan_filter` pinning
+the `(end_scan_id, n_scans)` param order — a swap silently caps the scan COUNT
+at the scan ID and vice versa, invisible to a query-text-only assertion) and
+`tests/test_health.py` (source-scan of the gating block itself, mirroring the
+existing `TestHealthPanelGating` pattern for the same class of leak). Five
+sabotages confirmed caught: filter-only revert (the original bug),
+re-fetch-without-`end_scan_id`, call-but-assign-elsewhere, import removed, and
+params swapped inside `_recent_scan_filter`.
+
+Verified against the real database, not just source-scanned: rebuilt the gated
+page and confirmed `COHORT_CHARTS.THEME.rrg.data` went from 0 traces to 19 (18
+themes + benchmark), 6 points each; a real browser screenshot shows the RRG
+scatter fully populated with quadrant labels. Also rebuilt with
+`SUPABASE_PUBLISHABLE_KEY` unset (the ungated/local path) to confirm it was
+already correct and stays unaffected — 19 traces, 6 points, same as before.
 ## Plotly bumped 2.27.0 → 3.7.0; vendored bundles now verified by SHA-256 (2026-08-23)
 
 The served plotly.js had drifted **two majors** behind the plotly.py writing the
