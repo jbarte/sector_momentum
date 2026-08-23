@@ -596,15 +596,20 @@ def get_scan_history(
     Return scores for the last n_scans scans joined with scan metadata.
     When n_scans is None, returns ALL scans.
     `regions` restricts the cohort; None selects every cohort.
-    Columns: scan_id, run_at, region, gics_sector,
+    Columns: scan_id, run_at, prices_asof, region, gics_sector,
              level_score, change_score, data_score, sentiment_score, composite, rank
     Ordered by (run_at ASC, region, gics_sector).
     Returns empty DataFrame if no scans exist.
+
+    prices_asof rides along here (not just in get_latest_health's health
+    columns) so dashboard/validation.py can dedupe holding-period runs by
+    distinct market date without a second query — see
+    "Holding-period panel is denominated in scans" (2026-08-23 backlog).
     """
     condition, params = _recent_scan_filter(n_scans)
     rcond, rparams = _region_filter(regions, "s")
     query = f"""
-        SELECT sc.scan_id, sc.run_at, s.region, s.gics_sector,
+        SELECT sc.scan_id, sc.run_at, sc.prices_asof, s.region, s.gics_sector,
                s.level_score, s.change_score, s.data_score, s.sentiment_score,
                s.composite, s.rank
         FROM scores s

@@ -545,3 +545,20 @@ def test_get_same_asof_streak_selects_scan_id_and_prices_asof():
     assert "prices_asof" in sql
     assert "scan_id" in sql
     assert "ORDER BY scan_id DESC" in sql
+
+
+def test_get_scan_history_selects_prices_asof_from_the_db():
+    """prices_asof rides along in get_scan_history's SELECT (2026-08-23) so
+    dashboard/validation.py can dedupe holding-period runs by market date
+    without a second query. Same SQL-text-pin convention as
+    get_latest_health's own asof checks above -- a DataFrame-only check
+    would pass even with the column dropped from the SELECT itself."""
+    from src.state import get_scan_history
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame()
+        get_scan_history(conn)
+
+    sql = str(mock_read.call_args)
+    assert "prices_asof" in sql, "get_scan_history's SELECT does not request prices_asof"

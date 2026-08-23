@@ -279,6 +279,22 @@ def test_get_scan_history_row_count(db_conn):
 
 
 @skipif_no_db
+def test_get_scan_history_includes_prices_asof(db_conn):
+    """prices_asof rides along in get_scan_history's SELECT (2026-08-23) --
+    a real end-to-end round trip, not just an SQL-text pin, since a real DB
+    is the only thing that would catch the column silently missing from
+    the actual result set (e.g. a typo'd alias)."""
+    signals_df, scores_df = _make_scan_data()
+    save_scan(
+        db_conn, datetime.datetime(2099, 5, 1, 10, 0, 0), signals_df, scores_df,
+        health={"prices_asof": "2099-04-30"},
+    )
+    history = get_scan_history(db_conn, n_scans=1)
+    assert "prices_asof" in history.columns
+    assert str(history["prices_asof"].iloc[0]) == "2099-04-30"
+
+
+@skipif_no_db
 def test_get_scan_history_none_returns_all_scans(db_conn):
     """n_scans=None returns every scan, not just a window."""
     signals_df, scores_df = _make_scan_data()

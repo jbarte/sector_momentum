@@ -426,23 +426,6 @@ Reopen only with a real plan for reconciling every "last N scans" window
 wrong early call on data shape is expensive to unwind, same trap as the
 union-merge and false-green bugs this project has already hit.
 
-## Holding-period panel is denominated in scans
-
-`validation._holding_stats` measures top-5 run lengths in scan-index units and
-`_validation.html.j2` labels them honestly — *"Duration of contiguous top-5 rank
-streaks (in scans)"*. The label is not wrong; the **unit** is the problem.
-
-A scan is not a time the reader can act on, and it is not even a constant
-interval: seven scans a week against five market days, and — see *Three of seven
-weekly scans are now byte-identical* above — three of those seven now share one
-market date. So "median 12" is roughly 8.5 calendar days, roughly 6 market days,
-and the ratio drifts whenever the cron or the cache rule changes. The decision
-this number feeds is a monthly rebalance cadence, which it cannot be compared to.
-
-Fix: dedupe runs by distinct market date and report market days. `prices_asof`
-on `scans` (persisted since 2026-08-23) is exactly the column that makes this
-possible without re-deriving dates from `run_at`.
-
 ## Health panel has no signal for themes missing for reasons other than a stale as-of drop
 
 Code review, 2026-08-23, on the `asof_dropped_count` PR (see Done). Recorded,
@@ -639,6 +622,35 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Holding-period panel now measures in market days, not scans (2026-08-23)
+
+`validation._holding_stats` measured top-5 run lengths in scan-index units —
+not a time the reader can act on, and not a constant interval (seven scans a
+week against five market days, with up to three of those seven able to share
+one market date outright since the byte-identical-scans pattern).
+
+`get_scan_history` now selects `scans.prices_asof` alongside `run_at`. New
+`_market_day_index()` in `dashboard/validation.py` maps each scan_id to an
+index that collapses consecutive scans sharing a `prices_asof`, so
+`_top5_runs`'s `duration` counts distinct market days instead of raw scan
+count. A scan with unknown `prices_asof` (missing column, or NaN on old scan
+rows) never merges with anything — each keeps its own index, so two
+unrelated gaps in history can't silently collapse into one.
+
+Panel copy updated (EN + SV): "Duration of contiguous top-5 rank streaks (in
+market days)." 12 new tests across `tests/test_validation.py` (dedup
+behavior, unknown-never-merges, missing-column fallback, a dedicated
+`_market_day_index` unit-test class) and `tests/test_state_health.py` /
+`tests/test_state_smoke.py` (SQL-text pin + a real-DB round-trip on
+`prices_asof` reaching `get_scan_history`'s result set). Sabotage-verified:
+broke the collapse condition, the unknown-never-merges guard (two ways), and
+the SQL SELECT — each caught by its matching new test, restored and
+re-verified green. Browser-verified against a real build: the Backtest
+tab's holding-period panel renders the updated copy and real numbers
+(median 8, mean 9.6, min 1, max 25 — this local DB's scans don't carry
+duplicate `prices_asof` values, so the numbers are unchanged from before;
+the dedup logic itself is covered by the sabotage-verified unit tests).
 
 ## Surfaced when scans share a market date (2026-08-23)
 
