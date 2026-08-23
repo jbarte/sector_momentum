@@ -434,3 +434,114 @@ def test_get_latest_health_reads_asof_dropped_count():
         result = get_latest_health(conn)
 
     assert result["asof_dropped_count"] == 3
+
+
+# ---------------------------------------------------------------------------
+# get_same_asof_streak -- surfaces "N scans share one market date" without
+# changing what gets persisted (2026-08-23 backlog: byte-identical scans).
+# ---------------------------------------------------------------------------
+
+
+def test_get_same_asof_streak_counts_consecutive_matches():
+    """Three scans sharing prices_asof, newest first (as the DESC query
+    would return them) -> streak of 3."""
+    from src.state import get_same_asof_streak
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame([
+            {"scan_id": 170, "prices_asof": "2026-08-21"},
+            {"scan_id": 169, "prices_asof": "2026-08-21"},
+            {"scan_id": 168, "prices_asof": "2026-08-21"},
+            {"scan_id": 167, "prices_asof": "2026-08-20"},
+        ])
+        result = get_same_asof_streak(conn, 170)
+
+    assert result == 3
+
+
+def test_get_same_asof_streak_stops_at_first_mismatch():
+    from src.state import get_same_asof_streak
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame([
+            {"scan_id": 170, "prices_asof": "2026-08-21"},
+            {"scan_id": 169, "prices_asof": "2026-08-20"},
+        ])
+        result = get_same_asof_streak(conn, 170)
+
+    assert result == 1
+
+
+def test_get_same_asof_streak_stops_at_null_prior_row():
+    """A NaN prices_asof partway back (old scan row predating the column)
+    ends the streak there rather than raising or skipping past it."""
+    from src.state import get_same_asof_streak
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame([
+            {"scan_id": 170, "prices_asof": "2026-08-21"},
+            {"scan_id": 169, "prices_asof": "2026-08-21"},
+            {"scan_id": 168, "prices_asof": None},
+        ])
+        result = get_same_asof_streak(conn, 170)
+
+    assert result == 2
+
+
+def test_get_same_asof_streak_returns_one_when_target_asof_is_null():
+    from src.state import get_same_asof_streak
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame([
+            {"scan_id": 170, "prices_asof": None},
+        ])
+        result = get_same_asof_streak(conn, 170)
+
+    assert result == 1
+
+
+def test_get_same_asof_streak_returns_one_when_scan_id_not_found():
+    """scan_id <= %s ORDER BY DESC would land on an older scan_id as the
+    first row if the requested one doesn't exist -- must not report that
+    older scan's streak as if it were the requested scan's."""
+    from src.state import get_same_asof_streak
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame([
+            {"scan_id": 165, "prices_asof": "2026-08-18"},
+        ])
+        result = get_same_asof_streak(conn, 999)
+
+    assert result == 1
+
+
+def test_get_same_asof_streak_returns_one_on_empty_scans_table():
+    from src.state import get_same_asof_streak
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame()
+        result = get_same_asof_streak(conn, 1)
+
+    assert result == 1
+
+
+def test_get_same_asof_streak_selects_scan_id_and_prices_asof():
+    """Query-shape pin, same convention as get_latest_health's own SQL-text
+    checks above."""
+    from src.state import get_same_asof_streak
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame()
+        get_same_asof_streak(conn, 170)
+
+    sql = str(mock_read.call_args)
+    assert "prices_asof" in sql
+    assert "scan_id" in sql
+    assert "ORDER BY scan_id DESC" in sql
