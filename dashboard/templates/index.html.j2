@@ -306,11 +306,11 @@
               with the 6-column restructure — sentiment is alpha and excluded from
               the ranking, so the column was "—" in every row. Level and Change
               merged into one stacked-bar cell in the same change. -#}
-          <th onclick="sortTable(0)" data-col="0" tabindex="0" data-i18n="col_rank">#</th>
-          <th onclick="sortTable(1)" data-col="1" tabindex="0" data-i18n="col_sector">Theme</th>
-          <th onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_composite">Composite</th>
-          <th onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_levelchange">Level / Change</th>
-          <th onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
+          <th scope="col" onclick="sortTable(0)" data-col="0" tabindex="0" data-i18n="col_rank">#</th>
+          <th scope="col" onclick="sortTable(1)" data-col="1" tabindex="0" data-i18n="col_sector">Theme</th>
+          <th scope="col" onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_composite">Composite</th>
+          <th scope="col" onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_levelchange">Level / Change</th>
+          <th scope="col" onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
         </tr>
       </thead>
       <tbody>
@@ -418,7 +418,7 @@
   <div class="table-wrap scan-index">
     <table>
       <thead>
-        <tr><th></th><th data-i18n="si_scan">Scan</th><th data-i18n="si_run">Run (UTC)</th><th data-i18n="si_sectors">Themes</th><th data-i18n="si_top">Top theme</th><th data-i18n="si_report">Report</th></tr>
+        <tr><th scope="col"></th><th scope="col" data-i18n="si_scan">Scan</th><th scope="col" data-i18n="si_run">Run (UTC)</th><th scope="col" data-i18n="si_sectors">Themes</th><th scope="col" data-i18n="si_top">Top theme</th><th scope="col" data-i18n="si_report">Report</th></tr>
       </thead>
       <tbody>
         {% for s in scan_index %}
@@ -448,7 +448,7 @@
   {% if has_backtest %}
   <div class="table-wrap">
     <table>
-      <thead><tr><th data-i18n="bt_horizon">Horizon</th><th data-i18n="bt_policy">Policy</th><th data-i18n="bt_window">Window</th><th data-i18n="bt_stratcagr">Strategy CAGR</th><th data-i18n="bt_benchcagr">Bench CAGR</th><th data-i18n="bt_sharpe">Sharpe (rf=0)</th><th data-i18n="bt_maxdd">Max DD</th><th data-i18n="bt_trades">Trades/yr</th><th data-i18n="bt_hold">Median hold</th></tr></thead>
+      <thead><tr><th scope="col" data-i18n="bt_horizon">Horizon</th><th scope="col" data-i18n="bt_policy">Policy</th><th scope="col" data-i18n="bt_window">Window</th><th scope="col" data-i18n="bt_stratcagr">Strategy CAGR</th><th scope="col" data-i18n="bt_benchcagr">Bench CAGR</th><th scope="col" data-i18n="bt_sharpe">Sharpe (rf=0)</th><th scope="col" data-i18n="bt_maxdd">Max DD</th><th scope="col" data-i18n="bt_trades">Trades/yr</th><th scope="col" data-i18n="bt_hold">Median hold</th></tr></thead>
       <tbody>
         {% for r in backtest_metrics %}
         <tr class="bt-row" data-horizon="{{ r.region }}">
@@ -472,11 +472,11 @@
     <table>
       <thead>
         <tr>
-          <th data-i18n="badge_sc_badge">Badge</th>
-          <th data-i18n="badge_sc_count">Count</th>
-          <th data-i18n="badge_sc_hit_rate">Hit rate</th>
-          <th data-i18n="badge_sc_mean">Mean</th>
-          <th data-i18n="badge_sc_median">Median</th>
+          <th scope="col" data-i18n="badge_sc_badge">Badge</th>
+          <th scope="col" data-i18n="badge_sc_count">Count</th>
+          <th scope="col" data-i18n="badge_sc_hit_rate">Hit rate</th>
+          <th scope="col" data-i18n="badge_sc_mean">Mean</th>
+          <th scope="col" data-i18n="badge_sc_median">Median</th>
         </tr>
       </thead>
       <tbody>
