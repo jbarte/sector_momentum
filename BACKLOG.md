@@ -334,6 +334,323 @@ naming in the data layer* above, which recommends leaving them alone. A rebrand
 is a rename of the *product*, not a schema migration; conflating the two is how
 a cosmetic PR turns into a live-database risk.
 
+## Vendored browser bundles — stale Plotly major, and no integrity check
+
+Found in the 2026-08-23 project sweep. Two defects in the same ~40 lines of
+`dashboard/build.py` (the "Plotly bundle management" block, from line 124), so
+they ship together.
+
+**1. The served Plotly is two majors behind the one generating the figures.**
+
+| side | version |
+|---|---|
+| `plotly.py` (writes the figure JSON) | **6.9.0** — `get_plotlyjs_version()` reports **3.7.0** |
+| `PLOTLY_CDN` (renders it in the browser) | **`plotly-cartesian-2.27.0.min.js`** — "Copyright 2012-2023" |
+
+Charts render today, so this is latent rather than broken: figure JSON from a
+6.x generator is being fed to a 2.x runtime across two majors of schema drift,
+and any attribute the newer generator emits that 2.27 does not know is silently
+ignored rather than erroring. It also means the site serves a ~3-year-old JS
+bundle with whatever has been patched since.
+
+`plotly-cartesian-3.7.0.min.js` exists on the CDN (1,424,820 bytes — slightly
+*larger* than the 1,278,307 currently served, so this is a correctness bump, not
+a weight one). **Needs visual verification of every chart after the bump**: 3.x
+removed `titlefont` and changed default templates. RRG, movers, history,
+drill-down, backtest and the correlation heatmap all need an eyeball, in both
+themes — `tests/test_color_theme.py` checks the theme mapping but nothing
+asserts a chart actually drew.
+
+**2. Neither bundle's bytes are verified.** `_ensure_plotly_bundle` and
+`_ensure_supabase_bundle` fetch a pinned *URL* and write the response straight
+to disk. `dashboard/assets/` is gitignored and neither workflow caches it, so CI
+re-downloads both on every cold run and serves the result to readers. Pinning a
+version is not pinning an artifact. `supabase.min.js` is the one that matters —
+it runs with access to the signed-in reader's auth session.
+
+Fix: store the expected SHA-256 beside each URL constant, verify after download,
+`sys.exit(1)` on mismatch (fail-*closed* for both, unlike the current
+supabase fail-open — a bundle that fails its hash is not the same condition as a
+bundle that failed to download). ~10 lines plus a test. Do this in the same PR
+as the version bump, since the bump invalidates the hash anyway.
+
+## Nothing prunes the backup bucket
+
+Found in the 2026-08-23 sweep. `backup_to_storage` (`src/backup.py:192`) uploads
+a full DB zip to `db-backups` before **every** scan, and nothing ever deletes
+one — `src/storage_backup.py` has `upload`, `download` and `list_objects` but no
+`delete` at all.
+
+The free tier is 1 GB of Storage. Growth is worse than linear: every object is a
+complete dump, so each daily zip is slightly bigger than the last. Nothing
+warns as it fills, and the failure mode is a failed *upload*, which
+`scan.py` deliberately swallows as non-fatal — so the first symptom would be
+backups quietly stopping while scans keep succeeding.
+
+**Not measured.** `SUPABASE_SERVICE_KEY` is CI-only, so the sweep could not list
+the bucket; the ceiling is inferred from the code, not observed. Measure first —
+`list_objects` already returns everything needed.
+
+Fix: a retention sweep after a successful upload (keep last ~14 daily, then one
+per week for ~8 weeks, then one per month), plus `delete` in the storage client.
+Prune *after* the new upload succeeds, never before — the whole point is that a
+backup exists at every instant.
+
+## No indexes on `signals`, `scores`, `sentiment_signals`
+
+Confirmed live against production on 2026-08-23 — `pg_indexes` for schema
+`public` returns exactly four rows, all primary keys:
+
+```
+alert_prefs_pkey, alert_prefs_ntfy_topic_key, positions_pkey, scans_pkey
+```
+
+So the three tables every read and write actually touches have none. `signals`
+is 21k rows / 1.5 MB today and grows ~250 rows a day.
+
+Postgres **does not** auto-index a foreign-key column, which is the part that
+bites: the same-UTC-day replace in `save_scan` runs
+`DELETE FROM signals WHERE scan_id IN (...)` and seq-scans the whole table to do
+it, as does every `WHERE scan_id = %s AND region = ...` read in `build.py`.
+
+Small enough not to hurt yet — recorded because the fix is three lines in
+`init_db()`'s existing idempotent ALTER loop and costs nothing to do early:
+
+```sql
+CREATE INDEX IF NOT EXISTS signals_scan_region_idx ON signals (scan_id, region);
+CREATE INDEX IF NOT EXISTS scores_scan_region_idx ON scores (scan_id, region);
+CREATE INDEX IF NOT EXISTS sentiment_signals_scan_region_idx ON sentiment_signals (scan_id, region);
+```
+
+`init_db()` is the right home — it already self-migrates and runs before every
+scan, so no Supabase-side migration script is needed.
+
+## Three of seven weekly scans are now byte-identical
+
+Found in the 2026-08-23 sweep, measured against production. **Not a correctness
+bug** — waste and history noise.
+
+`_cache_is_fresh` requires the cache to reach
+`_expected_latest_close(date.today() - 1 day)`. That resolves to **Friday for
+Saturday, Sunday *and* Monday** runs, so all three score identical prices:
+
+| run day | `today - 1` | required bar |
+|---|---|---|
+| Sat | Fri | **Fri** |
+| Sun | Sat | **Fri** |
+| Mon | Sun | **Fri** |
+| Tue | Mon | Mon |
+
+This is *correct* — the 06:00 UTC cron fires before the US close, so a Monday
+morning scan genuinely has no bar newer than Friday's. But each duplicate still
+writes a full row set (18 scores + ~250 signals), uploads a full backup zip, and
+burns Actions minutes.
+
+Verified: scans 168 (Fri 08-21) and 169 (Sat 08-22) are identical on **54/54**
+theme×signal raw values. Scan 169 ran ~14h before the weekend-staleness fix
+merged, so it reproduced the old two-duplicate pattern; post-fix the count goes
+to three, because Saturday now correctly picks up Friday's close where Monday
+used to be the first scan to see it.
+
+**Sentiment is the complication.** GDELT is fetched fresh every run, so
+`sentiment_signals` rows genuinely differ on all three days. A blanket "skip the
+scan" would lose that history. The honest options are (a) skip only the
+price/scoring persist and still write sentiment, (b) skip the pre-run backup
+when the as-of is unchanged — the cheapest single win — or (c) leave the rows
+alone and just *surface* it, so three scans sharing one market date read as one.
+
+Newly cheap to detect: `prices_asof` has been persisted on `scans` since
+2026-08-23, so "same market date as the previous scan" is one column comparison
+rather than a re-derivation.
+
+## 24% of `index.html` is duplicated Plotly `template` JSON
+
+Found in the 2026-08-23 sweep. Every serialized figure carries Plotly's full
+default-styling `template` object — **26 copies**, describing defaults for
+`choropleth`, `scatter3d`, `mesh3d`, `parcoords`, `scatterternary` and 20 other
+trace types the project never draws. Only `scatter`, `bar` and `heatmap` are
+real (`go.Scatter` ×8, `go.Bar` ×1, `go.Heatmap` ×1 across `dashboard/`).
+
+| variable | serialized | of which `template` |
+|---|---:|---:|
+| `COHORT_CHARTS` | 240,125 | 152,283 (63%) — 187 KB of it is the 18 drill-down figures |
+| `BACKTEST_DATA` | 45,887 | 13,242 (29%) |
+| `CORRELATION_DATA` | 15,036 | 6,621 (44%) |
+
+**Measured honestly, the wire saving is small.** Stripping every `template`
+takes `index.html` from 796,775 → 609,206 bytes raw, but gzipped only
+114,141 → 108,796 — **5.2 KB, under 5%**. gzip already dedupes near-identical
+blobs well. Recorded with the number attached precisely so this is not
+re-discovered and over-sold as a bandwidth win.
+
+The real payoff is parse time and mobile memory: 188 KB less JSON for the
+browser to parse before the first chart draws. Fix is setting the figure's
+`layout.template` to `None` before serialization in `dashboard/figures.py`;
+Plotly.js falls back to its built-in default, which is what the template
+was restating. Verify the charts still look right in both themes — pairs
+naturally with the Plotly major bump above, which needs the same eyeball.
+
+## No `scope` on any `<th>`
+
+Found in the 2026-08-23 sweep, measured in a live browser: `#leaderboard-table`
+has **107 `<th>` elements and zero with a `scope` attribute**; the drill-down
+and backtest tables are the same.
+
+WCAG 1.3.1. Without `scope="col"` / `scope="row"`, a screen reader cannot
+reliably associate a cell with its header — and this is a wide table (rank,
+theme, composite, level/change, delta) whose cells are meaningless unlabelled.
+The nested drill-down tables make it worse: they sit *inside* the leaderboard
+table's rows, so header inference has two tables to guess between.
+
+Cheap and isolated: add `scope` in `index.html.j2`, `_validation.html.j2` and the
+`auth.js` / `scan-history.js` row builders that emit headers. Worth a test in
+`tests/test_a11y_landmarks.py`, which already owns this class of assertion.
+
+The rest of the a11y sweep came back **clean** — no missing `alt`, no control
+without an accessible name, no duplicate `id`, and `documentElement.lang`
+correctly flips to `sv` on the language toggle.
+
+## Holding-period panel is denominated in scans
+
+`validation._holding_stats` measures top-5 run lengths in scan-index units and
+`_validation.html.j2` labels them honestly — *"Duration of contiguous top-5 rank
+streaks (in scans)"*. The label is not wrong; the **unit** is the problem.
+
+A scan is not a time the reader can act on, and it is not even a constant
+interval: seven scans a week against five market days, and — see *Three of seven
+weekly scans are now byte-identical* above — three of those seven now share one
+market date. So "median 12" is roughly 8.5 calendar days, roughly 6 market days,
+and the ratio drifts whenever the cron or the cache rule changes. The decision
+this number feeds is a monthly rebalance cadence, which it cannot be compared to.
+
+Fix: dedupe runs by distinct market date and report market days. `prices_asof`
+on `scans` (persisted since 2026-08-23) is exactly the column that makes this
+possible without re-deriving dates from `run_at`.
+
+## `align_cohort_asof` can drop themes with no health signal
+
+`align_cohort_asof` already computes `asof_dropped` into `stats_out`, but
+`scan.py` never carries it into the persisted `_health` dict — only `asof` and
+`asof_spread_days` made it in on 2026-08-23.
+
+A dropped ticker removes that theme from the run entirely. The coverage guard
+in `scan.py` only aborts below 80%, which at 18 themes means **up to 3 themes can
+silently vanish** from a scan and still ship, with nothing on the health panel
+saying so. `prices_failed` does not cover it — a drop is not a fetch failure,
+which is exactly the distinction `scan.py:_prices_fetched` already comments on.
+
+Fix: persist the dropped count as a `scans` column (the same self-migrating
+`ADD COLUMN IF NOT EXISTS` path the as-of columns used) and give it a badge in
+`dashboard/health.py` — green at 0, red otherwise. Small, and it closes the last
+gap between what the alignment step knows and what the panel can show.
+
+## Feature: UCITS tracking-difference monitor
+
+`config/themes.yaml` records the closest UCITS equivalent per theme — ticker,
+ISIN, TER, issuer, and a `match` quality of `exact` / `close` / `partial` — but
+nothing ever measures whether that equivalent actually *tracks* the US listing
+being scored.
+
+That gap is the difference between what the board ranks and what can be bought
+on Avanza. A `partial` match can diverge by several points a year through
+different index construction, currency hedging, or a thinner basket — enough to
+consume whatever edge the ranking finds — and one theme (Shipping) has no
+equivalent at all, which the board already flags as unbuyable.
+
+The measurement is cheap because the pipeline already fetches prices: pull the
+UCITS ticker alongside the US one, and report realized return difference over
+3m/6m/1y per theme, grouped by `match` quality. Two things fall out of it:
+
+- an empirical check on the `match` labels, which are currently hand-assigned
+  judgement rather than measured
+- an honest per-theme haircut to apply when reading the backtest, which replays
+  US listings the reader cannot buy
+
+Open question before building: many UCITS lines are thinly traded and
+EUR/SEK-denominated, so the comparison needs a currency decision (compare in
+each listing's own currency, or convert both to one) before the number means
+anything. That is a real design choice, not a detail — worth settling first.
+
+## Feature: rank-based cross-sectional standardization
+
+`zscore_cross_section` standardizes each signal with `mean` and `std(ddof=1)`
+across **18 themes**. Both estimators are noisy at n=18 and neither is robust: a
+single extreme theme inflates the std and compresses every other theme toward
+zero, so one outlier quietly flattens the spread the composite is built to read.
+`|z|` is bounded at √17 ≈ 4.12 regardless, which is its own distortion — the tail
+is clipped by sample size rather than by any deliberate choice.
+
+Rank-based (normal-score) standardization — rank cross-sectionally, map ranks
+through the inverse normal CDF — is invariant to outliers and produces the same
+distribution shape every scan.
+
+This is a **different axis** from *Composite structure — 4.2 effective signals
+of 8* above. That item is about redundancy *between* signals; this is about the
+estimator applied *to* each one. Neither answers the other.
+
+Testable with the harness that already exists: `scripts/horizon_sweep.py` and
+`backtest.py` both drive the scoring pipeline as-of historical dates, and
+`score_all` already accepts alternative signal lists, so an alternative
+standardizer is the same kind of A/B. Judge it on the two independent windows
+the horizon sweep already uses, at the configured `round_trip_bps` — sweeping at
+0 bps is how the pre-2026-08-09 presets got picked.
+
+Do not ship on a single-window improvement.
+
+## Feature: prove the backups restore, not just that they upload
+
+`tests/test_backup_drill.py` exercises the dump/restore round trip against a
+local fixture, and `test.yml` already stands up a throwaway `postgres:17`
+service container. What nothing checks is whether the **actual newest object in
+the `db-backups` bucket** can be restored.
+
+That is the failure mode backups have. An upload that returns 200 proves the
+bytes left the machine; it does not prove the zip has all its members, that the
+CSV columns still match a schema that has gained four columns since
+(`text_value`, `prices_asof`, `asof_spread_days`, …), or that
+`restore_from_storage` still works after `_ARCHIVE_MEMBERS` drifted.
+
+Fix: a monthly scheduled workflow that downloads the newest bucket object and
+restores it into the service container, asserting row counts per table. It needs
+`SUPABASE_SERVICE_KEY` (already a repo secret) and must **only ever** point
+`DATABASE_URL` at the throwaway container — the wipe guard in
+`tests/test_state_smoke.py::_same_database` exists because production was wiped
+on 2026-06-25, and a restore drill is precisely the shape of job that could do
+it again.
+
+## Small cleanups from the 2026-08-23 sweep
+
+Grouped because none of them individually justifies a PR; take them alongside
+whatever else touches the same file.
+
+- **`_modal.js.j2` is inlined three times** in `index.html` (~12 KB total). The
+  `window.SMModal = window.SMModal || (...)` guard makes it idempotent, so this
+  is pure duplication, not a bug — but it is three copies of a focus-trap
+  implementation that must not drift.
+- **Unescaped `innerHTML` interpolation.** `auth.js:241` and
+  `scan-digest.js:93` build rows by string concatenation, interpolating
+  `r.gics_sector` without escaping. **Not exploitable** — theme names come from
+  `config/themes.yaml` via the pipeline, so the data is repo-controlled — but it
+  is the kind of thing that becomes exploitable the day any of it comes from
+  somewhere else. Hardening only.
+- **Each price parquet is read twice per scan.** `_cache_is_fresh` does a full
+  `pd.read_parquet` to inspect the index, then `fetch_prices` immediately reads
+  the same file again on a cache hit. 20 tickers × 2 reads. Trivially fixed by
+  having `_cache_is_fresh` return the frame it already loaded.
+
+**Swept and found clean** (recorded so the sweep is not repeated): no
+`TODO`/`FIXME`/`XXX`/`HACK` anywhere in `src/`, `dashboard/` or `scan.py`; no
+`datetime.utcnow()`; no mutable default arguments; no SQL injection surface —
+every f-string in a query interpolates an internal constant (`_COLUMNS`,
+`_HEALTH_COLUMNS`, `_SCAN_CHILD_TABLES`) with all values parameterized.
+
+**RLS verified live** against production with the published anon key on
+2026-08-23: `scans`, `scores`, `signals`, `sentiment_signals`, `positions`,
+`alert_prefs`, `v_latest_scores` and `v_recent_scores` **all return
+`401 / 42501`** to `anon`. The 7-day content gate cannot be walked around by
+querying the Data API directly — it holds at the database, not only in the baked
+HTML.
+
 ---
 
 # Parked
