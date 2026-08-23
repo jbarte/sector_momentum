@@ -9,7 +9,7 @@ HEALTH_COLUMNS = [
     "duration_s", "prices_total", "prices_cache", "prices_stooq",
     "prices_yfinance", "prices_failed", "sectors_expected",
     "sectors_produced", "finbert_scored", "finbert_total", "gdelt_articles",
-    "prices_asof", "asof_spread_days",
+    "prices_asof", "asof_spread_days", "asof_dropped_count",
 ]
 
 
@@ -368,3 +368,69 @@ def test_get_latest_health_converts_nan_to_none():
     assert result is not None
     for col in HEALTH_COLUMNS:
         assert result[col] is None, f"{col} should be None, got {result[col]}"
+
+
+def test_asof_dropped_count_round_trip():
+    """`align_cohort_asof` (src/data/prices.py) already computes `asof_dropped`
+    (the list of tickers it dropped for lagging the cohort) into `stats_out`,
+    but scan.py never carried the COUNT into the persisted `_health` dict --
+    so up to 3 of 18 themes could silently vanish from a scan (the coverage
+    guard only aborts below 80% coverage) with nothing on the health panel
+    saying so. Pins the write -> read round trip with a real value, not just
+    that the column name appears somewhere in the SQL text -- mirrors
+    test_prices_asof_and_asof_spread_days_round_trip above.
+    """
+    from datetime import datetime, timezone
+    from src.state import save_scan
+
+    conn, cur = _mock_conn_and_cursor()
+    cur.fetchall.return_value = []
+    cur.fetchone.return_value = (7,)
+
+    save_scan(
+        conn=conn,
+        run_at=datetime(2026, 8, 9, 6, 0, tzinfo=timezone.utc),
+        region_sector_signals=pd.DataFrame(),
+        scores_df=pd.DataFrame(),
+        health={"asof_dropped_count": 2},
+    )
+
+    insert_calls = [
+        c for c in cur.execute.call_args_list
+        if "INSERT INTO scans" in str(c)
+    ]
+    assert len(insert_calls) == 1
+    call_args = insert_calls[0].args
+    vals = call_args[1] if len(call_args) > 1 else insert_calls[0][0][1]
+    assert 2 in vals
+
+
+def test_get_latest_health_selects_asof_dropped_count_from_the_db():
+    """Reads the actual SQL text, the same way the prices_asof/asof_spread_days
+    equivalent above does -- a DataFrame-only check would pass even with the
+    column dropped from get_latest_health's own SELECT."""
+    from src.state import get_latest_health
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame()
+        get_latest_health(conn)
+
+    sql = str(mock_read.call_args)
+    assert "asof_dropped_count" in sql, (
+        "get_latest_health's SELECT does not request asof_dropped_count"
+    )
+
+
+def test_get_latest_health_reads_asof_dropped_count():
+    from src.state import get_latest_health
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame([{
+            "run_at": "2026-08-09T06:00:00+00:00",
+            "asof_dropped_count": 3,
+        }])
+        result = get_latest_health(conn)
+
+    assert result["asof_dropped_count"] == 3

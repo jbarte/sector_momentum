@@ -305,6 +305,14 @@ def _persist_scan(conn, run_at, long_signals_df, scored_with_deltas,
         # 2026-08-22) was found the hand-diffing way.
         "prices_asof": price_stats.get("asof"),
         "asof_spread_days": price_stats.get("asof_spread_days"),
+        # How many tickers align_cohort_asof dropped for lagging the cohort's
+        # modal as-of date by more than MAX_ASOF_LAG_DAYS. A dropped ticker
+        # removes its whole theme from the run, and the coverage guard above
+        # only aborts below 80% coverage — at 18 themes, up to 3 can vanish
+        # from a scan and still ship, with nothing on the health panel saying
+        # so before this column existed. `prices_failed` doesn't cover it: a
+        # drop is a stale cache, not a fetch failure.
+        "asof_dropped_count": len(price_stats.get("asof_dropped") or []),
     }
     scan_id = save_scan(
         conn=conn,
