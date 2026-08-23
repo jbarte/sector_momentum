@@ -136,22 +136,32 @@ def _read_cache_meta_start(path: str):
         return None
 
 
-def _cache_is_fresh(path: str, start: str | None = None) -> bool:
-    """Return True if the cache file exists, its last date reaches the last
-    completed session strictly before today (the newest bar an `end`-exclusive
-    fetch could return), and — when ``start`` is given — its earliest date
-    covers the requested range.
+def _load_fresh_cache(path: str, start: str | None = None) -> pd.DataFrame | None:
+    """Return the cached DataFrame if it is fresh, else None.
+
+    Fresh means: the file exists, its last date reaches the last completed
+    session strictly before today (the newest bar an `end`-exclusive fetch
+    could return), and — when ``start`` is given — its earliest date covers
+    the requested range.
 
     A market holiday makes the required session produce no bar, so the cache
     cannot reach it and is refetched until the next real session — the same
     harmless extra fetch the pre-2026-08-22 rule already made after a Monday
-    holiday (see test_cache_stale_friday_on_tuesday_after_holiday)."""
+    holiday (see test_cache_stale_friday_on_tuesday_after_holiday).
+
+    Returns the DataFrame it already loaded rather than a bare bool: `fetch_prices`
+    used to call the bool-returning predecessor of this function and then, on a
+    cache hit, immediately call `pd.read_parquet` a SECOND time on the exact
+    same file to actually load it — 20 tickers x 2 reads per scan. Found in the
+    2026-08-23 sweep. `_cache_is_fresh` (below) stays a thin bool wrapper over
+    this for the many callers/tests that only want a yes/no answer and never
+    reload the frame from a stale mmap after the freshness check ran."""
     if not os.path.exists(path):
-        return False
+        return None
     try:
         df = pd.read_parquet(path)
         if df.empty:
-            return False
+            return None
         last_cached = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
         # The newest bar a fetch could actually return: the last weekday
         # strictly before today. `end` is EXCLUSIVE, so today's own session is
@@ -177,7 +187,7 @@ def _cache_is_fresh(path: str, start: str | None = None) -> bool:
         # Thursday twice.
         required = _expected_latest_close(date.today() - timedelta(days=1))
         if last_cached < required:
-            return False
+            return None
         if start is not None:
             requested_start = pd.Timestamp(start).date()
             fetched_start = _read_cache_meta_start(path)
@@ -185,17 +195,27 @@ def _cache_is_fresh(path: str, start: str | None = None) -> bool:
                 # We know the window this cache was fetched over. It covers the
                 # request whenever we asked Yahoo for an equal-or-earlier start
                 # — regardless of when the instrument itself began trading.
-                return fetched_start <= requested_start
+                return df if fetched_start <= requested_start else None
             # No metadata (cache predates this being recorded): fall back to
             # judging by the first row. This is wrong for any instrument younger
             # than `start` — it can never hold data it never had — but it is the
             # previous behaviour, and the cache self-heals on the next refetch.
             cached_start = df.index.min().date() if hasattr(df.index.min(), "date") else df.index.min()
             if cached_start > requested_start + timedelta(days=7):
-                return False
-        return True
+                return None
+        return df
     except Exception:
-        return False
+        return None
+
+
+def _cache_is_fresh(path: str, start: str | None = None) -> bool:
+    """Whether the cache at `path` is fresh — see `_load_fresh_cache` for the
+    rules. Thin bool wrapper: callers that only need yes/no (and every
+    existing test pinning the freshness rules themselves) use this; the one
+    caller that goes on to actually use the cached prices (`fetch_prices`)
+    calls `_load_fresh_cache` directly instead, to avoid reading the same
+    parquet file twice."""
+    return _load_fresh_cache(path, start) is not None
 
 
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -311,11 +331,12 @@ def fetch_prices(
     for ticker in tickers:
         path = _cache_path(ticker, cache_dir)
 
-        if _cache_is_fresh(path, start):
+        cached_df = _load_fresh_cache(path, start)
+        if cached_df is not None:
             try:
-                df = pd.read_parquet(path)
+                df = cached_df
                 df.index = pd.to_datetime(df.index)
-                # Trim to the requested window. _cache_is_fresh only rejects a
+                # Trim to the requested window. _load_fresh_cache only rejects a
                 # cache that is too *short*; without this a cache holding more
                 # history than asked for silently widened the run, so `--start`
                 # had no effect whenever the cache was fresh.
@@ -326,7 +347,10 @@ def fetch_prices(
                 logger.debug("Loaded %s from cache (%s rows)", ticker, len(df))
                 continue
             except Exception as exc:
-                logger.warning("Cache read failed for %s: %s — re-fetching", ticker, exc)
+                # The parquet read itself already succeeded inside
+                # _load_fresh_cache; a failure here is in the index-conversion
+                # or start-trim above.
+                logger.warning("Cache processing failed for %s: %s — re-fetching", ticker, exc)
 
         live_attempted += 1
         source, df = _fetch_single(ticker, start, end)

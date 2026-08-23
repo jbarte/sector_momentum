@@ -1582,6 +1582,36 @@ def test_every_aria_modal_dialog_is_bound_to_the_helper():
             assert "_modal.js.j2" in src, f"{page} has a modal but never includes the helper"
 
 
+def test_modal_helper_include_precedes_footer_and_methodology():
+    """_footer.html.j2 and _methodology.html.j2 stopped including
+    _modal.js.j2 themselves (2026-08-23 sweep — it was the third of three
+    copies inlined into every page) and now rely on window.SMModal already
+    existing from the PAGE's own earlier include. That traded an idempotent,
+    order-independent safety net (each partial self-included the guarded
+    `window.SMModal = window.SMModal || (...)` definition) for a document-
+    order dependency previously documented only in a comment — code review
+    the same day flagged that nothing enforced it, so a future reorder (or a
+    new page including either partial without _modal.js.j2 first) would
+    throw `TypeError: Cannot read properties of undefined (reading 'bind')`
+    at runtime with every test here still green. This is that enforcement."""
+    root = Path(__file__).parent.parent
+    for page in ("dashboard/templates/index.html.j2",
+                 "dashboard/templates/sentiment.html.j2"):
+        src = (root / page).read_text()
+        modal_at = src.find('{% include "_modal.js.j2" %}')
+        assert modal_at != -1, f"{page} never includes _modal.js.j2 directly"
+        for partial in ("_footer.html.j2", "_methodology.html.j2"):
+            partial_at = src.find(f"{{% include '{partial}' %}}")
+            if partial_at == -1:
+                partial_at = src.find(f'{{% include "{partial}" %}}')
+            assert partial_at != -1, f"{page} never includes {partial}"
+            assert modal_at < partial_at, (
+                f"{page}: _modal.js.j2 is included AFTER {partial} — "
+                f"{partial}'s window.SMModal.bind(...) call would run before "
+                f"window.SMModal is defined"
+            )
+
+
 # ---------------------------------------------------------------------------
 # One shared Supabase client — auth.js / positions.js / alert-prefs.js
 # ---------------------------------------------------------------------------
@@ -2645,3 +2675,145 @@ def test_control_chip_and_more_filters_get_touch_targets():
     block = m.group(0)
     assert ".control-chip" in block
     assert ".more-filters summary" in block
+
+
+# ---------------------------------------------------------------------------
+# escapeHtml — auth.js / scan-digest.js / scan-history.js interpolation hardening
+# ---------------------------------------------------------------------------
+#
+# Found in the 2026-08-23 sweep: renderLatestRows() (auth.js) and fmtChip()
+# (scan-digest.js) both build row/chip HTML by string concatenation,
+# interpolating theme/sector names unescaped. Not exploitable today — the
+# names come from config/themes.yaml via the pipeline, never from a reader —
+# but hardening against the day any row field stops being repo-controlled.
+#
+# scan-history.js's renderScanLeaderboard() has the identical pattern (its
+# own comment even cites auth.js's r.gics_sector by name) but was missed by
+# the original sweep — caught in code review the same day, fixed alongside.
+
+def _extract_escape_html_js(filename: str) -> str:
+    """Pull escapeHtml() verbatim out of the named asset file."""
+    src = (Path(__file__).parent.parent / "dashboard/assets" / filename).read_text()
+    match = re.search(r"function escapeHtml\(s\) \{.*?\n  \}", src, re.S)
+    assert match, f"escapeHtml() not found in dashboard/assets/{filename}"
+    return match.group(0)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+@pytest.mark.parametrize("filename", ["auth.js", "scan-digest.js", "scan-history.js"])
+def test_escape_html_neutralizes_markup(filename):
+    """Executes the real production function, not a re-implementation —
+    same discipline as test_item_for_row_classifies_by_region_not_dataset_shape
+    above."""
+    fn_src = _extract_escape_html_js(filename)
+    script = f"""
+        {fn_src}
+        const out = escapeHtml('<script>alert(1)</script> & "quoted" \\'text\\'');
+        process.stdout.write(out);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    out = res.stdout
+    assert "<script>" not in out and "</script>" not in out, (
+        f"escapeHtml did not neutralize a <script> tag: {out!r}"
+    )
+    assert out == (
+        "&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;quoted&quot; &#39;text&#39;"
+    )
+
+
+def test_auth_js_row_builder_escapes_the_theme_name():
+    """Pins the CALL SITE, not just that escapeHtml() exists somewhere in the
+    file — confirmed by sabotage: removing only the escapeHtml(...) wrapper
+    around r.gics_sector (leaving the function definition untouched) must
+    fail this test."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    assert "escapeHtml(r.gics_sector)" in src, (
+        "renderLatestRows no longer escapes r.gics_sector before interpolating "
+        "it into innerHTML"
+    )
+    # And the function must actually be defined in this file, not just called.
+    assert "function escapeHtml(" in src
+
+
+def test_auth_js_row_builder_escapes_the_ticker_too():
+    """The ticker symbol is built into the SAME innerHTML string as
+    r.gics_sector, from the same config/themes.yaml source, but was left
+    unescaped when the theme name was first hardened — caught in a second
+    review pass, 2026-08-23."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    assert "escapeHtml(ticker)" in src, (
+        "renderLatestRows no longer escapes ticker before interpolating it "
+        "into tickerHtml"
+    )
+
+
+def test_scan_digest_js_chip_builder_escapes_sector_and_region():
+    """Pins the CALL SITE — same shape as the auth.js test above."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-digest.js").read_text()
+    assert "escapeHtml(item.sector)" in src, (
+        "fmtChip no longer escapes item.sector before interpolating it into innerHTML"
+    )
+    assert "escapeHtml(item.region)" in src, (
+        "fmtChip no longer escapes item.region before interpolating it into innerHTML"
+    )
+    assert "function escapeHtml(" in src
+
+
+def test_scan_history_js_row_builder_escapes_the_theme_name():
+    """Pins the CALL SITE — same shape as the auth.js test above. Added in
+    code review, 2026-08-23: this file was the one call site the original
+    sweep missed, despite its own comment citing auth.js's identical
+    pattern by name."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    assert "escapeHtml(sector)" in src, (
+        "renderScanLeaderboard no longer escapes sector before interpolating "
+        "it into innerHTML"
+    )
+    assert "function escapeHtml(" in src
+
+
+def test_scan_history_js_row_builder_escapes_the_ticker_too():
+    """Same second-review-pass gap as auth.js: the ticker symbol shares the
+    tickerHtml/innerHTML sink but was left unescaped when `sector` was
+    hardened."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    assert "escapeHtml(ticker)" in src, (
+        "renderScanLeaderboard no longer escapes ticker before interpolating "
+        "it into tickerHtml"
+    )
+
+
+def test_mobile_card_theme_name_uses_innerhtml_not_textcontent():
+    """The severer finding from the same review round: renderMobileCards()
+    (index.html.j2) re-derives the mobile card view from the LEADERBOARD
+    TABLE's own rendered DOM. `.textContent` on the theme-name span DECODES
+    entities back to plain text ("&lt;img..." -> literal "<img...") before
+    that string gets concatenated into a NEW innerHTML assignment a few
+    lines below — silently undoing whatever escaping the table builder
+    (auth.js's escapeHtml()/scan-history.js's escapeHtml()) already did.
+
+    Confirmed live in a browser 2026-08-23: escapeHtml() itself verified
+    correct in isolation (a debug-instrumented rebuild showed it correctly
+    producing "&lt;img ...&gt;"), yet an injected theme name still executed
+    as a real <img onerror=...> element — through exactly this read
+    projection, on the mobile card view, at a 375px viewport. `.innerHTML`
+    returns the SAME text RE-SERIALIZED with entities intact, safe to
+    reinject; `.theme-name` holds only a single text node in every table
+    builder, so this is a pure fix with no behavior change for real data.
+
+    Source-pinned rather than run under Node: renderMobileCards() reads
+    throughout from `tr.querySelector(...)`, so a real test needs a DOM
+    (jsdom or a browser), which is not part of this project's JS test
+    infrastructure — see the live browser verification above for the
+    behavioral proof this source assertion cannot provide on its own."""
+    src = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert "themeName.innerHTML" in src, (
+        "renderMobileCards() reads themeName.textContent (or similar) instead "
+        "of .innerHTML -- .textContent decodes HTML entities back to plain "
+        "text, which then gets reinjected unescaped into the card's innerHTML, "
+        "undoing whatever the table builder's escapeHtml() already did"
+    )
+    assert "themeName.textContent" not in src, (
+        "themeName.textContent still appears in index.html.j2 -- the fixed "
+        "call site must be the only reference"
+    )

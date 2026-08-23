@@ -8,6 +8,20 @@
   var banner = document.getElementById("scan-digest-banner");
   if (!banner) return;
 
+  // fmtChip() below builds chip HTML by string concatenation and
+  // interpolates item.sector unescaped. Not exploitable today — sector
+  // names come from config/themes.yaml via the pipeline, never from a
+  // reader — but hardening against the day any row field stops being
+  // repo-controlled. Found in the 2026-08-23 sweep.
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function findPrevScanId(scanId) {
     for (var i = 0; i < SCAN_HISTORY.scans.length; i++) {
       if (SCAN_HISTORY.scans[i].id === scanId && i + 1 < SCAN_HISTORY.scans.length) {
@@ -73,7 +87,7 @@
   }
 
   function fmtChip(item, isMover) {
-    var label = item.sector + " (" + item.region + ")";
+    var label = escapeHtml(item.sector) + " (" + escapeHtml(item.region) + ")";
     if (!isMover) return label + " #" + item.rank;
     var cls = item.delta > 0 ? "up" : "down";
     var arrow = item.delta > 0 ? "▲" : "▼";

@@ -11,10 +11,21 @@
 
    `overlayEl` is the full-screen backdrop; clicking it (but not its children)
    closes. The element with role="dialog" inside it is the focus scope. #}
-{# Short-circuit rather than reassign: both the tab-guide script and
-   _methodology.html.j2 include this partial, and which runs first depends on
-   template order. Defining it twice would work (bind() is itself idempotent)
-   but would silently swap the object identity under any modal already bound. #}
+{# Short-circuit rather than reassign, defensively: this partial is included
+   directly by index.html.j2/sentiment.html.j2 (once each, ahead of every
+   consumer) and by the tab-guide script further down the same page.
+   Defining it twice would work (bind() is itself idempotent) but would
+   silently swap the object identity under any modal already bound.
+
+   _footer.html.j2 and _methodology.html.j2 used to include this partial
+   too — a third and fourth copy per page, ~12 KB of duplicated inline JS —
+   removed 2026-08-23 once both pages already included it once directly,
+   ahead of those two partials in document order. Both partials now call
+   window.SMModal.bind(...) relying on that order rather than re-including
+   this file; see the notes in _footer.html.j2/_methodology.html.j2 and
+   test_modal_helper_include_precedes_footer_and_methodology
+   (tests/test_dashboard_js.py), which pins the order this guard no longer
+   makes irrelevant on its own. #}
 window.SMModal = window.SMModal || (function () {
   var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 

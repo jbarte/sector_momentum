@@ -713,7 +713,21 @@ function renderMobileCards() {
       + ' data-sector-id="' + sectorId + '">'
       + '<div class="card-line1">'
       + (rankBadge ? '<span class="card-rank">' + rankBadge.outerHTML + '</span>' : '')
-      + '<span class="card-theme">' + (themeName ? themeName.textContent : '') + '</span>'
+      {#- .innerHTML, not .textContent: this function re-derives cards from
+          the table's own rendered DOM, and .textContent DECODES entities
+          back to plain text ("&lt;img..." -> literal "<img..."), which then
+          gets concatenated unescaped into the new `html` string below and
+          assigned via container.innerHTML — silently undoing whatever
+          escaping the table builder (auth.js/scan-history.js's escapeHtml())
+          already did, on every card. .innerHTML instead returns the SAME
+          text RE-SERIALIZED with entities intact, safe to reinject. Confirmed
+          live: auth.js/scan-history.js's escapeHtml() was verified correct
+          in isolation, yet an injected theme name still executed as HTML —
+          on the mobile card view, through this exact read-projection.
+          .theme-name holds only a single text node (the table builders never
+          nest elements inside it), so this is a pure fix, not a behavior
+          change for real data. Found in code review, 2026-08-23. -#}
+      + '<span class="card-theme">' + (themeName ? themeName.innerHTML : '') + '</span>'
       + (trendBadge ? trendBadge.outerHTML : '')
       + '</div>'
       + '<div class="card-line2">'
@@ -773,7 +787,13 @@ function renderBuyBand() {
     band.push({
       rank: parseFloat(tr.dataset.rank),
       badge: rankBadge ? rankBadge.textContent : '',
-      name: themeName ? themeName.textContent : ''
+      // .innerHTML, not .textContent — same read-projection bug as
+      // renderMobileCards() above, and the same fix: .textContent decodes
+      // entities back to plain text, which `html += ... + b.name + ...`
+      // below then reinjects unescaped via host.innerHTML = html, undoing
+      // the table builder's own escaping. Found alongside it in the same
+      // review round, 2026-08-23.
+      name: themeName ? themeName.innerHTML : ''
     });
   });
 
@@ -1986,6 +2006,11 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 </div>
 
 <script>
+{#- The canonical include on this page: _footer.html.j2 (alerts modal) and
+    _methodology.html.j2 (methodology + tab-guide modals), both included
+    later in this page, rely on window.SMModal already existing rather than
+    re-including this partial themselves. Keep this include ahead of both in
+    document order if either moves. -#}
 {% include "_modal.js.j2" %}
 /* Tab guides: one modal, bodies pre-rendered inside it and toggled by key.
    The bodies stay in the DOM (rather than being cloned in on open) so the i18n

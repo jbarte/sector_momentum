@@ -11,6 +11,21 @@
 
   var sb = window.SMSupabase;  // shared client — see assets/supabase-client.js
 
+  // renderLatestRows() below builds rows by string concatenation and
+  // interpolates r.gics_sector and the theme's ticker symbol unescaped. Not
+  // exploitable today — both come from config/themes.yaml via the pipeline,
+  // never from a reader — but hardening against the day any row field stops
+  // being repo-controlled. Found in the 2026-08-23 sweep; the ticker call
+  // site was missed in the original pass and added in review the same day.
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   var signinBtn = document.getElementById("auth-signin");
   var headerForm = document.getElementById("auth-form");
   var userBox = document.getElementById("auth-user");
@@ -232,7 +247,7 @@
             + m.trajectory_label + '</span> <span class="traj-word">' + (m.trajectory_word || "") + '</span></span>'
           : "";
         var ticker = (window.THEME_TICKERS || {})[r.gics_sector] || "";
-        var tickerHtml = ticker ? '<span class="theme-ticker">' + ticker + '</span>' : "";
+        var tickerHtml = ticker ? '<span class="theme-ticker">' + escapeHtml(ticker) + '</span>' : "";
         // rank-1 is a static fact about this row (not horizon-dependent, unlike
         // in-buy-band/in-band-rail below), so it's baked here rather than left
         // to applyHorizonBadges() — that function only ever toggles the two
@@ -243,7 +258,7 @@
           // sm:leaderboard-upgraded, and applyHorizonBadges() writes the
           // highlight from the active horizon.
           '<td class="rank-cell"><span class="rank-badge' + rank1Class + '">' + rank + "</span></td>" +
-          "<td class=\"theme-cell\"><span class=\"theme-name\">" + r.gics_sector + "</span>" + tickerHtml
+          "<td class=\"theme-cell\"><span class=\"theme-name\">" + escapeHtml(r.gics_sector) + "</span>" + tickerHtml
             + (unbuyable ? UNBUYABLE_BADGE : "") + trendInner + "</td>" +
           '<td class="composite-cell">' + Rescore.compositeBar(r.composite) + "</td>" +
           '<td data-sort-value="' + (r.level_score === null || r.level_score === undefined ? "" : r.level_score) + '">'
