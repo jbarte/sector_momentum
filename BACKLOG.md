@@ -46,24 +46,6 @@ to its own explicit control rather than the whole card, so the card itself
 is no longer `role="button"`), not a patch on top of the current markup.
 Recorded rather than guessed at.
 
-## Star-tap reachable, hot path double-renders the mobile card list
-
-Code review, 2026-08-24, on the mobile-holdings-toggle fix (see Done).
-Pre-existing, not introduced by that fix: `applyHorizonBadges()` calls
-`applyBandBoundaries()` directly, then also calls `applyFilters()`, which
-calls `applyBandBoundaries()` again — so every `sm:positions-changed` event
-runs the full `renderMobileCards()` rebuild (a `container.innerHTML` wipe +
-rebuild of every card, ~9 DOM reads per row) **twice** in the same tick.
-
-This was always true, but a mobile star tap is the first thing that puts a
-human's finger directly on this path, on a device where render cost is more
-visible and battery matters more. Not urgent — the double-render was never
-noticeable enough to report on desktop across everything else that already
-triggers this chain (sort, filter, horizon switch) — but worth deduping the
-chain (skip `applyBandBoundaries()`'s direct call when `applyFilters()` is
-about to call it anyway) if mobile responsiveness on this tap ever becomes a
-real complaint.
-
 ## Consider dropping the Market Context chips, keep only the Live indicator
 
 **Thinking out loud, not decided.** Jonas: the SPY/VIX chips may serve no
@@ -713,6 +695,39 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Deduped the double-render on every mobile star tap (2026-08-24)
+
+Code review, 2026-08-24, on the mobile-holdings-toggle fix (see below).
+Pre-existing, not introduced by that fix: `applyHorizonBadges()` called
+`applyBandBoundaries()` directly, then also called `applyFilters()`, which
+ends with its own `applyBandBoundaries()` call — so every
+`sm:positions-changed` event ran the full `renderMobileCards()` rebuild (a
+`container.innerHTML` wipe + rebuild of every card) **twice** in the same
+tick, for an identical end state (the second call's own "remove any
+band-cut rows I inserted last time" step discards the first call's output
+before anything ever paints). Guarded the direct call on `applyFilters()`
+being unavailable — the one case nothing else would call it.
+
+Live browser verification of that first fix found it incomplete:
+`window.applyLang()` (`_i18n.html.j2`'s `apply()`) unconditionally ends with
+its *own* `applyFilters()` call ("re-render the filter count in the new
+language", its own comment says), so the explicit `applyFilters()` called
+right after it, unconditionally, was a **second**, independent source of
+the identical bug — instrumenting `window.renderMobileCards()` and calling
+`applyHorizonBadges()` still showed 2 renders with only the first guard in
+place. Guarded that call too, on `window.applyLang` being unavailable.
+
+2 new tests (`tests/test_dashboard_js.py`), one per guard, both
+sabotage-verified (each caught the guard being removed, or inverted to skip
+the wrong branch). Live-verified in the browser: instrumented
+`window.renderMobileCards()`, confirmed exactly 1 call per
+`applyHorizonBadges()` invocation and per real `sm:positions-changed`
+event, both before-fix (2) and after (1); confirmed the language toggle and
+filter count still work correctly. All four truth-table combinations of
+`(applyFilters defined, window.applyLang defined)` traced by hand — every
+combination now yields exactly one `applyBandBoundaries()` call, never
+zero.
 
 ## Mobile leaderboard cards can mark/unmark holdings again (2026-08-24)
 
