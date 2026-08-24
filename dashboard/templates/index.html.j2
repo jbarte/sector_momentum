@@ -656,6 +656,33 @@ function renderMobileCards() {
   var tbody = document.querySelector('#leaderboard-table tbody');
   if (!container || !tbody) return;
 
+  // This function has always rebuilt every card from scratch
+  // (container.innerHTML below), which was safe because nothing INSIDE a
+  // card could previously trigger a rebuild -- only sort/filter/badge-
+  // refresh did, none of which fire while a user has a card open or
+  // focused. The position-toggle click delegation further down is the
+  // first thing that can trigger a rebuild FROM INSIDE a card: without
+  // this capture/restore, tapping the star silently collapsed every open
+  // card's breakdown (every rebuilt card hardcodes aria-expanded="false")
+  // and dropped keyboard/AT focus to <body> with no restoration, since the
+  // focused button is destroyed and replaced mid-click. Found in code
+  // review, 2026-08-24 -- confirmed independently by four of the eight
+  // review angles.
+  var openSectorIds = {};
+  Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card.open'), function (c) {
+    if (c.dataset.sectorId) { openSectorIds[c.dataset.sectorId] = true; }
+  });
+  var activeEl = document.activeElement;
+  var focusSectorId = null;
+  var focusWasToggle = false;
+  if (activeEl && container.contains(activeEl)) {
+    var activeCard = activeEl.closest('.leaderboard-card');
+    if (activeCard && activeCard.dataset.sectorId) {
+      focusSectorId = activeCard.dataset.sectorId;
+      focusWasToggle = activeEl.classList.contains('position-toggle');
+    }
+  }
+
   var html = '';
   Array.prototype.forEach.call(tbody.children, function (tr) {
     if (tr.style.display === 'none') { return; }
@@ -680,6 +707,16 @@ function renderMobileCards() {
     var deltaCell = tr.querySelector('.delta-cell');
     var trendBadge = tr.querySelector('.traj-badge');
     var isInBand = tr.cells[0] && tr.cells[0].classList.contains('in-band-rail');
+    // positions.js's decorateRow() inserts .position-toggle as .theme-name's
+    // SIBLING inside the theme-cell <td> (nameCell.insertBefore(btn,
+    // nameCell.firstChild)) -- not inside .theme-name itself -- so reading
+    // themeName.innerHTML above never picks it up. Cards had no star toggle
+    // and no held/warn styling at all until this was added: the star exists
+    // nowhere but the (mobile-hidden) table, so a signed-in mobile reader
+    // could not mark or see holdings. Found live, 2026-08-24.
+    var positionBtn = tr.querySelector('.position-toggle');
+    var isHeld = tr.classList.contains('position-held');
+    var isWarn = tr.classList.contains('position-warn');
 
     // .lc-row order (LEVEL first, CHANGE second) is already pinned by
     // test_level_change_bars_python_and_js_agree — no data-lc-kind attribute
@@ -708,11 +745,22 @@ function renderMobileCards() {
     // empty panel. Found in review at a 375px viewport, on scan #159.
     var expandable = bdContent !== '';
 
-    html += '<div class="leaderboard-card' + (isInBand ? ' in-band' : '') + '"'
+    html += '<div class="leaderboard-card'
+      + (isInBand ? ' in-band' : '')
+      + (isHeld ? ' position-held' : '')
+      + (isWarn ? ' position-warn' : '')
+      + '"'
       + (expandable ? ' role="button" tabindex="0" aria-expanded="false"' : '')
       + ' data-sector-id="' + sectorId + '">'
       + '<div class="card-line1">'
       + (rankBadge ? '<span class="card-rank">' + rankBadge.outerHTML + '</span>' : '')
+      {#- .outerHTML: the button carries its own attributes (aria-pressed,
+          title, data-i18n-*) that a plain re-creation would have to restate
+          by hand and could drift from decorateRow()'s own markup. It has no
+          user-supplied content (just a static ★/☆ glyph), so unlike
+          themeName below there is no escaping concern either way -- outerHTML
+          is simply the least code, not a second escaping fix. -#}
+      + (positionBtn ? positionBtn.outerHTML : '')
       {#- .innerHTML, not .textContent: this function re-derives cards from
           the table's own rendered DOM, and .textContent DECODES entities
           back to plain text ("&lt;img..." -> literal "<img..."), which then
@@ -751,6 +799,25 @@ function renderMobileCards() {
   container.innerHTML = html;
   container.setAttribute('aria-hidden', 'false');
 
+  // Restore what the capture above saved, now that the new cards exist.
+  // Re-open by data-sector-id, not position: sort/filter can reorder cards
+  // between rebuilds, so index-based restoration would reopen the wrong
+  // card.
+  if (Object.keys(openSectorIds).length) {
+    Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card'), function (c) {
+      if (c.dataset.sectorId && openSectorIds[c.dataset.sectorId]) {
+        c.classList.add('open');
+        c.setAttribute('aria-expanded', 'true');
+      }
+    });
+  }
+  if (focusSectorId) {
+    var refocusCard = container.querySelector('.leaderboard-card[data-sector-id="' + focusSectorId + '"]');
+    var refocusTarget = refocusCard
+      && (focusWasToggle ? refocusCard.querySelector('.position-toggle') : refocusCard);
+    if (refocusTarget && typeof refocusTarget.focus === 'function') { refocusTarget.focus(); }
+  }
+
   // Tapping a card toggles ITS OWN embedded breakdown copy (a card-local
   // 'open' class), independent of the table's toggleBreakdown()/'open'
   // state. The two are never visible at the same time (table hidden on
@@ -763,6 +830,29 @@ function renderMobileCards() {
     card.addEventListener('click', function () {
       var open = card.classList.toggle('open');
       card.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  });
+
+  // The card's .position-toggle button is a fresh element parsed from
+  // outerHTML above -- it carries the right attributes but no listener
+  // (those never survive innerHTML/outerHTML serialization). Forward the
+  // tap to the corresponding TABLE row's real button rather than
+  // reimplementing positions.js's held/persist/revert state machine here —
+  // same "no card-specific reimplementation" rule this whole function
+  // follows for sorting/filtering/badges. That real click runs the actual
+  // toggle, then announce() -> sm:positions-changed -> applyHorizonBadges()
+  // -> applyBandBoundaries() -> renderMobileCards() again, which rebuilds
+  // this card from the now-updated table row (new glyph, position-held/
+  // position-warn classes) -- so the star flip and the shading are just
+  // this function re-running, not a second state machine to keep in sync.
+  Array.prototype.forEach.call(container.querySelectorAll('.position-toggle'), function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();   // don't also trigger the card's own open/breakdown toggle
+      var card = btn.closest('.leaderboard-card');
+      var sectorId = card && card.dataset.sectorId;
+      var tableBtn = sectorId
+        && document.querySelector('.leaderboard-row[data-sector-id="' + sectorId + '"] .position-toggle');
+      if (tableBtn) { tableBtn.click(); }
     });
   });
 }
