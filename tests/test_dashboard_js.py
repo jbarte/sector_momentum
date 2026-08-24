@@ -1538,8 +1538,8 @@ def _apply_horizon_badges_js():
 
 def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
     """Code review, 2026-08-24 (on the mobile-holdings-toggle fix), found
-    this pre-existing: applyFilters() (called unconditionally below, when it
-    exists) ends with its own applyBandBoundaries() call -- an unconditional
+    this pre-existing: applyFilters() (called below, when it exists) ends
+    with its own applyBandBoundaries() call -- an unconditional
     DIRECT call here too meant every sm:positions-changed event (a mobile
     star tap included) ran the full renderMobileCards() rebuild (a
     container.innerHTML wipe + rebuild of every card) TWICE in the same
@@ -1566,8 +1566,8 @@ def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
 
 def test_apply_horizon_badges_trailing_apply_filters_call_is_guarded():
     """Live-browser-verified gap in the fix above: window.applyLang()
-    (_i18n.html.j2's apply()) unconditionally ends with its OWN
-    window.applyFilters() call ("the leaderboard filter count is built in
+    (_i18n.html.j2's apply()) ends with its OWN window.applyFilters() call
+    ("the leaderboard filter count is built in
     JS... re-render it in the new language", its own comment says). Calling
     applyFilters() again right after window.applyLang(lang), unconditionally,
     was a SECOND source of the identical double-renderMobileCards() bug the
@@ -3065,4 +3065,29 @@ def test_mobile_card_theme_name_uses_innerhtml_not_textcontent():
     assert "themeName.textContent" not in src, (
         "themeName.textContent still appears in index.html.j2 -- the fixed "
         "call site must be the only reference"
+    )
+
+
+def test_apply_filters_assigned_before_i18n_include():
+    """Code review, 2026-08-24 (removed-behavior angle): applyHorizonBadges()'s
+    exactly-once applyBandBoundaries() guarantee holds today only because
+    `window.applyFilters = applyFilters;` executes before _i18n.html.j2's
+    include -- nothing structural enforces that order, only where the two
+    lines happen to sit in the file. If a future edit moved the include
+    earlier (or the assignment later), _i18n.html.j2's apply() would see
+    window.applyFilters as undefined and skip its own trailing
+    applyFilters() call, while applyHorizonBadges()'s direct-call guard
+    (gated on the LOCAL hoisted `applyFilters` identifier, always defined)
+    would also skip -- applyBandBoundaries()/renderMobileCards() would not
+    run at all for that invocation, a silent regression from "renders
+    twice" to "never renders," which neither of this file's other two
+    guard tests can catch (both are scoped to applyHorizonBadges()'s own
+    body). This test pins the ordering itself."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assign_at = text.index("window.applyFilters = applyFilters;")
+    include_at = text.index('{% include "_i18n.html.j2" %}')
+    assert assign_at < include_at, (
+        "window.applyFilters must be assigned before _i18n.html.j2 is "
+        "included, or applyHorizonBadges() can silently render zero times "
+        "instead of the intended once"
     )

@@ -1153,18 +1153,24 @@ function applyHorizonBadges() {
     badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);
   });
 
-  // applyFilters() (below) unconditionally ends with its own
-  // applyBandBoundaries() call, so calling it here too meant every
-  // sm:positions-changed event -- a mobile star tap included -- ran the
-  // full renderMobileCards() rebuild (a container.innerHTML wipe + rebuild
-  // of every card) TWICE in the same tick, for the identical end state:
-  // the second call's "remove any band-cut rows I inserted last time" step
-  // (see applyBandBoundaries()'s own comment) discards the first call's
-  // output before anything ever paints it. Call it directly only in the
-  // fallback branch, where applyFilters() itself is unavailable and
-  // nothing else in this function will call it. Found in code review,
-  // 2026-08-24 (on the mobile-holdings-toggle fix); pre-existing, not
-  // introduced by that fix.
+  // applyFilters() (below) ends with its own applyBandBoundaries() call
+  // (guarded only on that function existing, which it always does here --
+  // both are declared in this same script block), so calling it here too
+  // meant every sm:positions-changed event -- a mobile star tap included --
+  // ran the full renderMobileCards() rebuild (a container.innerHTML wipe +
+  // rebuild of every card) TWICE in the same tick, for the identical end
+  // state: the second call's "remove any band-cut rows I inserted last
+  // time" step (see applyBandBoundaries()'s own comment) discards the first
+  // call's output before anything ever paints it. Call it directly only in
+  // the fallback branch, where applyFilters() itself is unavailable and
+  // nothing else in this function will call it.
+  //
+  // Scoped to calls originating HERE: code review, 2026-08-24, traced the
+  // same double/triple-render pattern to several call sites OUTSIDE this
+  // function too (auth.js's sign-in path, scan-history.js's "back to
+  // latest", the sentiment-weight slider) -- see BACKLOG.md, "Mobile card
+  // list still double/triple-renders from several other entry points".
+  // This guard does not, and cannot by itself, close those.
   if (typeof applyFilters !== 'function') { applyBandBoundaries(); }
 
   var setupFilters = document.getElementById('filter-group-setup');
@@ -1187,8 +1193,9 @@ function applyHorizonBadges() {
   // Badge text is written in English above; without this a Swedish reader got
   // English badges from every path except the initial page load.
   //
-  // window.applyLang() (_i18n.html.j2's apply()) unconditionally ends with
-  // its OWN window.applyFilters() call — "the leaderboard filter count is
+  // window.applyLang() (_i18n.html.j2's apply()) ends with its OWN
+  // window.applyFilters() call (guarded only on that function existing,
+  // which it always does on a real page) — "the leaderboard filter count is
   // built in JS... re-render it in the new language", its own comment says
   // — so calling applyFilters() again right after, unconditionally, was a
   // SECOND source of the same double-renderMobileCards() bug fixed above:
@@ -1198,6 +1205,11 @@ function applyHorizonBadges() {
   // did not already run — real page loads always have window.applyLang, so
   // in practice this makes the choice once, deterministically, not a
   // runtime toggle between the two.
+  //
+  // Scoped to calls originating HERE, same caveat as the guard above: other
+  // entry points outside this function reach the identical applyLang/
+  // applyFilters pair independently and are not fixed by this guard — see
+  // BACKLOG.md.
   if (window.applyLang) {
     var lang = 'en';
     try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
@@ -1663,6 +1675,16 @@ function _syncChipState(group, value, active) {
   if (clearBtn) clearBtn.addEventListener('click', clearFilters);
 })();
 
+// MUST run before _i18n.html.j2's include below. applyHorizonBadges()'s
+// exactly-once applyBandBoundaries() guarantee (see its own comments) relies
+// on window.applyFilters already being assigned by the time _i18n.html.j2's
+// apply() checks `typeof window.applyFilters` -- move this include later (or
+// _i18n.html.j2 earlier) without also moving this line, and BOTH of
+// applyHorizonBadges()'s guards can end up skipping in the same call: not a
+// double-render any more, but a render that never happens at all. Code
+// review, 2026-08-24, flagged this ordering as "true today, not enforced" --
+// test_apply_filters_assigned_before_i18n_include (test_dashboard_js.py)
+// pins it.
 window.applyFilters = applyFilters;
 window.clearFilters = clearFilters;
 window.setFilterBarVisible = setFilterBarVisible;
@@ -1880,6 +1902,10 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
   }
 });
 
+{#- MUST come after window.applyFilters = applyFilters; above (see that
+    line's own comment) -- _i18n.html.j2's apply() reads window.applyFilters
+    at call time, and applyHorizonBadges()'s exactly-once
+    applyBandBoundaries() guarantee depends on it already being assigned. -#}
 {% include "_i18n.html.j2" %}
 </script>
 <script src="assets/scan-history.js"></script>
