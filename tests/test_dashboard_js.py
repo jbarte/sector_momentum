@@ -1517,6 +1517,25 @@ def test_apply_horizon_badges_calls_apply_band_boundaries():
     assert "applyBandBoundaries();" in fn_body
 
 
+def _apply_horizon_badges_js():
+    """applyHorizonBadges()'s exact function body (brace-balanced), same
+    technique as _apply_band_boundaries_js() above."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function applyHorizonBadges()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[start:i + 1]
+
+
 def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
     """Code review, 2026-08-24 (on the mobile-holdings-toggle fix), found
     this pre-existing: applyFilters() (called unconditionally below, when it
@@ -1532,20 +1551,7 @@ def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
     call it -- the previous test confirms a call still always happens
     somewhere; this one confirms it does not ALSO happen unconditionally
     here."""
-    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    start = text.index("function applyHorizonBadges()")
-    brace_start = text.index("{", start)
-    depth = 0
-    i = brace_start
-    while True:
-        if text[i] == "{":
-            depth += 1
-        elif text[i] == "}":
-            depth -= 1
-            if depth == 0:
-                break
-        i += 1
-    fn_body = text[start:i + 1]
+    fn_body = _apply_horizon_badges_js()
     assert "if (typeof applyFilters !== 'function') { applyBandBoundaries(); }" in fn_body, (
         "the direct applyBandBoundaries() call is not guarded on applyFilters() "
         "being unavailable -- it now looks unconditional again"
@@ -1556,6 +1562,33 @@ def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
         f"expected exactly one applyBandBoundaries() call site in "
         f"applyHorizonBadges(), found {fn_body.count('applyBandBoundaries();')}"
     )
+
+
+def test_apply_horizon_badges_trailing_apply_filters_call_is_guarded():
+    """Live-browser-verified gap in the fix above: window.applyLang()
+    (_i18n.html.j2's apply()) unconditionally ends with its OWN
+    window.applyFilters() call ("the leaderboard filter count is built in
+    JS... re-render it in the new language", its own comment says). Calling
+    applyFilters() again right after window.applyLang(lang), unconditionally,
+    was a SECOND source of the identical double-renderMobileCards() bug the
+    previous test fixes the first source of -- confirmed live: instrumenting
+    window.renderMobileCards() and calling applyHorizonBadges() still showed
+    2 renders after only the first guard was in place, 1 after this one was
+    added too. The explicit applyFilters() call must fire only when
+    window.applyLang did not already run."""
+    fn_body = _apply_horizon_badges_js()
+    tail = fn_body[fn_body.index("if (window.applyLang)"):]
+    assert "} else if (typeof applyFilters === 'function') {" in tail, (
+        "the trailing applyFilters() call is not guarded on window.applyLang "
+        "being unavailable -- window.applyLang(lang) already calls "
+        "applyFilters() internally, so calling it again here unconditionally "
+        "renders the mobile card list twice"
+    )
+    # window.applyLang(lang) must still be the call that actually fires in
+    # the normal case (real pages always define window.applyLang) -- this
+    # guards against the guard silently inverting (e.g. skipping applyLang
+    # instead of the redundant applyFilters call).
+    assert "window.applyLang(lang);" in tail
 
 
 def test_scan_history_also_draws_band_boundaries():

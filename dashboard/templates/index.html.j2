@@ -1186,12 +1186,25 @@ function applyHorizonBadges() {
 
   // Badge text is written in English above; without this a Swedish reader got
   // English badges from every path except the initial page load.
+  //
+  // window.applyLang() (_i18n.html.j2's apply()) unconditionally ends with
+  // its OWN window.applyFilters() call — "the leaderboard filter count is
+  // built in JS... re-render it in the new language", its own comment says
+  // — so calling applyFilters() again right after, unconditionally, was a
+  // SECOND source of the same double-renderMobileCards() bug fixed above:
+  // live-verified in the browser after the first fix (guarding the direct
+  // applyBandBoundaries() call above) still left this pair calling
+  // applyFilters() twice. Only take the explicit branch when applyLang()
+  // did not already run — real page loads always have window.applyLang, so
+  // in practice this makes the choice once, deterministically, not a
+  // runtime toggle between the two.
   if (window.applyLang) {
     var lang = 'en';
     try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
     window.applyLang(lang);
+  } else if (typeof applyFilters === 'function') {
+    applyFilters();
   }
-  if (typeof applyFilters === 'function') applyFilters();
 }
 
 // Anything that changes gating, holdings, or the rendered rows re-runs the
