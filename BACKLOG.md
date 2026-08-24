@@ -671,6 +671,48 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## Mobile leaderboard cards can mark/unmark holdings again (2026-08-24)
+
+Reported live: a signed-in mobile reader could not mark or unmark holdings,
+and could barely tell a held position from an ordinary row. Root cause:
+`positions.js`'s star toggle (`decorateRow()`) only ever decorated
+`<tr class="leaderboard-row">` elements, inserting the button as a SIBLING
+of `.theme-name` inside the theme-cell `<td>`, not a child of it.
+`renderMobileCards()` (Stage 3, 2026-08-20) rebuilds mobile cards by reading
+`.theme-name` specifically — so the star, and the `.position-held`/
+`.position-warn` classes marking a held row, never reached the card view at
+all. Not a regression from Stage 3 itself; positions.js (an earlier phase)
+was simply never updated for the card rewrite.
+
+`renderMobileCards()` now reads `.position-toggle`, `.position-held` and
+`.position-warn` off the source `<tr>` and copies them onto the card. The
+card's own button is a click delegate to the real table row's button —
+positions.js owns all held/persist/revert state; the card forwards the tap
+and re-renders via the existing `sm:positions-changed` →
+`applyHorizonBadges()` → `applyBandBoundaries()` → `renderMobileCards()`
+chain, so no state machine is duplicated (matches the "no card-specific
+reimplementation" rule this function already follows for sorting, filtering,
+band cuts, and badges).
+
+CSS: `.leaderboard-card.position-held`/`.position-warn` mirror the desktop
+row's background/box-shadow treatment (held wins over in-band's background
+when both apply — declaration order, since a holding often stays inside the
+buy band while held and the two are independent channels on desktop but
+compete for the same card background on mobile). `.position-toggle` gets a
+44px touch target scoped to `.leaderboard-card .position-toggle` specifically
+— not the shared `@media (pointer: coarse)` block — so a touchscreen device
+wide enough to still show the desktop table isn't affected.
+
+12 new tests in `tests/test_dashboard_js.py` (source-pin style, matching this
+file's existing convention for `renderMobileCards()` — no JSDOM in this
+suite). Sabotage-verified: broke the `outerHTML` read, the delegation
+click-forward, the `stopPropagation` guard, and the CSS declaration-order
+precedence — each caught by its matching new test, restored and re-verified
+green. Browser-verified live against a real build at 375px: read-projection,
+visual styling (star + warning glyph + background), and click delegation
+(confirmed it does NOT also trigger the card's own breakdown-expand handler)
+all confirmed via direct DOM inspection.
+
 ## Holding-period panel now measures in market days, not scans (2026-08-23)
 
 `validation._holding_stats` measured top-5 run lengths in scan-index units —
