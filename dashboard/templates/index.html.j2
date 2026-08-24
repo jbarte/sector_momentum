@@ -1153,7 +1153,19 @@ function applyHorizonBadges() {
     badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);
   });
 
-  applyBandBoundaries();
+  // applyFilters() (below) unconditionally ends with its own
+  // applyBandBoundaries() call, so calling it here too meant every
+  // sm:positions-changed event -- a mobile star tap included -- ran the
+  // full renderMobileCards() rebuild (a container.innerHTML wipe + rebuild
+  // of every card) TWICE in the same tick, for the identical end state:
+  // the second call's "remove any band-cut rows I inserted last time" step
+  // (see applyBandBoundaries()'s own comment) discards the first call's
+  // output before anything ever paints it. Call it directly only in the
+  // fallback branch, where applyFilters() itself is unavailable and
+  // nothing else in this function will call it. Found in code review,
+  // 2026-08-24 (on the mobile-holdings-toggle fix); pre-existing, not
+  // introduced by that fix.
+  if (typeof applyFilters !== 'function') { applyBandBoundaries(); }
 
   var setupFilters = document.getElementById('filter-group-setup');
   if (setupFilters && setupFilters.hidden !== !visible) {

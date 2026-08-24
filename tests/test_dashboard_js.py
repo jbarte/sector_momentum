@@ -1517,6 +1517,47 @@ def test_apply_horizon_badges_calls_apply_band_boundaries():
     assert "applyBandBoundaries();" in fn_body
 
 
+def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
+    """Code review, 2026-08-24 (on the mobile-holdings-toggle fix), found
+    this pre-existing: applyFilters() (called unconditionally below, when it
+    exists) ends with its own applyBandBoundaries() call -- an unconditional
+    DIRECT call here too meant every sm:positions-changed event (a mobile
+    star tap included) ran the full renderMobileCards() rebuild (a
+    container.innerHTML wipe + rebuild of every card) TWICE in the same
+    tick, for an identical end state: the second call's own "remove any
+    band-cut rows I inserted last time" step (applyBandBoundaries()'s own
+    comment) discards the first call's output before anything ever paints
+    it. The direct call must fire only in the fallback branch, where
+    applyFilters() is unavailable and nothing else in this function will
+    call it -- the previous test confirms a call still always happens
+    somewhere; this one confirms it does not ALSO happen unconditionally
+    here."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("function applyHorizonBadges()")
+    brace_start = text.index("{", start)
+    depth = 0
+    i = brace_start
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    fn_body = text[start:i + 1]
+    assert "if (typeof applyFilters !== 'function') { applyBandBoundaries(); }" in fn_body, (
+        "the direct applyBandBoundaries() call is not guarded on applyFilters() "
+        "being unavailable -- it now looks unconditional again"
+    )
+    # Guards against a second, still-unconditional call being added
+    # elsewhere in the function while leaving the guarded one in place.
+    assert fn_body.count("applyBandBoundaries();") == 1, (
+        f"expected exactly one applyBandBoundaries() call site in "
+        f"applyHorizonBadges(), found {fn_body.count('applyBandBoundaries();')}"
+    )
+
+
 def test_scan_history_also_draws_band_boundaries():
     """Same gap as the signed-in view: showScan() rebuilt rows with no band
     cut of any kind. Cannot call applyBandBoundaries() directly the way the
