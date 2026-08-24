@@ -656,6 +656,33 @@ function renderMobileCards() {
   var tbody = document.querySelector('#leaderboard-table tbody');
   if (!container || !tbody) return;
 
+  // This function has always rebuilt every card from scratch
+  // (container.innerHTML below), which was safe because nothing INSIDE a
+  // card could previously trigger a rebuild -- only sort/filter/badge-
+  // refresh did, none of which fire while a user has a card open or
+  // focused. The position-toggle click delegation further down is the
+  // first thing that can trigger a rebuild FROM INSIDE a card: without
+  // this capture/restore, tapping the star silently collapsed every open
+  // card's breakdown (every rebuilt card hardcodes aria-expanded="false")
+  // and dropped keyboard/AT focus to <body> with no restoration, since the
+  // focused button is destroyed and replaced mid-click. Found in code
+  // review, 2026-08-24 -- confirmed independently by four of the eight
+  // review angles.
+  var openSectorIds = {};
+  Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card.open'), function (c) {
+    if (c.dataset.sectorId) { openSectorIds[c.dataset.sectorId] = true; }
+  });
+  var activeEl = document.activeElement;
+  var focusSectorId = null;
+  var focusWasToggle = false;
+  if (activeEl && container.contains(activeEl)) {
+    var activeCard = activeEl.closest('.leaderboard-card');
+    if (activeCard && activeCard.dataset.sectorId) {
+      focusSectorId = activeCard.dataset.sectorId;
+      focusWasToggle = activeEl.classList.contains('position-toggle');
+    }
+  }
+
   var html = '';
   Array.prototype.forEach.call(tbody.children, function (tr) {
     if (tr.style.display === 'none') { return; }
@@ -771,6 +798,25 @@ function renderMobileCards() {
 
   container.innerHTML = html;
   container.setAttribute('aria-hidden', 'false');
+
+  // Restore what the capture above saved, now that the new cards exist.
+  // Re-open by data-sector-id, not position: sort/filter can reorder cards
+  // between rebuilds, so index-based restoration would reopen the wrong
+  // card.
+  if (Object.keys(openSectorIds).length) {
+    Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card'), function (c) {
+      if (c.dataset.sectorId && openSectorIds[c.dataset.sectorId]) {
+        c.classList.add('open');
+        c.setAttribute('aria-expanded', 'true');
+      }
+    });
+  }
+  if (focusSectorId) {
+    var refocusCard = container.querySelector('.leaderboard-card[data-sector-id="' + focusSectorId + '"]');
+    var refocusTarget = refocusCard
+      && (focusWasToggle ? refocusCard.querySelector('.position-toggle') : refocusCard);
+    if (refocusTarget && typeof refocusTarget.focus === 'function') { refocusTarget.focus(); }
+  }
 
   // Tapping a card toggles ITS OWN embedded breakdown copy (a card-local
   // 'open' class), independent of the table's toggleBreakdown()/'open'

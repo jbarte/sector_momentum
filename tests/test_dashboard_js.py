@@ -1943,6 +1943,52 @@ def test_render_mobile_cards_position_toggle_click_does_not_bubble_to_card():
     assert "stopPropagation" in toggle_block.split("});", 1)[0]
 
 
+def test_render_mobile_cards_preserves_open_state_across_rebuild():
+    """Code review, 2026-08-24 (confirmed independently by four of the eight
+    review angles): the position-toggle click delegation is the FIRST thing
+    that can trigger a renderMobileCards() rebuild from inside a card.
+    Every previous trigger (sort/filter/badge-refresh) fired from outside
+    any card, so nothing before this needed to preserve a card's own 'open'
+    state across the container.innerHTML wipe -- every rebuilt card always
+    hardcoded aria-expanded="false". Without this capture/restore, tapping
+    a star silently collapsed whatever breakdown the user had open,
+    including on an unrelated card."""
+    js = _render_mobile_cards_js()
+    capture_idx = js.index("var openSectorIds = {};")
+    innerHTML_idx = js.index("container.innerHTML = html;")
+    restore_idx = js.index("if (Object.keys(openSectorIds).length)")
+    assert capture_idx < innerHTML_idx < restore_idx, (
+        "open-state must be captured BEFORE the wipe and restored AFTER it"
+    )
+    capture_block = js[capture_idx:innerHTML_idx]
+    assert "leaderboard-card.open" in capture_block
+    assert "dataset.sectorId" in capture_block
+    restore_block = js[restore_idx:]
+    assert "classList.add('open')" in restore_block
+    assert "setAttribute('aria-expanded', 'true')" in restore_block
+
+
+def test_render_mobile_cards_restores_focus_by_sector_id_not_position():
+    """Sort/filter can reorder cards between rebuilds -- restoring focus (or
+    open state) by DOM index instead of data-sector-id would land on
+    whichever card happens to occupy the old position, not the one the
+    user was actually using. Also guards the keyboard-focus-loss half of
+    the same review finding: a keyboard/AT user activating the star via
+    Enter/Space had the focused button destroyed and replaced mid-click,
+    with focus silently reverting to <body> and never restored."""
+    js = _render_mobile_cards_js()
+    capture_idx = js.index("var activeEl = document.activeElement;")
+    innerHTML_idx = js.index("container.innerHTML = html;")
+    restore_idx = js.index("if (focusSectorId)")
+    assert capture_idx < innerHTML_idx < restore_idx
+    capture_block = js[capture_idx:innerHTML_idx]
+    assert "closest('.leaderboard-card')" in capture_block
+    assert "classList.contains('position-toggle')" in capture_block
+    restore_block = js[restore_idx:]
+    assert '.leaderboard-card[data-sector-id="' in restore_block
+    assert ".focus()" in restore_block
+
+
 def test_leaderboard_cards_have_keyboard_activation():
     """Found by whole-branch review: cards get role="button"/tabindex="0"
     (renderMobileCards()) but only a click listener, so Enter/Space did
