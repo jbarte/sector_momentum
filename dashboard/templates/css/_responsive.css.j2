@@ -206,6 +206,49 @@
      than silently clipping it in the meantime. */
   .card-breakdown { display: none; margin-top: 10px; overflow-x: auto; }
   .leaderboard-card.open .card-breakdown { display: block; }
+
+  /* Mirrors .leaderboard-row.position-held/.position-warn (_tables.css.j2)
+     at card scale — renderMobileCards() (index.html.j2) now copies both
+     classes onto the card, but had no styling to show for them, which was
+     half the "can't tell a holding from an ordinary row" report: even once
+     the star glyph exists, a reader shouldn't have to spot one small
+     ★ among six cards to know which they own.
+     Declared AFTER .leaderboard-card.in-band (above): the two backgrounds
+     are independent facts on desktop (in-band is a rank-cell rail, held is
+     a whole-row tint) with no documented precedence between them, but on a
+     card both are whole-card backgrounds and can genuinely co-occur (a
+     holding often stays inside the buy band while you hold it) — source
+     order picks a winner. Held wins: once you own it, "was it a buy
+     candidate" is the less actionable fact, and the star glyph below
+     stays visible either way so ownership is never ambiguous. */
+  .leaderboard-card.position-held {
+    background: color-mix(in srgb, var(--brand-strong) 7%, transparent);
+  }
+  .leaderboard-card.position-warn {
+    box-shadow: inset 3px 0 0 0 var(--down);
+  }
+  .leaderboard-card.position-warn .card-theme::before {
+    content: "⚠ ";
+    color: var(--down);
+  }
+
+  /* .position-toggle (_tables.css.j2) was never sized for touch even on the
+     desktop table — scoped to `.leaderboard-card` rather than the shared
+     `@media (pointer: coarse)` touch-target block above, since cards only
+     ever exist below this same 600px breakpoint: widening it there too
+     would also inflate the star on a touchscreen-and-wide-enough-for-the-
+     table device, inside an already-dense row, for no reason this bug
+     needs. It's the one control on a card that mutates state rather than
+     just navigating, so a missed tap here is a silently-failed mark/
+     unmark, not just an inconvenience. Padding, not min-width: the glyph
+     stays inline with the theme name; a fixed min-width would misalign it
+     from every star-less line next to it. */
+  .leaderboard-card .position-toggle {
+    min-height: 44px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+  }
 }
 
 /* ---------------------------------------------------------

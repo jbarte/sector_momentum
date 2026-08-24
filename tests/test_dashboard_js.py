@@ -1796,6 +1796,78 @@ def test_card_line2_is_a_flex_container():
     assert "display: flex" in m.group(0)
 
 
+def test_card_position_held_css_rule_exists():
+    """Mirrors .leaderboard-row.position-held (_tables.css.j2) at card scale.
+    Without this, renderMobileCards() could copy the class onto the card
+    correctly and it would still LOOK identical to an unheld card -- the
+    other half of the "can't tell a holding from an ordinary row" report."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.leaderboard-card\.position-held\s*\{[^}]*\}", css)
+    assert m, ".leaderboard-card.position-held rule not found"
+    assert "background" in m.group(0)
+
+
+def test_card_position_held_rule_declared_after_in_band_rule():
+    """Both classes are whole-card backgrounds that can genuinely co-occur
+    (a holding often stays inside the buy band while held), unlike on
+    desktop where in-band is a rank-cell rail and held is a row background
+    — independent channels with no precedence question. Source order is
+    what decides the winner here, so pin it: position-held must come after
+    in-band, so a held+in-band card reads as held (the more actionable fact
+    once you already own it), not silently reverting to the in-band tint."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    in_band_idx = css.index(".leaderboard-card.in-band {")
+    held_idx = css.index(".leaderboard-card.position-held {")
+    assert in_band_idx < held_idx
+
+
+def test_card_position_warn_css_rule_exists():
+    """Mirrors .leaderboard-row.position-warn's inset box-shadow AND its
+    td::before "⚠ " prefix (_tables.css.j2), retargeted at .card-theme
+    since cards have no <td> to attach the pseudo-element to."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    warn_m = re.search(r"\.leaderboard-card\.position-warn\s*\{[^}]*\}", css)
+    assert warn_m, ".leaderboard-card.position-warn rule not found"
+    assert "box-shadow" in warn_m.group(0)
+    glyph_m = re.search(
+        r"\.leaderboard-card\.position-warn \.card-theme::before\s*\{[^}]*\}", css,
+    )
+    assert glyph_m, ".leaderboard-card.position-warn .card-theme::before rule not found"
+    assert "⚠" in glyph_m.group(0)
+
+
+def test_card_position_toggle_touch_target_scoped_to_cards_only():
+    """44px WCAG touch target, but scoped to `.leaderboard-card
+    .position-toggle` rather than added to the file's shared
+    `@media (pointer: coarse)` touch-target block: cards only ever exist
+    below the same 600px breakpoint, but the desktop TABLE's own
+    .position-toggle can still be reached by a touchscreen device wide
+    enough to show the table (a touchscreen laptop, a landscape tablet) --
+    widening it there too would inflate the star inside an already-dense
+    table row for no reason this fix needs. Confirms the rule is scoped,
+    not merely present, and confirms it sits in the max-width block."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.leaderboard-card \.position-toggle\s*\{[^}]*\}", css)
+    assert m, ".leaderboard-card .position-toggle rule not found"
+    assert "min-height: 44px" in m.group(0)
+
+    # The exact declaration, brace included -- a bare "@media (pointer:
+    # coarse)" substring search would also match this test's own docstring-
+    # style prose mentioning the block by name in a comment above the new
+    # card rule (found by running this test: it matched there first).
+    coarse_start = css.index("@media (pointer: coarse) {")
+    coarse_end = css.index("\n}\n", coarse_start)
+    coarse_block = css[coarse_start:coarse_end]
+    assert ".position-toggle" not in coarse_block, (
+        "bare .position-toggle must not appear in the shared pointer:coarse "
+        "block -- that would also widen the desktop table's star button"
+    )
+
+
 def test_card_breakdown_scrolls_instead_of_clipping():
     """Found live: the embedded breakdown content is intrinsically wider
     than a mobile card even in .breakdown-grid's single-column mode (~130px
@@ -1812,6 +1884,63 @@ def test_card_breakdown_scrolls_instead_of_clipping():
 # Stage 3 Task 2: mobile header scan-meta row, scrollable control row,
 # stacked footer.
 # ---------------------------------------------------------------------------
+
+
+def test_render_mobile_cards_reads_position_state():
+    """Found live 2026-08-24: cards had no star toggle and no held/warn
+    styling at all -- positions.js's decorateRow() inserts .position-toggle
+    as .theme-name's SIBLING inside the theme-cell <td>, not inside
+    .theme-name itself, so the existing themeName.innerHTML read never
+    picked it up. A signed-in mobile reader could not mark or see
+    holdings."""
+    js = _render_mobile_cards_js()
+    assert "querySelector('.position-toggle')" in js
+    assert "classList.contains('position-held')" in js
+    assert "classList.contains('position-warn')" in js
+    assert "position-held" in js and "position-warn" in js
+
+
+def test_render_mobile_cards_position_toggle_uses_outerHTML():
+    """positionBtn must be read via outerHTML, matching the read-projection
+    pattern the rest of this function already uses for rankBadge/trendBadge/
+    unbuyableBadge/setupBadge -- .innerHTML/.textContent would drop the
+    button's own tag (and its aria-pressed/title/data-i18n-* attributes)
+    entirely, not just mis-escape it."""
+    js = _render_mobile_cards_js()
+    assert "positionBtn.outerHTML" in js
+
+
+def test_render_mobile_cards_position_toggle_click_delegates_to_table_row():
+    """The card's button is freshly parsed from outerHTML -- serialization
+    never carries listeners, so without delegation the star would render
+    but do nothing on tap (a silent no-op, arguably worse than not
+    rendering it at all: it looks interactive and isn't). Must forward to
+    the real table row's button rather than reimplementing positions.js's
+    held/persist/revert state machine for cards -- the same
+    no-reimplementation rule this function already follows for sorting,
+    filtering, band cuts and badges (see
+    test_render_mobile_cards_reads_the_table_not_a_fourth_data_source)."""
+    js = _render_mobile_cards_js()
+    assert "querySelectorAll('.position-toggle')" in js
+    assert "stopPropagation" in js
+    assert "closest('.leaderboard-card')" in js
+    assert "dataset.sectorId" in js
+    assert ".leaderboard-row[data-sector-id=" in js
+    assert "tableBtn.click()" in js
+
+
+def test_render_mobile_cards_position_toggle_click_does_not_bubble_to_card():
+    """Sabotage-guarding note for the reviewer, not a runtime assertion:
+    stopPropagation() must sit INSIDE the position-toggle click handler,
+    not the card's own — a tap on the star would otherwise also toggle the
+    card's breakdown-disclosure open/closed, since that listener sits on an
+    ancestor of the button. Verified live in the browser (2026-08-24): a
+    tap on the star with a fake table-row listener attached fired exactly
+    once and left the card's aria-expanded unchanged."""
+    js = _render_mobile_cards_js()
+    toggle_start = js.index("container.querySelectorAll('.position-toggle')")
+    toggle_block = js[toggle_start:]
+    assert "stopPropagation" in toggle_block.split("});", 1)[0]
 
 
 def test_leaderboard_cards_have_keyboard_activation():
