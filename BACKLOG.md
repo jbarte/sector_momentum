@@ -21,6 +21,49 @@ Loosely prioritized list of features and improvements not yet scheduled.
 
 # Queued
 
+## Mobile card's expand-region nests a real button inside role="button"
+
+Code review, 2026-08-24, on the mobile-holdings-toggle fix (see Done). An
+expandable card (`renderMobileCards()`, has breakdown content) renders as
+`<div class="leaderboard-card" role="button" tabindex="0">` — the whole card
+is one tap target for opening the breakdown. That same fix now also puts a
+real `<button class="position-toggle">` inside some of those same cards
+(when the row carries a `.position-toggle`) — an interactive element nested
+inside a `role="button"` container, which is not a pattern this template
+had anywhere before.
+
+`stopPropagation()` keeps mouse/touch clicks correct (verified live), so
+this is not a functional bug for sighted mouse/touch users. The risk is
+narrower: some AT/switch-control configurations (flagged as Android
+TalkBack/Switch Control specifically) may flatten a `role="button"`
+container to a single activation target, making the inner star unreachable
+or ambiguously announced by keyboard/switch navigation, distinct from the
+click-path itself.
+
+Not fixed now — the correct shape is a real redesign of how "tap card to
+expand" and "tap star to toggle" coexist (e.g. moving the expand affordance
+to its own explicit control rather than the whole card, so the card itself
+is no longer `role="button"`), not a patch on top of the current markup.
+Recorded rather than guessed at.
+
+## Star-tap reachable, hot path double-renders the mobile card list
+
+Code review, 2026-08-24, on the mobile-holdings-toggle fix (see Done).
+Pre-existing, not introduced by that fix: `applyHorizonBadges()` calls
+`applyBandBoundaries()` directly, then also calls `applyFilters()`, which
+calls `applyBandBoundaries()` again — so every `sm:positions-changed` event
+runs the full `renderMobileCards()` rebuild (a `container.innerHTML` wipe +
+rebuild of every card, ~9 DOM reads per row) **twice** in the same tick.
+
+This was always true, but a mobile star tap is the first thing that puts a
+human's finger directly on this path, on a device where render cost is more
+visible and battery matters more. Not urgent — the double-render was never
+noticeable enough to report on desktop across everything else that already
+triggers this chain (sort, filter, horizon switch) — but worth deduping the
+chain (skip `applyBandBoundaries()`'s direct call when `applyFilters()` is
+about to call it anyway) if mobile responsiveness on this tap ever becomes a
+real complaint.
+
 ## Consider dropping the Market Context chips, keep only the Live indicator
 
 **Thinking out loud, not decided.** Jonas: the SPY/VIX chips may serve no
@@ -712,6 +755,30 @@ green. Browser-verified live against a real build at 375px: read-projection,
 visual styling (star + warning glyph + background), and click delegation
 (confirmed it does NOT also trigger the card's own breakdown-expand handler)
 all confirmed via direct DOM inspection.
+
+**Follow-up in the same branch**: code review (8-angle, 4 angles
+independently converged on this) found that the click delegation above is
+the FIRST thing that can trigger `renderMobileCards()`'s full rebuild from
+*inside* a card — every earlier trigger (sort/filter/badge-refresh) fired
+from outside any card. Without a fix, tapping a star silently collapsed
+whatever breakdown the user had open (that card or any other — every
+rebuilt card always hardcoded `aria-expanded="false"`) and dropped
+keyboard/AT focus to `<body>` with no restoration, since the focused button
+is destroyed and replaced mid-click. `renderMobileCards()` now captures
+open `data-sector-id`s and the focused element's card/sectorId before the
+`container.innerHTML` wipe, and restores both by sector id (not DOM
+position — sort/filter can reorder cards between rebuilds) after
+rebuilding. 2 more tests, sabotage-verified, browser-verified live
+(confirmed a card opened before a star tap on the SAME card stayed open
+with `aria-expanded="true"` restored, and focus landed back on a
+`.position-toggle` button rather than `<body>`).
+
+Two smaller findings from the same review are real but out of scope for
+this fix — recorded in Queued rather than patched on top: a nested
+`<button>` inside an expandable card's `role="button"` container (an ARIA
+concern on some AT/switch-control setups, not a functional click bug), and
+a pre-existing double-render in the badge/band-boundary chain that this fix
+makes newly reachable from a hot mobile-tap path.
 
 ## Holding-period panel now measures in market days, not scans (2026-08-23)
 
