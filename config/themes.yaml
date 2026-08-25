@@ -262,13 +262,30 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE00B5MTXJ97
 
   Healthcare Providers:
-    - ticker: SML4
-      name: Invesco US Health Care Sector UCITS ETF
-      isin: IE00B3WMTH43
-      ter: "0.14%"
-      issuer: Invesco
+    # Swapped off Invesco SML4 (IE00B3WMTH43) 2026-08-25. SML4 is not dead —
+    # verified active on justETF that day, EUR 476m, still trading on gettex /
+    # LSE / Borsa Italiana / SIX — it simply is not orderable on Avanza, which
+    # is the only broker this list has to serve. That is a different failure
+    # from Shipping's: a UCITS product exists here, so this theme is NOT
+    # `unbuyable` (that flag's badge and drill-down copy both assert "none
+    # exists", and it would also drop the theme from the backtest's book).
+    #
+    # QDVG is the like-for-like replacement: +1bp TER, 5.6x the fund size, and
+    # physically replicated rather than SML4's synthetic swap structure — the
+    # likeliest reason Avanza carries one and not the other.
+    #
+    # Still `partial`, and for the same reason as before: IHF tracks the narrow
+    # providers/managed-care slice (insurers, hospital operators), while every
+    # UCITS option is broad US healthcare including pharma and devices. No
+    # UCITS ETF tracks IHF's slice — that gap is real and unfixable, not an
+    # oversight in this entry.
+    - ticker: QDVG
+      name: iShares S&P 500 Health Care Sector UCITS ETF (Acc)
+      isin: IE00B43HR379
+      ter: "0.15%"
+      issuer: iShares
       match: partial
-      url: https://www.justetf.com/en/etf-profile.html?isin=IE00B3WMTH43
+      url: https://www.justetf.com/en/etf-profile.html?isin=IE00B43HR379
 
 
   Gold & Precious Metals Miners:

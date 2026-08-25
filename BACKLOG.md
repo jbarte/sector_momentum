@@ -615,6 +615,39 @@ decision (schema shape, how much detail to surface, whether reason 1 and 2
 should migrate into it too) rather than a three-line addition, so it belongs
 in front of brainstorming, not skipped straight to implementation.
 
+## Audit every UCITS entry for Avanza availability
+
+`config/themes.yaml` records 17 UCITS equivalents. Every one was verified to
+*exist* (justETF, 2026-08-05); **none was ever verified to be orderable on
+Avanza**, which is the only broker this list has to serve. Those are different
+questions, and on 2026-08-25 exactly that gap bit: Healthcare Providers pointed
+at Invesco SML4 (IE00B3WMTH43) — alive, EUR 476m, trading on four exchanges,
+and not buyable on Avanza. Found by hand, by trying to place the trade.
+
+Nothing catches this. `tests/test_themes_config.py::test_ucits_entries_are_well_formed`
+checks shape (ISIN regex, `match` vocabulary, url-matches-ISIN); existence and
+availability are both outside it, and availability is not derivable from
+justETF at all.
+
+Two things to settle before building:
+
+- **Is there a data source?** Avanza has no public instrument API. The
+  realistic options are a manual re-verification pass recorded as a dated
+  comment per entry (cheap, goes stale silently) or scraping Avanza's search
+  (fragile, and this repo is public so anything with credentials is out).
+- **Does the config need a third state?** Today buyability is binary:
+  `unbuyable: true` means *no UCITS product exists anywhere* — its badge says
+  "No UCITS equivalent exists" and it drops the theme from the backtest's book.
+  SML4 was neither that nor fine. If a theme ever turns out to have a live
+  UCITS equivalent that Avanza simply will not sell, the config has no way to
+  say so, and reaching for `unbuyable` would put a false sentence on the
+  dashboard *and* silently change backtest results. The swap dodged this by
+  finding a replacement; the next one may not.
+
+One signal on prevalence: SML4 is synthetically replicated (swap-based) while
+its replacement QDVG is physical. If that is the discriminator, the other
+entries are worth checking for synthetic replication first.
+
 ## Feature: UCITS tracking-difference monitor
 
 `config/themes.yaml` records the closest UCITS equivalent per theme — ticker,
@@ -775,6 +808,41 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Healthcare Providers UCITS swapped to QDVG — SML4 unbuyable on Avanza (2026-08-25)
+
+The theme's recorded UCITS equivalent was Invesco US Health Care Sector UCITS
+ETF (SML4, IE00B3WMTH43). It cannot be bought on Avanza, so the drill-down
+panel was naming an instrument the reader cannot act on.
+
+Verified before changing anything, rather than assumed: SML4 is **not** dead —
+justETF on 2026-08-25 shows it active, EUR 476m, TER 0.14%, trading as SML4
+(gettex), XLVP/XLVS (LSE), plus Borsa Italiana and SIX. So this is not the
+Shipping case and the theme is **not** `unbuyable`. That flag means *no UCITS
+product exists* — `dashboard/breakdown.py` renders "None exists" and
+`index.html.j2`'s badge says "No UCITS equivalent exists" — and it also removes
+the name from `strategy.simulate`'s book. Setting it here would have printed a
+falsehood and changed measured backtest results to describe a broker's catalogue.
+
+Replaced with **iShares S&P 500 Health Care Sector UCITS ETF (Acc)** — QDVG on
+Xetra/gettex/Stuttgart (IUHC/IHCU on LSE), IE00B43HR379, TER 0.15%, EUR 2,675m,
+**physically** replicated. Confirmed available on Avanza. Costs +1bp of TER for
+5.6x the fund size and a physical basket instead of SML4's swap structure — the
+likeliest reason Avanza carries one and not the other.
+
+`match` stays `partial`, unchanged and for the unchanged reason: IHF tracks the
+narrow providers/managed-care slice (insurers, hospital operators) and every
+UCITS option is broad US healthcare including pharma and devices. No UCITS ETF
+tracks IHF's slice. That gap is real and unfixable, not an oversight — recorded
+in the config comment so the next reader does not re-litigate it.
+
+Config-only; the dashboard reads the `ucits:` block at build time and nothing
+hardcodes a ticker. Scoring is untouched (the US listing IHF is what is scored;
+UCITS rows are reference instruments only), so no backtest or ranking change.
+
+Surfaced a gap this did not fix: no UCITS entry has ever been checked against
+Avanza's catalogue, and the config cannot express "exists but not orderable
+here". Both filed as a Queued item.
 
 ## Deduped the double-render on every mobile star tap (2026-08-24)
 
