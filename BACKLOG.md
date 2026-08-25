@@ -101,6 +101,31 @@ mechanism replaces the pairwise guards should get a real behavioral test
 (Node + a DOM shim, or an equivalent live-count assertion), not another
 source-scan.
 
+## Only one row/card should be expanded at a time
+
+Requested 2026-08-25. Today `toggleBreakdown(id)` (desktop table,
+`index.html.j2` ~line 1507) and each mobile card's own click handler
+(`renderMobileCards()` ~line 830) each toggle only the ONE row/card they
+were called on — nothing collapses any OTHER already-open row/card, so a
+reader can open every theme's breakdown at once. Wanted: accordion
+behavior instead — expanding one row/card collapses whatever else was open,
+in both the desktop table and the mobile card list (asked and confirmed as
+two views of the same behavior, not two different features).
+
+Note the two views keep genuinely independent open-state today (own
+comment at ~line 821: "The two are never visible at the same time (table
+hidden on mobile, cards hidden on desktop), so independent state causes no
+visible inconsistency") — that only covers the CURRENT toggle-in-isolation
+behavior, and needs rechecking once each view enforces single-expansion,
+since the accordion logic likely wants to live once per view rather than
+shared, unless a reason turns up to unify it.
+
+Also in scope to check: `_collapseBreakdown(sectorId)` (~line 1570, called
+from `applyFilters()` when a filter hides a row) already force-closes one
+row's breakdown from outside its own toggle handler — the accordion's
+"close the previously-open one" step is the same shape of operation and
+should probably reuse or sit next to it rather than duplicate it.
+
 ## Mobile card's expand-region nests a real button inside role="button"
 
 Code review, 2026-08-24, on the mobile-holdings-toggle fix (see Done). An
