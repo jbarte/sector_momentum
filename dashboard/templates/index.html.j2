@@ -1181,21 +1181,18 @@ function applyHorizonBadges() {
   // applyFilters() (below) ends with its own applyBandBoundaries() call
   // (guarded only on that function existing, which it always does here --
   // both are declared in this same script block), so calling it here too
-  // meant every sm:positions-changed event -- a mobile star tap included --
-  // ran the full renderMobileCards() rebuild (a container.innerHTML wipe +
-  // rebuild of every card) TWICE in the same tick, for the identical end
-  // state: the second call's "remove any band-cut rows I inserted last
-  // time" step (see applyBandBoundaries()'s own comment) discards the first
-  // call's output before anything ever paints it. Call it directly only in
-  // the fallback branch, where applyFilters() itself is unavailable and
-  // nothing else in this function will call it.
+  // would run applyBandBoundaries()'s cut-row recompute and renderBuyBand()
+  // TWICE in the same tick for no benefit. Call it directly only in the
+  // fallback branch, where applyFilters() itself is unavailable and nothing
+  // else in this function will call it.
   //
-  // Scoped to calls originating HERE: code review, 2026-08-24, traced the
-  // same double/triple-render pattern to several call sites OUTSIDE this
-  // function too (auth.js's sign-in path, scan-history.js's "back to
-  // latest", the sentiment-weight slider) -- see BACKLOG.md, "Mobile card
-  // list still double/triple-renders from several other entry points".
-  // This guard does not, and cannot by itself, close those.
+  // NOT load-bearing for the double/triple-render bug any more: since
+  // renderMobileCards() itself coalesces repeated calls within one tick
+  // (see its own comment), removing this guard would no longer bring that
+  // bug back -- it would only make applyBandBoundaries()'s cheaper cut-row/
+  // renderBuyBand() work run twice. Kept as a minor efficiency, not a
+  // correctness requirement. See sector_momentum-notes/specs/2026-08-25-
+  // mobile-render-coalescing-design.md.
   if (typeof applyFilters !== 'function') { applyBandBoundaries(); }
 
   var setupFilters = document.getElementById('filter-group-setup');
@@ -1222,19 +1219,18 @@ function applyHorizonBadges() {
   // window.applyFilters() call (guarded only on that function existing,
   // which it always does on a real page) — "the leaderboard filter count is
   // built in JS... re-render it in the new language", its own comment says
-  // — so calling applyFilters() again right after, unconditionally, was a
-  // SECOND source of the same double-renderMobileCards() bug fixed above:
-  // live-verified in the browser after the first fix (guarding the direct
-  // applyBandBoundaries() call above) still left this pair calling
-  // applyFilters() twice. Only take the explicit branch when applyLang()
-  // did not already run — real page loads always have window.applyLang, so
-  // in practice this makes the choice once, deterministically, not a
-  // runtime toggle between the two.
+  // — so calling applyFilters() again right after, unconditionally, would
+  // run applyBandBoundaries()'s cut-row recompute and renderBuyBand() twice
+  // for no benefit. Only take the explicit branch when applyLang() did not
+  // already run — real page loads always have window.applyLang, so in
+  // practice this makes the choice once, deterministically, not a runtime
+  // toggle between the two.
   //
-  // Scoped to calls originating HERE, same caveat as the guard above: other
-  // entry points outside this function reach the identical applyLang/
-  // applyFilters pair independently and are not fixed by this guard — see
-  // BACKLOG.md.
+  // NOT load-bearing for the double/triple-render bug any more, same as the
+  // guard above: renderMobileCards() itself now coalesces repeated calls
+  // within one tick, so this guard is a minor efficiency, not a correctness
+  // requirement. See sector_momentum-notes/specs/2026-08-25-mobile-render-
+  // coalescing-design.md.
   if (window.applyLang) {
     var lang = 'en';
     try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
