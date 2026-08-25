@@ -20,87 +20,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
-
-## Mobile card list still double/triple-renders from several other entry points
-
-8-angle code review, 2026-08-24, on "Deduped the double-render on every
-mobile star tap" (see Done). That fix closed the two redundant call sites
-*inside* `applyHorizonBadges()`, but four independent angles (cross-file
-tracer, efficiency, line-by-line, altitude) traced the identical bug class
-to call sites the fix doesn't touch — the same `container.innerHTML` wipe +
-full card rebuild, run more than once per user action, for an identical end
-state:
-
-1. **`auth.js`'s `upgradeLeaderboard()` (~lines 128-174) — the sign-in path,
-   the single most common gated-content path in the app — renders 3-4x**:
-   `makeLeaderboardReadOnly()` calls `window.applyFilters()` directly; then
-   `window.applyLang(lang)` triggers its own `applyFilters()`; then the
-   `sm:leaderboard-upgraded` dispatch triggers `applyHorizonBadges()`, which
-   (since `window.applyLang` is defined by then) triggers yet another.
-2. **`scan-history.js`'s `restoreLatest()` (~lines 230-253) renders 2x**:
-   calls `applyHorizonBadges()` (which now internally coalesces to one
-   render via `applyLang → applyFilters`), then independently calls
-   `window.applyFilters()` again 16 lines later.
-3. **`applyRanking()` (index.html.j2 ~lines 1833-1858, the sentiment-weight
-   slider) renders 2x per `input` event**: `updateRows()` ends with
-   `applyHorizonBadges()` (one render), then `applyRanking()` itself calls
-   `applyBandBoundaries()` again after re-sorting the DOM. Weaker finding
-   than 1-2 — the second call is behaviorally necessary today (cut lines
-   would sit on the wrong rows otherwise), not a pure duplicate — but it's
-   still the same class of cost, uncoalesced, firing on every tick of a
-   live slider drag.
-4. **`switchHorizon()` (index.html.j2 ~lines 1304-1321) wastes a full render
-   pass** when a past scan is open: `applyHorizonBadges()` runs unconditionally
-   or the whole table, then `window.showScan(...)` immediately replaces the
-   tbody and calls `renderMobileCards()` itself — one of the two passes is
-   pure waste.
-
-**Why this wasn't just patched with more guards, the way the star-tap fix
-was**: two more angles (simplification, altitude) independently argued the
-guard pattern itself is the wrong altitude here. `applyBandBoundaries()` is
-already the codebase's own acknowledged single funnel point (its own
-comment: "one call here covers every caller... so cards stay in sync... with
-no separate wiring in any of those places") — the actual defect is that the
-funnel gets *invoked* multiple times per logical user action, not that any
-one caller invokes the wrong thing. Adding a fourth, fifth, sixth pairwise
-`typeof`-guard (one per new call site found) doesn't scale and makes the
-"could silently desync" risk the star-tap fix's own guards already carry
-(see its Done entry) worse with every addition — each guard encodes,
-cross-file, in a comment, an assumption about another function's exact
-current tail behavior, unenforced structurally except where a test happens
-to pin it (the star-tap fix added one such pin after this same review round
-found the gap; that doesn't scale to N guards either).
-
-**The real fix is coalescing at the funnel, not patching every caller** —
-but that's a genuine design decision with two candidate shapes and real
-trade-offs, not a mechanical change:
-- **Synchronous batch-boundary**: thread an explicit "defer renders until
-  I say so" boundary through every top-level entry point (star tap, sign-in
-  callback, language toggle, sentiment slider, scan-history restore) —
-  keeps everything synchronous (no timing change, no new risk to anything
-  that reads DOM state right after triggering a change), but touches 5+
-  entry points across 3 files (`index.html.j2`, `auth.js`, `scan-history.js`).
-- **Async microtask/rAF-deferred flush**: simpler mechanism (a dirty flag +
-  `Promise.resolve().then(...)`), but changes `renderMobileCards()` from
-  synchronous to deferred — real risk given the just-shipped focus/open-
-  state preservation logic (`renderMobileCards()` now captures and restores
-  `document.activeElement` and open `data-sector-id`s around its own
-  `container.innerHTML` wipe) was written and tested assuming a fully
-  synchronous call. Note a plain re-entrancy/call-depth guard does NOT
-  solve this on its own: the redundant calls here are *sequential*, not
-  *nested* — each earlier call fully returns before the next one starts, so
-  a stack-based guard sees an empty stack every time and never trips.
-
-**Also worth carrying into that design pass**: the star-tap fix's own new
-tests are pure source-text assertions (`"..." in fn_body`,
-`.count("applyBandBoundaries();") == 1`), not behavioral checks against a
-real render count — the actual double/triple-render bugs in this item were
-only found by live browser instrumentation (`window.renderMobileCards =
-function(){ count++; ...}`), which isn't automated or re-run by CI. Whatever
-mechanism replaces the pairwise guards should get a real behavioral test
-(Node + a DOM shim, or an equivalent live-count assertion), not another
-source-scan.
-
 ## Only one row/card should be expanded at a time
 
 Requested 2026-08-25. Today `toggleBreakdown(id)` (desktop table,
@@ -833,6 +752,32 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Mobile card list still double/triple-renders from several other entry points
+
+Fixed 2026-08-25. The 2026-08-24 review found the star-tap fix (below) left
+four more entry points double/triple-rendering the mobile card list:
+auth.js's sign-in path (3-4x), scan-history.js's "back to latest" (2x), the
+sentiment-weight slider (2x), and switchHorizon() while a past scan is open
+(1 wasted pass). Rather than patching each pairwise call site — the same
+scaling problem as the guard pattern the star-tap fix used — coalesced at
+the actual point of redundant cost: `renderMobileCards()` itself now wraps
+its rebuild in a dirty-flag + microtask-flush coalescer, so any number of
+calls within one synchronous tick collapse into a single real rebuild. Every
+one of the four call sites converges on this same function (traced and
+tabled in the design spec), so the fix needed zero changes to auth.js,
+scan-history.js, or applyRanking() — only `renderMobileCards()` in
+index.html.j2 changed.
+
+Also added this bug class's first real automated regression test
+(`tests/test_dashboard_render_coalescing.py`, Playwright/Python): previously
+this was only ever caught by live, uninstrumented browser counting. The test
+counts actual writes to `#leaderboard-cards`'s `innerHTML` rather than
+naming an internal function, so it works unchanged whether the fix is
+present or not.
+
+See `sector_momentum-notes/specs/2026-08-25-mobile-render-coalescing-design.md`
+and `sector_momentum-notes/plans/2026-08-25-mobile-render-coalescing.md`.
 
 ## Healthcare Providers UCITS swapped to QDVG — SML4 unbuyable on Avanza (2026-08-25)
 

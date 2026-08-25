@@ -1153,10 +1153,12 @@ def test_mobile_cards_find_both_badges_by_class_not_by_cell_index():
     cells needed no change there at all. Pinned because the obvious
     "simplification" -- addressing the cells positionally -- would couple the
     card renderer to the column layout and break on the next column change.
+    (Searches for _renderMobileCardsNow, not renderMobileCards, which is now
+    a thin coalescing wrapper as of 2026-08-25.)
     """
     tpl = (Path(__file__).parent.parent
            / "dashboard/templates/index.html.j2").read_text()
-    fn = tpl.split("function renderMobileCards()", 1)[1].split("\nfunction ", 1)[0]
+    fn = tpl.split("function _renderMobileCardsNow()", 1)[1].split("\nfunction ", 1)[0]
     fn = _strip_line_comments(fn)
     assert "querySelector('.traj-badge')" in fn.replace('"', "'"), (
         "renderMobileCards no longer selects the Trend badge by class"
@@ -1550,7 +1552,15 @@ def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
     applyFilters() is unavailable and nothing else in this function will
     call it -- the previous test confirms a call still always happens
     somewhere; this one confirms it does not ALSO happen unconditionally
-    here."""
+    here.
+
+    NOT load-bearing for the double/triple-render bug any more: since
+    renderMobileCards() itself now coalesces repeated calls within one tick
+    (dashboard/templates/index.html.j2, the wrapper added in the
+    mobile-render-coalescing fix), removing this guard would no longer
+    bring that bug back -- it would only make applyBandBoundaries()'s
+    cheaper cut-row/renderBuyBand() work run twice. Kept as a minor
+    efficiency, not a correctness requirement."""
     fn_body = _apply_horizon_badges_js()
     assert "if (typeof applyFilters !== 'function') { applyBandBoundaries(); }" in fn_body, (
         "the direct applyBandBoundaries() call is not guarded on applyFilters() "
@@ -1575,14 +1585,22 @@ def test_apply_horizon_badges_trailing_apply_filters_call_is_guarded():
     window.renderMobileCards() and calling applyHorizonBadges() still showed
     2 renders after only the first guard was in place, 1 after this one was
     added too. The explicit applyFilters() call must fire only when
-    window.applyLang did not already run."""
+    window.applyLang did not already run.
+
+    NOT load-bearing for the double/triple-render bug any more, same as the
+    guard above: renderMobileCards() itself now coalesces repeated calls
+    within one tick, so this guard is a minor efficiency, not a correctness
+    requirement."""
     fn_body = _apply_horizon_badges_js()
     tail = fn_body[fn_body.index("if (window.applyLang)"):]
     assert "} else if (typeof applyFilters === 'function') {" in tail, (
         "the trailing applyFilters() call is not guarded on window.applyLang "
         "being unavailable -- window.applyLang(lang) already calls "
         "applyFilters() internally, so calling it again here unconditionally "
-        "renders the mobile card list twice"
+        "redoes applyBandBoundaries()'s cut-row/renderBuyBand() work for no "
+        "benefit (renderMobileCards() itself now coalesces repeated calls "
+        "within one tick, so this no longer double-renders the card list -- "
+        "see the NOT load-bearing comment in dashboard/templates/index.html.j2)"
     )
     # window.applyLang(lang) must still be the call that actually fires in
     # the normal case (real pages always define window.applyLang) -- this
@@ -1741,11 +1759,13 @@ def test_supabase_client_asset_is_copied_when_auth_is_configured():
 
 
 def _render_mobile_cards_js():
-    """renderMobileCards()'s exact function body (brace-balanced), the same
+    """_renderMobileCardsNow()'s exact function body (brace-balanced), the same
     technique test_level_change_bars_python_and_js_agree /
-    _apply_band_boundaries_js use elsewhere in this file."""
+    _apply_band_boundaries_js use elsewhere in this file. (Searches for
+    _renderMobileCardsNow, not renderMobileCards, which is now a thin coalescing
+    wrapper around it as of 2026-08-25.)"""
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    start = text.index("function renderMobileCards()")
+    start = text.index("function _renderMobileCardsNow()")
     brace_start = text.index("{", start)
     depth = 0
     i = brace_start
