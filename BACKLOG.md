@@ -755,7 +755,7 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 ## Mobile card list still double/triple-renders from several other entry points
 
-Fixed 2026-08-25. The 2026-08-24 review found the star-tap fix (above) left
+Fixed 2026-08-25. The 2026-08-24 review found the star-tap fix (below) left
 four more entry points double/triple-rendering the mobile card list:
 auth.js's sign-in path (3-4x), scan-history.js's "back to latest" (2x), the
 sentiment-weight slider (2x), and switchHorizon() while a past scan is open

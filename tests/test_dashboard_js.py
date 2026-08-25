@@ -1552,7 +1552,15 @@ def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
     applyFilters() is unavailable and nothing else in this function will
     call it -- the previous test confirms a call still always happens
     somewhere; this one confirms it does not ALSO happen unconditionally
-    here."""
+    here.
+
+    NOT load-bearing for the double/triple-render bug any more: since
+    renderMobileCards() itself now coalesces repeated calls within one tick
+    (dashboard/templates/index.html.j2, the wrapper added in the
+    mobile-render-coalescing fix), removing this guard would no longer
+    bring that bug back -- it would only make applyBandBoundaries()'s
+    cheaper cut-row/renderBuyBand() work run twice. Kept as a minor
+    efficiency, not a correctness requirement."""
     fn_body = _apply_horizon_badges_js()
     assert "if (typeof applyFilters !== 'function') { applyBandBoundaries(); }" in fn_body, (
         "the direct applyBandBoundaries() call is not guarded on applyFilters() "
@@ -1577,14 +1585,22 @@ def test_apply_horizon_badges_trailing_apply_filters_call_is_guarded():
     window.renderMobileCards() and calling applyHorizonBadges() still showed
     2 renders after only the first guard was in place, 1 after this one was
     added too. The explicit applyFilters() call must fire only when
-    window.applyLang did not already run."""
+    window.applyLang did not already run.
+
+    NOT load-bearing for the double/triple-render bug any more, same as the
+    guard above: renderMobileCards() itself now coalesces repeated calls
+    within one tick, so this guard is a minor efficiency, not a correctness
+    requirement."""
     fn_body = _apply_horizon_badges_js()
     tail = fn_body[fn_body.index("if (window.applyLang)"):]
     assert "} else if (typeof applyFilters === 'function') {" in tail, (
         "the trailing applyFilters() call is not guarded on window.applyLang "
         "being unavailable -- window.applyLang(lang) already calls "
         "applyFilters() internally, so calling it again here unconditionally "
-        "renders the mobile card list twice"
+        "redoes applyBandBoundaries()'s cut-row/renderBuyBand() work for no "
+        "benefit (renderMobileCards() itself now coalesces repeated calls "
+        "within one tick, so this no longer double-renders the card list -- "
+        "see the NOT load-bearing comment in dashboard/templates/index.html.j2)"
     )
     # window.applyLang(lang) must still be the call that actually fires in
     # the normal case (real pages always define window.applyLang) -- this
