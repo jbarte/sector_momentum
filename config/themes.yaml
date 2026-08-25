@@ -248,6 +248,11 @@ ucits:
       url: https://www.justetf.com/en/etf-profile.html?isin=IE000EBFYWX3
 
   # --- Diversifiers (verified against justETF 2026-08-05) ------------------
+  # That date is the group's ORIGINAL verification and no longer covers every
+  # entry below — Healthcare Providers was re-verified and replaced 2026-08-25.
+  # Per-entry dated comments win over this header. Note also that "verified"
+  # here has only ever meant "exists and trades", never "orderable on Avanza";
+  # see the availability-audit item in BACKLOG.md.
   # Shipping (BOAT) has no entry: the only UCITS candidate found is the ETFS
   # DAXglobal Shipping GO UCITS ETF (IE00B3CMS880), an ETF Securities product
   # predating the WisdomTree acquisition whose current status is unconfirmed.
