@@ -36,6 +36,8 @@ fsspec==2026.6.0
     # via
     #   huggingface-hub
     #   torch
+greenlet==3.5.5
+    # via playwright
 h11==0.16.0
     # via httpcore
 hf-xet==1.5.2
@@ -60,9 +62,7 @@ jinja2==3.1.6
     #   -r requirements.txt
     #   torch
 lxml==6.1.1
-    # via
-    #   -r requirements.txt
-    #   pandas-datareader
+    # via -r requirements.txt
 markdown-it-py==4.2.0
     # via rich
 markupsafe==3.0.3
@@ -135,14 +135,13 @@ pandas==3.0.3
     # via
     #   -r requirements.txt
     #   fredapi
-    #   pandas-datareader
     #   yfinance
-pandas-datareader==0.11.1
-    # via -r requirements.txt
 peewee==4.2.6
     # via yfinance
 platformdirs==4.10.1
     # via yfinance
+playwright==1.62.0
+    # via -r requirements-dev.txt
 plotly==6.9.0
     # via -r requirements.txt
 pluggy==1.6.0
@@ -155,6 +154,8 @@ pyarrow==25.0.0
     # via -r requirements.txt
 pycparser==3.0
     # via cffi
+pyee==13.0.1
+    # via playwright
 pygments==2.20.0
     # via
     #   pytest
@@ -177,7 +178,6 @@ regex==2026.7.19
 requests==2.34.2
     # via
     #   -r requirements.txt
-    #   pandas-datareader
     #   yfinance
 rich==15.0.0
     # via
@@ -188,9 +188,7 @@ safetensors==0.8.0
 scipy==1.17.1
     # via -r requirements.txt
 setuptools==83.0.0
-    # via
-    #   pandas-datareader
-    #   torch
+    # via torch
 shellingham==1.5.4
     # via typer
 six==1.17.0
@@ -218,6 +216,7 @@ typing-extensions==4.16.0
     #   anyio
     #   beautifulsoup4
     #   huggingface-hub
+    #   pyee
     #   torch
 urllib3==2.7.0
     # via requests

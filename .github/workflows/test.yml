@@ -40,6 +40,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.lock --extra-index-url https://download.pytorch.org/whl/cpu
 
+      - name: Install Playwright browser
+        run: playwright install chromium --with-deps
+
       - name: Run tests
         env:
           # The DB-backed tests wipe every row, so they are gated on an identity
