@@ -177,3 +177,43 @@ def test_multiple_synchronous_calls_coalesce_to_one_render(page):
         f"expected exactly 1 real card rebuild for 3 synchronous "
         f"renderMobileCards() calls, got {count}"
     )
+
+
+def test_switch_horizon_with_past_scan_open_renders_once(page):
+    """BACKLOG.md item 4: switchHorizon() runs applyHorizonBadges() (which
+    renders the live table's cards), then -- when a past scan is open --
+    showScan() immediately replaces the table body and calls
+    renderMobileCards() directly, bypassing the applyBandBoundaries() funnel
+    entirely. Both calls land in the same tick and must coalesce to one
+    real rebuild, reflecting the past scan's rows, not the live table's."""
+    page.evaluate("() => window.showScan(1)")  # open the older of the 2 scans
+    assert page.evaluate("() => window.SM_ACTIVE_SCAN_ID") == 1
+
+    _arm_card_rewrite_counter(page)
+    page.evaluate("() => window.switchHorizon('long')")
+    _flush_microtasks(page)
+
+    count = page.evaluate("() => window.__cardRewriteCount")
+    assert count == 1, (
+        f"expected exactly 1 real card rebuild from switchHorizon() while a "
+        f"past scan is open, got {count}"
+    )
+
+
+def test_restore_latest_renders_once(page):
+    """BACKLOG.md item 2: restoreLatest() calls applyHorizonBadges() (one
+    render via the funnel), then independently calls window.applyFilters()
+    again -- a second, redundant pass through the same funnel. Both land in
+    the same tick and must coalesce to one real rebuild."""
+    page.evaluate("() => window.showScan(1)")
+    assert page.evaluate("() => window.SM_ACTIVE_SCAN_ID") == 1
+
+    _arm_card_rewrite_counter(page)
+    page.evaluate("() => window.restoreLatest()")
+    _flush_microtasks(page)
+
+    assert page.evaluate("() => window.SM_ACTIVE_SCAN_ID") is None
+    count = page.evaluate("() => window.__cardRewriteCount")
+    assert count == 1, (
+        f"expected exactly 1 real card rebuild from restoreLatest(), got {count}"
+    )
