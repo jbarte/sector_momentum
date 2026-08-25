@@ -1153,10 +1153,12 @@ def test_mobile_cards_find_both_badges_by_class_not_by_cell_index():
     cells needed no change there at all. Pinned because the obvious
     "simplification" -- addressing the cells positionally -- would couple the
     card renderer to the column layout and break on the next column change.
+    (Searches for _renderMobileCardsNow, not renderMobileCards, which is now
+    a thin coalescing wrapper as of 2026-08-25.)
     """
     tpl = (Path(__file__).parent.parent
            / "dashboard/templates/index.html.j2").read_text()
-    fn = tpl.split("function renderMobileCards()", 1)[1].split("\nfunction ", 1)[0]
+    fn = tpl.split("function _renderMobileCardsNow()", 1)[1].split("\nfunction ", 1)[0]
     fn = _strip_line_comments(fn)
     assert "querySelector('.traj-badge')" in fn.replace('"', "'"), (
         "renderMobileCards no longer selects the Trend badge by class"
@@ -1741,11 +1743,13 @@ def test_supabase_client_asset_is_copied_when_auth_is_configured():
 
 
 def _render_mobile_cards_js():
-    """renderMobileCards()'s exact function body (brace-balanced), the same
+    """_renderMobileCardsNow()'s exact function body (brace-balanced), the same
     technique test_level_change_bars_python_and_js_agree /
-    _apply_band_boundaries_js use elsewhere in this file."""
+    _apply_band_boundaries_js use elsewhere in this file. (Searches for
+    _renderMobileCardsNow, not renderMobileCards, which is now a thin coalescing
+    wrapper around it as of 2026-08-25.)"""
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    start = text.index("function renderMobileCards()")
+    start = text.index("function _renderMobileCardsNow()")
     brace_start = text.index("{", start)
     depth = 0
     i = brace_start

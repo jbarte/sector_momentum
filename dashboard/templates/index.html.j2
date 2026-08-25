@@ -651,7 +651,7 @@ function badgesVisible() {
 // applyHorizonBadges() — verified, not assumed, before writing this) and
 // directly from scan-history.js's showScan(), the one path that genuinely
 // bypasses applyBandBoundaries() entirely (its rows carry no data-rank).
-function renderMobileCards() {
+function _renderMobileCardsNow() {
   var container = document.getElementById('leaderboard-cards');
   var tbody = document.querySelector('#leaderboard-table tbody');
   if (!container || !tbody) return;
@@ -854,6 +854,31 @@ function renderMobileCards() {
         && document.querySelector('.leaderboard-row[data-sector-id="' + sectorId + '"] .position-toggle');
       if (tableBtn) { tableBtn.click(); }
     });
+  });
+}
+
+// Coalesces repeated calls within one synchronous tick (a click handler, an
+// event-dispatch chain, a .then() callback body -- exactly the shape of
+// every entry point in BACKLOG.md's "Mobile card list still double/triple-
+// renders from several other entry points", 2026-08-24 review) into a single
+// real rebuild. Every existing caller (applyBandBoundaries()'s tail call
+// below, and scan-history.js's direct call) keeps calling renderMobileCards()
+// exactly as before -- this wrapper is the only thing that changed.
+//
+// renderMobileCards() is therefore NOT synchronous with its caller any more.
+// Nothing today reads the card DOM immediately after triggering a change
+// (checked: no reference to #leaderboard-cards / .leaderboard-card anywhere
+// outside this function and its own click-delegation setup) -- but that is
+// now a standing constraint, not just an implementation detail. A future
+// caller that needs the rebuild to have happened before it continues should
+// await the same microtask queue, not add a synchronous guard here.
+var _mobileCardsRenderScheduled = false;
+function renderMobileCards() {
+  if (_mobileCardsRenderScheduled) return;
+  _mobileCardsRenderScheduled = true;
+  Promise.resolve().then(function () {
+    _mobileCardsRenderScheduled = false;
+    _renderMobileCardsNow();
   });
 }
 
