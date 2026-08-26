@@ -20,6 +20,93 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
+## The backtest's early years cannot exercise the hold band at all
+
+Found 2026-08-26, immediately after `--end` shipped (see Done) made a
+disjoint early window runnable for the first time. Running
+`--start 2004-01-01 --end 2014-12-31` produced obvious nonsense — `M/4/5` at
+**3.0 trades/yr and a 486-day median hold** (versus 12.9 and 120 on the full
+window), and `M/4/6`, `M/4/7`, `M/4/8` all at 0.6 trades/yr with *no closed
+positions at all*. The cause is not a bug in the sweep; it is the data.
+
+**The theme universe grows from 1 to 18 across the backtest window**, because
+thematic ETFs mostly did not exist earlier:
+
+| year-start | theme instruments with price data |
+|---|---|
+| 2004 | 1 of 18 |
+| 2008 | 7 |
+| 2012 | 10 |
+| 2015 | 10 |
+| 2018 | 12 |
+| 2020 | 15 |
+| 2022 | 18 (full) |
+
+Bands are stored in **absolute ranks**, so a preset's SELL line cannot fire
+until the universe is *larger* than its `exit_rank` — before that every
+holding is inside the band by construction and the hysteresis is a no-op:
+
+- `medium` (exit_rank 9) — band first meaningful **2010-11-05**
+- `long` (exit_rank 13) — band first meaningful **2018-09-05**
+
+So `long`'s defining parameter has roughly **eight years** of history that can
+actually exercise it, not twenty-two. And a "2004-" sweep is not evaluating 18
+themes since 2004; it is evaluating a universe that is mostly absent for the
+first third of the window, which is why the early cells degenerate.
+
+**Consequence for the preset choice.** The presets were picked on 2004- and
+re-checked on 2015- (nested, and both dominated by the same recent years where
+the data actually exists). That is much weaker evidence than "wins on two
+windows" sounds — there is effectively one regime under it. `medium` still
+wins clearly on every window where its band can fire, so this is not a claim
+that the cell is wrong; it is a claim that the *confidence* attached to it in
+`config/weights.yaml`'s comments is overstated.
+
+Options, roughly in order of value:
+1. **Say so in `config/weights.yaml`** — cheapest, and stops the next reader
+   inheriting more confidence than the data supports.
+2. **Report the effective universe size per rebalance date** in the sweep
+   output, so a degenerate window is visible in the report instead of having
+   to be inferred from an implausible trades/yr.
+3. **Make the sweep refuse (or loudly warn) when `exit_rank >= universe size`**
+   on a meaningful share of the calendar — the failure mode that produced the
+   nonsense cells above.
+4. **Consider a fractional band** (`band` as a share of the universe rather
+   than absolute ranks) so the presets stop being silently re-tuned by
+   universe growth. This one is a real design change, not a fix — the config
+   already flags the same hazard from the 13→20 theme change on 2026-08-05.
+
+## `long`'s preset sits at both grid edges, so it was never bracketed
+
+Found 2026-08-26 while checking whether the shipped presets are optimal.
+`scripts/horizon_sweep.py` searches `TOP_N = [3, 4, 5]` and
+`BUFFERS = [0..8]`. The shipped `long` preset is `top_n 5, buffer 8` — the
+**maximum of both axes**. The sweep therefore stopped exactly where `long`
+sits and never looked past it, so nothing in the record says whether buffer
+9-10 (or top_n 6) is better. `medium` (`top_n 4, buffer 5`) is interior on
+both axes and genuinely bracketed; `long` is not.
+
+It is also not a local return peak — its in-grid neighbours beat it on CAGR,
+Sharpe *and* drawdown at 100 bps:
+
+| cell | CAGR | Sharpe | max DD | trades/yr |
+|---|---|---|---|---|
+| M/5/8 (`long`, 2015- window) | 15.3% | 0.82 | -32.8% | 10.8 |
+| M/5/6 | 16.5% | 0.86 | -28.8% | 16.2 |
+
+`long` survives on the churn axis only — it is the lowest-churn cell that was
+*searched*, which is a weaker claim than optimal, and the one it is currently
+documented as. That may well be the right operating point for its purpose
+(≈7 trades/yr, half-year holds); the point is that it has not been tested
+against the cells just outside the grid.
+
+Fix: widen `BUFFERS` past 8 (and consider `TOP_N` 6) and re-run. Watch the
+`band` column, not the raw buffer — at 18 priced themes, buffer 8/top_n 5 is
+already a 72% hold band, so there is a natural ceiling not far above; the
+point is to measure where it is rather than inherit it from the grid bounds.
+Now cheap to check properly with `--end` (shipped 2026-08-26, see Done),
+which makes disjoint early/late windows possible.
+
 ## Only one row/card should be expanded at a time
 
 Requested 2026-08-25. Today `toggleBreakdown(id)` (desktop table,
@@ -752,6 +839,33 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## `--end` bounds the horizon sweep's evaluation window (2026-08-26)
+
+`scripts/horizon_sweep.py` took `--start` but no upper bound, so every run
+evaluated "from X to the last bar". Any two runs therefore OVERLAPPED, which
+made the standing justification for the shipped presets — "M/4/5 is the best
+cell on both the 2004 and 2015 windows" — much weaker than it reads: 2015- is
+a *subset* of 2004-, so the two shared most of their data and agreement
+between them was substantially arithmetic.
+
+Added `--end` (inclusive, defaults to the last bar so every previously
+recorded result keeps its meaning), threaded through as a new `until=`
+parameter on `replay.rebalance_dates()` that mirrors the existing `since=`.
+Both bounds filter AFTER the period grouping, for the same reason `since`
+already did: multi-period cadences ("2M") count every Nth period end from the
+start of the index, so slicing the index first silently shifts which months
+are review months. `since=X` / `until=X` now partition a calendar exactly.
+
+Rejects an empty or inverted window rather than clamping, matching
+`validate_eval_start`'s existing "a silently-moved bound produces a report
+header naming a window the run never evaluated" rule, and the report header
+now names both ends.
+
+11 new tests. The first disjoint run it enabled immediately found something —
+see "The backtest's early years cannot exercise the hold band at all" in
+Queued.
+
 
 ## Mobile card list still double/triple-renders from several other entry points
 
