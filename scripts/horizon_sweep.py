@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.backtest import engine, metrics, replay, strategy
 from src.backtest.replay import (
     DEFAULT_EVAL_START, FETCH_START, WARMUP_DAYS, validate_eval_start,
+    validate_eval_window,
 )
 from src.data.prices import fetch_prices
 
@@ -57,6 +58,7 @@ BACKTEST_CACHE = "data/backtest_cache"
 # unaffected.
 DEFAULT_START = DEFAULT_EVAL_START
 _validate_start = validate_eval_start
+_validate_window = validate_eval_window
 
 
 def _parse_args() -> argparse.Namespace:
@@ -66,6 +68,13 @@ def _parse_args() -> argparse.Namespace:
                         f"fetched from {FETCH_START}, and this must be at least "
                         f"{WARMUP_DAYS} days later so trailing-window signals are "
                         "warm on the first evaluated date.")
+    p.add_argument("--end", default=None,
+                   help="End of the EVALUATION window (inclusive). Defaults to "
+                        "the last available bar. Pass it to make two runs "
+                        "DISJOINT: without it every window runs to today, so any "
+                        "two overlap and 'the same cell wins on both' is much "
+                        "weaker evidence than it reads as. `--end 2014-12-31` "
+                        "and `--start 2015-01-01` partition the history.")
     p.add_argument("--cost-bps", type=float, default=None,
                    help="Round-trip cost in bps applied on turnover. Defaults to "
                         "costs.round_trip_bps in config/weights.yaml. Sweeping at 0 "
@@ -116,7 +125,7 @@ def main() -> int:
     args = _parse_args()
 
     try:
-        _validate_start(args.start)
+        _validate_window(args.start, args.end)
     except ValueError as exc:
         logger.error("%s", exc)
         return 1
@@ -145,7 +154,7 @@ def main() -> int:
     rows: list[dict] = []
     for freq in CADENCES:
         calendar = replay.rebalance_dates(prices[benchmark].index, freq,
-                                          since=args.start)
+                                          since=args.start, until=args.end)
         if len(calendar) < 3:
             logger.warning("%s: fewer than 3 rebalance dates — skipping", freq)
             continue
@@ -185,7 +194,9 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
     lines = [
         "# Rebalance horizon sweep",
         "",
-        f"- evaluated from `{args.start}` (history fetched from `{FETCH_START}`), "
+        f"- evaluated from `{args.start}` to "
+        f"`{args.end or 'the last available bar'}` "
+        f"(history fetched from `{FETCH_START}`), "
         f"cost `{args.cost_bps:.0f}` bps, benchmark `{benchmark}`",
         f"- benchmark CAGR `{fmt(rows[0]['bench_cagr'], pct=True)}` "
         "(varies slightly by cadence — each cadence measures it on its own calendar)",

@@ -76,8 +76,33 @@ def validate_eval_start(start: str) -> pd.Timestamp:
     return ts
 
 
+def validate_eval_window(start: str, end: str | None):
+    """Parse an evaluation window, rejecting a cold start or an empty range.
+
+    `end` of None means "run to the last available bar" — the behaviour every
+    sweep had before the bound existed, kept as the default so previously
+    recorded results still describe the run that produced them.
+
+    Rejects rather than clamping, for the same reason validate_eval_start does:
+    a silently-moved bound produces a report header naming a window the run
+    never evaluated.
+    """
+    start_ts = validate_eval_start(start)
+    if end is None:
+        return start_ts, None
+    end_ts = pd.Timestamp(end)
+    if end_ts <= start_ts:
+        raise ValueError(
+            f"--end {end_ts.date()} is not after --start {start_ts.date()}: "
+            "the window would be empty, and the report would name a range with "
+            "no cells under it."
+        )
+    return start_ts, end_ts
+
+
 def rebalance_dates(index: pd.DatetimeIndex, freq: str = "M",
-                    since: pd.Timestamp | str | None = None) -> list[pd.Timestamp]:
+                    since: pd.Timestamp | str | None = None,
+                    until: pd.Timestamp | str | None = None) -> list[pd.Timestamp]:
     """Last trading day of each period in `index`, for the given cadence.
 
     freq is one of REBALANCE_FREQS ("W", "2W", "M", "2M", "Q"). The default "M"
@@ -92,11 +117,19 @@ def rebalance_dates(index: pd.DatetimeIndex, freq: str = "M",
     Callers should fetch full history and pass `since`, never truncate the
     fetch.
 
-    Filtering happens AFTER the period grouping on purpose. Multi-period
-    cadences ("2M") take every Nth period end counting from the start of
-    `index`, so slicing the index first would shift which months are review
-    months — the caller would silently evaluate a different calendar than the
-    one the presets were picked on.
+    `until` is the closing bracket, and is INCLUSIVE like `since`: a date
+    landing exactly on either bound is inside that window. Without it every
+    window ran to the last available bar, so any two runs necessarily
+    OVERLAPPED — which makes "the same cell wins on both windows" much weaker
+    evidence than it reads as, since the two windows shared most of their
+    data. `since=X` and `until=X` partition a calendar cleanly, which is what
+    a genuinely disjoint early-vs-late comparison needs.
+
+    Filtering happens AFTER the period grouping on purpose, for BOTH bounds.
+    Multi-period cadences ("2M") take every Nth period end counting from the
+    start of `index`, so slicing the index first would shift which months are
+    review months — the caller would silently evaluate a different calendar
+    than the one the presets were picked on.
     """
     if freq not in REBALANCE_FREQS:
         raise ValueError(
@@ -114,6 +147,9 @@ def rebalance_dates(index: pd.DatetimeIndex, freq: str = "M",
     if since is not None:
         cutoff = pd.Timestamp(since)
         dates = [d for d in dates if d >= cutoff]
+    if until is not None:
+        ceiling = pd.Timestamp(until)
+        dates = [d for d in dates if d <= ceiling]
     return dates
 
 

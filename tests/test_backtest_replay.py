@@ -98,3 +98,70 @@ def test_rebalance_dates_since_preserves_multi_period_parity():
 def test_rebalance_dates_since_after_last_date_is_empty():
     idx = pd.bdate_range("2020-01-01", "2020-12-31")
     assert replay.rebalance_dates(idx, "M", since="2021-06-01") == []
+
+
+# `until` is the closing bracket `since` never had. Without it the sweep could
+# only ever evaluate "from X to today", so every window it produced OVERLAPPED
+# every other one — two runs agreeing told you far less than it appeared to,
+# because they shared most of their data. Disjoint windows are the whole point.
+
+
+def test_rebalance_dates_until_drops_later_periods():
+    idx = pd.bdate_range("2020-01-01", "2020-12-31")
+    full = replay.rebalance_dates(idx, "M")
+    bounded = replay.rebalance_dates(idx, "M", until="2020-06-30")
+    assert bounded == [d for d in full if d <= pd.Timestamp("2020-06-30")]
+    assert len(bounded) == 6
+
+
+def test_rebalance_dates_until_accepts_timestamp_and_none():
+    idx = pd.bdate_range("2020-01-01", "2020-12-31")
+    full = replay.rebalance_dates(idx, "M")
+    assert replay.rebalance_dates(idx, "M", until=None) == full
+    assert (replay.rebalance_dates(idx, "M", until=pd.Timestamp("2020-06-30"))
+            == replay.rebalance_dates(idx, "M", until="2020-06-30"))
+
+
+def test_rebalance_dates_until_is_inclusive_like_since():
+    """A rebalance date landing exactly on the bound is INSIDE the window.
+
+    `since` is `>=`, so `until` must be `<=` or the two bounds disagree about
+    their own edges and a date can fall through both halves of a split.
+    """
+    idx = pd.bdate_range("2020-01-01", "2020-12-31")
+    june_end = replay.rebalance_dates(idx, "M")[5]
+    assert june_end in replay.rebalance_dates(idx, "M", until=june_end)
+    assert june_end in replay.rebalance_dates(idx, "M", since=june_end)
+
+
+def test_rebalance_dates_until_preserves_multi_period_parity():
+    """Same rule as `since`: bound AFTER the period grouping, never by slicing.
+
+    Slicing the index first re-counts `2M` from the new first period, so the
+    early window would evaluate the OTHER parity's months — making a
+    split-window comparison compare two different calendars rather than two
+    different periods.
+    """
+    idx = pd.bdate_range("2020-01-01", "2021-12-31")
+    full = replay.rebalance_dates(idx, "2M")
+    cutoff = pd.Timestamp("2021-02-01")
+    bounded = replay.rebalance_dates(idx, "2M", until=cutoff)
+    assert bounded == [d for d in full if d <= cutoff]
+    assert [d.month for d in bounded] == [1, 3, 5, 7, 9, 11, 1]
+
+
+def test_rebalance_dates_since_and_until_partition_the_calendar():
+    """The property the split exists for: an early and a late window that
+    share no dates and together lose none."""
+    idx = pd.bdate_range("2020-01-01", "2021-12-31")
+    full = replay.rebalance_dates(idx, "M")
+    split = pd.Timestamp("2021-01-01")
+    early = replay.rebalance_dates(idx, "M", until=split)
+    late = replay.rebalance_dates(idx, "M", since=split)
+    assert set(early) & set(late) == set(), "windows overlap — not disjoint"
+    assert early + late == full, "windows lose or reorder dates"
+
+
+def test_rebalance_dates_until_before_first_date_is_empty():
+    idx = pd.bdate_range("2020-01-01", "2020-12-31")
+    assert replay.rebalance_dates(idx, "M", until="2019-06-01") == []
