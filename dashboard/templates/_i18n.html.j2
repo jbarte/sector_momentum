@@ -12,7 +12,16 @@
   {% include "i18n/_auth.js.j2" %}
 
   var els = document.querySelectorAll("[data-i18n]");
-  els.forEach(function (el) { el.setAttribute("data-en", el.textContent); });
+  // Guarded, not unconditional: applyHorizonBadges() runs before this script
+  // (see index.html.j2's ordering comment) and already sets a BARE data-en
+  // on any badge that carries a data-suffix. An unconditional overwrite here
+  // would re-capture data-en from the badge's current textContent -- which
+  // at this point already has the suffix appended -- reintroducing the
+  // double-suffix once apply() below appends data-suffix a second time on
+  // top of it. Mirrors apply()'s own per-element guard just below.
+  els.forEach(function (el) {
+    if (!el.getAttribute("data-en")) el.setAttribute("data-en", el.textContent);
+  });
   var htmlEls = document.querySelectorAll("[data-i18n-html]");
   var enHtml = new Map();
   htmlEls.forEach(function (el) { enHtml.set(el, el.innerHTML); });
@@ -21,7 +30,18 @@
     document.querySelectorAll("[data-i18n]").forEach(function (el) {
       if (!el.getAttribute("data-en")) el.setAttribute("data-en", el.textContent);
       var key = el.getAttribute("data-i18n");
-      el.textContent = (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en");
+      var base = (lang === "sv" && SV[key] != null) ? SV[key] : el.getAttribute("data-en");
+      // A data-i18n element whose text carries a dynamic, non-translated
+      // suffix (a date, a slot-availability note) needs that suffix
+      // preserved across every language-driven rewrite of .textContent --
+      // data-en alone isn't enough because it only supplies the English
+      // base, not the currently-live dynamic part, and the SV[key] branch
+      // above ignores data-en (and any suffix baked into it) entirely. Bug:
+      // applyHorizonBadges()'s badge suffix (" · <date>" / " · no slot") was
+      // being discarded on every Swedish-language render because this loop
+      // overwrote textContent with the bare SV[key] string. Found 2026-08-27.
+      var suffix = el.getAttribute("data-suffix");
+      el.textContent = suffix ? base + suffix : base;
     });
     document.querySelectorAll("[data-i18n-html]").forEach(function (el) {
       if (!enHtml.has(el)) enHtml.set(el, el.innerHTML);

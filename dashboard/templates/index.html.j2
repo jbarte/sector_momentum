@@ -1100,6 +1100,12 @@ function applyHorizonBadges() {
   // currentReviewStatus() guards window.Rescore itself, so no need to repeat
   // that check here.
   var reviewDue = currentReviewStatus().due;
+  // Read once per call, not once per use site: this used to be read again at
+  // the per-row suffix branch below AND again at this function's tail (for
+  // the window.applyLang() call) -- two localStorage reads of the same value
+  // in one pass. Same try/catch fallback ('en' on failure) as before.
+  var lang = 'en';
+  try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
   // Whether the badge may be personalised at all. Without holdings the
   // action-aware rule would silently delete every Exit badge (nothing is held,
   // so nothing can be exited) — including on an ungated build, where the server
@@ -1197,8 +1203,6 @@ function applyHorizonBadges() {
         ? window.translate('badge_no_slot', 'no slot') : 'no slot');
     } else if (!reviewDue && (kind === 'entry' || kind === 'exit')) {
       var nextISO = currentReviewStatus().nextDate;
-      var lang = 'en';
-      try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
       if (nextISO && window.Rescore && window.Rescore.shortDate) {
         suffix = ' · ' + window.Rescore.shortDate(nextISO, lang);
       }
@@ -1208,7 +1212,24 @@ function applyHorizonBadges() {
     // capture: this span is REUSED across kinds, and applyLang() restores
     // English from data-en. A span that went Enter -> Hold would otherwise
     // carry data-en="▲ Enter" and snap back to Enter on the next EN pass.
-    badge.setAttribute('data-en', BADGE_TEXT_EN[kind] + suffix);
+    // Bare kind text ONLY -- no suffix -- because data-en is now the "en"
+    // base that _i18n.html.j2's apply() reads before appending data-suffix
+    // itself; a suffix baked into data-en would get double-appended (English
+    // base with the suffix already on it, then apply() appends it again).
+    badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);
+    // The dynamic, untranslated part (a date, "no slot"), read by apply()'s
+    // [data-i18n] loop in BOTH languages so a language toggle after this
+    // render doesn't drop it (see the bug this fixes, documented in
+    // _i18n.html.j2's apply()). Must be removed, not left stale, when this
+    // render has no suffix -- otherwise a badge that goes from
+    // "Enter · no slot" to a plain "Enter" keeps showing the old suffix on
+    // the next language toggle, since apply() only reads data-suffix, it
+    // doesn't know this render's suffix went away.
+    if (suffix) {
+      badge.setAttribute('data-suffix', suffix);
+    } else {
+      badge.removeAttribute('data-suffix');
+    }
   });
 
   // applyFilters() (below) ends with its own applyBandBoundaries() call
@@ -1265,8 +1286,6 @@ function applyHorizonBadges() {
   // requirement. See sector_momentum-notes/specs/2026-08-25-mobile-render-
   // coalescing-design.md.
   if (window.applyLang) {
-    var lang = 'en';
-    try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
     window.applyLang(lang);
   } else if (typeof applyFilters === 'function') {
     applyFilters();

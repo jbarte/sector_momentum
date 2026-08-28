@@ -237,18 +237,26 @@ def test_badge_pass_rewrites_data_en_when_it_reuses_a_span():
     data-en="▲ Enter" snaps back to Enter on the next English pass. Only
     verifiable in a browser, so this pins the line instead.
 
-    Since the self-describing-suffix change, the written text is
-    `BADGE_TEXT_EN[kind] + suffix` rather than the bare kind text -- the
-    suffix (no-slot / next-review-date) must survive the same data-en
-    refresh, or applyLang() would revert a suffixed badge to a stale,
-    un-suffixed one.
+    Since the self-describing-suffix / Swedish-suffix fix (fix round 1 on
+    task-2-report.md), `data-en` is refreshed to the BARE kind text (no
+    suffix) — the suffix now lives in a separate `data-suffix` attribute that
+    _i18n.html.j2's apply() appends to whichever base (data-en, or SV[key] on
+    the Swedish branch) it picks. A suffix baked directly into data-en, as
+    this pinned before the fix, made the Swedish branch permanently unable to
+    show it (SV[key] never reads data-en at all) — see
+    test_badge_i18n_playwright.py for the browser-verified regression test of
+    that actual behaviour; this test only pins the source shape.
     """
     tpl = (_TPL_DIR / "index.html.j2").read_text()
     body = tpl[tpl.index("function applyHorizonBadges()"):]
     body = body[:body.index("\n}")]
     assert "badge.textContent = BADGE_TEXT_EN[kind] + suffix;" in body
-    assert "badge.setAttribute('data-en', BADGE_TEXT_EN[kind] + suffix);" in body, \
+    assert "badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);" in body, \
         "badge text is set without refreshing data-en; applyLang will revert it"
+    assert "badge.setAttribute('data-suffix', suffix);" in body, \
+        "suffix is not carried on data-suffix; the Swedish branch cannot show it"
+    assert "badge.removeAttribute('data-suffix');" in body, \
+        "a stale data-suffix from a prior render can persist onto a badge with no suffix"
 
 
 def test_only_the_badge_pass_writes_badge_markup():
