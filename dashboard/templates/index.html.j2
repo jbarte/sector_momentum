@@ -1105,6 +1105,22 @@ function applyHorizonBadges() {
   // so nothing can be exited) — including on an ungated build, where the server
   // baked those Exit badges and this pass runs over them.
   var holdings = (pos && pos.holdingsState) ? pos.holdingsState() : 'unknown';
+  // Computed once per pass, not per row: the book is a property of the whole
+  // table. Null when holdings are unknown (guest, or the read failed), in
+  // which case no suffix is added and behaviour is exactly as before.
+  var _bookState = null;
+  if (holdings === 'ready' && window.Rescore && window.Rescore.selectBook) {
+    var _rankedKeys = [], _heldKeys = [], _unbuyableKeys = [];
+    Array.prototype.forEach.call(rows, function (tr) {
+      var k = tr.dataset.sectorKey || tr.dataset.sectorId;
+      if (!k || !tr.hasAttribute('data-rank')) { return; }
+      _rankedKeys.push(k);
+      if (pos.isHeld(tr)) { _heldKeys.push(k); }
+      if (tr.dataset.unbuyable === '1') { _unbuyableKeys.push(k); }
+    });
+    _bookState = window.Rescore.selectBook(_rankedKeys, _heldKeys, h, _unbuyableKeys);
+  }
+  window.SM_BOOK_STATE = _bookState;   // read by the review panel (Task 3)
   Array.prototype.forEach.call(rows, function (tr) {
     var kind = null;
     var rank = parseFloat(tr.dataset.rank);
@@ -1170,12 +1186,29 @@ function applyHorizonBadges() {
     var isMuted = !reviewDue && (kind === 'entry' || kind === 'exit');
     badge.className = 'setup-badge ' + kind + (isMuted ? ' muted' : '');
     badge.setAttribute('data-i18n', BADGE_I18N[kind]);
-    badge.textContent = BADGE_TEXT_EN[kind];
+    // Self-describing suffix. The badge used to state only WHAT (Enter/Exit)
+    // and relied on .muted to convey WHEN -- a signal only detectable by
+    // comparison against an active badge that is not on screen. It failed:
+    // the reader traded on every rank change for weeks. The suffix states the
+    // timing (and the no-slot case) on the badge itself.
+    var suffix = "";
+    if (kind === 'entry' && _bookState && _bookState.freeSlots === 0) {
+      suffix = ' · ' + (window.translate
+        ? window.translate('badge_no_slot', 'no slot') : 'no slot');
+    } else if (!reviewDue && (kind === 'entry' || kind === 'exit')) {
+      var nextISO = currentReviewStatus().nextDate;
+      var lang = 'en';
+      try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
+      if (nextISO && window.Rescore && window.Rescore.shortDate) {
+        suffix = ' · ' + window.Rescore.shortDate(nextISO, lang);
+      }
+    }
+    badge.textContent = BADGE_TEXT_EN[kind] + suffix;
     // data-en must be rewritten, not left to _i18n.html.j2's first-sight
     // capture: this span is REUSED across kinds, and applyLang() restores
     // English from data-en. A span that went Enter -> Hold would otherwise
     // carry data-en="▲ Enter" and snap back to Enter on the next EN pass.
-    badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);
+    badge.setAttribute('data-en', BADGE_TEXT_EN[kind] + suffix);
   });
 
   // applyFilters() (below) ends with its own applyBandBoundaries() call

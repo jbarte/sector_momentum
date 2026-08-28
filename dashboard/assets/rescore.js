@@ -431,12 +431,28 @@
     return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   }
 
+  // "31 Aug" in the reader's language. Intl carries the month names, so this
+  // needs no new i18n keys -- and a badge that names a date is readable cold,
+  // which the .muted styling it supplements is not.
+  function shortDate(iso, lang) {
+    if (!iso) { return ""; }
+    var parts = String(iso).split("-");
+    if (parts.length < 3) { return String(iso); }
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    try {
+      return new Intl.DateTimeFormat(lang || "en",
+        { day: "numeric", month: "short" }).format(d);
+    } catch (e) {
+      return String(iso);
+    }
+  }
+
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
               inBuyBand: inBuyBand,
               badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               latestRowMeta: latestRowMeta, compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,
-              reviewStatus: reviewStatus, localISODate: localISODate,
+              reviewStatus: reviewStatus, localISODate: localISODate, shortDate: shortDate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
   root.Rescore = api;

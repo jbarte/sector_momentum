@@ -3111,3 +3111,52 @@ def test_apply_filters_assigned_before_i18n_include():
         "included, or applyHorizonBadges() can silently render zero times "
         "instead of the intended once"
     )
+
+
+def test_short_date_formats_for_both_languages():
+    """Badge suffixes name a real date. Intl handles the month name, so no new
+    i18n keys are needed -- but it must actually differ by language, or Swedish
+    readers get English months (the bug class that shipped on horizon_note)."""
+    import json as _json
+    import shutil, subprocess
+    if shutil.which("node") is None:
+        pytest.skip("node not available")
+    js = _PROJECT_ROOT / "dashboard/assets/rescore.js"
+    script = (
+        f"const R = require({str(js)!r});"
+        "console.log(JSON.stringify(["
+        "R.shortDate('2026-08-31','en'), R.shortDate('2026-08-31','sv')]));"
+    )
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    en, sv = _json.loads(out.stdout)
+    assert "31" in en and "Aug" in en, f"unexpected English format: {en!r}"
+    assert "31" in sv, f"unexpected Swedish format: {sv!r}"
+
+
+def test_badge_carries_no_slot_when_the_book_is_full():
+    """The regression that started this work: a board with four healthy
+    holdings rendered a plain green Enter, which reads as 'buy now' when the
+    strategy would buy nothing. freeSlots === 0 must be stated on the badge."""
+    js = _apply_horizon_badges_js()
+    assert "badge_no_slot" in js, (
+        "applyHorizonBadges never references the no-slot suffix -- an Enter "
+        "badge on a full book still reads as actionable"
+    )
+    assert "freeSlots" in js, "the badge pass does not consult selectBook's freeSlots"
+
+
+def test_badge_carries_the_review_date_between_reviews():
+    js = _apply_horizon_badges_js()
+    assert "shortDate" in js, (
+        "applyHorizonBadges does not stamp the next review date onto badges -- "
+        "muting alone was already tried and did not work"
+    )
+
+
+def test_no_slot_and_review_suffixes_have_swedish():
+    """Swedish has shipped missing twice on this exact surface."""
+    sv = (Path(__file__).parent.parent
+          / "dashboard/templates/i18n/_core.js.j2").read_text()
+    for key in ("badge_no_slot",):
+        assert f"{key}:" in sv, f"{key} has no Swedish translation"

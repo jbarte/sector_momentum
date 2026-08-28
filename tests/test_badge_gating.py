@@ -236,12 +236,18 @@ def test_badge_pass_rewrites_data_en_when_it_reuses_a_span():
     is reused across kinds — a span that goes Enter -> Hold and keeps
     data-en="▲ Enter" snaps back to Enter on the next English pass. Only
     verifiable in a browser, so this pins the line instead.
+
+    Since the self-describing-suffix change, the written text is
+    `BADGE_TEXT_EN[kind] + suffix` rather than the bare kind text -- the
+    suffix (no-slot / next-review-date) must survive the same data-en
+    refresh, or applyLang() would revert a suffixed badge to a stale,
+    un-suffixed one.
     """
     tpl = (_TPL_DIR / "index.html.j2").read_text()
     body = tpl[tpl.index("function applyHorizonBadges()"):]
     body = body[:body.index("\n}")]
-    assert "badge.textContent = BADGE_TEXT_EN[kind];" in body
-    assert "badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);" in body, \
+    assert "badge.textContent = BADGE_TEXT_EN[kind] + suffix;" in body
+    assert "badge.setAttribute('data-en', BADGE_TEXT_EN[kind] + suffix);" in body, \
         "badge text is set without refreshing data-en; applyLang will revert it"
 
 
