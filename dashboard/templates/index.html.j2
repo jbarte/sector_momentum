@@ -570,7 +570,6 @@ function ackReview(key) {
   } catch (e) { /* private mode: the click still mutes this render, just not
                    a future page load — acceptable, matches every other
                    localStorage preference on this page. */ }
-  renderReviewStatus();
   applyHorizonBadges();
 }
 
@@ -579,11 +578,11 @@ function ackReview(key) {
 // clock even on a page built days ago.
 //
 // Guarded like every other window.Rescore call site (applyHorizonBadges
-// below, auth.js) — this one matters more than most: renderReviewStatus()
-// calls it BEFORE applyHorizonBadges() in both initHorizonSelect() and
-// switchHorizon(), so an unguarded throw here (a stale cache, a blocked
-// script, a network hiccup) would abort badge rendering, band boundaries and
-// the Done-button binding too, not just the review chip.
+// below, auth.js) — this one matters more than most: applyHorizonBadges()
+// itself calls it early (to gate the entry/exit badge suffix), so an
+// unguarded throw here (a stale cache, a blocked script, a network hiccup)
+// would abort badge rendering, band boundaries and the Done-button binding
+// too, not just the review panel.
 function currentReviewStatus() {
   if (!window.Rescore || !window.Rescore.reviewStatus || !window.Rescore.localISODate) {
     return { due: true, dueDate: null, nextDate: null };
@@ -1320,21 +1319,6 @@ function renderHorizonStats(key) {
       ? '—' : Math.round(h.trades_per_year));
 }
 
-// Which of "Review due [Done ✓]" / "Next review: <date>" is showing. Reads
-// currentHorizon() itself rather than taking one as a parameter, matching
-// applyHorizonBadges() — both are "recompute from the active horizon" passes
-// callers just invoke after anything that could change it.
-function renderReviewStatus() {
-  var dueEl = document.getElementById('review-due');
-  var nextEl = document.getElementById('review-next');
-  if (!dueEl || !nextEl) { return; }
-  var status = currentReviewStatus();
-  dueEl.hidden = !status.due;
-  nextEl.hidden = status.due;
-  var dateEl = document.getElementById('review-next-date');
-  if (dateEl) { dateEl.textContent = status.nextDate || '—'; }
-}
-
 // The review panel. Reads SM_BOOK_STATE (written by applyHorizonBadges) and
 // currentReviewStatus(), and renders one of four states. Called at the end of
 // applyHorizonBadges so it re-runs on every event that changes ranks, holdings
@@ -1453,7 +1437,6 @@ function initHorizonSelect() {
     b.addEventListener('click', function () { switchHorizon(b.getAttribute('data-horizon-choice')); });
   });
   renderHorizonStats(activeHorizon);
-  renderReviewStatus();
   var doneBtn = document.getElementById('review-done-btn');
   if (doneBtn) {
     doneBtn.addEventListener('click', function () {
@@ -1488,7 +1471,6 @@ function switchHorizon(key) {
   updateHorizonToggleUI(key);
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
   renderHorizonStats(key);
-  renderReviewStatus();
   applyHorizonBadges();
   // A past scan's rows bake their band highlight at render time and are skipped
   // by applyHorizonBadges (no data-rank), so re-render to pick up the new band.

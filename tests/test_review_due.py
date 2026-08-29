@@ -168,11 +168,11 @@ def test_swedish_has_the_new_review_strings(key):
 def test_current_review_status_guards_against_missing_rescore():
     """Every other window.Rescore call site in this file guards with
     `window.Rescore && window.Rescore.X` before calling — applyHorizonBadges,
-    auth.js. currentReviewStatus() must too: renderReviewStatus() calls it
-    BEFORE applyHorizonBadges() in both initHorizonSelect() and
-    switchHorizon(), so an unguarded throw here (a stale cache, a blocked
-    script, a network hiccup) aborts badge rendering, band boundaries and the
-    Done-button binding — not just the review chip."""
+    auth.js. currentReviewStatus() must too: applyHorizonBadges() itself
+    calls it early (to gate the entry/exit badge suffix), so an unguarded
+    throw here (a stale cache, a blocked script, a network hiccup) aborts
+    badge rendering, band boundaries and the Done-button binding — not just
+    the review panel."""
     html = _INDEX.read_text()
     start = html.index("function currentReviewStatus()")
     body = html[start:html.index("\n}", start)]

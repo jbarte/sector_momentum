@@ -31,9 +31,15 @@ def test_inline_chip_is_removed_not_left_alongside():
 
 
 def test_panel_states_the_consequence_not_only_the_date():
-    """Root cause (1): the chip named a date and never said what it meant."""
-    panel = _PANEL.read_text()
-    assert "rp_no_action" in panel, (
+    """Root cause (1): the chip named a date and never said what it meant.
+
+    The panel template itself (_PANEL) is an empty shell -- every region is
+    filled client-side by renderReviewPanel() in index.html.j2 (_TPL), so
+    that's where the real "no action" string lives and where this must be
+    pinned to actually catch a regression.
+    """
+    js = _TPL.read_text()
+    assert "t('rp_no_action'" in js, (
         "the panel never states 'no action until then' -- naming a date alone "
         "is what already failed"
     )
