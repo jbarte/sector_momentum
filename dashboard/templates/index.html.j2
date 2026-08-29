@@ -835,6 +835,20 @@ function _renderMobileCardsNow() {
   // 'open' class nothing reads.
   Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card[role="button"]'), function (card) {
     card.addEventListener('click', function () {
+      // Same accordion rule as the table's toggleBreakdown(), kept as its
+      // own copy rather than shared: the two views deliberately hold
+      // independent open-state (see this function's comment above), and
+      // cards carry their breakdown inline instead of in a sibling row, so
+      // there is no common element for one helper to operate on.
+      if (!card.classList.contains('open')) {
+        Array.prototype.forEach.call(
+          container.querySelectorAll('.leaderboard-card.open'), function (other) {
+            if (other !== card) {
+              other.classList.remove('open');
+              other.setAttribute('aria-expanded', 'false');
+            }
+          });
+      }
       var open = card.classList.toggle('open');
       card.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
@@ -1749,6 +1763,18 @@ function toggleBreakdown(id) {
   var bdRow = document.getElementById('bd-' + id);
   var row   = document.querySelector('.leaderboard-row[data-sector-id="' + id + '"]');
   if (!bdRow) return;
+  // Accordion: one open breakdown at a time. Without this a reader could
+  // expand every theme and then had to collapse each one by hand -- asked
+  // for 2026-08-25. Reuses _collapseBreakdown() rather than clearing the
+  // class here, so the "close a panel from outside its own toggle" rule
+  // (which also has to reset aria-expanded on the row) lives in exactly one
+  // place; applyFilters() has always used it for the same purpose.
+  if (!bdRow.classList.contains('open')) {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.breakdown-row.open'), function (other) {
+        if (other !== bdRow) { _collapseBreakdown(other.id.replace(/^bd-/, '')); }
+      });
+  }
   bdRow.classList.toggle('open');
   if (row) row.setAttribute('aria-expanded', bdRow.classList.contains('open') ? 'true' : 'false');
 }
