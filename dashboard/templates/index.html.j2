@@ -191,21 +191,6 @@
       <span class="hz-stat"><b id="hz-hold">—</b> <span data-i18n="hz_hold">median hold</span></span>
     </span>
     <span class="horizon-note" data-i18n="horizon_note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
-    {#- Review-due status: which of the two states below is showing is decided
-        entirely client-side (renderReviewStatus(), from Rescore.reviewStatus) —
-        never baked, so it stays correct on a page built days ago. Both start
-        hidden so neither flashes before JS decides which applies. See
-        BACKLOG.md "Badges don't say whether today is an actionable day". -#}
-    <span class="review-status" id="review-status">
-      <span class="review-due" id="review-due" hidden>
-        <span data-i18n="review_due">Review due</span>
-        <button type="button" class="review-done-btn" id="review-done-btn" data-i18n="review_done">Done ✓</button>
-      </span>
-      <span class="review-next" id="review-next" hidden>
-        <span data-i18n="review_next_label">Next review:</span> <b id="review-next-date">—</b>
-      </span>
-    </span>
-
     {#- Right-aligned controls (spec: "Controls row", Screen 1 item 5).
         These three carry the SAME data-filter-group/data-filter-value as
         their counterparts inside the disclosed full set below — clicking
@@ -297,6 +282,7 @@
     <span class="scan-history-text" data-i18n="scan_viewing" data-en-prefix="Viewing scan #">Viewing scan #</span>
     <a href="javascript:void(0)" onclick="restoreLatest()" data-i18n="scan_back_to_latest">Back to latest</a>
   </div>
+  {% include "_review_panel.html.j2" %}
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
@@ -1290,6 +1276,8 @@ function applyHorizonBadges() {
   } else if (typeof applyFilters === 'function') {
     applyFilters();
   }
+
+  if (typeof renderReviewPanel === 'function') { renderReviewPanel(); }
 }
 
 // Anything that changes gating, holdings, or the rendered rows re-runs the
@@ -1347,6 +1335,106 @@ function renderReviewStatus() {
   if (dateEl) { dateEl.textContent = status.nextDate || '—'; }
 }
 
+// The review panel. Reads SM_BOOK_STATE (written by applyHorizonBadges) and
+// currentReviewStatus(), and renders one of four states. Called at the end of
+// applyHorizonBadges so it re-runs on every event that changes ranks, holdings
+// or horizon -- the same funnel the badges use.
+function renderReviewPanel() {
+  var panel = document.getElementById('review-panel');
+  if (!panel) { return; }
+  var headline = document.getElementById('rp-headline');
+  var actions = document.getElementById('rp-actions');
+  var countEl = document.getElementById('rp-count');
+  var doneBtn = document.getElementById('review-done-btn');
+  var t = window.translate || function (k, en) { return en; };
+  var lang = 'en';
+  try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
+  var sd = (window.Rescore && window.Rescore.shortDate)
+    ? function (iso) { return window.Rescore.shortDate(iso, lang); }
+    : function (iso) { return iso || ''; };
+
+  var status = currentReviewStatus();
+  var book = window.SM_BOOK_STATE;
+  panel.hidden = false;
+  actions.innerHTML = '';
+  doneBtn.hidden = !status.due;
+
+  // review_dates bakes only 6 dates from build time. CI rebuilds daily so this
+  // should never fire in production -- but a dashboard left unbuilt for six
+  // months would otherwise render "Next review · " with an empty date, which
+  // reads as a broken page rather than a stale one. Say so plainly instead.
+  if (!status.due && !status.nextDate) {
+    headline.textContent = t('rp_calendar_stale',
+      'Review calendar is out of date — rebuild the dashboard.');
+    countEl.textContent = '';
+    return;
+  }
+
+  // Guests: the date only. Holdings need a session, so there is no book to
+  // report -- the same gating the badges already use.
+  if (!book) {
+    headline.textContent = status.due
+      ? t('rp_review_due', 'Review due') + ' · ' + sd(status.dueDate)
+      : t('rp_next_review', 'Next review') + ' · ' + sd(status.nextDate);
+    countEl.textContent = '';
+    return;
+  }
+
+  if (!status.due) {
+    headline.textContent = t('rp_next_review', 'Next review') + ' · ' + sd(status.nextDate);
+    var note = document.createElement('li');
+    note.className = 'rp-note';
+    note.textContent = t('rp_no_action', 'No action until then.');
+    actions.appendChild(note);
+  } else {
+    headline.textContent = t('rp_review_due', 'Review due') + ' · ' + sd(status.dueDate);
+    var nameOf = function (key) {
+      var tr = document.querySelector('.leaderboard-row[data-sector-key="' + key + '"]');
+      var nm = tr && tr.querySelector('.theme-name');
+      return nm ? nm.textContent.trim() : key;
+    };
+    book.sells.forEach(function (k) {
+      var li = document.createElement('li');
+      li.className = 'rp-sell';
+      li.textContent = t('rp_sell', 'Sell') + ' — ' + nameOf(k);
+      actions.appendChild(li);
+    });
+    book.buys.forEach(function (k) {
+      var li = document.createElement('li');
+      li.className = 'rp-buy';
+      li.textContent = t('rp_buy', 'Buy') + ' — ' + nameOf(k);
+      actions.appendChild(li);
+    });
+    // An unbuyable candidate wins the slot and the slot stays EMPTY (see
+    // selectBook / simulate). Saying so beats naming a buy the reader cannot
+    // make, and beats the name silently vanishing.
+    book.blocked.forEach(function (k) {
+      var li = document.createElement('li');
+      li.className = 'rp-blocked';
+      li.textContent = t('rp_slot_empty', 'Slot stays empty') + ' — ' + nameOf(k);
+      actions.appendChild(li);
+    });
+    if (!actions.children.length) {
+      var ok = document.createElement('li');
+      ok.className = 'rp-note';
+      ok.textContent = t('rp_no_changes', 'No changes — your book already matches.');
+      actions.appendChild(ok);
+    }
+  }
+
+  // Book count. Over-held is the consequential one: nothing trims it.
+  var target = currentHorizon().top_n;
+  countEl.textContent = t('rp_book', 'Book') + ': ' + book.picks.length + ' / ' + target;
+  countEl.className = 'rp-count';
+  if (book.overHeld > 0) {
+    countEl.classList.add('over');
+    countEl.textContent += ' — ' + t('rp_too_many', 'too many; nothing trims this automatically');
+  } else if (book.freeSlots > 0 && !status.due) {
+    countEl.classList.add('under');
+    countEl.textContent += ' — ' + t('rp_will_refill', 'refills at the next review');
+  }
+}
+
 // Mirrors theme.js's updateControlUI(): reflect `key` on every button's
 // aria-pressed, called both on init and from switchHorizon() so a
 // programmatic call (a deep link, a test, the hidden <select>'s own
@@ -1368,7 +1456,10 @@ function initHorizonSelect() {
   renderReviewStatus();
   var doneBtn = document.getElementById('review-done-btn');
   if (doneBtn) {
-    doneBtn.addEventListener('click', function () { ackReview(currentHorizon().key); });
+    doneBtn.addEventListener('click', function () {
+      ackReview(currentHorizon().key);
+      renderReviewPanel();
+    });
   }
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
     tr.classList.toggle('active', tr.dataset.horizon === activeHorizon);

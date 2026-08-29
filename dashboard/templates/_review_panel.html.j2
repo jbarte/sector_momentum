@@ -1,0 +1,20 @@
+{#- The review panel. Replaces the inline "Next review:" chip, which sat fourth
+    in a row of stats and whose own CSS comment called it "deliberately as
+    quiet as .horizon-note". It was missed entirely for weeks; the reader
+    traded on every rank change instead of monthly. Everything here is
+    required to be ABSOLUTE -- readable with no prior knowledge and nothing to
+    compare against -- because the two signals that failed were both relative.
+
+    All regions start empty and are filled by renderReviewPanel() client-side,
+    never baked: a page built days ago must not state a stale review date.
+    That function states the consequence, not just the date -- see the
+    rp_no_action string it writes into #rp-actions between reviews. -#}
+<section class="review-panel" id="review-panel" hidden>
+  <div class="rp-headline" id="rp-headline"></div>
+  <ul class="rp-actions" id="rp-actions"></ul>
+  <div class="rp-footer">
+    <span class="rp-count" id="rp-count"></span>
+    <button type="button" class="review-done-btn" id="review-done-btn"
+            data-i18n="review_done" hidden>Done ✓</button>
+  </div>
+</section>

@@ -143,15 +143,20 @@ def test_local_iso_date_pads_single_digit_month_and_day():
 # silently fell back to English; see _core.js.j2's comment on that fix)
 # ---------------------------------------------------------------------------
 
-def test_review_status_markup_has_both_states_and_starts_hidden():
-    html = _INDEX.read_text()
-    for el_id in ("review-status", "review-due", "review-next",
-                  "review-done-btn", "review-next-date"):
+def test_review_panel_markup_has_all_regions_and_starts_hidden():
+    """The inline "Next review:" chip (id="review-status", with separate
+    #review-due/#review-next spans) was replaced by the review panel — see
+    dashboard/templates/_review_panel.html.j2 and test_review_panel.py. The
+    panel is a single container renderReviewPanel() fills in client-side, not
+    two states baked separately, so it starts hidden as one unit."""
+    html = (_TPL / "_review_panel.html.j2").read_text()
+    for el_id in ("review-panel", "rp-headline", "rp-actions", "rp-count",
+                  "review-done-btn"):
         assert f'id="{el_id}"' in html, f"missing #{el_id}"
-    # Both states start hidden; renderReviewStatus() picks one.
-    for el_id in ("review-due", "review-next"):
-        tag = re.search(rf'<span[^>]*id="{el_id}"[^>]*>', html).group(0)
-        assert "hidden" in tag, f"#{el_id} must start hidden"
+    panel_tag = re.search(r'<section[^>]*id="review-panel"[^>]*>', html).group(0)
+    assert "hidden" in panel_tag, "#review-panel must start hidden"
+    btn_tag = re.search(r'<button[^>]*id="review-done-btn"[^>]*>', html).group(0)
+    assert "hidden" in btn_tag, "#review-done-btn must start hidden"
 
 
 @pytest.mark.parametrize("key", ["review_due", "review_done", "review_next_label"])
