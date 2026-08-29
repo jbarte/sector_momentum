@@ -1112,6 +1112,18 @@ function applyHorizonBadges() {
     _bookState = window.Rescore.selectBook(_rankedKeys, _heldKeys, h, _unbuyableKeys);
   }
   window.SM_BOOK_STATE = _bookState;   // read by the review panel (Task 3)
+  // Over-held books are never trimmed by the strategy itself, so the surplus
+  // has to be visible or it runs indefinitely. Cleared first: the surplus
+  // moves as ranks move, and a stale mark is worse than none.
+  Array.prototype.forEach.call(rows, function (tr) {
+    tr.classList.remove('position-surplus');
+  });
+  if (_bookState && _bookState.surplus.length) {
+    _bookState.surplus.forEach(function (k) {
+      var tr = document.querySelector('.leaderboard-row[data-sector-key="' + k + '"]');
+      if (tr) { tr.classList.add('position-surplus'); }
+    });
+  }
   Array.prototype.forEach.call(rows, function (tr) {
     var kind = null;
     var rank = parseFloat(tr.dataset.rank);

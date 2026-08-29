@@ -797,6 +797,12 @@ tbody td:nth-child(n+4) {
    count state that raises its voice. */
 .rp-count.over { color: var(--down); font-weight: 600; }
 .rp-count.under { color: var(--fg3); }
+/* The surplus holding in an over-held book. A left rail rather than a badge:
+   the row already carries Hold, and the surplus is a fact about the BOOK, not
+   a different call on this row. */
+.leaderboard-row.position-surplus td:first-child {
+  box-shadow: inset 3px 0 0 var(--down);
+}
 .review-done-btn {
   margin-left: 6px;
   font: inherit;

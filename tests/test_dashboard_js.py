@@ -3160,3 +3160,22 @@ def test_no_slot_and_review_suffixes_have_swedish():
           / "dashboard/templates/i18n/_core.js.j2").read_text()
     for key in ("badge_no_slot",):
         assert f"{key}:" in sv, f"{key} has no Swedish translation"
+
+
+def test_surplus_rows_are_marked_when_over_held():
+    """Over-holding is never trimmed by the strategy (free goes negative), so
+    the board must name the surplus rather than wait it out. The choice of the
+    WORST-ranked holding is our rule, not the strategy's -- simulate() never
+    over-holds, so the backtest has no opinion. Recorded in the spec."""
+    js = _apply_horizon_badges_js()
+    assert "position-surplus" in js, (
+        "no surplus marking -- an over-held book gives the reader no way to "
+        "see which position is the extra one"
+    )
+    assert "surplus" in js
+
+
+def test_surplus_style_exists():
+    css = (Path(__file__).parent.parent
+           / "dashboard/templates/css/_tables.css.j2").read_text()
+    assert ".position-surplus" in css, "surplus rows have no visual treatment"
