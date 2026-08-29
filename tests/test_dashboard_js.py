@@ -3175,6 +3175,48 @@ def test_surplus_rows_are_marked_when_over_held():
     assert "surplus" in js
 
 
+def test_surplus_lookup_falls_back_to_sector_id():
+    """Rows rebuilt client-side by auth.js's renderLatestRows() -- the
+    signed-in path, the only path where book-state exists at all -- carry
+    data-sector-id but not data-sector-key (see that function's own comment
+    at auth.js). A lookup that only tries data-sector-key silently fails to
+    mark the surplus row for every signed-in reader, which is this feature's
+    entire audience. The fix is a shared helper with a data-sector-id
+    fallback, used here instead of a raw single-selector querySelector."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    assert "function _leaderboardRowForKey(" in text, (
+        "no shared row-lookup helper -- the data-sector-id fallback must live "
+        "in one place so both the surplus mark and the review panel use it"
+    )
+    helper_start = text.index("function _leaderboardRowForKey(")
+    helper_brace = text.index("{", helper_start)
+    depth = 0
+    i = helper_brace
+    while True:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    helper_body = text[helper_start:i + 1]
+    assert "data-sector-key" in helper_body and "data-sector-id" in helper_body, (
+        "_leaderboardRowForKey does not fall back to data-sector-id"
+    )
+
+    js = _apply_horizon_badges_js()
+    assert "_leaderboardRowForKey(k)" in js, (
+        "the surplus-marking lookup does not call the shared helper -- it is "
+        "still a raw data-sector-key-only querySelector, which misses every "
+        "signed-in reader's rebuilt rows"
+    )
+    assert 'querySelector(\'.leaderboard-row[data-sector-key="\' + k + \'"]\')' not in js, (
+        "the surplus-marking lookup still has the raw single-selector query "
+        "inline, alongside (or instead of) the shared helper call"
+    )
+
+
 def test_surplus_style_exists():
     css = (Path(__file__).parent.parent
            / "dashboard/templates/css/_tables.css.j2").read_text()

@@ -592,6 +592,20 @@ function currentReviewStatus() {
     h.review_dates, window.Rescore.localISODate(), getReviewAck(h.key));
 }
 
+// Row lookup shared by applyHorizonBadges() (the surplus mark) and
+// renderReviewPanel() (nameOf()). Server-baked rows carry both
+// data-sector-key and data-sector-id, but rows rebuilt client-side by
+// auth.js's renderLatestRows() carry only data-sector-id -- that function's
+// own comment says so explicitly ("these rows don't carry [data-sector-key]").
+// renderLatestRows() is the signed-in path, and it's the ONLY path where
+// book-state exists at all, so a data-sector-key-only lookup silently misses
+// every reader this feature serves. Found identically broken in two places
+// (the surplus mark and nameOf()) by task review; fixed once, here, for both.
+function _leaderboardRowForKey(key) {
+  return document.querySelector('.leaderboard-row[data-sector-key="' + key + '"]')
+      || document.querySelector('.leaderboard-row[data-sector-id="' + key + '"]');
+}
+
 // The single writer of every leaderboard badge — the horizon switch, the
 // signed-in rebuild, the sentiment rescore and the holdings toggle all end up
 // here. They used to each emit their own badge markup, and they had already
@@ -1120,7 +1134,7 @@ function applyHorizonBadges() {
   });
   if (_bookState && _bookState.surplus.length) {
     _bookState.surplus.forEach(function (k) {
-      var tr = document.querySelector('.leaderboard-row[data-sector-key="' + k + '"]');
+      var tr = _leaderboardRowForKey(k);
       if (tr) { tr.classList.add('position-surplus'); }
     });
   }
@@ -1385,7 +1399,7 @@ function renderReviewPanel() {
   } else {
     headline.textContent = t('rp_review_due', 'Review due') + ' · ' + sd(status.dueDate);
     var nameOf = function (key) {
-      var tr = document.querySelector('.leaderboard-row[data-sector-key="' + key + '"]');
+      var tr = _leaderboardRowForKey(key);
       var nm = tr && tr.querySelector('.theme-name');
       return nm ? nm.textContent.trim() : key;
     };
