@@ -1739,9 +1739,12 @@ def test_supabase_client_script_loads_before_its_consumers():
     unset and fails open (auth silently disabled)."""
     footer = (Path(__file__).parent.parent
               / "dashboard/templates/_footer.html.j2").read_text()
-    creator_idx = footer.index('src="assets/supabase-client.js"')
+    # asset_url('x.js'), not a literal src="assets/x.js": every script tag
+    # goes through it since cache-busting shipped (2026-08-29). Same
+    # ordering property, new syntax.
+    creator_idx = footer.index("asset_url('supabase-client.js')")
     for name in ("auth.js", "positions.js", "alert-prefs.js"):
-        consumer_idx = footer.index(f'src="assets/{name}"')
+        consumer_idx = footer.index(f"asset_url('{name}')")
         assert creator_idx < consumer_idx, (
             f"supabase-client.js must be loaded before {name}"
         )
@@ -2166,8 +2169,10 @@ def test_mobile_scan_meta_survives_missing_scan_date():
     blank — so the whole block must be guarded on scan_date, not only the
     macro half of it."""
     from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
     tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
     env = Environment(loader=FileSystemLoader(str(tpl_dir)))
+    register_asset_url(env)
     html = env.get_template("_header.html.j2").render(active_segment="sectors")
     assert "mobile-scan-meta" not in html
 
@@ -2179,8 +2184,10 @@ def test_mobile_scan_meta_survives_missing_scan_date():
 def _render_header_full(active_segment, scan_date=None, active_scan_id=None,
                          macro=None, auth=False):
     from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
     tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
     env = Environment(loader=FileSystemLoader(str(tpl_dir)))
+    register_asset_url(env)
     return env.get_template("_header.html.j2").render(
         active_segment=active_segment, scan_date=scan_date,
         active_scan_id=active_scan_id, macro=macro, auth=auth)

@@ -5,9 +5,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ETF Momentum</title>
-<script src="{{ plotly_bundle }}"></script>
-<script src="assets/rescore.js"></script>
-<script src="assets/theme.js"></script>
+<script src="{{ asset_url('plotly.min.js') }}"></script>
+<script src="{{ asset_url('rescore.js') }}"></script>
+<script src="{{ asset_url('theme.js') }}"></script>
 <style>
 {% include "_style.html.j2" %}
 </style>
@@ -2149,8 +2149,8 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     applyBandBoundaries() guarantee depends on it already being assigned. -#}
 {% include "_i18n.html.j2" %}
 </script>
-<script src="assets/scan-history.js"></script>
-<script src="assets/scan-digest.js"></script>
+<script src="{{ asset_url('scan-history.js') }}"></script>
+<script src="{{ asset_url('scan-digest.js') }}"></script>
 
 
 <!-- Tab guides. One modal, one body per tab, shown by data-guide key.

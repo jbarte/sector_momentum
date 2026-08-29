@@ -268,6 +268,51 @@ def _disable_jekyll(out_dir: Path) -> Path:
     return nojekyll
 
 
+def register_asset_url(env, asset_versions=None) -> None:
+    """Give a Jinja env the `asset_url()` every template's script tags call.
+
+    Lives here, and is imported by the tests that build their own
+    Environment, so there is exactly ONE definition of how an asset URL is
+    formed. Those tests each constructing their own env is what made the
+    cache-busting change break 25 of them at once: a test that renders
+    differently from production is a test that stops describing production.
+
+    Without versions (the tests' usual case) it returns the bare path, so
+    rendering works unchanged; build.py passes the real content hashes.
+    """
+    versions = asset_versions or {}
+
+    def asset_url(name):
+        v = versions.get(name)
+        return f"assets/{name}?v={v}" if v else f"assets/{name}"
+
+    env.globals["asset_url"] = asset_url
+
+
+def _asset_versions(assets_dir: Path, names) -> dict[str, str]:
+    """Short content hash per asset, for cache-busting their URLs.
+
+    CONTENT-derived, not a build timestamp or a global build id, and that
+    distinction is load-bearing: the scan runs daily, and `plotly.min.js`
+    (1.4 MB) plus `supabase.min.js` (203 KB) essentially never change. A
+    per-build id would make every reader re-download ~1.6 MB of vendor
+    bundles every single day. Hashing content means only the files that
+    actually changed lose their cached copy.
+
+    Existence-gated, mirroring the copy block below it: a missing bundle
+    (plotly is fetched on first run) is a normal local state, not an error.
+    """
+    import hashlib
+
+    out: dict[str, str] = {}
+    for name in names:
+        f = assets_dir / name
+        if not f.exists():
+            continue
+        out[name] = hashlib.sha256(f.read_bytes()).hexdigest()[:8]
+    return out
+
+
 def _render(
     template_path: Path,
     out_path: Path,
@@ -287,6 +332,8 @@ def _render(
             return value.replace("</", r"<\/")
         return value
     env.filters["js_json"] = js_json_filter
+
+    register_asset_url(env, context.get("asset_versions"))
 
     template = env.get_template(template_path.name)
     html = template.render(**context)
@@ -575,7 +622,12 @@ def main() -> None:
         supabase_src = _ASSETS_DIR / "supabase.min.js"
         if supabase_src.exists():
             shutil.copy2(supabase_src, docs_assets / "supabase.min.js")
-    plotly_bundle_rel = "assets/plotly.min.js"
+    # Hash whatever actually landed in docs/assets/ — derived from the
+    # directory rather than a hardcoded name list, so it can never drift out
+    # of step with the copy block above.
+    asset_versions = _asset_versions(
+        docs_assets, sorted(f.name for f in docs_assets.glob("*.js")))
+
 
     # ------------------------------------------------------------------
     # 5. Assemble + render pages via module context builders
@@ -649,7 +701,7 @@ def main() -> None:
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
         "has_any_rows": bool(leaderboard_rows),
         "badges_gated": badges_gated,
-        "plotly_bundle": plotly_bundle_rel,
+        "asset_versions": asset_versions,
         "lag_banner_date": lag_banner_date,
     }
     sectors_ctx.update(_figures_sectors_ctx(shared))
@@ -674,7 +726,7 @@ def main() -> None:
     sentiment_ctx = {
         "scan_date": scan_date,
         "active_scan_id": active_scan_id,
-        "plotly_bundle": plotly_bundle_rel,
+        "asset_versions": asset_versions,
         # Both pages include the shared i18n bundle, and the backtest strings in
         # it interpolate the cost. Omit this and the sentiment page fails to
         # render on an Undefined, even though it shows no backtest itself.

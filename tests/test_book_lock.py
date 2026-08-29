@@ -374,7 +374,8 @@ def test_live_region_exists_for_the_blocked_click_announcement():
     # Ahead of the <script> tag that reads it: the more defensive order, even
     # though announceLive() looks the element up lazily on each call today
     # rather than once at load time.
-    assert footer.index('id="sm-live-region"') < footer.index('assets/positions.js')
+    assert (footer.index('id="sm-live-region"')
+            < footer.index("asset_url('positions.js')"))
 
 
 def test_blocked_click_has_a_visible_channel_not_just_hover_title():

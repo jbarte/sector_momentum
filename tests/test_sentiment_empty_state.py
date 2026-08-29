@@ -25,6 +25,7 @@ from pathlib import Path
 
 import pytest
 from jinja2 import Environment, FileSystemLoader
+from dashboard.build import register_asset_url
 
 ROOT = Path(__file__).parent.parent
 TPL_DIR = ROOT / "dashboard" / "templates"
@@ -33,6 +34,7 @@ SENTIMENT_TPL = (TPL_DIR / "sentiment.html.j2").read_text()
 
 def _render(**overrides) -> str:
     env = Environment(loader=FileSystemLoader(str(TPL_DIR)))
+    register_asset_url(env)
     env.filters["js_json"] = (
         lambda v: v.replace("</", r"<\/") if isinstance(v, str) else v
     )
