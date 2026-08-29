@@ -6,8 +6,13 @@ actually made at the broker, leaving the board wrong, which is a worse failure
 than the impulsive trade it prevents. These tests pin the friction and the
 override, and the RLS that keeps one user's lock private.
 """
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 _ROOT = Path(__file__).parent.parent
 _MIGRATION = _ROOT / "scripts/book_locks_migration.sql"
@@ -62,4 +67,130 @@ def test_lock_asset_is_copied_by_the_build():
     build = _BUILD.read_text()
     assert "book-lock.js" in build, (
         "dashboard/build.py never copies book-lock.js into docs/assets/"
+    )
+
+
+# ---------------------------------------------------------------------------
+# lock()/unlock() must fail SAFE, never fail LOCKED (review finding, round 1)
+# ---------------------------------------------------------------------------
+#
+# The original lock()/unlock() set the module's local `state` optimistically
+# BEFORE the Supabase write resolved, with no rollback on failure. A
+# rejected, unpersisted lock() call then left isLocked() reporting true for
+# the rest of the page session -- exactly the "fail locked" outcome this
+# module's own header comment forbids ("must never ... fail locked"). These
+# tests execute the real book-lock.js under Node against a mocked
+# window.SMSupabase whose write call rejects, proving the fix rather than
+# just the code's presence.
+
+def _run_node(script: str) -> dict:
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, f"node script failed: {res.stderr}"
+    return json.loads(res.stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_lock_fails_safe_not_locked_when_write_rejects():
+    js_src = _LOCK_JS.read_text()
+    script = f"""
+        global.window = {{}};
+        window.Rescore = {{ localISODate: function () {{ return "2026-08-29"; }} }};
+        window.SMSupabase = {{
+          from: function (table) {{
+            return {{
+              select: function () {{
+                return {{ maybeSingle: function () {{
+                  return Promise.resolve({{ data: null, error: null }});
+                }} }};
+              }},
+              upsert: function () {{
+                return Promise.reject(new Error("offline"));
+              }},
+              update: function () {{
+                return {{ not: function () {{
+                  return Promise.reject(new Error("offline"));
+                }} }};
+              }}
+            }};
+          }}
+        }};
+
+        {js_src}
+
+        window.SMBookLock.load().then(function () {{
+          var before = window.SMBookLock.isLocked();
+          return window.SMBookLock.lock("2099-01-01", "weekly")
+            .catch(function (err) {{ return err.message; }})
+            .then(function (caught) {{
+              process.stdout.write(JSON.stringify({{
+                before: before,
+                afterFailedLock: window.SMBookLock.isLocked(),
+                lockedUntilAfterFailedLock: window.SMBookLock.lockedUntil(),
+                caught: caught
+              }}));
+            }});
+        }});
+    """
+    out = _run_node(script)
+    assert out["caught"] == "offline", "lock() no longer propagates the write rejection"
+    assert out["before"] is False
+    assert out["afterFailedLock"] is False, (
+        "lock() left isLocked()==true after a rejected, unpersisted write -- "
+        "fail-LOCKED instead of fail-safe"
+    )
+    assert out["lockedUntilAfterFailedLock"] is None
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_unlock_fails_safe_stays_locked_when_write_rejects():
+    """Same class of bug, on unlock()'s write path: state.unlocked_at must
+    not be cleared locally until the update() is confirmed. On a rejected
+    write, isLocked() must keep reporting the PRE-call value (still
+    locked) -- the override recorded nowhere is worse than no override."""
+    js_src = _LOCK_JS.read_text()
+    script = f"""
+        global.window = {{}};
+        window.Rescore = {{ localISODate: function () {{ return "2026-08-29"; }} }};
+        window.SMSupabase = {{
+          from: function (table) {{
+            return {{
+              select: function () {{
+                return {{ maybeSingle: function () {{
+                  return Promise.resolve({{ data: {{
+                    horizon_key: "weekly", locked_until: "2099-01-01", unlocked_at: null
+                  }}, error: null }});
+                }} }};
+              }},
+              upsert: function () {{
+                return Promise.reject(new Error("offline"));
+              }},
+              update: function () {{
+                return {{ not: function () {{
+                  return Promise.reject(new Error("offline"));
+                }} }};
+              }}
+            }};
+          }}
+        }};
+
+        {js_src}
+
+        window.SMBookLock.load().then(function () {{
+          var before = window.SMBookLock.isLocked();
+          return window.SMBookLock.unlock()
+            .catch(function (err) {{ return err.message; }})
+            .then(function (caught) {{
+              process.stdout.write(JSON.stringify({{
+                before: before,
+                afterFailedUnlock: window.SMBookLock.isLocked(),
+                caught: caught
+              }}));
+            }});
+        }});
+    """
+    out = _run_node(script)
+    assert out["caught"] == "offline", "unlock() no longer propagates the write rejection"
+    assert out["before"] is True
+    assert out["afterFailedUnlock"] is True, (
+        "unlock() cleared the lock locally after a rejected, unpersisted write"
     )

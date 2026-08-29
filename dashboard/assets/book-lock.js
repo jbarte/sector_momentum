@@ -46,18 +46,36 @@
     return today ? today < until : false;
   }
 
+  /* Both writers below mirror load()'s fail-safe discipline: local `state`
+   * only advances once the write is CONFIRMED (a resolved result with no
+   * `.error`), inside the .then(). An eager, pre-write set here -- the
+   * original bug -- left a rejected, unpersisted call reporting the new
+   * state for the rest of the page session: fail LOCKED, the one outcome
+   * the header comment forbids. On failure `state` is simply never
+   * touched, so it stays whatever it was before the call. The rejection
+   * itself is not swallowed -- no .catch() here -- so it keeps propagating
+   * to the caller's own .then()/.catch(), same as before this fix. */
   function lock(untilISO, horizonKey) {
-    state = { horizon_key: horizonKey, locked_until: untilISO, unlocked_at: null };
     return sb.from("book_locks").upsert(
       { horizon_key: horizonKey, locked_until: untilISO, unlocked_at: null },
-      { onConflict: "user_id" });
+      { onConflict: "user_id" })
+      .then(function (res) {
+        if (res && !res.error) {
+          state = { horizon_key: horizonKey, locked_until: untilISO, unlocked_at: null };
+        }
+        return res;
+      });
   }
 
   function unlock() {
-    if (state) { state.unlocked_at = new Date().toISOString(); }
+    var ts = new Date().toISOString();
     return sb.from("book_locks")
-      .update({ unlocked_at: new Date().toISOString() })
-      .not("locked_until", "is", null);
+      .update({ unlocked_at: ts })
+      .not("locked_until", "is", null)
+      .then(function (res) {
+        if (res && !res.error && state) { state.unlocked_at = ts; }
+        return res;
+      });
   }
 
   window.SMBookLock = {
