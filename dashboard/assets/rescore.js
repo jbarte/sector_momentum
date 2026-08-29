@@ -211,6 +211,93 @@
     return kind;
   }
 
+  // The BOOK rule, mirroring src/backtest/strategy.py:_select.
+  //
+  // Everything above this point answers "where does this row sit?" -- a
+  // property of one row. This answers "what does the strategy actually do?",
+  // which is a property of the whole book and needs to know how many slots are
+  // free. The dashboard never had this, which is why a board with four healthy
+  // holdings still rendered a green Enter badge: the badge was right about the
+  // band and silent about the fact that nothing could be bought.
+  //
+  // Kept in lockstep with the Python original by tests/test_select_book_parity.py
+  // (Node), the same arrangement badgeFor already has.
+  function _toSet(keys) {
+    var s = {};
+    if (keys) { for (var i = 0; i < keys.length; i++) { s[keys[i]] = true; } }
+    return s;
+  }
+
+  function selectBook(rankedKeys, heldKeys, horizon, unbuyableKeys) {
+    var h = horizon || (typeof window !== "undefined" && window.HORIZON_DEFAULT) || null;
+    if (!h || !rankedKeys) { return null; }
+    var held = _toSet(heldKeys), unbuyable = _toSet(unbuyableKeys);
+    var band = h.top_n + h.buffer;
+
+    var rankOf = {};
+    for (var i = 0; i < rankedKeys.length; i++) { rankOf[rankedKeys[i]] = i; }
+    // _select uses 10**9 for a held name with no rank this scan; the effect is
+    // the same either way (it fails the `< band` test and is dropped), but the
+    // sentinel is mirrored rather than special-cased so the two read alike.
+    var MISSING = 1e9;
+
+    // A held name keeps its slot while its rank is inside the band. One that
+    // fell out -- or vanished from the scan entirely -- is sold.
+    var keep = {}, keepCount = 0, sells = [];
+    for (var j = 0; j < rankedKeys.length; j++) {
+      var rk = rankedKeys[j];
+      if (held[rk] && rankOf[rk] < band) { keep[rk] = true; keepCount++; }
+    }
+    for (var hk in held) {
+      if (held.hasOwnProperty(hk) && !keep[hk]) { sells.push(hk); }
+    }
+    sells.sort(function (a, b) {
+      return (rankOf[a] === undefined ? MISSING : rankOf[a])
+           - (rankOf[b] === undefined ? MISSING : rankOf[b]);
+    });
+
+    // free < 0 is the over-held case: nothing is added, and nothing is
+    // trimmed either. That is _select's real behaviour, not an oversight
+    // here -- see test_over_held_book_is_not_trimmed.
+    var free = h.top_n - keepCount;
+    var buys = [];
+    if (free > 0) {
+      for (var b = 0; b < rankedKeys.length && buys.length < free; b++) {
+        if (!keep[rankedKeys[b]]) { buys.push(rankedKeys[b]); }
+      }
+      for (var c = 0; c < buys.length; c++) { keep[buys[c]] = true; }
+    }
+
+    // Unbuyable names are removed AFTER selection so the slot goes unused,
+    // exactly as simulate() does. `blocked` carries them out so the panel can
+    // say "slot stays empty" instead of naming a buy the reader cannot make.
+    var picks = [], blocked = [];
+    for (var p = 0; p < rankedKeys.length; p++) {
+      var pk = rankedKeys[p];
+      if (!keep[pk]) { continue; }
+      if (unbuyable[pk]) { blocked.push(pk); } else { picks.push(pk); }
+    }
+    var buysOut = [];
+    for (var q = 0; q < buys.length; q++) {
+      if (!unbuyable[buys[q]]) { buysOut.push(buys[q]); }
+    }
+
+    // Worst-ranked first: the surplus is what would be dropped to get back to
+    // top_n. NOTE this ordering is OUR rule, not the strategy's -- simulate()
+    // never over-holds, so the backtest has no opinion here. See the spec.
+    var kept = [];
+    for (var kk = 0; kk < rankedKeys.length; kk++) {
+      if (keep[rankedKeys[kk]] && held[rankedKeys[kk]]) { kept.push(rankedKeys[kk]); }
+    }
+    var overHeld = Math.max(0, keepCount - h.top_n);
+    var surplus = overHeld > 0 ? kept.slice(kept.length - overHeld).reverse() : [];
+
+    return {
+      picks: picks, buys: buysOut, sells: sells, blocked: blocked,
+      surplus: surplus, freeSlots: Math.max(0, free), overHeld: overHeld
+    };
+  }
+
   // recentRows: array of {scan_id, region, gics_sector, change_score, composite, rank}.
   // Returns per-"REGION|Sector" meta for the LATEST scan: formatted delta, arrow,
   // trajectory, and entry/exit setup — mirroring dashboard/rows.py.
@@ -344,12 +431,28 @@
     return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   }
 
+  // "31 Aug" in the reader's language. Intl carries the month names, so this
+  // needs no new i18n keys -- and a badge that names a date is readable cold,
+  // which the .muted styling it supplements is not.
+  function shortDate(iso, lang) {
+    if (!iso) { return ""; }
+    var parts = String(iso).split("-");
+    if (parts.length < 3) { return String(iso); }
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    try {
+      return new Intl.DateTimeFormat(lang || "en",
+        { day: "numeric", month: "short" }).format(d);
+    } catch (e) {
+      return String(iso);
+    }
+  }
+
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
               inBuyBand: inBuyBand,
-              badgeForRank: badgeForRank, badgeFor: badgeFor,
+              badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               latestRowMeta: latestRowMeta, compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,
-              reviewStatus: reviewStatus, localISODate: localISODate,
+              reviewStatus: reviewStatus, localISODate: localISODate, shortDate: shortDate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }
   root.Rescore = api;

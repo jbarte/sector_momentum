@@ -2,6 +2,20 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Screen-reader-only: content that must reach the accessibility tree without
+   being visible -- e.g. a live-announcement region for a blocked action.
+   Clipped, not display:none, so assistive tech still sees it. Mirrors the
+   scoped .context-chips .cc-label treatment (_chrome.css.j2) as the one
+   reusable version. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 :root {
   --beige-50:  #FAF7F0;
   --beige-100: #F5F0E6;

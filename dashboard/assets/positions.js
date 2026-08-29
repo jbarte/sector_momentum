@@ -17,6 +17,44 @@
     return itemType + "|" + region + "|" + name;
   }
 
+  /* Screen-reader announcement for a refused toggle. The visual cue is the
+   * disabled styling; this is its non-visual counterpart. */
+  function announceLive(msg) {
+    var el = document.getElementById("sm-live-region");
+    if (el) { el.textContent = msg; }
+  }
+
+  /* The refusal's VISIBLE counterpart for a touch device. announceLive()
+   * above writes to #sm-live-region, which is .sr-only -- invisible by
+   * design, for screen readers only. The `title` attribute the caller also
+   * sets needs a hover-dwell no touch device ever produces. Without this, a
+   * blocked tap on a phone produces no visible change at all -- exactly the
+   * "reads as a broken page" failure this whole mechanism exists to avoid.
+   *
+   * Lives in the review panel (#rp-block-note, _review_panel.html.j2), not
+   * on the star itself: the star that was actually tapped can be the
+   * (mobile-hidden) TABLE row's button a card tap was forwarded to (see
+   * _renderMobileCardsNow()'s card-to-table click forwarding in
+   * index.html.j2) -- a flash on that element would be invisible on the
+   * exact devices this fixes for. The panel is on screen either way. */
+  function showBlockNote(msg) {
+    var el = document.getElementById("rp-block-note");
+    if (!el) return;
+    el.textContent = msg;
+    el.hidden = false;
+    // Restart the CSS entrance animation on every tap, including repeated
+    // taps while still locked: re-adding the same class name does not
+    // restart an animation already applied, so the class is removed and a
+    // reflow forced before it's added back.
+    el.classList.remove("flash");
+    void el.offsetWidth;
+    el.classList.add("flash");
+    window.clearTimeout(showBlockNote._hideTimer);
+    showBlockNote._hideTimer = window.setTimeout(function () {
+      el.hidden = true;
+    }, 4000);
+  }
+
   // Row identity: classify by cohort (data-region), not by which name
   // attribute happens to be present. Rows in the THEME cohort are themes
   // regardless of whether data-sector or the legacy data-theme is set;
@@ -134,6 +172,20 @@
     btn.addEventListener("click", function (e) {
       e.stopPropagation();                               // don't trigger row drill-down
       if (!held) return;
+      // The lock's friction. Refused with a REASON: a star that silently does
+      // nothing reads as a broken page, not as a deliberate block. The
+      // override lives in the review panel -- deliberately a second, separate
+      // action rather than a confirm dialog here, so clearing the lock is a
+      // decision rather than a reflex.
+      if (window.SMBookLock && window.SMBookLock.isLocked()) {
+        var t = window.translate || function (k, en) { return en; };
+        var until = window.SMBookLock.lockedUntil();
+        var msg = t("lock_blocked", "Book locked until") + " " + (until || "");
+        if (typeof announceLive === "function") { announceLive(msg); }
+        btn.setAttribute("title", msg);
+        showBlockNote(msg);
+        return;
+      }
       var next = !held.has(key);
       if (next) held.add(key); else held.delete(key);    // optimistic
       applyRowState(tr, next);
@@ -153,6 +205,12 @@
     if (!signedIn || !held) return;
     var rows = document.querySelectorAll(".leaderboard-row");
     Array.prototype.forEach.call(rows, decorateRow);
+    var locked = !!(window.SMBookLock && window.SMBookLock.isLocked());
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".position-toggle"), function (b) {
+        b.classList.toggle("locked", locked);
+        b.setAttribute("aria-disabled", locked ? "true" : "false");
+      });
     announce();
   }
 
@@ -175,7 +233,8 @@
     return held ? "ready" : "loading";
   }
 
-  window.SMPositions = { isHeld: isHeldRow, holdingsState: holdingsState };
+  window.SMPositions = { isHeld: isHeldRow, holdingsState: holdingsState,
+                         refreshLockUI: decorateAll };
 
   function clearAll() {
     var btns = document.querySelectorAll(".position-toggle");

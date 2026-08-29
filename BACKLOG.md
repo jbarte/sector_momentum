@@ -840,6 +840,52 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## Review cadence, book state, and the position lock (2026-08-27)
+
+**Second attempt at a problem whose first fix shipped and did not work.** The
+2026-08-14 item added a "Review due / Next review" chip and `.muted` badges;
+Jonas nonetheless traded on every rank change for weeks. Asked directly, he
+named two causes — never registered the chip, and did not know the muting meant
+anything — which share a root: **both were relative signals.** The chip had to
+be noticed among four competing stats; the muting was detectable only by
+comparison against an active badge that is not on screen. Everything here is
+required to be absolute instead.
+
+Also found a deeper structural cause the first attempt never addressed: **the
+dashboard knew the band rule but never the book rule.** `_compute_setup` maps a
+rank to Enter/Hold/Exit with no knowledge of holdings, while
+`strategy._select` decides purchases by `free = top_n - len(keep)`. On a board
+with four healthy holdings the page rendered a green Enter on rank 4 while the
+strategy would buy nothing.
+
+Shipped: `Rescore.selectBook` (JS mirror of `_select`, Node parity-tested,
+including the over-held / under-held / unbuyable-slot cases); badges that state
+their own timing (`▲ Enter · 31 Aug`) and slot availability (`▲ Enter · no
+slot`); a prominent review panel replacing the inline chip, with the derived
+Sell/Buy action list and an explicit "no changes" state; book count with
+surplus marking; and a Supabase-backed position lock that blocks star toggles
+with a one-click override.
+
+Two things recorded as deliberate, so a future reader does not mistake them for
+measured results:
+
+- **"Sell the worst-ranked" is our rule, not the strategy's.** `simulate` never
+  over-holds (`free` goes negative, so nothing is added and nothing trimmed),
+  so the backtest has no opinion on which position to drop.
+- **The lock is friction and a record, not enforcement.** A lock that could not
+  be cleared would let the dashboard stop Jonas recording a trade actually made
+  at the broker, leaving the board wrong — a worse failure than the impulsive
+  trade.
+
+Sizing, from the sweep: trading on every change approximates `buffer 0`, which
+returns 5.6% CAGR / -51.6% maxDD against the shipped cell's 15.6% / -30.8%
+(2004- window), and 10.1% / -29.4% vs 17.5% / -24.1% (2015-). Roughly 7-10pp of
+CAGR a year.
+
+**Post-merge manual step: run `scripts/book_locks_migration.sql` in the
+Supabase SQL editor.** The lock silently does nothing until the table exists.
+
+
 ## `--end` bounds the horizon sweep's evaluation window (2026-08-26)
 
 `scripts/horizon_sweep.py` took `--start` but no upper bound, so every run

@@ -191,21 +191,6 @@
       <span class="hz-stat"><b id="hz-hold">—</b> <span data-i18n="hz_hold">median hold</span></span>
     </span>
     <span class="horizon-note" data-i18n="horizon_note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
-    {#- Review-due status: which of the two states below is showing is decided
-        entirely client-side (renderReviewStatus(), from Rescore.reviewStatus) —
-        never baked, so it stays correct on a page built days ago. Both start
-        hidden so neither flashes before JS decides which applies. See
-        BACKLOG.md "Badges don't say whether today is an actionable day". -#}
-    <span class="review-status" id="review-status">
-      <span class="review-due" id="review-due" hidden>
-        <span data-i18n="review_due">Review due</span>
-        <button type="button" class="review-done-btn" id="review-done-btn" data-i18n="review_done">Done ✓</button>
-      </span>
-      <span class="review-next" id="review-next" hidden>
-        <span data-i18n="review_next_label">Next review:</span> <b id="review-next-date">—</b>
-      </span>
-    </span>
-
     {#- Right-aligned controls (spec: "Controls row", Screen 1 item 5).
         These three carry the SAME data-filter-group/data-filter-value as
         their counterparts inside the disclosed full set below — clicking
@@ -297,6 +282,7 @@
     <span class="scan-history-text" data-i18n="scan_viewing" data-en-prefix="Viewing scan #">Viewing scan #</span>
     <a href="javascript:void(0)" onclick="restoreLatest()" data-i18n="scan_back_to_latest">Back to latest</a>
   </div>
+  {% include "_review_panel.html.j2" %}
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
@@ -584,7 +570,6 @@ function ackReview(key) {
   } catch (e) { /* private mode: the click still mutes this render, just not
                    a future page load — acceptable, matches every other
                    localStorage preference on this page. */ }
-  renderReviewStatus();
   applyHorizonBadges();
 }
 
@@ -593,11 +578,11 @@ function ackReview(key) {
 // clock even on a page built days ago.
 //
 // Guarded like every other window.Rescore call site (applyHorizonBadges
-// below, auth.js) — this one matters more than most: renderReviewStatus()
-// calls it BEFORE applyHorizonBadges() in both initHorizonSelect() and
-// switchHorizon(), so an unguarded throw here (a stale cache, a blocked
-// script, a network hiccup) would abort badge rendering, band boundaries and
-// the Done-button binding too, not just the review chip.
+// below, auth.js) — this one matters more than most: applyHorizonBadges()
+// itself calls it early (to gate the entry/exit badge suffix), so an
+// unguarded throw here (a stale cache, a blocked script, a network hiccup)
+// would abort badge rendering, band boundaries and the Done-button binding
+// too, not just the review panel.
 function currentReviewStatus() {
   if (!window.Rescore || !window.Rescore.reviewStatus || !window.Rescore.localISODate) {
     return { due: true, dueDate: null, nextDate: null };
@@ -605,6 +590,20 @@ function currentReviewStatus() {
   var h = currentHorizon();
   return window.Rescore.reviewStatus(
     h.review_dates, window.Rescore.localISODate(), getReviewAck(h.key));
+}
+
+// Row lookup shared by applyHorizonBadges() (the surplus mark) and
+// renderReviewPanel() (nameOf()). Server-baked rows carry both
+// data-sector-key and data-sector-id, but rows rebuilt client-side by
+// auth.js's renderLatestRows() carry only data-sector-id -- that function's
+// own comment says so explicitly ("these rows don't carry [data-sector-key]").
+// renderLatestRows() is the signed-in path, and it's the ONLY path where
+// book-state exists at all, so a data-sector-key-only lookup silently misses
+// every reader this feature serves. Found identically broken in two places
+// (the surplus mark and nameOf()) by task review; fixed once, here, for both.
+function _leaderboardRowForKey(key) {
+  return document.querySelector('.leaderboard-row[data-sector-key="' + key + '"]')
+      || document.querySelector('.leaderboard-row[data-sector-id="' + key + '"]');
 }
 
 // The single writer of every leaderboard badge — the horizon switch, the
@@ -717,6 +716,13 @@ function _renderMobileCardsNow() {
     var positionBtn = tr.querySelector('.position-toggle');
     var isHeld = tr.classList.contains('position-held');
     var isWarn = tr.classList.contains('position-warn');
+    // Same read as isHeld/isWarn above: applyHorizonBadges() is the single
+    // writer of position-surplus (the extra holding in an over-held book),
+    // toggled on the table row before this function runs. Without copying it
+    // here, a mobile reader sees "Book: 5 / 4 — too many" in the panel with
+    // no way to see which holding on screen is the extra one -- the table
+    // that DOES carry the mark is hidden below 600px.
+    var isSurplus = tr.classList.contains('position-surplus');
 
     // .lc-row order (LEVEL first, CHANGE second) is already pinned by
     // test_level_change_bars_python_and_js_agree — no data-lc-kind attribute
@@ -749,6 +755,7 @@ function _renderMobileCardsNow() {
       + (isInBand ? ' in-band' : '')
       + (isHeld ? ' position-held' : '')
       + (isWarn ? ' position-warn' : '')
+      + (isSurplus ? ' position-surplus' : '')
       + '"'
       + (expandable ? ' role="button" tabindex="0" aria-expanded="false"' : '')
       + ' data-sector-id="' + sectorId + '">'
@@ -1100,11 +1107,59 @@ function applyHorizonBadges() {
   // currentReviewStatus() guards window.Rescore itself, so no need to repeat
   // that check here.
   var reviewDue = currentReviewStatus().due;
+  // Read once per call, not once per use site: this used to be read again at
+  // the per-row suffix branch below AND again at this function's tail (for
+  // the window.applyLang() call) -- two localStorage reads of the same value
+  // in one pass. Same try/catch fallback ('en' on failure) as before.
+  var lang = 'en';
+  try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
   // Whether the badge may be personalised at all. Without holdings the
   // action-aware rule would silently delete every Exit badge (nothing is held,
   // so nothing can be exited) — including on an ungated build, where the server
   // baked those Exit badges and this pass runs over them.
   var holdings = (pos && pos.holdingsState) ? pos.holdingsState() : 'unknown';
+  // Computed once per pass, not per row: the book is a property of the whole
+  // table. Null when holdings are unknown (guest, or the read failed), in
+  // which case no suffix is added and behaviour is exactly as before.
+  var _bookState = null;
+  if (holdings === 'ready' && window.Rescore && window.Rescore.selectBook) {
+    var _rankedKeys = [], _heldKeys = [], _unbuyableKeys = [];
+    // selectBook() reads rankedKeys[] POSITION as rank order (index 0 =
+    // best) -- it never looks at data-rank itself. `rows` is queried in
+    // current DOM order, which sortTable() (Composite, Theme, Rank Δ, ...)
+    // freely reorders, so collecting straight off `rows` silently ties the
+    // book's sell/buy list to whatever column a signed-in reader happened to
+    // have clicked last. Sorted here by the actual rank instead, so the
+    // result is correct independent of DOM/sort order -- whole-branch
+    // review finding.
+    var _rankedRows = Array.prototype.filter.call(rows, function (tr) {
+      var k = tr.dataset.sectorKey || tr.dataset.sectorId;
+      return !!k && tr.hasAttribute('data-rank');
+    });
+    _rankedRows.sort(function (a, b) {
+      return parseFloat(a.dataset.rank) - parseFloat(b.dataset.rank);
+    });
+    _rankedRows.forEach(function (tr) {
+      var k = tr.dataset.sectorKey || tr.dataset.sectorId;
+      _rankedKeys.push(k);
+      if (pos.isHeld(tr)) { _heldKeys.push(k); }
+      if (tr.dataset.unbuyable === '1') { _unbuyableKeys.push(k); }
+    });
+    _bookState = window.Rescore.selectBook(_rankedKeys, _heldKeys, h, _unbuyableKeys);
+  }
+  window.SM_BOOK_STATE = _bookState;   // read by the review panel (Task 3)
+  // Over-held books are never trimmed by the strategy itself, so the surplus
+  // has to be visible or it runs indefinitely. Cleared first: the surplus
+  // moves as ranks move, and a stale mark is worse than none.
+  Array.prototype.forEach.call(rows, function (tr) {
+    tr.classList.remove('position-surplus');
+  });
+  if (_bookState && _bookState.surplus.length) {
+    _bookState.surplus.forEach(function (k) {
+      var tr = _leaderboardRowForKey(k);
+      if (tr) { tr.classList.add('position-surplus'); }
+    });
+  }
   Array.prototype.forEach.call(rows, function (tr) {
     var kind = null;
     var rank = parseFloat(tr.dataset.rank);
@@ -1170,12 +1225,44 @@ function applyHorizonBadges() {
     var isMuted = !reviewDue && (kind === 'entry' || kind === 'exit');
     badge.className = 'setup-badge ' + kind + (isMuted ? ' muted' : '');
     badge.setAttribute('data-i18n', BADGE_I18N[kind]);
-    badge.textContent = BADGE_TEXT_EN[kind];
+    // Self-describing suffix. The badge used to state only WHAT (Enter/Exit)
+    // and relied on .muted to convey WHEN -- a signal only detectable by
+    // comparison against an active badge that is not on screen. It failed:
+    // the reader traded on every rank change for weeks. The suffix states the
+    // timing (and the no-slot case) on the badge itself.
+    var suffix = "";
+    if (kind === 'entry' && _bookState && _bookState.freeSlots === 0) {
+      suffix = ' · ' + (window.translate
+        ? window.translate('badge_no_slot', 'no slot') : 'no slot');
+    } else if (!reviewDue && (kind === 'entry' || kind === 'exit')) {
+      var nextISO = currentReviewStatus().nextDate;
+      if (nextISO && window.Rescore && window.Rescore.shortDate) {
+        suffix = ' · ' + window.Rescore.shortDate(nextISO, lang);
+      }
+    }
+    badge.textContent = BADGE_TEXT_EN[kind] + suffix;
     // data-en must be rewritten, not left to _i18n.html.j2's first-sight
     // capture: this span is REUSED across kinds, and applyLang() restores
     // English from data-en. A span that went Enter -> Hold would otherwise
     // carry data-en="▲ Enter" and snap back to Enter on the next EN pass.
+    // Bare kind text ONLY -- no suffix -- because data-en is now the "en"
+    // base that _i18n.html.j2's apply() reads before appending data-suffix
+    // itself; a suffix baked into data-en would get double-appended (English
+    // base with the suffix already on it, then apply() appends it again).
     badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);
+    // The dynamic, untranslated part (a date, "no slot"), read by apply()'s
+    // [data-i18n] loop in BOTH languages so a language toggle after this
+    // render doesn't drop it (see the bug this fixes, documented in
+    // _i18n.html.j2's apply()). Must be removed, not left stale, when this
+    // render has no suffix -- otherwise a badge that goes from
+    // "Enter · no slot" to a plain "Enter" keeps showing the old suffix on
+    // the next language toggle, since apply() only reads data-suffix, it
+    // doesn't know this render's suffix went away.
+    if (suffix) {
+      badge.setAttribute('data-suffix', suffix);
+    } else {
+      badge.removeAttribute('data-suffix');
+    }
   });
 
   // applyFilters() (below) ends with its own applyBandBoundaries() call
@@ -1232,12 +1319,12 @@ function applyHorizonBadges() {
   // requirement. See sector_momentum-notes/specs/2026-08-25-mobile-render-
   // coalescing-design.md.
   if (window.applyLang) {
-    var lang = 'en';
-    try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
     window.applyLang(lang);
   } else if (typeof applyFilters === 'function') {
     applyFilters();
   }
+
+  if (typeof renderReviewPanel === 'function') { renderReviewPanel(); }
 }
 
 // Anything that changes gating, holdings, or the rendered rows re-runs the
@@ -1280,19 +1367,115 @@ function renderHorizonStats(key) {
       ? '—' : Math.round(h.trades_per_year));
 }
 
-// Which of "Review due [Done ✓]" / "Next review: <date>" is showing. Reads
-// currentHorizon() itself rather than taking one as a parameter, matching
-// applyHorizonBadges() — both are "recompute from the active horizon" passes
-// callers just invoke after anything that could change it.
-function renderReviewStatus() {
-  var dueEl = document.getElementById('review-due');
-  var nextEl = document.getElementById('review-next');
-  if (!dueEl || !nextEl) { return; }
+// The review panel. Reads SM_BOOK_STATE (written by applyHorizonBadges) and
+// currentReviewStatus(), and renders one of four states. Called at the end of
+// applyHorizonBadges so it re-runs on every event that changes ranks, holdings
+// or horizon -- the same funnel the badges use.
+function renderReviewPanel() {
+  var panel = document.getElementById('review-panel');
+  if (!panel) { return; }
+  var headline = document.getElementById('rp-headline');
+  var actions = document.getElementById('rp-actions');
+  var countEl = document.getElementById('rp-count');
+  var doneBtn = document.getElementById('review-done-btn');
+  var t = window.translate || function (k, en) { return en; };
+  var lang = 'en';
+  try { lang = localStorage.getItem('lang') || 'en'; } catch (e) { /* ignore */ }
+  var sd = (window.Rescore && window.Rescore.shortDate)
+    ? function (iso) { return window.Rescore.shortDate(iso, lang); }
+    : function (iso) { return iso || ''; };
+
   var status = currentReviewStatus();
-  dueEl.hidden = !status.due;
-  nextEl.hidden = status.due;
-  var dateEl = document.getElementById('review-next-date');
-  if (dateEl) { dateEl.textContent = status.nextDate || '—'; }
+  var book = window.SM_BOOK_STATE;
+  panel.hidden = false;
+  actions.innerHTML = '';
+  doneBtn.hidden = !status.due;
+
+  // review_dates bakes only 6 dates from build time. CI rebuilds daily so this
+  // should never fire in production -- but a dashboard left unbuilt for six
+  // months would otherwise render "Next review · " with an empty date, which
+  // reads as a broken page rather than a stale one. Say so plainly instead.
+  if (!status.due && !status.nextDate) {
+    headline.textContent = t('rp_calendar_stale',
+      'Review calendar is out of date — rebuild the dashboard.');
+    countEl.textContent = '';
+    return;
+  }
+
+  // Guests: the date only. Holdings need a session, so there is no book to
+  // report -- the same gating the badges already use.
+  if (!book) {
+    headline.textContent = status.due
+      ? t('rp_review_due', 'Review due') + ' · ' + sd(status.dueDate)
+      : t('rp_next_review', 'Next review') + ' · ' + sd(status.nextDate);
+    countEl.textContent = '';
+    return;
+  }
+
+  if (!status.due) {
+    headline.textContent = t('rp_next_review', 'Next review') + ' · ' + sd(status.nextDate);
+    var note = document.createElement('li');
+    note.className = 'rp-note';
+    note.textContent = t('rp_no_action', 'No action until then.');
+    actions.appendChild(note);
+  } else {
+    headline.textContent = t('rp_review_due', 'Review due') + ' · ' + sd(status.dueDate);
+    var nameOf = function (key) {
+      var tr = _leaderboardRowForKey(key);
+      var nm = tr && tr.querySelector('.theme-name');
+      return nm ? nm.textContent.trim() : key;
+    };
+    book.sells.forEach(function (k) {
+      var li = document.createElement('li');
+      li.className = 'rp-sell';
+      li.textContent = t('rp_sell', 'Sell') + ' — ' + nameOf(k);
+      actions.appendChild(li);
+    });
+    book.buys.forEach(function (k) {
+      var li = document.createElement('li');
+      li.className = 'rp-buy';
+      li.textContent = t('rp_buy', 'Buy') + ' — ' + nameOf(k);
+      actions.appendChild(li);
+    });
+    // An unbuyable candidate wins the slot and the slot stays EMPTY (see
+    // selectBook / simulate). Saying so beats naming a buy the reader cannot
+    // make, and beats the name silently vanishing.
+    book.blocked.forEach(function (k) {
+      var li = document.createElement('li');
+      li.className = 'rp-blocked';
+      li.textContent = t('rp_slot_empty', 'Slot stays empty') + ' — ' + nameOf(k);
+      actions.appendChild(li);
+    });
+    if (!actions.children.length) {
+      var ok = document.createElement('li');
+      ok.className = 'rp-note';
+      ok.textContent = t('rp_no_changes', 'No changes — your book already matches.');
+      actions.appendChild(ok);
+    }
+  }
+
+  // The lock control. Signed-in only: it locks a book that only exists with a
+  // session. Reflects state rather than owning it -- SMBookLock is the source.
+  var lockWrap = document.getElementById('rp-lock-wrap');
+  var lockBox = document.getElementById('rp-lock');
+  if (lockWrap && lockBox && window.SMBookLock) {
+    lockWrap.hidden = false;
+    var locked = window.SMBookLock.isLocked();
+    lockBox.checked = locked;
+    lockWrap.classList.toggle('is-locked', locked);
+  }
+
+  // Book count. Over-held is the consequential one: nothing trims it.
+  var target = currentHorizon().top_n;
+  countEl.textContent = t('rp_book', 'Book') + ': ' + book.picks.length + ' / ' + target;
+  countEl.className = 'rp-count';
+  if (book.overHeld > 0) {
+    countEl.classList.add('over');
+    countEl.textContent += ' — ' + t('rp_too_many', 'too many; nothing trims this automatically');
+  } else if (book.freeSlots > 0 && !status.due) {
+    countEl.classList.add('under');
+    countEl.textContent += ' — ' + t('rp_will_refill', 'refills at the next review');
+  }
 }
 
 // Mirrors theme.js's updateControlUI(): reflect `key` on every button's
@@ -1313,10 +1496,48 @@ function initHorizonSelect() {
     b.addEventListener('click', function () { switchHorizon(b.getAttribute('data-horizon-choice')); });
   });
   renderHorizonStats(activeHorizon);
-  renderReviewStatus();
+  // Shared by the Done button and the #rp-lock checkbox below -- both fire a
+  // SMBookLock write and then need the panel/star UI re-synced from
+  // whatever SMBookLock actually ended up holding, whether the write
+  // succeeded or rejected (see the .then(refresh, refresh) call sites).
+  function _refreshLockUI() {
+    renderReviewPanel();
+    if (window.SMPositions && window.SMPositions.refreshLockUI) {
+      window.SMPositions.refreshLockUI();
+    }
+  }
   var doneBtn = document.getElementById('review-done-btn');
   if (doneBtn) {
-    doneBtn.addEventListener('click', function () { ackReview(currentHorizon().key); });
+    doneBtn.addEventListener('click', function () {
+      ackReview(currentHorizon().key);
+      var next = currentReviewStatus().nextDate;
+      // lock()'s `state` is only set inside its own .then() (fail-safe by
+      // design -- Task 5) -- so the panel's own lock checkbox has to wait on
+      // that resolution too, same as the checkbox's own handler just below,
+      // or it renders unchecked for a beat right after the reader clicked Done.
+      var p = (window.SMBookLock && next)
+        ? window.SMBookLock.lock(next, currentHorizon().key)
+        : null;
+      // Same refresh function on BOTH success and failure: lock()/unlock()
+      // deliberately propagate a write rejection rather than swallowing it
+      // (Task 5), so a `.then(refresh)` with no rejection handler would skip
+      // `refresh` entirely on a failed write -- leaving the checkbox/count
+      // showing the OPTIMISTIC state the click asked for, not the real one
+      // SMBookLock actually holds. Passing `refresh` as both arguments
+      // re-syncs the UI from actual state either way.
+      Promise.resolve(p).then(_refreshLockUI, _refreshLockUI);
+    });
+  }
+  var lockBox = document.getElementById('rp-lock');
+  if (lockBox) {
+    lockBox.addEventListener('change', function () {
+      if (!window.SMBookLock) { return; }
+      var next = currentReviewStatus().nextDate;
+      var p = lockBox.checked && next
+        ? window.SMBookLock.lock(next, currentHorizon().key)
+        : window.SMBookLock.unlock();
+      Promise.resolve(p).then(_refreshLockUI, _refreshLockUI);
+    });
   }
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
     tr.classList.toggle('active', tr.dataset.horizon === activeHorizon);
@@ -1345,7 +1566,6 @@ function switchHorizon(key) {
   updateHorizonToggleUI(key);
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
   renderHorizonStats(key);
-  renderReviewStatus();
   applyHorizonBadges();
   // A past scan's rows bake their band highlight at render time and are skipped
   // by applyHorizonBadges (no data-rank), so re-render to pick up the new band.

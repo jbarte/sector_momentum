@@ -566,6 +566,9 @@ def main() -> None:
         positions_src = _ASSETS_DIR / "positions.js"
         if positions_src.exists():
             shutil.copy2(positions_src, docs_assets / "positions.js")
+        book_lock_src = _ASSETS_DIR / "book-lock.js"
+        if book_lock_src.exists():
+            shutil.copy2(book_lock_src, docs_assets / "book-lock.js")
         alert_prefs_src = _ASSETS_DIR / "alert-prefs.js"
         if alert_prefs_src.exists():
             shutil.copy2(alert_prefs_src, docs_assets / "alert-prefs.js")

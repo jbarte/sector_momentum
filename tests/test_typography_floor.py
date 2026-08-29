@@ -220,9 +220,13 @@ def test_horizon_note_meets_floor():
     assert _resolved_px(_rule_font_size(css, ".horizon-note")) >= 12
 
 
-def test_review_status_meets_floor():
+def test_review_panel_meets_floor():
+    """.review-status was replaced by the review panel (see
+    dashboard/templates/_review_panel.html.j2, tests/test_review_panel.py)."""
     css = _css("_tables.css.j2")
-    assert _resolved_px(_rule_font_size(css, ".review-status")) >= 12
+    assert _resolved_px(_rule_font_size(css, ".rp-headline")) >= 12
+    assert _resolved_px(_rule_font_size(css, ".rp-actions")) >= 12
+    assert _resolved_px(_rule_font_size(css, ".rp-count")) >= 12
 
 
 def test_band_legend_rule_is_gone_with_its_element():

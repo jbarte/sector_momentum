@@ -232,6 +232,22 @@
     color: var(--down);
   }
 
+  /* Mirrors .leaderboard-row.position-surplus (_tables.css.j2) at card
+     scale -- same fix as position-held/position-warn just above, same gap:
+     renderMobileCards() now copies position-surplus onto the card, but had
+     no styling for it, so the surplus holding named in the review panel
+     ("Book: 5 / 4 — too many") had no visible mark among the cards on the
+     one layout (<600px) where the desktop table's own rail is hidden.
+     The desktop rule confines its rail to td:first-child, which has no card
+     equivalent -- and RIGHT edge here, deliberately, not left: position-warn
+     above already claims the left edge as a whole-card rail, and a warn
+     holding can also be the surplus one (Exit-badged AND over the book's
+     target at once), so the two need to stay independently visible rather
+     than one overwriting the other by source order. */
+  .leaderboard-card.position-surplus {
+    box-shadow: inset -3px 0 0 0 var(--down);
+  }
+
   /* .position-toggle (_tables.css.j2) was never sized for touch even on the
      desktop table — scoped to `.leaderboard-card` rather than the shared
      `@media (pointer: coarse)` touch-target block above, since cards only
