@@ -214,6 +214,42 @@ def test_blocked_click_explains_itself():
     )
 
 
+def test_live_region_exists_for_the_blocked_click_announcement():
+    """announceLive() (positions.js) reads #sm-live-region by id and
+    no-ops -- fail-open, same as the rest of this file -- if the element is
+    absent. Review round 1 found that NO template defined that id, so every
+    blocked star click announced nothing: the visible `title` attribute
+    doesn't show until a hover-dwell, so the reader got no immediate
+    visible OR announced feedback at all. Pin both ends of the contract: the
+    id positions.js looks up, and that _footer.html.j2 -- the shared,
+    auth-gated partial positions.js's own <script> tag is loaded from, on
+    every page that loads it -- actually defines a live region under that
+    id, kept in the accessibility tree (not `hidden`) so screen readers can
+    reach it."""
+    js = (_ROOT / "dashboard/assets/positions.js").read_text()
+    assert 'getElementById("sm-live-region")' in js, (
+        "announceLive() no longer targets #sm-live-region -- update this "
+        "test and the template together if the id changes"
+    )
+    footer = (_ROOT / "dashboard/templates/_footer.html.j2").read_text()
+    m = re.search(r'<div id="sm-live-region"([^>]*)>', footer)
+    assert m, (
+        "no live region for announceLive() to reach -- blocked clicks "
+        "announce nothing, visibly or otherwise"
+    )
+    attrs = m.group(1)
+    assert 'aria-live="polite"' in attrs, "#sm-live-region is not a live region"
+    assert "hidden" not in attrs, (
+        "#sm-live-region is `hidden` -- assistive tech ignores updates to a "
+        "hidden live region, so it must stay reachable via clipping (.sr-only) "
+        "instead"
+    )
+    # Ahead of the <script> tag that reads it: the more defensive order, even
+    # though announceLive() looks the element up lazily on each call today
+    # rather than once at load time.
+    assert footer.index('id="sm-live-region"') < footer.index('assets/positions.js')
+
+
 def test_panel_has_a_lock_checkbox_and_an_override():
     panel = (_ROOT / "dashboard/templates/_review_panel.html.j2").read_text()
     assert 'id="rp-lock"' in panel, "no lock control in the review panel"
@@ -225,13 +261,21 @@ def test_panel_has_a_lock_checkbox_and_an_override():
 
 
 def test_done_auto_locks_until_the_next_review():
-    # Window widened from the original 2000: "review-done-btn" first appears
-    # in renderReviewPanel()'s own `doneBtn.hidden = ...` lookup (Task 3),
-    # well before the click-binding block in initHorizonSelect() that this
-    # test actually targets -- 2000 chars lands short of it.
+    # Slice from the LAST "review-done-btn", not the first: the first hit is
+    # renderReviewPanel()'s own `doneBtn.hidden = ...` lookup (Task 3), far
+    # from the click-binding block this test targets. The last hit is that
+    # click-binding block itself (`getElementById('review-done-btn')` inside
+    # initHorizonSelect()), so the window below only has to reach the Done
+    # handler's own `SMBookLock.lock` call (~546 chars past it, measured
+    # directly against this file) -- not the *other* SMBookLock.lock call
+    # site in this file, the #rp-lock checkbox's own handler (~1095 chars
+    # past it). A window of 800 clears the first with room to spare and
+    # falls well short of the second, so a regression that dropped the Done
+    # handler's own call while leaving the checkbox's intact would still
+    # fail this test.
     tpl = (_ROOT / "dashboard/templates/index.html.j2").read_text()
-    done = tpl[tpl.index("review-done-btn"):]
-    assert "SMBookLock.lock" in done[:6000], (
+    done = tpl[tpl.rindex("review-done-btn"):]
+    assert "SMBookLock.lock" in done[:800], (
         "ticking Done does not re-lock the book, so the cycle does not close"
     )
 

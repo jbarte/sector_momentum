@@ -78,6 +78,14 @@
   {% endif %}
 </footer>
 {% if auth %}
+{#- The blocked star-toggle's non-visual counterpart (positions.js:announceLive).
+    Lives here, not inline on a leaderboard row, because it has to be present
+    once per page regardless of which rows exist -- and this partial is
+    already the shared home for every auth-gated script that needs a page-level
+    hook (positions.js included, just below). Scoped inside {% if auth %} to
+    match: positions.js's own blocked-click path (the only caller of
+    announceLive) never runs for a guest either. -#}
+<div id="sm-live-region" class="sr-only" aria-live="polite"></div>
 {#- Alerts modal.
     ------------
     Was a permanently-rendered block sitting BELOW the footer — after the

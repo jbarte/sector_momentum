@@ -1479,10 +1479,19 @@ function initHorizonSelect() {
     doneBtn.addEventListener('click', function () {
       ackReview(currentHorizon().key);
       var next = currentReviewStatus().nextDate;
-      if (window.SMBookLock && next) {
-        window.SMBookLock.lock(next, currentHorizon().key);
-      }
-      renderReviewPanel();
+      // lock()'s `state` is only set inside its own .then() (fail-safe by
+      // design -- Task 5) -- so the panel's own lock checkbox has to wait on
+      // that resolution too, same as the checkbox's own handler just below,
+      // or it renders unchecked for a beat right after the reader clicked Done.
+      var p = (window.SMBookLock && next)
+        ? window.SMBookLock.lock(next, currentHorizon().key)
+        : null;
+      Promise.resolve(p).then(function () {
+        renderReviewPanel();
+        if (window.SMPositions && window.SMPositions.refreshLockUI) {
+          window.SMPositions.refreshLockUI();
+        }
+      });
     });
   }
   var lockBox = document.getElementById('rp-lock');
