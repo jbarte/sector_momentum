@@ -83,4 +83,49 @@
     lock: lock, unlock: unlock,
     isLoaded: function () { return loaded; }
   };
+
+  /* The wiring load() itself doesn't provide: without a caller, `state` stays
+   * null for the whole page lifetime and isLocked() reports false on every
+   * fresh load -- the lock only ever holds within the SAME page session it
+   * was set in, not across a reload or a second device (the phone -- the
+   * exact case the header comment above says Supabase-over-localStorage
+   * exists to cover). Mirrors positions.js's sb.auth.onAuthStateChange
+   * pattern: load once per sign-in, reset on sign-out so a stale lock from a
+   * previous user's session can't leak into the next one.
+   *
+   * `sb.auth` may not exist on a test-mocked SMSupabase (see
+   * tests/test_book_lock.py's fail-safe tests, which stub only `.from()`),
+   * so this stays guarded rather than assumed -- consistent with the
+   * `if (!sb) return;` fail-open at the top of this file. */
+  var _signedIn = false;
+  function _afterLoad() {
+    // Tell whoever is already on screen to re-render from the now-current
+    // state, matching lock()/unlock()'s own callers (index.html.j2) rather
+    // than inventing a second notification shape. Guarded on `document`
+    // existing, not assumed -- this file is also exercised under plain Node
+    // in tests/test_book_lock.py, which stubs `window` but not `document`.
+    if (typeof document !== "undefined" && document.dispatchEvent) {
+      document.dispatchEvent(new CustomEvent("sm:lock-changed"));
+    }
+    if (window.SMPositions && typeof window.SMPositions.refreshLockUI === "function") {
+      window.SMPositions.refreshLockUI();
+    }
+    if (typeof window.renderReviewPanel === "function") {
+      window.renderReviewPanel();
+    }
+  }
+  if (sb.auth && typeof sb.auth.onAuthStateChange === "function") {
+    sb.auth.onAuthStateChange(function (_event, session) {
+      var now = !!(session && session.user);
+      if (now && !_signedIn) {
+        _signedIn = true;
+        load().then(_afterLoad);
+      } else if (!now && _signedIn) {
+        _signedIn = false;
+        state = null;
+        loaded = false;
+        _afterLoad();
+      }
+    });
+  }
 })();

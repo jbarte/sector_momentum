@@ -19,4 +19,14 @@
     <button type="button" class="review-done-btn" id="review-done-btn"
             data-i18n="review_done" hidden>Done ✓</button>
   </div>
+  {#- A blocked star tap's VISIBLE channel. announceLive() (positions.js) is
+      the screen-reader channel, and the `title` attribute it also sets needs
+      a hover-dwell no touch device ever produces -- so on a phone, a blocked
+      tap otherwise produces literally no visible change (positions.js's own
+      "reads as a broken page" comment). This lives on the panel, not the
+      star, because the star that was tapped may be on the (mobile-hidden)
+      table row a click was forwarded FROM, not anything on screen -- see
+      _renderMobileCardsNow()'s card-to-table forwarding. Hidden by default;
+      positions.js unhides it for a few seconds per blocked tap. -#}
+  <div class="rp-block-note" id="rp-block-note" hidden></div>
 </section>

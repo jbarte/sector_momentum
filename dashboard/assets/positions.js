@@ -24,6 +24,37 @@
     if (el) { el.textContent = msg; }
   }
 
+  /* The refusal's VISIBLE counterpart for a touch device. announceLive()
+   * above writes to #sm-live-region, which is .sr-only -- invisible by
+   * design, for screen readers only. The `title` attribute the caller also
+   * sets needs a hover-dwell no touch device ever produces. Without this, a
+   * blocked tap on a phone produces no visible change at all -- exactly the
+   * "reads as a broken page" failure this whole mechanism exists to avoid.
+   *
+   * Lives in the review panel (#rp-block-note, _review_panel.html.j2), not
+   * on the star itself: the star that was actually tapped can be the
+   * (mobile-hidden) TABLE row's button a card tap was forwarded to (see
+   * _renderMobileCardsNow()'s card-to-table click forwarding in
+   * index.html.j2) -- a flash on that element would be invisible on the
+   * exact devices this fixes for. The panel is on screen either way. */
+  function showBlockNote(msg) {
+    var el = document.getElementById("rp-block-note");
+    if (!el) return;
+    el.textContent = msg;
+    el.hidden = false;
+    // Restart the CSS entrance animation on every tap, including repeated
+    // taps while still locked: re-adding the same class name does not
+    // restart an animation already applied, so the class is removed and a
+    // reflow forced before it's added back.
+    el.classList.remove("flash");
+    void el.offsetWidth;
+    el.classList.add("flash");
+    window.clearTimeout(showBlockNote._hideTimer);
+    showBlockNote._hideTimer = window.setTimeout(function () {
+      el.hidden = true;
+    }, 4000);
+  }
+
   // Row identity: classify by cohort (data-region), not by which name
   // attribute happens to be present. Rows in the THEME cohort are themes
   // regardless of whether data-sector or the legacy data-theme is set;
@@ -152,6 +183,7 @@
         var msg = t("lock_blocked", "Book locked until") + " " + (until || "");
         if (typeof announceLive === "function") { announceLive(msg); }
         btn.setAttribute("title", msg);
+        showBlockNote(msg);
         return;
       }
       var next = !held.has(key);

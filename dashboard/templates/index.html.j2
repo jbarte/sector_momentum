@@ -716,6 +716,13 @@ function _renderMobileCardsNow() {
     var positionBtn = tr.querySelector('.position-toggle');
     var isHeld = tr.classList.contains('position-held');
     var isWarn = tr.classList.contains('position-warn');
+    // Same read as isHeld/isWarn above: applyHorizonBadges() is the single
+    // writer of position-surplus (the extra holding in an over-held book),
+    // toggled on the table row before this function runs. Without copying it
+    // here, a mobile reader sees "Book: 5 / 4 — too many" in the panel with
+    // no way to see which holding on screen is the extra one -- the table
+    // that DOES carry the mark is hidden below 600px.
+    var isSurplus = tr.classList.contains('position-surplus');
 
     // .lc-row order (LEVEL first, CHANGE second) is already pinned by
     // test_level_change_bars_python_and_js_agree — no data-lc-kind attribute
@@ -748,6 +755,7 @@ function _renderMobileCardsNow() {
       + (isInBand ? ' in-band' : '')
       + (isHeld ? ' position-held' : '')
       + (isWarn ? ' position-warn' : '')
+      + (isSurplus ? ' position-surplus' : '')
       + '"'
       + (expandable ? ' role="button" tabindex="0" aria-expanded="false"' : '')
       + ' data-sector-id="' + sectorId + '">'
@@ -1116,9 +1124,23 @@ function applyHorizonBadges() {
   var _bookState = null;
   if (holdings === 'ready' && window.Rescore && window.Rescore.selectBook) {
     var _rankedKeys = [], _heldKeys = [], _unbuyableKeys = [];
-    Array.prototype.forEach.call(rows, function (tr) {
+    // selectBook() reads rankedKeys[] POSITION as rank order (index 0 =
+    // best) -- it never looks at data-rank itself. `rows` is queried in
+    // current DOM order, which sortTable() (Composite, Theme, Rank Δ, ...)
+    // freely reorders, so collecting straight off `rows` silently ties the
+    // book's sell/buy list to whatever column a signed-in reader happened to
+    // have clicked last. Sorted here by the actual rank instead, so the
+    // result is correct independent of DOM/sort order -- whole-branch
+    // review finding.
+    var _rankedRows = Array.prototype.filter.call(rows, function (tr) {
       var k = tr.dataset.sectorKey || tr.dataset.sectorId;
-      if (!k || !tr.hasAttribute('data-rank')) { return; }
+      return !!k && tr.hasAttribute('data-rank');
+    });
+    _rankedRows.sort(function (a, b) {
+      return parseFloat(a.dataset.rank) - parseFloat(b.dataset.rank);
+    });
+    _rankedRows.forEach(function (tr) {
+      var k = tr.dataset.sectorKey || tr.dataset.sectorId;
       _rankedKeys.push(k);
       if (pos.isHeld(tr)) { _heldKeys.push(k); }
       if (tr.dataset.unbuyable === '1') { _unbuyableKeys.push(k); }
@@ -1474,6 +1496,16 @@ function initHorizonSelect() {
     b.addEventListener('click', function () { switchHorizon(b.getAttribute('data-horizon-choice')); });
   });
   renderHorizonStats(activeHorizon);
+  // Shared by the Done button and the #rp-lock checkbox below -- both fire a
+  // SMBookLock write and then need the panel/star UI re-synced from
+  // whatever SMBookLock actually ended up holding, whether the write
+  // succeeded or rejected (see the .then(refresh, refresh) call sites).
+  function _refreshLockUI() {
+    renderReviewPanel();
+    if (window.SMPositions && window.SMPositions.refreshLockUI) {
+      window.SMPositions.refreshLockUI();
+    }
+  }
   var doneBtn = document.getElementById('review-done-btn');
   if (doneBtn) {
     doneBtn.addEventListener('click', function () {
@@ -1486,12 +1518,14 @@ function initHorizonSelect() {
       var p = (window.SMBookLock && next)
         ? window.SMBookLock.lock(next, currentHorizon().key)
         : null;
-      Promise.resolve(p).then(function () {
-        renderReviewPanel();
-        if (window.SMPositions && window.SMPositions.refreshLockUI) {
-          window.SMPositions.refreshLockUI();
-        }
-      });
+      // Same refresh function on BOTH success and failure: lock()/unlock()
+      // deliberately propagate a write rejection rather than swallowing it
+      // (Task 5), so a `.then(refresh)` with no rejection handler would skip
+      // `refresh` entirely on a failed write -- leaving the checkbox/count
+      // showing the OPTIMISTIC state the click asked for, not the real one
+      // SMBookLock actually holds. Passing `refresh` as both arguments
+      // re-syncs the UI from actual state either way.
+      Promise.resolve(p).then(_refreshLockUI, _refreshLockUI);
     });
   }
   var lockBox = document.getElementById('rp-lock');
@@ -1502,12 +1536,7 @@ function initHorizonSelect() {
       var p = lockBox.checked && next
         ? window.SMBookLock.lock(next, currentHorizon().key)
         : window.SMBookLock.unlock();
-      Promise.resolve(p).then(function () {
-        renderReviewPanel();
-        if (window.SMPositions && window.SMPositions.refreshLockUI) {
-          window.SMPositions.refreshLockUI();
-        }
-      });
+      Promise.resolve(p).then(_refreshLockUI, _refreshLockUI);
     });
   }
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {

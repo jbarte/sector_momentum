@@ -196,6 +196,133 @@ def test_unlock_fails_safe_stays_locked_when_write_rejects():
     )
 
 
+# ---------------------------------------------------------------------------
+# load() must actually be CALLED somewhere, not just correct in isolation
+# (whole-branch review, Critical finding). Every test above calls load()
+# itself, which proves load() works but not that anything in production
+# code ever invokes it -- and nothing did: `state` stayed null for the whole
+# page lifetime, so isLocked() reported false on every fresh page load, even
+# with a real persisted lock in Supabase. These tests never call load()
+# directly -- only the auth-state callback and then isLocked()/lockedUntil()/
+# isLoaded(), exactly as a real caller would -- so they can only pass if the
+# auth-state hook actually wires load() in.
+
+def _run_node_async(script: str) -> dict:
+    """Like _run_node, but for a script whose final output is written from
+    inside a setTimeout (load()'s .then() needs a tick to resolve)."""
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, f"node script failed: {res.stderr}"
+    return json.loads(res.stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_load_is_wired_to_auth_state_change():
+    js_src = _LOCK_JS.read_text()
+    script = f"""
+        global.window = {{}};
+        global.document = {{ dispatchEvent: function () {{}} }};
+        window.Rescore = {{ localISODate: function () {{ return "2026-08-29"; }} }};
+        var selectCalls = 0;
+        var authCallback = null;
+        window.SMSupabase = {{
+          auth: {{
+            onAuthStateChange: function (cb) {{ authCallback = cb; }}
+          }},
+          from: function (table) {{
+            return {{
+              select: function () {{
+                selectCalls++;
+                return {{ maybeSingle: function () {{
+                  return Promise.resolve({{ data: {{
+                    horizon_key: "weekly", locked_until: "2099-01-01", unlocked_at: null
+                  }}, error: null }});
+                }} }};
+              }}
+            }};
+          }}
+        }};
+
+        {js_src}
+
+        // No window.SMBookLock.load() call anywhere in this script -- the
+        // whole point is that the auth-state hook must call it on its own.
+        var beforeAuth = window.SMBookLock.isLocked();
+        authCallback("SIGNED_IN", {{ user: {{ id: "u1" }} }});
+        setTimeout(function () {{
+          process.stdout.write(JSON.stringify({{
+            beforeAuth: beforeAuth,
+            afterAuth: window.SMBookLock.isLocked(),
+            lockedUntilAfterAuth: window.SMBookLock.lockedUntil(),
+            loadedAfterAuth: window.SMBookLock.isLoaded(),
+            selectCalls: selectCalls
+          }}));
+        }}, 50);
+    """
+    out = _run_node_async(script)
+    assert out["selectCalls"] == 1, (
+        "load() was never invoked when a session became available -- "
+        "onAuthStateChange is not wired to load()"
+    )
+    assert out["beforeAuth"] is False, "isLocked() should start false (nothing loaded yet)"
+    assert out["loadedAfterAuth"] is True
+    assert out["afterAuth"] is True, (
+        "isLocked() does not reflect a real persisted lock after the "
+        "auth-state hook fires -- reload, or a second device, would show "
+        "the book as unlocked even though Supabase holds an active lock"
+    )
+    assert out["lockedUntilAfterAuth"] == "2099-01-01"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_sign_out_resets_stale_lock_state():
+    """A previous user's lock (or a previous session's, on a shared device)
+    must not keep reporting locked after sign-out."""
+    js_src = _LOCK_JS.read_text()
+    script = f"""
+        global.window = {{}};
+        global.document = {{ dispatchEvent: function () {{}} }};
+        window.Rescore = {{ localISODate: function () {{ return "2026-08-29"; }} }};
+        var authCallback = null;
+        window.SMSupabase = {{
+          auth: {{ onAuthStateChange: function (cb) {{ authCallback = cb; }} }},
+          from: function (table) {{
+            return {{
+              select: function () {{
+                return {{ maybeSingle: function () {{
+                  return Promise.resolve({{ data: {{
+                    horizon_key: "weekly", locked_until: "2099-01-01", unlocked_at: null
+                  }}, error: null }});
+                }} }};
+              }}
+            }};
+          }}
+        }};
+
+        {js_src}
+
+        authCallback("SIGNED_IN", {{ user: {{ id: "u1" }} }});
+        setTimeout(function () {{
+          var whileSignedIn = window.SMBookLock.isLocked();
+          authCallback("SIGNED_OUT", null);
+          process.stdout.write(JSON.stringify({{
+            whileSignedIn: whileSignedIn,
+            afterSignOut: window.SMBookLock.isLocked(),
+            loadedAfterSignOut: window.SMBookLock.isLoaded()
+          }}));
+        }}, 50);
+    """
+    out = _run_node_async(script)
+    assert out["whileSignedIn"] is True
+    assert out["afterSignOut"] is False, (
+        "isLocked() still reports true right after sign-out -- state was "
+        "not reset, so a stale lock can leak into the next signed-out view"
+    )
+    assert out["loadedAfterSignOut"] is False, (
+        "isLoaded() still reports true after sign-out -- a later sign-in "
+        "for a different user could be skipped for looking already-loaded"
+    )
+
+
 def test_star_toggle_is_blocked_while_locked():
     """The friction. Without this the lock is decoration."""
     js = (_ROOT / "dashboard/assets/positions.js").read_text()
@@ -248,6 +375,39 @@ def test_live_region_exists_for_the_blocked_click_announcement():
     # though announceLive() looks the element up lazily on each call today
     # rather than once at load time.
     assert footer.index('id="sm-live-region"') < footer.index('assets/positions.js')
+
+
+def test_blocked_click_has_a_visible_channel_not_just_hover_title():
+    """Whole-branch review finding: the ONLY visible cue a blocked tap had
+    was the `title` attribute, which needs a hover-dwell no touch device
+    ever produces -- so on a phone, a blocked tap produced no visible change
+    at all (#sm-live-region, the other channel, is .sr-only by design). Pins
+    both ends of the fix: positions.js writes into #rp-block-note on a
+    blocked tap, and _review_panel.html.j2 actually defines that element
+    (hidden by default, so it doesn't occupy space until a tap happens)."""
+    js = (_ROOT / "dashboard/assets/positions.js").read_text()
+    assert 'getElementById("rp-block-note")' in js, (
+        "no visible-cue element is targeted for a blocked tap -- the title "
+        "attribute (hover-only) and the sr-only live region are still the "
+        "only feedback a blocked tap gives"
+    )
+    # The blocked-click handler must actually call the function that writes
+    # to it, not just define the function unused.
+    blocked_click = js[js.index("SMBookLock.isLocked()"):]
+    assert "showBlockNote(" in blocked_click[:600], (
+        "showBlockNote() is defined but the blocked-click handler never "
+        "calls it"
+    )
+
+    panel = (_ROOT / "dashboard/templates/_review_panel.html.j2").read_text()
+    assert 'id="rp-block-note"' in panel, (
+        "no template element for positions.js's visible blocked-tap cue to reach"
+    )
+    assert 'hidden' in panel[panel.index('id="rp-block-note"') - 40:
+                             panel.index('id="rp-block-note"') + 40], (
+        "#rp-block-note is not hidden by default -- it would show empty "
+        "space on every page load, not just after a blocked tap"
+    )
 
 
 def test_panel_has_a_lock_checkbox_and_an_override():

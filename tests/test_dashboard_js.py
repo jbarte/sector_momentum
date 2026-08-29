@@ -1933,6 +1933,18 @@ def test_card_position_warn_css_rule_exists():
     assert "⚠" in glyph_m.group(0)
 
 
+def test_card_position_surplus_css_rule_exists():
+    """Mirrors .leaderboard-row.position-surplus's inset accent (_tables.css.j2)
+    at card scale -- same gap as position-held/position-warn above: without
+    styling, _renderMobileCardsNow() could copy the class correctly and the
+    card would still look identical to any other held card."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.leaderboard-card\.position-surplus\s*\{[^}]*\}", css)
+    assert m, ".leaderboard-card.position-surplus rule not found"
+    assert "box-shadow" in m.group(0)
+
+
 def test_card_position_toggle_touch_target_scoped_to_cards_only():
     """44px WCAG touch target, but scoped to `.leaderboard-card
     .position-toggle` rather than added to the file's shared
@@ -1992,6 +2004,24 @@ def test_render_mobile_cards_reads_position_state():
     assert "classList.contains('position-held')" in js
     assert "classList.contains('position-warn')" in js
     assert "position-held" in js and "position-warn" in js
+
+
+def test_render_mobile_cards_reads_position_surplus():
+    """Whole-branch review finding: applyHorizonBadges() marks the extra
+    holding in an over-held book with .position-surplus on the table row
+    (the same fact the review panel counts as 'Book: 5 / 4 -- too many'),
+    but _renderMobileCardsNow() copied position-held/position-warn onto the
+    card and not this one -- so a mobile reader had no way to see which
+    holding on screen was the surplus one. Same read as isHeld/isWarn just
+    above it, and the same class copied onto the card's own class list."""
+    js = _render_mobile_cards_js()
+    assert "classList.contains('position-surplus')" in js
+    assert "isSurplus" in js
+    # The read and the write must be the SAME variable, not a re-derivation:
+    # confirms isSurplus is actually threaded into the card's class string,
+    # not just read and discarded.
+    m = re.search(r"isSurplus\s*\?\s*'[^']*position-surplus", js)
+    assert m, "isSurplus is read but never written into the card's class list"
 
 
 def test_render_mobile_cards_position_toggle_uses_outerHTML():
@@ -3221,3 +3251,89 @@ def test_surplus_style_exists():
     css = (Path(__file__).parent.parent
            / "dashboard/templates/css/_tables.css.j2").read_text()
     assert ".position-surplus" in css, "surplus rows have no visual treatment"
+
+
+# ---------------------------------------------------------------------------
+# Whole-branch review finding: selectBook()'s rankedKeys must be RANK order,
+# not raw querySelectorAll() DOM order (sortTable()-reorderable).
+# ---------------------------------------------------------------------------
+
+def _book_collection_js():
+    """The row-collection block inside applyHorizonBadges() that builds
+    _rankedKeys/_heldKeys/_unbuyableKeys and calls selectBook(), extracted
+    verbatim so the test exercises the real production code."""
+    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    start = text.index("var _rankedKeys = [], _heldKeys = [], _unbuyableKeys = [];")
+    end_marker = "_bookState = window.Rescore.selectBook(_rankedKeys, _heldKeys, h, _unbuyableKeys);"
+    end = text.index(end_marker) + len(end_marker)
+    return text[start:end]
+
+
+def test_book_collection_sorts_by_data_rank():
+    """Source pin for the fix itself: the collection must sort on the actual
+    rank value, not rely on `rows` already being in rank order."""
+    snippet = _book_collection_js()
+    assert "parseFloat(a.dataset.rank) - parseFloat(b.dataset.rank)" in snippet, (
+        "row collection no longer sorts by data-rank before building "
+        "_rankedKeys -- selectBook()'s result again depends on whatever "
+        "order sortTable() last left the DOM in"
+    )
+    assert ".sort(" in snippet
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_book_state_is_independent_of_dom_order():
+    """Behavioral proof, not just source-pinned: selectBook() reads
+    rankedKeys[] POSITION as rank order (index 0 = best rank) -- it never
+    looks at data-rank itself. Rows are collected via querySelectorAll in
+    whatever order sortTable() (Composite, Theme, Rank Δ, ...) last left the
+    DOM in. Feeds the SAME three rows to the real, verbatim-extracted
+    collection code in two different orders -- already rank-sorted, and
+    reversed (as a reader who just sorted by Theme name would leave them) --
+    and asserts selectBook() returns the IDENTICAL sells/buys/picks either
+    way. Before this fix this would fail: the reversed input fed a
+    differently-ordered _rankedKeys straight into selectBook(), which would
+    keep the wrong holding and buy the wrong name."""
+    snippet = _book_collection_js()
+    rescore_path = _PROJECT_ROOT / "dashboard/assets/rescore.js"
+    script = f"""
+        global.window = {{}};
+        window.Rescore = require({str(rescore_path)!r});
+
+        function mkRow(rank, key) {{
+          return {{
+            dataset: {{ sectorKey: key, rank: String(rank) }},
+            hasAttribute: function (name) {{ return name === 'data-rank'; }}
+          }};
+        }}
+        // A ranked 1 (best), B ranked 2 and HELD, C ranked 3.
+        var A = mkRow(1, 'A'), B = mkRow(2, 'B'), C = mkRow(3, 'C');
+        var pos = {{ isHeld: function (tr) {{ return tr === B; }} }};
+        // band = top_n(1) + buffer(0) = 1: B's rank (index 1) sits OUTSIDE
+        // the band, so it must be sold and A (rank index 0) bought instead --
+        // but only if rankOf is built from RANK order, not from whichever
+        // array position each row happens to occupy below.
+        var h = {{ top_n: 1, buffer: 0 }};
+
+        function run(rows) {{
+          var _bookState = null;
+          {snippet}
+          return _bookState;
+        }}
+
+        process.stdout.write(JSON.stringify({{
+          rankOrder: run([A, B, C]),
+          domReordered: run([C, A, B])
+        }}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    out = json.loads(res.stdout)
+    assert out["rankOrder"]["sells"] == ["B"]
+    assert out["rankOrder"]["buys"] == ["A"]
+    assert out["rankOrder"]["picks"] == ["A"]
+    assert out["domReordered"] == out["rankOrder"], (
+        "selectBook()'s result changed when the SAME rows were fed in a "
+        "different (sortTable()-style reordered) DOM order -- the "
+        "collection is still order-dependent"
+    )

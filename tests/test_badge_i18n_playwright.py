@@ -225,3 +225,88 @@ def test_toggle_lang_after_render_preserves_suffix(page):
         f"badge text after toggleLang() ({sv_text!r}) lost its suffix {suffix!r}"
     )
     assert sv_text.startswith("▲ Gå in"), f"unexpected text after toggle: {sv_text!r}"
+
+
+# ---------------------------------------------------------------------------
+# Whole-branch review finding: the review panel never re-renders on a
+# language toggle. renderReviewPanel()'s headline/action-list/count text is
+# built imperatively via t(key, fallback) calls that read the current
+# language once, at render time; apply(lang) (_i18n.html.j2) only rewrites
+# [data-i18n*] elements, with no hook back into renderReviewPanel(). A reader
+# who toggles language sees the panel stay in the old language until some
+# UNRELATED event (a horizon switch, a star click, sign-in) happens to
+# re-run renderReviewPanel() for its own reasons.
+# ---------------------------------------------------------------------------
+
+def _rp_headline_text(page):
+    return page.evaluate(
+        "() => { var h = document.getElementById('rp-headline'); "
+        "return h ? h.textContent : null; }"
+    )
+
+
+def _rp_note_text(page):
+    return page.evaluate(
+        "() => { var n = document.querySelector('#rp-actions .rp-note'); "
+        "return n ? n.textContent : null; }"
+    )
+
+
+def _set_fake_book_state(page):
+    """A minimal truthy window.SM_BOOK_STATE, set directly rather than
+    simulating a full signed-in Supabase session -- renderReviewPanel() only
+    ever READS this global (applyHorizonBadges() is what normally writes it),
+    so setting it directly exercises the exact same render path with far
+    less fixture machinery. Combined with the page's far-future review
+    calendar (status.due === false), this puts renderReviewPanel() on its
+    "no action" branch, which has real translated dynamic text (the
+    headline's date-qualified "Next review" and the rp_no_action note) --
+    unlike the guest (book === null) branch, which shows only the date."""
+    page.evaluate(
+        "() => { window.SM_BOOK_STATE = { picks: [], buys: [], sells: [], "
+        "blocked: [], surplus: [], freeSlots: 0, overHeld: 0 }; }"
+    )
+
+
+def test_review_panel_renders_in_english(page):
+    """Sanity/regression-guard, same role as
+    test_entry_badge_carries_date_suffix_in_english: the English render must
+    be correct before the Swedish-toggle path below can mean anything."""
+    page.evaluate("() => localStorage.setItem('lang', 'en')")
+    _set_fake_book_state(page)
+    page.evaluate("() => window.renderReviewPanel()")
+    headline = _rp_headline_text(page)
+    note = _rp_note_text(page)
+    assert headline is not None and headline.startswith("Next review"), (
+        f"unexpected English headline: {headline!r}"
+    )
+    assert note == "No action until then.", f"unexpected English note: {note!r}"
+
+
+def test_review_panel_retranslates_on_lang_toggle(page):
+    """The actual regression: renderReviewPanel() renders once (English), the
+    reader then toggles language via window.toggleLang() -- exactly the
+    lang-toggle button's own handler, same pattern as
+    test_toggle_lang_after_render_preserves_suffix -- with NO direct
+    renderReviewPanel() call in between. The panel's live DOM text must
+    switch to Swedish anyway, which only happens if apply(lang) itself calls
+    renderReviewPanel()."""
+    page.evaluate("() => localStorage.setItem('lang', 'en')")
+    _set_fake_book_state(page)
+    page.evaluate("() => window.renderReviewPanel()")
+    en_headline = _rp_headline_text(page)
+    en_note = _rp_note_text(page)
+    assert en_headline is not None and en_headline.startswith("Next review")
+    assert en_note == "No action until then."
+
+    page.evaluate("() => window.toggleLang()")
+    sv_headline = _rp_headline_text(page)
+    sv_note = _rp_note_text(page)
+    assert sv_headline is not None and sv_headline.startswith("Nästa granskning"), (
+        f"panel headline after toggleLang() ({sv_headline!r}) is still "
+        f"English -- apply(lang) never re-ran renderReviewPanel()"
+    )
+    assert sv_note == "Ingen åtgärd förrän dess.", (
+        f"panel action-list text after toggleLang() ({sv_note!r}) is still "
+        f"English"
+    )

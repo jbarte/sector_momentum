@@ -73,6 +73,19 @@
     // The leaderboard filter count is built in JS, so it misses the static
     // data-i18n pass above — re-render it in the new language.
     if (typeof window.applyFilters === "function") window.applyFilters();
+    // Same gap, same fix, for the review panel: its headline/action-list/
+    // count text is built imperatively by renderReviewPanel() (index.html.j2)
+    // via t(key, fallback) calls that read the current language once, at
+    // render time -- there is no data-i18n* attribute on any of it for the
+    // querySelectorAll passes above to find. Without this, a reader who
+    // toggles language sees the panel stay in the old language until some
+    // UNRELATED event (a horizon switch, a star click) happens to re-run
+    // renderReviewPanel() for its own reasons. No recursion risk:
+    // renderReviewPanel() does not call back into apply()/toggleLang().
+    // Reached via window., not a bare call, because this script block and
+    // index.html.j2's are separate <script> tags -- same reason applyFilters()
+    // above is reached through window. rather than called directly.
+    if (typeof window.renderReviewPanel === "function") window.renderReviewPanel();
   }
 
   function currentLang() {
