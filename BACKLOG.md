@@ -107,31 +107,6 @@ point is to measure where it is rather than inherit it from the grid bounds.
 Now cheap to check properly with `--end` (shipped 2026-08-26, see Done),
 which makes disjoint early/late windows possible.
 
-## Only one row/card should be expanded at a time
-
-Requested 2026-08-25. Today `toggleBreakdown(id)` (desktop table,
-`index.html.j2` ~line 1507) and each mobile card's own click handler
-(`renderMobileCards()` ~line 830) each toggle only the ONE row/card they
-were called on — nothing collapses any OTHER already-open row/card, so a
-reader can open every theme's breakdown at once. Wanted: accordion
-behavior instead — expanding one row/card collapses whatever else was open,
-in both the desktop table and the mobile card list (asked and confirmed as
-two views of the same behavior, not two different features).
-
-Note the two views keep genuinely independent open-state today (own
-comment at ~line 821: "The two are never visible at the same time (table
-hidden on mobile, cards hidden on desktop), so independent state causes no
-visible inconsistency") — that only covers the CURRENT toggle-in-isolation
-behavior, and needs rechecking once each view enforces single-expansion,
-since the accordion logic likely wants to live once per view rather than
-shared, unless a reason turns up to unify it.
-
-Also in scope to check: `_collapseBreakdown(sectorId)` (~line 1570, called
-from `applyFilters()` when a filter hides a row) already force-closes one
-row's breakdown from outside its own toggle handler — the accordion's
-"close the previously-open one" step is the same shape of operation and
-should probably reuse or sit next to it rather than duplicate it.
-
 ## Mobile card's expand-region nests a real button inside role="button"
 
 Code review, 2026-08-24, on the mobile-holdings-toggle fix (see Done). An
@@ -839,6 +814,33 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Only one row/card is expanded at a time (2026-08-29)
+
+Requested 2026-08-25. `toggleBreakdown()` (desktop table) and each mobile
+card's click handler each toggled only the row/card they were called on, so
+a reader could expand every theme at once and then had to collapse each one
+by hand. Both now collapse whatever else is open before expanding.
+
+The desktop side reuses `_collapseBreakdown()` rather than clearing the
+class inline, so "close a panel from outside its own toggle" -- which also
+has to reset `aria-expanded` on the row -- stays in one place;
+`applyFilters()` has always used it for exactly that.
+
+The two views keep their independent open-state, as the queued item asked
+to recheck. Deliberate, and now commented: cards carry their breakdown
+inline while the table keeps it in a sibling `#bd-<id>` row, so there is no
+common element a single shared helper could operate on, and the two are
+never visible at once anyway.
+
+Covered by `tests/test_single_expand_accordion.py` -- real headless-Chromium
+tests, not source-text assertions. The property is "opening B closes A", a
+relationship between two elements across two click events; a source scan can
+confirm a collapse call exists but not that it fires on the right element at
+the right time. Includes a regression guard that the plain open/close toggle
+still works, and that an auto-collapsed row stops reporting
+`aria-expanded="true"`.
+
 
 ## Assets are cache-busted, so a deploy can't serve a mixed old/new page (2026-08-29)
 
