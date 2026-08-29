@@ -194,3 +194,49 @@ def test_unlock_fails_safe_stays_locked_when_write_rejects():
     assert out["afterFailedUnlock"] is True, (
         "unlock() cleared the lock locally after a rejected, unpersisted write"
     )
+
+
+def test_star_toggle_is_blocked_while_locked():
+    """The friction. Without this the lock is decoration."""
+    js = (_ROOT / "dashboard/assets/positions.js").read_text()
+    assert "SMBookLock" in js, (
+        "positions.js never consults the lock, so a locked book can still be "
+        "edited by tapping a star"
+    )
+    assert "isLocked" in js
+
+
+def test_blocked_click_explains_itself():
+    """A star that silently does nothing reads as a broken page."""
+    js = (_ROOT / "dashboard/assets/positions.js").read_text()
+    assert "lock_blocked" in js, (
+        "a refused toggle gives the reader no reason"
+    )
+
+
+def test_panel_has_a_lock_checkbox_and_an_override():
+    panel = (_ROOT / "dashboard/templates/_review_panel.html.j2").read_text()
+    assert 'id="rp-lock"' in panel, "no lock control in the review panel"
+    tpl = (_ROOT / "dashboard/templates/index.html.j2").read_text()
+    assert "SMBookLock.unlock" in tpl, (
+        "no override path -- a lock with no escape can leave the board unable "
+        "to record a real trade"
+    )
+
+
+def test_done_auto_locks_until_the_next_review():
+    # Window widened from the original 2000: "review-done-btn" first appears
+    # in renderReviewPanel()'s own `doneBtn.hidden = ...` lookup (Task 3),
+    # well before the click-binding block in initHorizonSelect() that this
+    # test actually targets -- 2000 chars lands short of it.
+    tpl = (_ROOT / "dashboard/templates/index.html.j2").read_text()
+    done = tpl[tpl.index("review-done-btn"):]
+    assert "SMBookLock.lock" in done[:6000], (
+        "ticking Done does not re-lock the book, so the cycle does not close"
+    )
+
+
+def test_lock_strings_have_swedish():
+    sv = (_ROOT / "dashboard/templates/i18n/_core.js.j2").read_text()
+    for key in ("rp_lock_label", "lock_blocked", "rp_unlock"):
+        assert f"{key}:" in sv, f"{key} has no Swedish translation"

@@ -1432,6 +1432,17 @@ function renderReviewPanel() {
     }
   }
 
+  // The lock control. Signed-in only: it locks a book that only exists with a
+  // session. Reflects state rather than owning it -- SMBookLock is the source.
+  var lockWrap = document.getElementById('rp-lock-wrap');
+  var lockBox = document.getElementById('rp-lock');
+  if (lockWrap && lockBox && window.SMBookLock) {
+    lockWrap.hidden = false;
+    var locked = window.SMBookLock.isLocked();
+    lockBox.checked = locked;
+    lockWrap.classList.toggle('is-locked', locked);
+  }
+
   // Book count. Over-held is the consequential one: nothing trims it.
   var target = currentHorizon().top_n;
   countEl.textContent = t('rp_book', 'Book') + ': ' + book.picks.length + ' / ' + target;
@@ -1467,7 +1478,27 @@ function initHorizonSelect() {
   if (doneBtn) {
     doneBtn.addEventListener('click', function () {
       ackReview(currentHorizon().key);
+      var next = currentReviewStatus().nextDate;
+      if (window.SMBookLock && next) {
+        window.SMBookLock.lock(next, currentHorizon().key);
+      }
       renderReviewPanel();
+    });
+  }
+  var lockBox = document.getElementById('rp-lock');
+  if (lockBox) {
+    lockBox.addEventListener('change', function () {
+      if (!window.SMBookLock) { return; }
+      var next = currentReviewStatus().nextDate;
+      var p = lockBox.checked && next
+        ? window.SMBookLock.lock(next, currentHorizon().key)
+        : window.SMBookLock.unlock();
+      Promise.resolve(p).then(function () {
+        renderReviewPanel();
+        if (window.SMPositions && window.SMPositions.refreshLockUI) {
+          window.SMPositions.refreshLockUI();
+        }
+      });
     });
   }
   Array.prototype.forEach.call(document.querySelectorAll('.bt-row'), function (tr) {
