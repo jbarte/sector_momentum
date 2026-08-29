@@ -120,7 +120,9 @@ class TestSpanAndConclusive:
 
 def _jinja_env():
     from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
     env = Environment(loader=FileSystemLoader(str(_TPL_DIR)), keep_trailing_newline=True)
+    register_asset_url(env)
     env.filters["js_json"] = (
         lambda v: v.replace("</", r"<\/") if isinstance(v, str) else v
     )

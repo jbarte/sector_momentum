@@ -840,6 +840,41 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## Assets are cache-busted, so a deploy can't serve a mixed old/new page (2026-08-29)
+
+**Found the day the book-lock shipped, by the lock silently not locking.**
+The lock code was correct — verified against the deployed artifacts, and it
+blocked correctly in a cold browser. The failure was the deploy: GitHub
+Pages serves `docs/assets/*.js` with `cache-control: max-age=600` and
+nothing in the URL changed between deploys, so Safari paired its cached
+pre-deploy `positions.js` (which knew nothing about `SMBookLock`) with the
+freshly-deployed page that rendered the lock UI. New HTML, old JS. The UI
+claimed a safety feature was on while the code enforcing it was absent —
+the worst shape this failure can take. Confirmed by the reader: worked in a
+fresh browser, failed in Safari, fixed by a hard reload.
+
+Every script tag now goes through `asset_url('name.js')`, which appends a
+short **content hash** (`?v=10c670b9`). Content-derived, not a build id or
+timestamp, and that distinction is load-bearing: the scan runs daily, and
+`plotly.min.js` (1.4 MB) plus `supabase.min.js` (203 KB) essentially never
+change — a per-build id would have made every reader re-download ~1.6 MB
+every day. Verified both directions: touching `positions.js` changes its
+hash while `plotly.min.js` keeps its own.
+
+This does not make deploys instant — `index.html` has its own 10-minute TTL,
+so a reader can still get a page up to 10 minutes old. What it removes is
+the *mixing*: whatever page you get, its scripts match it.
+
+Two things fell out of the change, both worth keeping:
+- The `{{ plotly_bundle }}` context-variable special case is gone; plotly
+  uses the same one mechanism as everything else.
+- `register_asset_url()` is exported from `build.py` and used by the nine
+  test files that build their own Jinja `Environment`. Those tests each
+  constructing an env by hand is exactly why this change broke 25 of them
+  at once — a test that renders differently from production has stopped
+  describing production.
+
+
 ## Review cadence, book state, and the position lock (2026-08-27)
 
 **Second attempt at a problem whose first fix shipped and did not work.** The

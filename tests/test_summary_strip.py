@@ -55,7 +55,9 @@ def _render_header(active_segment, macro=None, auth=False):
     test_mobile_scan_meta_survives_missing_scan_date (test_dashboard_js.py)
     uses for this exact template."""
     from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
     env = Environment(loader=FileSystemLoader(str(ROOT / "dashboard" / "templates")))
+    register_asset_url(env)
     return env.get_template("_header.html.j2").render(
         active_segment=active_segment, macro=macro, auth=auth)
 

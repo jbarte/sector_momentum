@@ -49,8 +49,10 @@ def _rows():
 def _render_index(**overrides) -> str:
     from tests.test_dashboard_js import _horizon_ctx
     from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
 
     env = Environment(loader=FileSystemLoader(str(_TPL_DIR)), keep_trailing_newline=True)
+    register_asset_url(env)
     env.filters["js_json"] = lambda v: v.replace("</", r"<\/") if isinstance(v, str) else v
     ctx = dict(
         scan_date="2026-08-10", leaderboard_rows=_rows(), cohort_list=[],

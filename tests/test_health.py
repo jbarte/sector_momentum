@@ -223,7 +223,9 @@ class _FooterRenderHelper:
 
     def _render(self, health, health_badges=None, health_any_warn=False, same_asof_streak=None):
         from jinja2 import Environment, FileSystemLoader
+        from dashboard.build import register_asset_url
         env = Environment(loader=FileSystemLoader(str(self._TPL)))
+        register_asset_url(env)
         return env.get_template("_footer.html.j2").render(
             health=health,
             health_badges=health_badges or {},

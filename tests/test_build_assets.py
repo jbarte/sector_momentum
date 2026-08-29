@@ -16,12 +16,11 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 _TPL_DIR = _PROJECT_ROOT / "dashboard" / "templates"
 _BUILD_PY = _PROJECT_ROOT / "dashboard" / "build.py"
 
-# The one asset reference that isn't a literal `src="assets/…"` string: both
-# pages load it via `{{ plotly_bundle }}`, and build.py pins that variable to
-# the literal string "assets/plotly.min.js" (see build.py:451). Hardcoded
-# here rather than resolved by rendering the template, since this test is
-# deliberately static/DB-free — see the module docstring.
-_TEMPLATED_ASSET_REFS = {"plotly.min.js"}
+# Every asset — plotly included — now goes through `asset_url('name.js')`,
+# so there is no longer a reference form this scan cannot see. The old
+# `{{ plotly_bundle }}` context-variable special case was removed on
+# 2026-08-29 when cache-busting made one uniform mechanism worthwhile.
+_TEMPLATED_ASSET_REFS: set[str] = set()
 
 
 def _referenced_assets() -> set[str]:
@@ -37,7 +36,15 @@ def _referenced_assets() -> set[str]:
     """
     names = set(_TEMPLATED_ASSET_REFS)
     for path in _TPL_DIR.rglob("*.j2"):
-        for m in re.finditer(r'src="assets/([^"]+)"', path.read_text()):
+        text = path.read_text()
+        # Cache-busted form (the only one since 2026-08-29): every script tag
+        # goes through asset_url('name.js') so build.py can append a content
+        # hash. See the cache-busting tests at the bottom of this file.
+        for m in re.finditer(r"asset_url\(\s*['\"]([^'\"]+)['\"]\s*\)", text):
+            names.add(m.group(1))
+        # Literal form, still matched so a regression back to a hardcoded
+        # (and therefore un-bustable) src is caught rather than ignored.
+        for m in re.finditer(r'src="assets/([^"]+)"', text):
             names.add(m.group(1))
     return names
 
@@ -134,3 +141,107 @@ def test_every_vendored_bundle_url_has_a_pinned_sha256():
             f"downloaded at build time and served to readers must be pinned by "
             f"content, not just by URL."
         )
+
+
+# ---------------------------------------------------------------------------
+# Cache busting
+#
+# Found live 2026-08-29, the day the book-lock feature shipped: the lock
+# silently did not lock. Root cause was not the lock code (correct, and
+# verified against the deployed artifacts) but the deploy — GitHub Pages
+# serves these assets with `cache-control: max-age=600` and NOTHING in the
+# URL changed between deploys, so a reader whose browser had cached the
+# previous `positions.js` ran it against the freshly-deployed page. The page
+# rendered the new lock UI while the old script, which knew nothing about
+# `SMBookLock`, handled the clicks: new HTML, old JS.
+#
+# That mixed-version page is the general failure these tests prevent. The
+# lock was just the instance that made it visible — and the worst kind,
+# because the UI claimed a safety feature was on while the code enforcing
+# it was absent.
+# ---------------------------------------------------------------------------
+
+def _js_srcs(html: str) -> list[str]:
+    """Every `src="assets/....js..."` value in a rendered page."""
+    return re.findall(r'src="(assets/[^"]+\.js[^"]*)"', html)
+
+
+def test_rendered_js_assets_all_carry_a_cache_busting_query(tmp_path):
+    """Every JS asset URL must carry a version query, so a browser cannot
+    pair a new page with a stale script. Rendered for real rather than
+    grepped from template source: the point is what a reader's browser
+    actually receives."""
+    import json as _json
+    import sys
+    sys.path.insert(0, str(_PROJECT_ROOT))
+    from dashboard.build import _render
+    from tests.test_dashboard_js import (
+        _horizon_ctx, _make_mock_plotly_json, _TEMPLATE,
+    )
+
+    # Derived from the templates themselves: a script tag added later
+    # WITHOUT asset_url() gets no version here and shows up unversioned in
+    # the assertion below, which is exactly the regression to catch.
+    versions = {name: "v%08d" % i for i, name in enumerate(sorted(_referenced_assets()))}
+
+    out = tmp_path / "index.html"
+    _render(_TEMPLATE, out, dict(
+        scan_date="2026-08-29",
+        leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
+        cohort_list=[], grouped_rows=[], has_any_rows=False,
+        cohorts_json=_json.dumps([]), **_horizon_ctx(),
+        cohort_charts_json=_json.dumps({}),
+        sentiment_scatter_json=_make_mock_plotly_json(),
+        rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
+        scan_history_json=_json.dumps({"scans": [], "scores": {}}),
+        signals_list=[],
+        backtest_json=_json.dumps({}), backtest_metrics=[], has_backtest=False,
+        rotation_json=_json.dumps([]), has_rotations=False,
+        # Auth on, so the gated scripts (positions.js and book-lock.js — the
+        # two the live failure actually involved) are in the rendered output.
+        auth={"url": "https://example.supabase.co", "key": "anon"},
+        auth_config_json=_json.dumps({"url": "https://example.supabase.co", "key": "anon"}),
+        asset_versions=versions,
+    ))
+    html = out.read_text()
+
+    srcs = _js_srcs(html)
+    assert srcs, "rendered page referenced no JS assets at all — fixture is wrong"
+    unversioned = [s for s in srcs if "?v=" not in s]
+    assert not unversioned, (
+        "these JS assets have no cache-busting query, so a stale cached copy "
+        f"can be paired with a newer page: {unversioned}"
+    )
+
+
+def test_asset_version_is_content_derived(tmp_path):
+    """The version must change when a file's CONTENT changes, and stay put
+    when it doesn't — a build-timestamp version would re-bust plotly.min.js
+    (1.4 MB) on every daily scan for a file that never changes."""
+    import sys
+    sys.path.insert(0, str(_PROJECT_ROOT))
+    from dashboard.build import _asset_versions
+
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    (assets / "a.js").write_text("console.log(1);")
+    first = _asset_versions(assets, ["a.js"])
+
+    # Unchanged content -> identical version (readers keep their cache).
+    assert _asset_versions(assets, ["a.js"]) == first
+
+    # Changed content -> different version (readers are forced to refetch).
+    (assets / "a.js").write_text("console.log(2);")
+    assert _asset_versions(assets, ["a.js"])["a.js"] != first["a.js"]
+
+
+def test_asset_version_skips_files_that_do_not_exist(tmp_path):
+    """The copy block is existence-gated (an un-fetched plotly bundle is a
+    normal local state), so the version map must tolerate the same."""
+    import sys
+    sys.path.insert(0, str(_PROJECT_ROOT))
+    from dashboard.build import _asset_versions
+
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    assert _asset_versions(assets, ["missing.js"]) == {}
