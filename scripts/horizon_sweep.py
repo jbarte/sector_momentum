@@ -140,9 +140,17 @@ def _is_degenerate(live: float | None) -> bool:
 def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
           unbuyable=frozenset()):
     """One grid cell. Mirrors run_theme_track's metric assembly, minus the
-    equity-curve serialisation we don't need here."""
+    equity-curve serialisation we don't need here.
+
+    `buffer` here is the sweep's own absolute-rank grid value (TOP_N x BUFFERS
+    stays absolute on purpose -- see this file's module docstring). It is
+    converted to a fraction ONLY for the call into strategy.simulate, which
+    requires buffer_frac; the returned row below still reports the original
+    absolute `buffer`, matching the exploratory grid's own units.
+    """
+    buffer_frac = buffer / max(1, len(instrument_of))
     sim = strategy.simulate(score_by_date, fwd, instrument_of,
-                            top_n=top_n, cost_bps=cost_bps, buffer=buffer,
+                            top_n=top_n, cost_bps=cost_bps, buffer_frac=buffer_frac,
                             unbuyable=unbuyable)
     if not sim["dates"]:
         return None

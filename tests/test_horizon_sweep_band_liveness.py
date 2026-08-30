@@ -133,3 +133,30 @@ def test_no_preset_warning_when_every_shipped_preset_is_live(tmp_path):
 def test_min_live_share_demands_a_band_that_is_live_nearly_always():
     """A cell live on half its dates is half buy-and-hold, not a tested rule."""
     assert 0.8 <= MIN_LIVE_SHARE <= 1.0
+
+
+def test_cell_converts_the_grid_buffer_to_a_fraction_before_calling_simulate(monkeypatch):
+    """The regression this guards: _cell()'s own buffer parameter is an
+    ABSOLUTE rank (the sweep's exploratory grid stays absolute-rank on
+    purpose), but strategy.simulate now requires buffer_frac. Calling
+    simulate(buffer=...) raises TypeError on every real invocation --
+    caught by no existing test, since nothing calls _cell() directly."""
+    import scripts.horizon_sweep as hs
+
+    captured = {}
+
+    def fake_simulate(score_by_date, fwd_returns, instrument_of, top_n=5,
+                      cost_bps=0.0, buffer_frac=0.0, unbuyable=frozenset()):
+        captured["buffer_frac"] = buffer_frac
+        return {"dates": [], "strategy_returns": [], "holdings": [], "turnover": []}
+
+    monkeypatch.setattr(hs.strategy, "simulate", fake_simulate)
+
+    instrument_of = {f"key{i}": f"TICK{i}" for i in range(20)}  # universe size 20
+    result = hs._cell({}, None, instrument_of, "ACWI", top_n=4, buffer=5, cost_bps=100.0)
+
+    assert result is None  # no dates -> _cell returns None, but simulate must have been called first
+    assert captured["buffer_frac"] == pytest.approx(5 / 20), (
+        "buffer=5 at universe_size=20 must convert to buffer_frac=0.25, "
+        "not be passed through as buffer= (which strategy.simulate no longer accepts)"
+    )
