@@ -57,7 +57,7 @@ def run_theme_track(
     top_n: int = 3,
     cost_bps: float = 0.0,
     rebalance_freq: str = "M",
-    buffer: int = 0,
+    buffer_frac: float = 0.0,
     since=None,
 ) -> dict | None:
     """`since` bounds the EVALUATION window without bounding `prices`.
@@ -88,7 +88,7 @@ def run_theme_track(
     fwd = strategy.forward_returns(prices, track_tickers, dates)
 
     sim = strategy.simulate(score_by_date, fwd, instrument_of, top_n=top_n,
-                            cost_bps=cost_bps, buffer=buffer,
+                            cost_bps=cost_bps, buffer_frac=buffer_frac,
                             unbuyable=unbuyable_keys(themes_cfg))
     if not sim["dates"]:
         return None
@@ -132,7 +132,7 @@ def run_theme_track(
         "top_n": top_n,
         "cost_bps": cost_bps,
         "rebalance_freq": rebalance_freq,
-        "buffer": buffer,
+        "buffer_frac": buffer_frac,
         "start": eq_dates[0].strftime("%Y-%m-%d"),
         "end": eq_dates[n_points - 1].strftime("%Y-%m-%d"),
         "metrics": {
