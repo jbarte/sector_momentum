@@ -183,20 +183,25 @@ def _compute_rank_trajectories(history_df) -> dict:
     return result
 
 
-def _compute_setup(row: dict, horizon=None) -> None:
+def _compute_setup(row: dict, horizon=None, *, universe_size: int) -> None:
     """Tag a leaderboard row with 'entry' or 'exit' setup, or None.
 
     This is the *position band* of the chosen horizon, not a momentum reading:
 
-        Entry   rank <= top_n              inside the buy band
-        Exit    rank >  top_n + buffer     left the hold band
-        None    in between                 the hold zone, deliberately silent
+        Entry   rank <= top_n                       inside the buy band
+        Exit    rank >  exit_rank(universe_size)     left the hold band
+        None    in between                           the hold zone, deliberately silent
 
     It replaces a trajectory + change-score heuristic that answered a different
     question ("is this accelerating?") and recomputed on every scan, so badges
     churned daily no matter what cadence the strategy was validated at. The band
     rule is the same one `strategy.simulate` uses, so the dashboard and the
     backtest finally describe one strategy.
+
+    `universe_size` is REQUIRED (keyword-only, no default): the band width is a
+    fraction of the scored universe, so there is no sane fallback value — a
+    caller that forgets to pass it must fail loudly here, not silently compute
+    a wrong badge from a made-up universe size.
 
     The Trend column still carries the trajectory reading — that is a descriptor
     and should keep describing.
@@ -209,7 +214,7 @@ def _compute_setup(row: dict, horizon=None) -> None:
         row["setup"] = None
     elif rank <= h.top_n:
         row["setup"] = "entry"
-    elif rank > h.exit_rank:
+    elif rank > h.exit_rank(universe_size):
         row["setup"] = "exit"
     else:
         row["setup"] = None

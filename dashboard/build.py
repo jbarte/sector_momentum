@@ -541,7 +541,7 @@ def main() -> None:
         # and without this the guest build renders every rank badge unhighlighted
         # while the buy-band cut line is drawn right below the fourth row.
         # `setup` is still withheld from guests, immediately below.
-        _compute_setup(row, _default_horizon)
+        _compute_setup(row, _default_horizon, universe_size=len(leaderboard_rows))
         if badges_gated:
             row["setup"] = None
         elif row["unbuyable"] and row["setup"] == "entry":

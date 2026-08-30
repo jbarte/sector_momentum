@@ -20,14 +20,66 @@ _TPL = _ROOT / "dashboard" / "templates"
 _SV = _TPL / "i18n" / "_core.js.j2"
 
 
+def _call_args(text: str, name: str) -> list[str]:
+    """Raw argument text of each `name(...)` call in `text`, matched by
+    tracking paren depth rather than stopping at the first `)` — a naive
+    `[^)]*` regex truncates on a nested call like `universe_size=len(latest)`."""
+    calls = []
+    start = 0
+    while True:
+        idx = text.find(name + "(", start)
+        if idx == -1:
+            break
+        open_idx = idx + len(name)
+        depth = 0
+        end = open_idx
+        for end in range(open_idx, len(text)):
+            if text[end] == "(":
+                depth += 1
+            elif text[end] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+        calls.append(text[open_idx + 1:end])
+        start = end + 1
+    return calls
+
+
+def _top_level_args(args: str) -> list[str]:
+    """Split a call's argument text on commas, ignoring commas nested inside
+    parens (e.g. the `latest` in `universe_size=len(latest)`)."""
+    parts, depth, current = [], 0, ""
+    for ch in args:
+        if ch == "(":
+            depth += 1
+            current += ch
+        elif ch == ")":
+            depth -= 1
+            current += ch
+        elif ch == "," and depth == 0:
+            parts.append(current.strip())
+            current = ""
+        else:
+            current += ch
+    if current.strip():
+        parts.append(current.strip())
+    return parts
+
+
 def test_alerts_really_do_use_the_default_horizon():
     """The premise the notice asserts. If `detect_badge_events` ever passes an
-    explicit horizon, the modal starts lying and this must fail."""
+    explicit horizon, the modal starts lying and this must fail.
+
+    `_compute_setup`'s row-dict arg is always first; `universe_size=...` is a
+    required keyword arg, not a horizon override, so it doesn't trip this —
+    only a second bare *positional* arg (an explicit horizon) should.
+    """
     alerts = (_ROOT / "src" / "alerts.py").read_text()
-    calls = re.findall(r"_compute_setup\(([^)]*)\)", alerts)
+    calls = _call_args(alerts, "_compute_setup")
     assert calls, "no _compute_setup call found in src/alerts.py — did it move?"
     for args in calls:
-        assert "," not in args, (
+        extra_positional = [p for p in _top_level_args(args)[1:] if "=" not in p]
+        assert not extra_positional, (
             f"_compute_setup({args}) passes an explicit horizon; alerts no longer "
             "run on the config default and the alerts modal's claim is now false"
         )

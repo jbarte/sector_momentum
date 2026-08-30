@@ -230,6 +230,15 @@ def test_setup_ignores_momentum(h):
     assert row["setup"] == "entry"
 
 
+def test_setup_changes_when_only_universe_size_changes(h):
+    """The regression this task exists to prevent: the SAME rank against the
+    SAME horizon must tag differently as the scored universe size changes —
+    h has top_n=5, buffer_frac=3/20, so exit_rank(20)=8 and exit_rank(10)=7
+    (round(0.15*10)=2 -> 5+2=7)."""
+    assert _setup(8, h, universe_size=20) is None   # still held at universe 20
+    assert _setup(8, h, universe_size=10) == "exit"  # past the (narrower) band at universe 10
+
+
 def test_every_preset_has_a_distinct_band():
     """Each preset must tag rows differently, or the selector offers choices
     that look identical on the leaderboard.

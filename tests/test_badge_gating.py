@@ -138,13 +138,14 @@ def test_in_buy_band_is_computed_even_when_badges_are_gated():
     the call sat on, not in _compute_setup itself.
     """
     build_text = (_PROJECT_ROOT / "dashboard" / "build.py").read_text()
-    call = build_text.index("_compute_setup(row, _default_horizon)")
+    needle = "_compute_setup(row, _default_horizon, universe_size=len(leaderboard_rows))"
+    call = build_text.index(needle)
     gate = build_text.index('if badges_gated:\n            row["setup"] = None')
     assert call < gate, (
         "_compute_setup must run before the gate, or in_buy_band is never set "
         "on a gated build"
     )
-    assert build_text.count("_compute_setup(row, _default_horizon)") == 1, (
+    assert build_text.count(needle) == 1, (
         "two call sites means one of them can drift behind the gate again"
     )
 
