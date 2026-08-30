@@ -439,7 +439,7 @@
         {% for r in backtest_metrics %}
         <tr class="bt-row" data-horizon="{{ r.region }}">
           <td>{{ r.label }}</td>
-          <td>top {{ r.top_n }}, buffer {{ r.buffer }}, {{ r.rebalance }}</td>
+          <td>top {{ r.top_n }}, buffer {{ r.buffer_pct }}, {{ r.rebalance }}</td>
           <td>{{ r.start }} → {{ r.end }}</td>
           <td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td>
           <td>{{ r.max_drawdown }}</td>

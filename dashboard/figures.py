@@ -560,7 +560,14 @@ def _build_backtest_context(backtests_dir: str) -> dict:
                 "benchmark": track["benchmark"], "top_n": track["top_n"],
                 "label": labels.get(region, region.title()),
                 "rebalance": track.get("rebalance_freq", "M"),
-                "buffer": track.get("buffer", 0),
+                # Displayed as a percentage of the universe, not an absolute rank
+                # count: a multi-year backtest run's universe size varies
+                # throughout, so there is no single honest "convert to an
+                # absolute count" reference point (unlike the live dashboard,
+                # which has "today's universe"). Matches the convention
+                # scripts/horizon_sweep.py's own `band` column already uses for
+                # the identical concept.
+                "buffer_pct": f"{100 * track.get('buffer_frac', 0.0):.0f}%",
                 "cagr": f"{100 * m['cagr']:.1f}%",
                 "benchmark_cagr": f"{100 * m['benchmark_cagr']:.1f}%",
                 "sharpe": f"{m['sharpe']:.2f}",
