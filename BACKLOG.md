@@ -62,26 +62,62 @@ wins clearly on every window where its band can fire, so this is not a claim
 that the cell is wrong; it is a claim that the *confidence* attached to it in
 `config/weights.yaml`'s comments is overstated.
 
-Options, roughly in order of value:
+**Three of the four options shipped 2026-08-30** — the weights.yaml caveat,
+the per-cell `live` column, and the frontier guard. See the Done entry *"Sweep:
+flag cells whose SELL line cannot fire"*. What remains is only:
 
-1. ~~**Say so in `config/weights.yaml`**~~ — **shipped 2026-08-30.** The
-   presets now carry a per-preset `live` figure, the widened-grid result, and
-   the measured noise floor.
-2. ~~**Report the effective universe size per rebalance date**~~ — **shipped
-   2026-08-30** as the sweep's `live` column (share of rebalance dates on
-   which the SELL line can fire), with a ⚠ on any cell under 90%.
-3. ~~**Make the sweep refuse (or loudly warn) when `exit_rank >= universe
-   size`**~~ — **shipped 2026-08-30.** Degenerate cells are still listed (the
-   number is the finding) but excluded from the return/churn frontier, which
-   rewards low churn and was being won outright by cells that never sell.
-4. **Consider a fractional band** (`band` as a share of the universe rather
-   than absolute ranks) so the presets stop being silently re-tuned by
-   universe growth. **This is all that remains of this item**, and it is a real
-   design change, not a fix — the config already flags the same hazard from the
-   13→20 theme change on 2026-08-05. Worth noting the 2026-08-30 measurement
-   makes the case stronger: `medium`'s band is live on 100% of the 2015-
-   calendar and `long`'s on 69%, purely because the two are pinned to absolute
-   ranks while the universe grew underneath them.
+**Consider a fractional band** — `band` as a share of the universe rather than
+absolute ranks, so the presets stop being silently re-tuned by universe growth.
+This is a real design change, not a fix; the config already flags the same
+hazard from the 13→20 theme change on 2026-08-05. The 2026-08-30 measurement
+strengthens the case: `medium`'s band is live on 100% of the 2015- calendar and
+`long`'s on 68%, purely because both are pinned to absolute ranks while the
+universe grew underneath them. Brainstorm before implementing — it changes what
+every stored preset means.
+
+## `long`'s published churn figures understate what the reader will actually trade
+
+Code review, 2026-08-30, on the sweep liveness guard (see Done). `config/weights.yaml`
+publishes `long` as `trades_per_year: 6.9`, `median_holding_days: 183`,
+`cagr: 0.140`, and `dashboard/templates/index.html.j2` renders those verbatim in
+the horizon chip. They are not wrong for the window they were measured on — they
+are wrong for the universe the reader has today.
+
+`long` is `M/5/8`, so `exit_rank` is 13, and the band cannot fire until the
+scored universe exceeds 13 themes. That first happened **2018-09-28**, so on the
+2015- window the preset was **32% buy-and-hold** and its churn was suppressed by
+exactly that. At today's 18 priced themes the band is live on every rebalance.
+Measured on a fair 2022- window (universe ≥16 throughout), the same cell runs:
+
+| | published | fair window (2022-) |
+|---|---:|---:|
+| trades/yr | 6.9 | **16.9** |
+| median hold (d) | 183 | 180 |
+| CAGR | 14.0% | 18.1% |
+
+So the chip promises roughly **7 trades a year and gets ~17** — a reader picking
+`long` to trade less is being mis-sold, and this is the preset whose entire
+purpose is low churn. (`medium` does not have this problem: exit_rank 9 is live
+on 100% of the 2015- window, so its published 12.9 trades/yr is honest.)
+
+**Not fixed in that PR deliberately.** Rewriting the numbers is easy; deciding
+what they should say is not, and it is a product decision rather than a sweep
+output:
+
+- Re-measuring on a fair window changes `long`'s advertised identity — 17
+  trades/yr is *more* churn than `medium`'s published 12.9, which would invert
+  the preset ordering the UI is built around and break
+  `test_presets_are_ordered_by_holding_period`'s sibling assumptions.
+- Re-tuning `long` to a higher buffer so it genuinely trades ~7x/yr runs
+  straight into the reason this was found: every cell past buffer 8 is *more*
+  degenerate, so there is no honest cell that delivers the promise on today's
+  universe.
+- The clean answer is probably the fractional band (see *The backtest's early
+  years cannot exercise the hold band at all*), which would make a preset's
+  churn stable as the universe grows instead of drifting with it.
+
+Brainstorm before touching it. Until then the caveat is recorded in
+`config/weights.yaml` beside the numbers themselves.
 
 ## Mobile card's expand-region nests a real button inside role="button"
 
@@ -801,8 +837,8 @@ themes in 2015 to 18 in 2023. On a 2015- monthly calendar:
 | exit_rank | share of rebalance dates the SELL line can fire | first fires |
 |---:|---:|---|
 | 9 (`medium`, M/4/5) | **100%** | 2015-01-30 |
-| 13 (`long`, M/5/8) | **69%** | 2018-09-28 |
-| 15 | 51% | 2020-10-30 |
+| 13 (`long`, M/5/8) | **68%** | 2018-09-28 |
+| 15 | 50% | 2020-10-30 |
 | 18 | **0%** | never |
 
 So the high-buffer cells are part buy-and-hold by construction, and in a bull

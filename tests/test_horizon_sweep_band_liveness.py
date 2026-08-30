@@ -19,6 +19,7 @@ import pytest
 from scripts.horizon_sweep import (
     MIN_LIVE_SHARE,
     _band_live_share,
+    _is_degenerate,
     _write,
 )
 
@@ -81,8 +82,52 @@ def test_the_cell_table_still_lists_degenerate_cells_and_flags_them(tmp_path):
     out = tmp_path / "sweep.md"
     _write([_row(5, 13, 0.25, 0.4, 0.0)], _Args(), "ACWI", out)
     table = out.read_text().split("## Return / churn frontier")[0]
-    assert "| M | 5 | 13 |" in table
-    assert "0%" in table
+    row = next(l for l in table.splitlines() if l.startswith("| M | 5 | 13 |"))
+    # band 50%, then live 0% carrying the flag — assert the live cell itself,
+    # not just "0% appears somewhere", which the band column alone satisfies.
+    assert row.split("|")[5].strip() == "0% ⚠", row
+
+
+def test_an_honest_cell_carries_no_flag(tmp_path):
+    out = tmp_path / "sweep.md"
+    _write([_row(4, 5, 0.18, 20.0, 1.0)], _Args(), "ACWI", out)
+    row = next(l for l in out.read_text().splitlines() if l.startswith("| M | 4 | 5 |"))
+    assert row.split("|")[5].strip() == "100%", row
+
+
+def test_the_flag_follows_the_printed_percentage_not_the_raw_float():
+    """A live share that PRINTS as 90% must not be flagged 'below 90%'."""
+    assert not _is_degenerate(0.897)      # renders 90%
+    assert _is_degenerate(0.894)          # renders 89%
+    assert not _is_degenerate(None)
+
+
+def test_live_share_denominator_can_be_restricted_to_simulated_dates():
+    """`simulate` drops the final scored date, and that date has the biggest
+    universe — counting it would bias the share upward."""
+    scored = _scored([10, 10, 18])
+    keys = list(scored)
+    assert _band_live_share(scored, exit_rank=13) == pytest.approx(1 / 3)
+    assert _band_live_share(scored, exit_rank=13, dates=keys[:-1]) == 0.0
+
+
+def test_a_window_that_cannot_measure_a_shipped_preset_says_so(tmp_path):
+    """Silently dropping `medium` from the frontier reads as 'beaten', not
+    'not measured' — the default 2004- window does exactly this."""
+    out = tmp_path / "sweep.md"
+    _write([_row(4, 5, 0.18, 20.0, 0.43), _row(3, 2, 0.12, 30.0, 1.0)],
+           _Args(), "ACWI", out)
+    text = out.read_text()
+    assert "cannot evaluate every shipped preset" in text
+    assert "`medium`" in text and "43%" in text
+    assert "| M | 4 | 5 |" not in text.split("## Return / churn frontier")[1]
+
+
+def test_no_preset_warning_when_every_shipped_preset_is_live(tmp_path):
+    out = tmp_path / "sweep.md"
+    _write([_row(4, 5, 0.18, 20.0, 1.0), _row(5, 8, 0.15, 10.0, 1.0)],
+           _Args(), "ACWI", out)
+    assert "cannot evaluate every shipped preset" not in out.read_text()
 
 
 def test_min_live_share_demands_a_band_that_is_live_nearly_always():

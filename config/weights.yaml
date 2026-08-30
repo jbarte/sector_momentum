@@ -163,7 +163,7 @@ costs:
 # column, per cell:
 #
 #   medium  M/4/5  exit_rank  9  -> live on 100% of the 2015- monthly calendar
-#   long    M/5/8  exit_rank 13  -> live on  69%  (first fires 2018-09-28)
+#   long    M/5/8  exit_rank 13  -> live on  68%  (first fires 2018-09-28)
 #
 # So `medium` is measured on evidence that exercises its rule throughout, and
 # the "best cell in the whole grid" claim above stands. `long` is roughly a
@@ -175,7 +175,16 @@ costs:
 # The 2026-08-30 sweep also widened the buffer grid past 8 (where `long` used to
 # sit on the maximum) specifically to check whether anything better lay outside.
 # Nothing does: every cell past it is MORE degenerate, not less — exit_rank 15
-# is live on 51% of the window and exit_rank 18 never fires at all.
+# is live on 50% of the window and exit_rank 18 never fires at all.
+#
+# CONSEQUENCE FOR `long`'s PUBLISHED cagr/trades_per_year/median_holding_days
+# BELOW: they are rendered verbatim in the dashboard's horizon chip, and they
+# were measured on a window where the band was dead 31% of the time. At today's
+# 18 priced themes exit_rank 13 is ALWAYS live, so realized churn will run well
+# above the 6.9 trades/yr the chip promises — the same cell on a fair 2022-
+# window measures 16.9 trades/yr and a 180-day hold. The figures were left
+# alone here rather than quietly rewritten: what the chip should promise is a
+# product decision, not a sweep output. Queued in BACKLOG.md.
 #
 # NOISE FLOOR — the number to check any of this against. On two DISJOINT
 # windows (2015-2021, n=84 rebalances; 2022-, n=56), the same cell's CAGR moves

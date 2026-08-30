@@ -47,6 +47,11 @@ TOP_N = [3, 4, 5]
 # The band is `(top_n + buffer) / universe_size`, so the useful buffer range
 # moves when the universe does — the `band` column below is the number to read,
 # not the raw buffer.
+# The frontier can now drop a shipped preset for a SECOND reason, unrelated to
+# these bounds: its band may be dead too often on the chosen window (see
+# MIN_LIVE_SHARE). That is a fact about the window, not a grid error, so it is
+# reported loudly by _warn_degenerate_presets rather than fixed by widening.
+#
 # Widened past 8 on 2026-08-30 because the shipped `long` preset (top_n 5,
 # buffer 8) sat on the old maximum, so nothing in the record said whether the
 # cells just outside it were better. They are not, and the reason is the
@@ -101,18 +106,35 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _band_live_share(score_by_date, exit_rank: int) -> float:
+def _band_live_share(score_by_date, exit_rank: int, dates=None) -> float:
     """Share of rebalance dates on which the SELL line can actually fire.
 
     Needs the scored universe to be strictly larger than `exit_rank`: with 18
     themes and an exit_rank of 18, the worst possible rank is 18, which is
     still inside the band. Returns 0.0 for an empty calendar rather than
     raising — a cadence with no scored dates is already reported elsewhere.
+
+    `dates` restricts the denominator to the rebalances a simulation actually
+    evaluated. Pass it: `simulate` always drops the final scored date (it has
+    no forward window), and that date carries the LARGEST universe, so scoring
+    every key would bias this share upward exactly where it matters least.
     """
-    sizes = [len(df) for df in score_by_date.values()]
-    if not sizes:
+    keys = list(score_by_date) if dates is None else [d for d in dates if d in score_by_date]
+    if not keys:
         return 0.0
-    return sum(1 for n in sizes if n > exit_rank) / len(sizes)
+    return sum(1 for d in keys if len(score_by_date[d]) > exit_rank) / len(keys)
+
+
+def _is_degenerate(live: float | None) -> bool:
+    """Whether a cell's band is dead often enough to disqualify its numbers.
+
+    Compares the value the report PRINTS, not the raw float: a live share of
+    0.897 renders as `90%` and must not then carry a flag whose legend says
+    "below 90%".
+    """
+    if live is None:
+        return False
+    return round(100 * live) < round(100 * MIN_LIVE_SHARE)
 
 
 def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
@@ -141,7 +163,7 @@ def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
         "buffer": buffer,
         "ppy": ppy,
         "band": None,          # filled by the caller, which knows universe size
-        "live": _band_live_share(score_by_date, top_n + buffer),
+        "live": _band_live_share(score_by_date, top_n + buffer, sim["dates"]),
         "cagr": metrics.cagr(strat_eq, ppy),
         "bench_cagr": metrics.cagr(bench_eq, ppy),
         "sharpe": metrics.sharpe(strat, ppy),
@@ -151,6 +173,38 @@ def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
         "median_hold": sim["median_holding_days"],
         "rebalances": len(sim["dates"]),
     }
+
+
+def _warn_degenerate_presets(rows: list[dict]) -> list[str]:
+    """Say so, loudly, when the window cannot evaluate a preset we actually ship.
+
+    The liveness guard silently dropping `medium` and `long` from the frontier
+    is worse than not having it: the whole point of this script is to check the
+    shipped configuration, and a reader skimming the frontier would conclude
+    the presets had been beaten rather than not measured. The default
+    `--start 2004-01-01` window does exactly this — the theme universe is
+    smaller than either preset's exit_rank for years — so this is the common
+    case, not an edge one.
+    """
+    from src.horizons import horizons
+    notes = []
+    for h in horizons():
+        hit = next((r for r in rows if r["freq"] == h.rebalance
+                    and r["top_n"] == h.top_n and r["buffer"] == h.buffer), None)
+        if hit is None or not _is_degenerate(hit.get("live")):
+            continue
+        notes.append(
+            f"shipped preset `{h.key}` ({h.rebalance}/{h.top_n}/{h.buffer}, "
+            f"exit_rank {h.top_n + h.buffer}) is live on only "
+            f"{hit['live']:.0%} of this window's rebalance dates, so it is "
+            f"NOT on the frontier below — it was not measured, not beaten."
+        )
+        logger.warning("%s", notes[-1])
+    if notes:
+        logger.warning("Pick a later --start so the universe exceeds the "
+                       "exit_rank throughout, or read the cell table instead "
+                       "of the frontier.")
+    return notes
 
 
 def main() -> int:
@@ -247,7 +301,7 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
     ]
     for r in rows:
         live = r.get("live")
-        flag = " ⚠" if live is not None and live < MIN_LIVE_SHARE else ""
+        flag = " ⚠" if _is_degenerate(live) else ""
         lines.append(
             f"| {r['freq']} | {r['top_n']} | {r['buffer']} | {fmt(r.get('band'), pct=True, nd=0)} | "
             f"{fmt(live, pct=True, nd=0)}{flag} | "
@@ -258,6 +312,14 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
         )
 
     # The frontier: for each achievable churn level, the best return available.
+    warnings = _warn_degenerate_presets(rows)
+    if warnings:
+        lines += ["", "> **This window cannot evaluate every shipped preset.**"]
+        lines += [f"> - {w}" for w in warnings]
+        lines += ["> - Pick a later `--start` so the universe exceeds the "
+                  "`exit_rank` throughout, or read the cell table above "
+                  "instead of the frontier."]
+
     lines += ["", "## Return / churn frontier", "",
               "Cells that are not beaten on BOTH return and churn by another cell.",
               "",
@@ -268,7 +330,7 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
               "|---|---:|---:|---:|---:|---:|---:|"]
     scored = [r for r in rows
               if r["trades_per_year"] is not None and r["cagr"] is not None
-              and r.get("live", 1.0) >= MIN_LIVE_SHARE]
+              and not _is_degenerate(r.get("live"))]
     frontier = [
         r for r in scored
         if not any(o["cagr"] > r["cagr"] and o["trades_per_year"] < r["trades_per_year"]
