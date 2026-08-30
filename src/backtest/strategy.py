@@ -37,20 +37,28 @@ def forward_returns(
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
-def _select(ranked_index, prev: set[str], top_n: int, buffer: int) -> list[str]:
+def _select(ranked_index, prev: set[str], top_n: int, buffer_frac: float) -> list[str]:
     """Pick this period's holdings, with a hysteresis band.
 
-    Hold anything already held while its rank stays within `top_n + buffer`,
-    then fill whatever slots remain from the best names not already held. With
-    `buffer=0` this reduces exactly to `ranked_index[:top_n]`, which is the
-    behaviour every existing backtest number was produced with.
+    Hold anything already held while its rank stays within
+    `top_n + round_half_up(buffer_frac * len(ranked_index))`, then fill
+    whatever slots remain from the best names not already held. With
+    `buffer_frac=0` this reduces exactly to `ranked_index[:top_n]`, which is
+    the behaviour every existing backtest number was produced with.
+
+    `buffer_frac` is a FRACTION of the scored universe, not an absolute rank
+    count — the exit rank is resolved fresh from `len(ranked_index)` on every
+    call, so the same buffer_frac yields a wider band as the universe grows.
+    See sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
 
     A previously-held name that has no score this period (its prices went
     missing) is absent from `rank_of` and is therefore dropped — a position we
     can no longer rank is a position we cannot claim to still hold.
     """
+    from src.horizons import _round_half_up
     rank_of = {sk: i for i, sk in enumerate(ranked_index)}   # 0-based
-    keep = {sk for sk in prev if rank_of.get(sk, 10 ** 9) < top_n + buffer}
+    exit_rank = top_n + _round_half_up(buffer_frac * len(ranked_index))
+    keep = {sk for sk in prev if rank_of.get(sk, 10 ** 9) < exit_rank}
     free = top_n - len(keep)
     if free > 0:
         keep.update([sk for sk in ranked_index if sk not in keep][:free])
@@ -64,7 +72,7 @@ def simulate(
     instrument_of: dict[str, str],
     top_n: int = 5,
     cost_bps: float = 0.0,
-    buffer: int = 0,
+    buffer_frac: float = 0.0,
     unbuyable: frozenset[str] = frozenset(),
 ) -> dict:
     """`unbuyable` names are ranked but never booked.
@@ -92,7 +100,7 @@ def simulate(
             continue  # last date / no forward window
         scored = score_by_date[d]
         ranked = scored.sort_values("composite", ascending=False)
-        picks = _select(list(ranked.index), prev, top_n, buffer)
+        picks = _select(list(ranked.index), prev, top_n, buffer_frac)
         if unbuyable:
             picks = [sk for sk in picks if sk not in unbuyable]
         if not picks:
