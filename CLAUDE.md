@@ -170,10 +170,13 @@ The DB is backed up to a **private Supabase Storage bucket `db-backups`** (one
 `SUPABASE_SERVICE_KEY` secret (CI) / env var (local) and the bucket to exist.
 Restore with `python restore.py` (latest) / `--list` / `--local <dir>` (old git backups).
 
-Google Trends was removed from the pipeline; the `trends-cache` bucket and the
-`--no-cache` flag it used are both gone. Sentiment now comes from GDELT
-headlines scored by FinBERT (`--no-finbert` skips it), and is **alpha** —
-excluded from the composite and from the ranking. See ARCHITECTURE § 4.
+Google Trends was removed from the pipeline; the `--no-cache` flag it used is
+gone, and nothing reads or writes the `trends-cache` bucket any more — though
+the bucket itself still exists in the Supabase project (10 stale objects,
+85 KB, last written 2026-07-19) and can be deleted by hand. Sentiment now
+comes from GDELT headlines scored by FinBERT (`--no-finbert` skips it), and
+is **alpha** — excluded from the composite and from the ranking. See
+ARCHITECTURE § 4.
 
 ## Dev commands
 

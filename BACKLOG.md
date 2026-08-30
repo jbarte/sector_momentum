@@ -537,9 +537,37 @@ warns as it fills, and the failure mode is a failed *upload*, which
 `scan.py` deliberately swallows as non-fatal — so the first symptom would be
 backups quietly stopping while scans keep succeeding.
 
-**Not measured.** `SUPABASE_SERVICE_KEY` is CI-only, so the sweep could not list
-the bucket; the ceiling is inferred from the code, not observed. Measure first —
-`list_objects` already returns everything needed.
+**Measured 2026-08-30** against production (via the Supabase MCP connection
+querying `storage.objects` directly — `SUPABASE_SERVICE_KEY` is still CI-only,
+so `list_objects` was not the route). **The growth shape is confirmed; the
+urgency is not.**
+
+| | |
+|---|---|
+| objects in `db-backups` | 64 |
+| total size | **8.5 MB — 0.85% of the 1 GB free tier** |
+| span | 2026-06-29 → 2026-08-29 |
+| per-backup size, first → latest | 16 KB → 255 KB |
+| per-backup growth | **+3.9 KB/day, linear** |
+
+Each zip is a full dump of a monotonically growing DB, so per-backup size rises
+linearly and *cumulative* storage rises quadratically — exactly the "worse than
+linear" the item predicted. Fitting `cumulative ≈ 1.95·N² + 16·N` KB (which
+reproduces the observed 8.5 MB to within 3%) puts **80% of the tier at ~2028-04
+and the 1 GB ceiling at ~2028-06** — roughly 22 months out.
+
+So the failure mode described above is real and still unguarded, but it is a
+2028 problem. Left queued deliberately rather than promoted.
+
+Two incidental observations from the same query, neither a defect:
+
+- **Duplicate uploads exist only in the pre-fix residue** — 2026-07-19 has 4
+  objects and 2026-06-29 has 2; every day since is exactly 1, consistent with
+  the duplicate-scan backup skip having shipped (see Done).
+- **The retired `trends-cache` bucket still exists** — 10 objects, 85 KB, last
+  written 2026-07-19. Nothing reads or writes it. Deleting it is a manual
+  Supabase-side action, not code; `CLAUDE.md`'s claim that the bucket is "gone"
+  was corrected to match `ARCHITECTURE.md` §12 on 2026-08-30.
 
 Fix: a retention sweep after a successful upload (keep last ~14 daily, then one
 per week for ~8 weeks, then one per month), plus `delete` in the storage client.
