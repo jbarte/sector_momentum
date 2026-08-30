@@ -154,6 +154,37 @@ costs:
 # lives in localStorage and never reaches the scan, so the alerts modal states
 # which band is in force and warns when the reader has switched. Per-user
 # horizon was considered and deliberately NOT built (2026-08-14, see Done).
+#
+# HOW MUCH CONFIDENCE THESE NUMBERS DESERVE — measured 2026-08-30, and it is
+# not the same for the two presets. Bands are ABSOLUTE ranks, so a preset's
+# SELL line cannot fire until the scored universe is larger than its
+# `exit_rank = top_n + buffer`, and this universe grew from 10 priced themes in
+# 2015 to 18 in 2023. `scripts/horizon_sweep.py` now reports this as the `live`
+# column, per cell:
+#
+#   medium  M/4/5  exit_rank  9  -> live on 100% of the 2015- monthly calendar
+#   long    M/5/8  exit_rank 13  -> live on  69%  (first fires 2018-09-28)
+#
+# So `medium` is measured on evidence that exercises its rule throughout, and
+# the "best cell in the whole grid" claim above stands. `long` is roughly a
+# third buy-and-hold over that window by construction — its return is flattered
+# by the years it could not sell, and it is NOT comparable to an interior cell.
+# Treat its cagr/trades_per_year below as descriptive of the operating point,
+# not as evidence it is the optimum.
+#
+# The 2026-08-30 sweep also widened the buffer grid past 8 (where `long` used to
+# sit on the maximum) specifically to check whether anything better lay outside.
+# Nothing does: every cell past it is MORE degenerate, not less — exit_rank 15
+# is live on 51% of the window and exit_rank 18 never fires at all.
+#
+# NOISE FLOOR — the number to check any of this against. On two DISJOINT
+# windows (2015-2021, n=84 rebalances; 2022-, n=56), the same cell's CAGR moves
+# by a median of 2.2pp, while cell-to-cell spread within a window is ~9pp.
+# Cross-window rank correlation is only +0.33. Two cells less than ~2pp apart
+# are therefore indistinguishable, and picking a window's argmax overfits: the
+# best cell in 2022- ranks 10th of 26 in 2015-2021. `medium` survives this test
+# — best in 2015-2021 and 4th of 26 in 2022- — which is the real reason to keep
+# it, rather than any single-window margin.
 horizons:
   default: medium
   presets:

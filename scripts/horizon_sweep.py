@@ -47,7 +47,24 @@ TOP_N = [3, 4, 5]
 # The band is `(top_n + buffer) / universe_size`, so the useful buffer range
 # moves when the universe does — the `band` column below is the number to read,
 # not the raw buffer.
-BUFFERS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+# Widened past 8 on 2026-08-30 because the shipped `long` preset (top_n 5,
+# buffer 8) sat on the old maximum, so nothing in the record said whether the
+# cells just outside it were better. They are not, and the reason is the
+# `live` column below rather than the returns: exit_rank 15 can fire on only
+# 51% of a 2015- monthly calendar, so those cells are part buy-and-hold and
+# their returns are not comparable to an interior cell's. 10 is where that
+# becomes true for every top_n here; past it the grid measures the universe's
+# growth, not the rule.
+BUFFERS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+# A cell whose SELL line cannot fire is not evidence about that cell. Bands are
+# absolute ranks, so nothing can rank past `exit_rank = top_n + buffer` until
+# the scored universe is LARGER than it — and this universe grew from 10 priced
+# themes in 2015 to 18 in 2023. Cells below this share of live dates are still
+# reported (the number is the finding) but kept off the frontier, which rewards
+# low churn and would otherwise be won outright by cells that never sell.
+MIN_LIVE_SHARE = 0.9
+
 BACKTEST_CACHE = "data/backtest_cache"
 
 # Fetch window, evaluation window and the warm-up rule are defined once in
@@ -84,6 +101,20 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _band_live_share(score_by_date, exit_rank: int) -> float:
+    """Share of rebalance dates on which the SELL line can actually fire.
+
+    Needs the scored universe to be strictly larger than `exit_rank`: with 18
+    themes and an exit_rank of 18, the worst possible rank is 18, which is
+    still inside the band. Returns 0.0 for an empty calendar rather than
+    raising — a cadence with no scored dates is already reported elsewhere.
+    """
+    sizes = [len(df) for df in score_by_date.values()]
+    if not sizes:
+        return 0.0
+    return sum(1 for n in sizes if n > exit_rank) / len(sizes)
+
+
 def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
           unbuyable=frozenset()):
     """One grid cell. Mirrors run_theme_track's metric assembly, minus the
@@ -110,6 +141,7 @@ def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
         "buffer": buffer,
         "ppy": ppy,
         "band": None,          # filled by the caller, which knows universe size
+        "live": _band_live_share(score_by_date, top_n + buffer),
         "cagr": metrics.cagr(strat_eq, ppy),
         "bench_cagr": metrics.cagr(bench_eq, ppy),
         "sharpe": metrics.sharpe(strat, ppy),
@@ -204,12 +236,21 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
         "`median hold` excludes positions still open at the end: their true",
         "duration is unknown and counting them would bias the median short.",
         "",
-        "| cadence | top_n | buffer | band | CAGR | Sharpe | max DD | turnover | trades/yr | median hold (d) |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "`live` is the share of rebalance dates on which the SELL line could",
+        "actually fire — it needs the scored universe to be larger than",
+        f"`exit_rank = top_n + buffer`. Below {MIN_LIVE_SHARE:.0%} the cell is part",
+        "buy-and-hold by construction, its return is not comparable to an",
+        "interior cell's, and it is excluded from the frontier below.",
+        "",
+        "| cadence | top_n | buffer | band | live | CAGR | Sharpe | max DD | turnover | trades/yr | median hold (d) |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for r in rows:
+        live = r.get("live")
+        flag = " ⚠" if live is not None and live < MIN_LIVE_SHARE else ""
         lines.append(
             f"| {r['freq']} | {r['top_n']} | {r['buffer']} | {fmt(r.get('band'), pct=True, nd=0)} | "
+            f"{fmt(live, pct=True, nd=0)}{flag} | "
             f"{fmt(r['cagr'], pct=True)} | "
             f"{fmt(r['sharpe'], nd=2)} | {fmt(r['max_dd'], pct=True)} | "
             f"{fmt(r['turnover'], pct=True, nd=0)} | {fmt(r['trades_per_year'])} | "
@@ -219,9 +260,15 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
     # The frontier: for each achievable churn level, the best return available.
     lines += ["", "## Return / churn frontier", "",
               "Cells that are not beaten on BOTH return and churn by another cell.",
+              "",
+              f"Cells whose band is live on under {MIN_LIVE_SHARE:.0%} of rebalance dates are",
+              "excluded: they cannot sell for part of the window, so they win this",
+              "frontier on churn for a reason that has nothing to do with the rule.",
               "", "| cadence | top_n | buffer | CAGR | Sharpe | trades/yr | median hold (d) |",
               "|---|---:|---:|---:|---:|---:|---:|"]
-    scored = [r for r in rows if r["trades_per_year"] is not None and r["cagr"] is not None]
+    scored = [r for r in rows
+              if r["trades_per_year"] is not None and r["cagr"] is not None
+              and r.get("live", 1.0) >= MIN_LIVE_SHARE]
     frontier = [
         r for r in scored
         if not any(o["cagr"] > r["cagr"] and o["trades_per_year"] < r["trades_per_year"]
