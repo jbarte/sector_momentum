@@ -11,7 +11,8 @@ import json
 import logging
 import tempfile
 import zipfile
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -202,6 +203,98 @@ def backup_to_storage(conn, bucket: str = storage_backup.DEFAULT_BUCKET) -> str:
         storage_backup.upload(object_name, buf.getvalue(), bucket=bucket)
     logger.info("Backup uploaded to Storage: %s/%s", bucket, object_name)
     return object_name
+
+
+# --- Retention -------------------------------------------------------------
+# Growth is quadratic (every object is a full dump of a monotonically growing
+# DB), and an upload failure is swallowed as non-fatal by scan.py, so nothing
+# ever warned as the bucket filled. Measured 2026-08-30: 8.5 MB, ~0.85% of the
+# 1 GB free tier, modeled ceiling ~2028-06 — no fire today, but the policy
+# needs to exist before it becomes one. See BACKLOG.md, "Nothing prunes the
+# backup bucket".
+
+#: Keep EVERY backup dated within this many days of "now" — duplicate-scan
+#: days (see BACKLOG.md, "Three of seven weekly scans still persist duplicate
+#: scores/signals") mean more than one a day sometimes, and all of them are
+#: kept in this window, not deduped.
+RETENTION_DAILY_DAYS = 14
+
+#: Beyond the daily window, keep the NEWEST backup per calendar week for this
+#: many weeks.
+RETENTION_WEEKLY_WEEKS = 8
+
+_BACKUP_NAME_RE = re.compile(r"^backup_(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z)\.zip$")
+
+
+def parse_backup_timestamp(name: str) -> datetime | None:
+    """The UTC timestamp embedded in a `backup_<ts>.zip` object name, or None
+    if `name` does not match that exact shape.
+
+    None (not a raised exception) so a foreign or malformed bucket object is
+    something the caller can simply skip — see select_objects_to_prune, which
+    treats "cannot parse" as "never delete this," not as an error.
+    """
+    m = _BACKUP_NAME_RE.match(name)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1), "%Y-%m-%dT%H-%M-%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def select_objects_to_prune(names: list[str], now: datetime | None = None) -> list[str]:
+    """Which backup objects a retention sweep should delete.
+
+    Policy: keep every backup within RETENTION_DAILY_DAYS of `now`; beyond
+    that, keep the newest one per calendar week for RETENTION_WEEKLY_WEEKS
+    weeks; beyond THAT, keep the newest one per calendar month. Everything
+    else — including every name this function cannot parse as a dated backup
+    — is left alone; only a name this function can date AND that a tier's
+    "keep" rule does not claim is ever returned.
+
+    Returns names to DELETE, not to keep: the consequential half to get right,
+    and the shape storage_backup.delete() takes directly.
+    """
+    now = now or datetime.now(timezone.utc)
+    dated = [(n, parse_backup_timestamp(n)) for n in names]
+    dated = [(n, dt) for n, dt in dated if dt is not None]
+
+    daily_cutoff = now - timedelta(days=RETENTION_DAILY_DAYS)
+    weekly_cutoff = daily_cutoff - timedelta(weeks=RETENTION_WEEKLY_WEEKS)
+
+    prune: list[str] = []
+
+    def _keep_newest_per_bucket(items: list[tuple[str, datetime]],
+                                key) -> None:
+        buckets: dict[object, list[tuple[str, datetime]]] = {}
+        for n, dt in items:
+            buckets.setdefault(key(dt), []).append((n, dt))
+        for bucket_items in buckets.values():
+            bucket_items.sort(key=lambda pair: pair[1])
+            prune.extend(n for n, _ in bucket_items[:-1])  # all but the newest
+
+    weekly_tier = [(n, dt) for n, dt in dated if weekly_cutoff <= dt < daily_cutoff]
+    _keep_newest_per_bucket(weekly_tier, key=lambda dt: dt.isocalendar()[:2])  # (iso year, iso week)
+
+    monthly_tier = [(n, dt) for n, dt in dated if dt < weekly_cutoff]
+    _keep_newest_per_bucket(monthly_tier, key=lambda dt: (dt.year, dt.month))
+
+    return prune
+
+
+def prune_storage_backups(bucket: str = storage_backup.DEFAULT_BUCKET) -> list[str]:
+    """List the bucket, decide what's safe to prune, and delete it.
+
+    Call this AFTER a successful upload, never before — the guarantee this
+    exists to preserve is "a backup exists at every instant," and pruning
+    first would briefly violate that for no reason. Returns the names that
+    were deleted (empty if none needed pruning).
+    """
+    names = storage_backup.list_objects(bucket=bucket)
+    doomed = select_objects_to_prune(names)
+    storage_backup.delete(doomed, bucket=bucket)
+    return doomed
 
 
 def table_row_counts(conn) -> dict[str, int]:

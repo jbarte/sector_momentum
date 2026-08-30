@@ -523,56 +523,6 @@ naming in the data layer* above, which recommends leaving them alone. A rebrand
 is a rename of the *product*, not a schema migration; conflating the two is how
 a cosmetic PR turns into a live-database risk.
 
-## Nothing prunes the backup bucket
-
-Found in the 2026-08-23 sweep. `backup_to_storage` (`src/backup.py:192`) uploads
-a full DB zip to `db-backups` before **every** scan, and nothing ever deletes
-one — `src/storage_backup.py` has `upload`, `download` and `list_objects` but no
-`delete` at all.
-
-The free tier is 1 GB of Storage. Growth is worse than linear: every object is a
-complete dump, so each daily zip is slightly bigger than the last. Nothing
-warns as it fills, and the failure mode is a failed *upload*, which
-`scan.py` deliberately swallows as non-fatal — so the first symptom would be
-backups quietly stopping while scans keep succeeding.
-
-**Measured 2026-08-30** against production (via the Supabase MCP connection
-querying `storage.objects` directly — `SUPABASE_SERVICE_KEY` is still CI-only,
-so `list_objects` was not the route). **The growth shape is confirmed; the
-urgency is not.**
-
-| | |
-|---|---|
-| objects in `db-backups` | 64 |
-| total size | **8.5 MB — 0.85% of the 1 GB free tier** |
-| span | 2026-06-29 → 2026-08-29 |
-| per-backup size, first → latest | 16 KB → 255 KB |
-| per-backup growth | **+3.9 KB/day, linear** |
-
-Each zip is a full dump of a monotonically growing DB, so per-backup size rises
-linearly and *cumulative* storage rises quadratically — exactly the "worse than
-linear" the item predicted. Fitting `cumulative ≈ 1.95·N² + 16·N` KB (which
-reproduces the observed 8.5 MB to within 3%) puts **80% of the tier at ~2028-04
-and the 1 GB ceiling at ~2028-06** — roughly 22 months out.
-
-So the failure mode described above is real and still unguarded, but it is a
-2028 problem. Left queued deliberately rather than promoted.
-
-Two incidental observations from the same query, neither a defect:
-
-- **Duplicate uploads exist only in the pre-fix residue** — 2026-07-19 has 4
-  objects and 2026-06-29 has 2; every day since is exactly 1, consistent with
-  the duplicate-scan backup skip having shipped (see Done).
-- **The retired `trends-cache` bucket still exists** — 10 objects, 85 KB, last
-  written 2026-07-19. Nothing reads or writes it. Deleting it is a manual
-  Supabase-side action, not code; `CLAUDE.md`'s claim that the bucket is "gone"
-  was corrected to match `ARCHITECTURE.md` §12 on 2026-08-30.
-
-Fix: a retention sweep after a successful upload (keep last ~14 daily, then one
-per week for ~8 weeks, then one per month), plus `delete` in the storage client.
-Prune *after* the new upload succeeds, never before — the whole point is that a
-backup exists at every instant.
-
 ## Three of seven weekly scans still persist duplicate scores/signals
 
 Found in the 2026-08-23 sweep, measured against production. **Not a
@@ -735,6 +685,56 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## The backup bucket now prunes itself after every successful upload (2026-08-30)
+
+`backup_to_storage` uploaded a full DB zip before every scan and nothing ever
+deleted one. Not urgent — measured 2026-08-30 at 8.5 MB, ~0.85% of the 1 GB
+free tier, modeled ceiling ~2028-06 — but the fix was already fully specified
+in the queued item (retention tiers + `delete()` in the storage client), so
+built it now rather than waiting for it to become urgent.
+
+**Shipped:**
+
+- `src/storage_backup.py::delete(names, bucket)` — the Storage API's
+  bulk-delete contract (`DELETE {base}/storage/v1/object/{bucket}` with
+  `{"prefixes": names}`, the same shape storage-js's `remove()` uses). A no-op
+  for an empty list — never sends the request, so nothing can ever ride on an
+  empty selector meaning "everything" at the API layer.
+- `src/backup.py::select_objects_to_prune(names, now)` — pure, no network:
+  keep every backup within `RETENTION_DAILY_DAYS` (14) of `now`; beyond that,
+  the newest one per calendar week for `RETENTION_WEEKLY_WEEKS` (8) weeks;
+  beyond that, the newest one per calendar month. A name it cannot parse as
+  `backup_<ts>.zip` is never a deletion candidate, however old the rest of the
+  bucket looks — fails safe on anything foreign in the bucket (the retired
+  `trends-cache` bucket's contents, if ever mixed in, or a manual upload).
+  22 tests, including the boundary-exactness of the daily cutoff, that
+  duplicate-scan-day backups are ALL kept inside the daily window (not
+  deduped — see the sibling item below), and that a full year of daily
+  backups collapses to under 40 kept objects.
+- `src/backup.py::prune_storage_backups()` — lists, selects, deletes. Wired
+  into `scan.py` in an `else:` clause after a successful `backup_to_storage`
+  call, never before and never on a failed upload — the item's own rule:
+  "the whole point is that a backup exists at every instant." A prune failure
+  logs its own distinct warning rather than being folded into "Pre-run backup
+  failed," since the backup this run needed already landed by the time prune
+  runs; a prune failure is stale-object cleanup falling behind, not a backup
+  problem.
+- Fixed 10 existing `test_scan_smoke.py` tests that would otherwise have
+  logged a spurious `SUPABASE_SERVICE_KEY is not set` warning on every run
+  once wired in (the new prune call fires whenever those tests' mocked
+  `backup_to_storage` succeeds) — mocked `prune_storage_backups` alongside,
+  matching the project's "test output should be pristine" convention.
+
+**Not verified against the live bucket in this session.** No
+`SUPABASE_SERVICE_KEY` on this machine (it's CI-only, same constraint noted
+when this item was first measured), so `delete()`'s exact request shape is
+implemented per Supabase's documented bulk-delete contract but was not
+exercised against production. The retention *selection* logic — the
+consequential half, deciding WHICH objects are even candidates — is
+exhaustively unit-tested and needs no network. Worth watching the first live
+prune's log line (`Pruned N old backup(s) from Storage: ...`) after this
+ships, the same way the restore drill's first live run was watched.
 
 ## Rescore path no longer flattens the Trend badge to a bare glyph (2026-08-30)
 

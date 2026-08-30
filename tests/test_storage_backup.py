@@ -60,3 +60,36 @@ def test_service_key_required(monkeypatch):
     monkeypatch.delenv("SUPABASE_SERVICE_KEY", raising=False)
     with pytest.raises(RuntimeError):
         storage_backup.download("x.zip")
+
+
+# --- delete ------------------------------------------------------------
+
+def test_delete_sends_bucket_scoped_delete_with_prefixes_body(monkeypatch):
+    """Supabase Storage's bulk-delete contract (storage-js `remove()`):
+    DELETE {base}/storage/v1/object/{bucket} with a JSON body of
+    {"prefixes": [exact object names]} — "prefixes" is the API's parameter
+    name, but each entry must be a full, exact object path, not a
+    directory-style prefix that could match more than intended."""
+    monkeypatch.setenv("SUPABASE_URL", "https://xyz.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "svc-key")
+    calls = {}
+    def fake_delete(url, json=None, headers=None, timeout=None):
+        calls.update(url=url, json=json, headers=headers)
+        return _Resp()
+    monkeypatch.setattr(storage_backup.requests, "delete", fake_delete)
+    storage_backup.delete(["backup_a.zip", "backup_b.zip"], bucket="db-backups")
+    assert calls["url"] == "https://xyz.supabase.co/storage/v1/object/db-backups"
+    assert calls["json"] == {"prefixes": ["backup_a.zip", "backup_b.zip"]}
+    assert calls["headers"]["Authorization"] == "Bearer svc-key"
+
+
+def test_delete_of_an_empty_list_makes_no_request(monkeypatch):
+    """Defensive: never call the delete endpoint with nothing to delete — an
+    empty selector should never be relied on to mean 'nothing', belt and
+    suspenders against a bulk-delete footgun."""
+    monkeypatch.setenv("SUPABASE_URL", "https://xyz.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "svc-key")
+    def fail(*a, **k):
+        raise AssertionError("requests.delete must not be called for an empty list")
+    monkeypatch.setattr(storage_backup.requests, "delete", fail)
+    storage_backup.delete([], bucket="db-backups")  # must not raise
