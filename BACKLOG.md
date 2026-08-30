@@ -20,77 +20,24 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
-## The UCITS tracking-difference monitor needs an FX adjustment and a better metric
+## UCITS monitor: an automated label-disagreement flag
 
-Found 2026-08-30, the day `scripts/ucits_tracking_monitor.py` shipped (see
-Done) — while the PR was still open, before merge. Two problems with the
-shipped v1, found by re-examining the design decision that shaped it.
+Split off 2026-08-30 from the FX/metric fix (see Done) as the one part of it
+deliberately NOT built yet. Correlation now orders the hand-assigned `match`
+labels correctly on the first live pull (median: exact 0.93 > close 0.84 >
+partial 0.54), and two `close`-labelled pairs read as outliers within their own
+group — AI & Robotics at 0.73 and Defense at 0.60, both the lowest `close`
+correlations, both closer to the `partial` median than their own group's.
 
-**1. "Own-currency, no FX conversion" is wrong for an unhedged fund, and the
-PR's rationale for it does not hold up.** The decision (Jonas, 2026-08-30) was:
-compare in each listing's own currency because a percentage return is
-dimensionless, so no FX rate is needed. That reasoning is correct for two
-returns measured on the *same* underlying currency exposure — it is not
-correct here. An unhedged EUR-quoted UCITS fund holding USD assets has EUR
-price ≈ USD NAV × EUR/USD, so **a perfect tracker still shows a gap equal to
-the FX move**. The metric as shipped measures tracking difference *plus*
-currency drift, conflated.
-
-Measured impact on the day it shipped: **+0.1pp** uniform shift across every
-pair, because EUR/USD moved only −0.5% over the trailing year. The numbers in
-the shipped report happen to be fine — by luck (a quiet FX year), not by
-method. In a year like 2022 (EUR/USD moved ~15%) every pair would show a
-spurious ~15pp gap and the report would read as "every UCITS equivalent
-broke," identically, in the same direction, because the entire error term
-is a single common shift.
-
-That last property is also the mitigation: the FX error is uniform across
-pairs, so it cancels when comparing themes *against each other* (which is
-mostly how the shipped report gets read) and only corrupts the absolute
-per-pair number. Not a correctness emergency, but not a >90%-confidence
-measurement either.
-
-Fix: fetch `EURUSD=X` (already proven fetchable via the existing
-`fetch_prices` path) and report both the raw and FX-adjusted `diff_*` columns,
-so a future high-FX-volatility year does not read as a UCITS tracking crisis.
-
-**2. The realized-gap metric is measurably worse than the alternative, on the
-monitor's own first live data.** Tested weekly-return correlation and
-annualized tracking error (stdev of return differences — the standard
-industry definition) against the same 2026-08-30 pull:
-
-| match label | median \|realized-gap\| (shipped metric) | median correlation | median tracking error |
-|---|---:|---:|---:|
-| `exact` | 2.6pp | **0.93** | 9.0% |
-| `close` | 11.1pp | **0.84** | 18.2% |
-| `partial` | 5.8pp | **0.54** | 15.1% |
-
-Correlation orders the hand-assigned `match` labels correctly (exact > close >
-partial). The shipped realized-gap metric does not — it ranks `close` (11.1pp)
-as worse than `partial` (5.8pp), backwards from what the labels claim. Two
-concrete cases where this changes the read:
-
-- **AI & Robotics**, labelled `close`: correlation only 0.73, the lowest of
-  any `close` entry — behaves like a `partial`, not a `close`. The realized-gap
-  metric reported this pair's +40.2% 1y gap as merely large; it is actually a
-  different index, which correlation shows directly and the point-in-time gap
-  does not.
-- **Defense**, labelled `close`: correlation 0.60, same story.
-
-Also surfaced: **Quantum Computing** has only 65 weeks of joint history (fund
-too new) and **Uranium & Nuclear** has 0 usable weeks (Yahoo holds 5 days of
-`URNU.DE` history) — both currently produce a number from the shipped metric
-with no signal that the window is this short, which is a second, smaller
-defect (a history-length guard) worth fixing alongside the metric.
-
-Fix, roughly in order of value: (a) add rolling weekly-return correlation and
-annualized tracking error as report columns, since it is what actually
-validates the `match` labels; (b) the FX adjustment above; (c) a minimum-joint-
-history guard that reports "insufficient history" rather than a number for
-Quantum/Uranium-shaped cases; (d) an explicit label-disagreement flag (e.g. a
-`close`-labelled pair scoring below the `partial` median correlation) —
-treat this one as a genuine follow-up needing a few months of monthly runs
-first, not something to build off a single snapshot.
+**Not acted on yet, deliberately.** A rule like "flag a `close` pair scoring
+below the `partial` median" would fire on these two off a SINGLE snapshot.
+Correlation over 190 weeks is a real measurement, not noise, but relabeling a
+theme's tracking quality is a config change with real consequences (it changes
+what a reader expects to be able to buy) and deserves more than one data point
+before acting. Re-run monthly (the monitor has no schedule yet — see the
+sibling gap on the restore drill's cadence, though this doesn't need CI, a
+manual run is fine) for a few cycles, then revisit whether AI & Robotics and
+Defense should move to `partial`.
 
 ## The backtest's early years cannot exercise the hold band at all
 
@@ -817,6 +764,62 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## UCITS monitor: FX-adjust the diff, add correlation/tracking error (2026-08-30)
+
+Found the same day `scripts/ucits_tracking_monitor.py` shipped (see Done
+below), while its PR was still open — fixed before merge rather than as a
+separate follow-up.
+
+**The FX bug.** The shipped design decision ("compare in each listing's own
+currency — a return is dimensionless, no FX rate needed") does not hold for an
+unhedged fund: a EUR-quoted UCITS fund holding USD assets has EUR price ≈ USD
+NAV × EUR/USD, so a PERFECT tracker still shows a raw return gap equal to the
+FX move. Measured impact the day it was found: **+0.1pp**, uniform across every
+pair, because EUR/USD moved only −0.5% over the trailing year — the shipped
+numbers were fine by luck (a quiet FX year), not by method. `diff_*` now
+FX-adjusts the UCITS side to USD (`fx_adjust_to_usd`, fetching `EURUSD=X`
+through the existing `fetch_prices` path) before subtracting, so a future
+15%-FX year does not read as every UCITS equivalent breaking at once. The
+`US`/`UCITS` columns still show each listing's own native-currency return,
+unconverted, for the reader — only `diff` changed. A missing FX fetch degrades
+gracefully to the old (raw, unadjusted) behavior with a `⚠` in the report
+rather than aborting.
+
+**The metric upgrade.** Weekly-return correlation and annualized tracking
+error (both FX-adjusted, both standard industry definitions) added as report
+columns. Verified against the monitor's first live pull that they order the
+hand-assigned `match` labels correctly where the realized-gap metric did not:
+
+| match | median correlation | median tracking error | median \|realized-gap\| (old metric) |
+|---|---:|---:|---:|
+| `exact` | **0.93** | 9.0% | 2.6pp |
+| `close` | **0.84** | 18.2% | 11.1pp |
+| `partial` | **0.54** | 15.1% | 5.8pp |
+
+The old metric ranked `close` as worse than `partial` — backwards. Below
+`MIN_JOINT_WEEKS` (26) of overlapping weekly returns, both report `None`
+rather than a number computed from too few points to trust.
+
+**Correction to something reported as a finding before this shipped:** Quantum
+Computing's 65 weeks of history is NOT a defect — re-verified directly against
+the cached data (QUTM's first bar is 2025-05-26, so a trailing 1y lookback as
+of 2026-08-28 only needs a price from 2025-08-28, three months after a real
+launch, not an inception-day artifact) and 65 weeks clears the 26-week floor
+with room to spare. The earlier framing of this as a "history guard" bug
+conflated a throwaway analysis script (which needed the fund's *entire*
+history for its own reasons) with the shipped code's actual requirement (just
+the lookback window). Uranium & Nuclear's 0 weeks (Yahoo holds 5 days of
+`URNU.DE` history) is the one real case the guard exists for, and it already
+reported `None` correctly even before this change — `trailing_return`'s
+existing insufficient-history check already covered it.
+
+**Not built:** an automated label-disagreement flag (e.g. auto-flag a `close`
+pair scoring below the `partial` median) — split out as its own queued item,
+deliberately, since acting on a single snapshot is the wrong call regardless of
+how clean the measurement looks.
+
+12 new tests (25 total in the file), TDD.
 
 ## GKG bulk warning no longer asserts caller behaviour (2026-08-30)
 

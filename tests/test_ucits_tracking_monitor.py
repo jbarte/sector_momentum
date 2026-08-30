@@ -17,10 +17,13 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.ucits_tracking_monitor import (
+    fx_adjust_to_usd,
     resolve_yf_ticker,
     theme_pairs,
-    trailing_return,
     tracking_report,
+    tracking_stats,
+    trailing_return,
+    weekly_returns,
 )
 
 
@@ -163,3 +166,153 @@ def test_tracking_report_is_grouped_and_sortable_by_match_quality():
     ]
     rows = tracking_report(pairs, prices, as_of=pd.Timestamp("2026-08-28"))
     assert {r["match"] for r in rows} == {"partial", "exact"}
+
+
+# --- fx_adjust_to_usd -------------------------------------------------------
+
+def test_fx_adjust_to_usd_converts_a_eur_price_series():
+    idx = pd.bdate_range("2026-01-01", periods=5)
+    eur_price = pd.Series([100.0] * 5, index=idx)
+    fx = pd.Series([1.10] * 5, index=idx)  # USD per 1 EUR
+    usd = fx_adjust_to_usd(eur_price, fx)
+    assert usd.tolist() == pytest.approx([110.0] * 5)
+
+
+def test_fx_adjust_to_usd_aligns_on_the_intersection_of_dates():
+    """The two series rarely share every date exactly (different market
+    holidays) — ffill the FX rate onto the price series' own dates rather than
+    dropping to a bare intersection, which would silently thin the history."""
+    price_idx = pd.bdate_range("2026-01-01", periods=5)
+    fx_idx = price_idx[:3]  # FX feed missing the last two business days
+    eur_price = pd.Series([100.0, 101.0, 102.0, 103.0, 104.0], index=price_idx)
+    fx = pd.Series([1.0, 1.0, 1.0], index=fx_idx)
+    usd = fx_adjust_to_usd(eur_price, fx)
+    assert len(usd) == 5
+    assert usd.iloc[-1] == pytest.approx(104.0)  # ffilled 1.0 rate
+
+
+def test_fx_adjust_to_usd_of_an_empty_series_is_empty():
+    assert fx_adjust_to_usd(pd.Series(dtype=float), pd.Series(dtype=float)).empty
+
+
+# --- weekly_returns ----------------------------------------------------
+
+def test_weekly_returns_resamples_and_diffs():
+    idx = pd.bdate_range("2026-01-01", periods=15)  # a bit over 3 calendar weeks
+    s = pd.Series(range(100, 115), index=idx, dtype=float)
+    wr = weekly_returns(s)
+    assert len(wr) >= 2
+    assert (wr > 0).all()  # monotonically rising input -> every weekly return positive
+
+
+def test_weekly_returns_of_a_short_series_is_empty_not_an_error():
+    s = pd.Series([100.0], index=[pd.Timestamp("2026-08-28")])
+    assert weekly_returns(s).empty
+
+
+# --- tracking_stats ----------------------------------------------------
+
+def _correlated_pair(n_weeks, corr_break=False):
+    idx = pd.bdate_range(end="2026-08-28", periods=n_weeks * 5, freq="B")
+    base = np.cumsum(np.random.default_rng(0).normal(0, 1, len(idx)))
+    a = pd.Series(100 + base, index=idx)
+    b = pd.Series(100 + base * (0.3 if corr_break else 1.0)
+                 + (np.random.default_rng(1).normal(0, 5, len(idx)) if corr_break else 0),
+                 index=idx)
+    return a, b
+
+
+def test_tracking_stats_reports_high_correlation_for_near_identical_series():
+    a, b = _correlated_pair(60)
+    stats = tracking_stats(a, b)
+    assert stats["n_weeks"] >= 55
+    assert stats["correlation"] > 0.95
+    assert stats["tracking_error"] is not None and stats["tracking_error"] >= 0
+
+
+def test_tracking_stats_is_none_below_the_minimum_joint_history():
+    """The regression this guards: a fund a few months post-launch has real
+    daily bars but too few weekly return observations for correlation to mean
+    anything — report None with the count, not a noisy number."""
+    a, b = _correlated_pair(10)
+    stats = tracking_stats(a, b, min_weeks=26)
+    assert stats["correlation"] is None
+    assert stats["tracking_error"] is None
+    assert stats["n_weeks"] < 26
+
+
+def test_tracking_stats_of_no_overlap_is_none():
+    a = pd.Series([1.0, 2.0], index=pd.bdate_range("2020-01-01", periods=2))
+    b = pd.Series([1.0, 2.0], index=pd.bdate_range("2026-01-01", periods=2))
+    stats = tracking_stats(a, b)
+    assert stats["correlation"] is None and stats["n_weeks"] == 0
+
+
+# --- tracking_report, extended with fx + correlation ------------------
+
+def test_tracking_report_without_fx_matches_old_native_currency_behaviour():
+    """No fx passed -> identical to the pre-FX-fix behaviour (backward compat
+    for the callers/tests that predate this)."""
+    prices = {"BOTZ": _grown(0.20), "XAIX.DE": _grown(0.15)}
+    pairs = [{"theme": "AI", "us_ticker": "BOTZ", "ucits_ticker": "XAIX",
+             "yf_ticker": "XAIX.DE", "match": "close"}]
+    rows = tracking_report(pairs, prices, as_of=pd.Timestamp("2026-08-28"))
+    assert rows[0]["diff_1y"] == pytest.approx(-0.05, abs=0.02)
+    assert rows[0]["correlation"] is None
+    assert rows[0]["tracking_error"] is None
+
+
+def test_tracking_report_with_fx_corrects_the_diff_for_currency_drift():
+    """The bug this fixes: an unhedged EUR fund quotes P_eur = V_usd / fx, so
+    even a PERFECT tracker shows a raw diff driven entirely by the FX move.
+    Construct exactly that fund (eur_price = us_price / fx) and confirm the
+    raw diff is dominated by FX while the FX-adjusted diff collapses to ~0."""
+    idx = pd.bdate_range(end="2026-08-28", periods=int(1.2 * 252))
+    us_values = np.linspace(100, 120, len(idx))     # underlying USD NAV: +20%
+    fx_values = np.linspace(1.00, 1.20, len(idx))   # EUR strengthens 20% vs USD
+    eur_values = us_values / fx_values              # unhedged EUR price of that SAME fund
+    us = pd.Series(us_values, index=idx)
+    eur = pd.Series(eur_values, index=idx)
+    fx = pd.Series(fx_values, index=idx)
+    prices = {"BOTZ": us, "XAIX.DE": eur}
+    pairs = [{"theme": "AI", "us_ticker": "BOTZ", "ucits_ticker": "XAIX",
+             "yf_ticker": "XAIX.DE", "match": "close"}]
+    raw = tracking_report(pairs, prices, as_of=idx[-1])
+    # ~0% EUR native return (the +20% USD gain is offset by EUR's own +20%
+    # strength) minus the US's +20% -> roughly -20%. Loose tolerance: the
+    # trailing-return lookback point is not exactly the series' first index,
+    # so this is "clearly dominated by FX," not a precise reproduction.
+    assert raw[0]["diff_1y"] == pytest.approx(-0.20, abs=0.05), \
+        "sanity: without FX adjustment, a perfectly-tracking fund reads as a ~20pp laggard"
+
+    adjusted = tracking_report(pairs, prices, as_of=idx[-1], fx=fx)
+    assert adjusted[0]["diff_1y"] == pytest.approx(0.0, abs=0.03), \
+        "FX-adjusted: a perfectly-tracking fund must show ~0 diff regardless of FX"
+    # the native-currency EUR return is still shown, unconverted, for the reader
+    assert adjusted[0]["ucits_1y"] == pytest.approx(0.0, abs=0.03)
+
+
+def test_tracking_report_populates_correlation_and_tracking_error_with_fx():
+    idx = pd.bdate_range(end="2026-08-28", periods=300)
+    rng = np.random.default_rng(2)
+    base = np.cumsum(rng.normal(0, 1, len(idx)))
+    us = pd.Series(100 + base, index=idx)
+    eur = pd.Series(100 + base, index=idx)  # identical after FX-adjustment
+    fx = pd.Series(1.0, index=idx)
+    pairs = [{"theme": "AI", "us_ticker": "BOTZ", "ucits_ticker": "XAIX",
+             "yf_ticker": "XAIX.DE", "match": "close"}]
+    rows = tracking_report(pairs, {"BOTZ": us, "XAIX.DE": eur}, as_of=idx[-1], fx=fx)
+    assert rows[0]["correlation"] > 0.95
+    assert rows[0]["n_weeks"] >= 26
+
+
+def test_tracking_report_reports_correlation_none_for_a_pair_below_min_history():
+    idx = pd.bdate_range(end="2026-08-28", periods=40)  # ~8 weeks
+    us = pd.Series(range(100, 140), index=idx, dtype=float)
+    eur = pd.Series(range(100, 140), index=idx, dtype=float)
+    fx = pd.Series(1.0, index=idx)
+    pairs = [{"theme": "AI", "us_ticker": "BOTZ", "ucits_ticker": "XAIX",
+             "yf_ticker": "XAIX.DE", "match": "close"}]
+    rows = tracking_report(pairs, {"BOTZ": us, "XAIX.DE": eur}, as_of=idx[-1], fx=fx)
+    assert rows[0]["correlation"] is None
+    assert rows[0]["n_weeks"] < 26
