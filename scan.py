@@ -43,7 +43,7 @@ logging.basicConfig(
 logger = logging.getLogger("scan")
 
 from src.data.prices import fetch_prices
-from src.backup import backup_to_storage
+from src.backup import backup_to_storage, prune_storage_backups
 from src.cohorts import THEME_REGION
 from src.pipeline import SIGNAL_COLUMNS, build_theme_signals_rows
 
@@ -519,6 +519,20 @@ def run(args: argparse.Namespace) -> int:
                     logger.info("Pre-run DB backup uploaded to Storage (%s)", name)
                 except Exception as exc:  # non-fatal: a backup failure must not fail the scan
                     logger.warning("Pre-run backup failed (%s) — continuing", exc)
+                else:
+                    # Prune only after the new upload succeeded — the backlog
+                    # item's own rule: "the whole point is that a backup
+                    # exists at every instant." A prune failure is logged
+                    # separately from an upload failure: the backup this run
+                    # needed already landed, so this is stale-object cleanup
+                    # falling behind, not a backup problem.
+                    try:
+                        pruned = prune_storage_backups()
+                        if pruned:
+                            logger.info("Pruned %d old backup(s) from Storage: %s",
+                                       len(pruned), ", ".join(pruned))
+                    except Exception as exc:
+                        logger.warning("Backup retention prune failed (%s) — continuing", exc)
 
         # 10. Load prior scan + compute deltas
         prior_scan = load_last_scan(conn)

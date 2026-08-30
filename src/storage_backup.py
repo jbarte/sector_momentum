@@ -72,6 +72,29 @@ def download(object_name: str, bucket: str = DEFAULT_BUCKET) -> bytes:
     return resp.content
 
 
+def delete(names: list[str], bucket: str = DEFAULT_BUCKET) -> None:
+    """Permanently remove one or more objects. NOT recoverable.
+
+    Follows the Storage API's bulk-delete contract (the same one storage-js's
+    `from(bucket).remove(paths)` uses): a single DELETE to the bucket-scoped
+    URL with `{"prefixes": names}` in the body. Despite the parameter name,
+    each entry must be a full, exact object path — this is not a
+    directory-style prefix match, so passing a truncated name here could
+    delete more than intended. Callers must pass exact names.
+
+    A no-op for an empty list: never sends the request, so nothing can ever
+    ride on an empty selector meaning "everything" or "nothing" at the API
+    layer — it means nothing before the request is even made.
+    """
+    if not names:
+        return
+    url = f"{_base_url()}/storage/v1/object/{bucket}"
+    resp = requests.delete(
+        url, json={"prefixes": list(names)}, headers=_headers(), timeout=_TIMEOUT,
+    )
+    resp.raise_for_status()
+
+
 def list_objects(bucket: str = DEFAULT_BUCKET) -> list[str]:
     url = f"{_base_url()}/storage/v1/object/list/{bucket}"
     resp = requests.post(

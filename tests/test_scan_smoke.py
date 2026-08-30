@@ -217,8 +217,48 @@ def test_backup_called_after_successful_save(monkeypatch, tmp_path):
     import scan
     calls = []
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
     _run_minimal_scan(monkeypatch)
     assert len(calls) == 1
+
+
+def test_prune_runs_only_after_a_successful_backup_upload(monkeypatch, tmp_path):
+    """The backlog item's own rule: prune AFTER a successful upload, never
+    before or instead — a prune must not run on top of a failed backup, since
+    the whole point is a backup exists at every instant."""
+    import scan
+    prune_calls = []
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: "backup-file.zip")
+    monkeypatch.setattr(scan, "prune_storage_backups",
+                        lambda *a, **k: prune_calls.append(1) or ["old.zip"])
+    _run_minimal_scan(monkeypatch)
+    assert prune_calls == [1]
+
+
+def test_prune_does_not_run_when_the_backup_upload_failed(monkeypatch, tmp_path):
+    import scan
+    prune_calls = []
+    monkeypatch.setattr(scan, "backup_to_storage",
+                        lambda conn, *a, **k: (_ for _ in ()).throw(RuntimeError("storage down")))
+    monkeypatch.setattr(scan, "prune_storage_backups",
+                        lambda *a, **k: prune_calls.append(1))
+    _run_minimal_scan(monkeypatch)  # must not raise -- backup failure is non-fatal
+    assert prune_calls == []
+
+
+def test_a_prune_failure_is_logged_separately_and_does_not_abort_the_scan(monkeypatch, tmp_path, caplog):
+    """A prune failure is a lesser concern than a backup failure -- the
+    backup this run needed already landed -- so it gets its own warning, not
+    lumped in with 'Pre-run backup failed'."""
+    import logging
+    import scan
+    monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: "backup-file.zip")
+    monkeypatch.setattr(scan, "prune_storage_backups",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("bucket unreachable")))
+    with caplog.at_level(logging.WARNING):
+        _run_minimal_scan(monkeypatch)  # must not raise
+    assert "Backup retention prune failed" in caplog.text
+    assert "Pre-run backup failed" not in caplog.text
 
 
 def test_no_backup_flag_skips_backup(monkeypatch, tmp_path):
@@ -226,6 +266,7 @@ def test_no_backup_flag_skips_backup(monkeypatch, tmp_path):
     import scan
     calls = []
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
     _run_minimal_scan(monkeypatch, extra_argv=["--no-backup"])
     assert calls == []
 
@@ -262,6 +303,7 @@ def test_pre_run_backup_skipped_with_no_backup_flag(monkeypatch):
     import scan
     calls = []
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append("backup"))
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
     _run_minimal_scan(monkeypatch, extra_argv=["--no-backup"])
     assert calls == []
 
@@ -281,6 +323,7 @@ def test_backup_skipped_when_asof_unchanged(monkeypatch):
     import scan
     calls = []
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
     _run_minimal_scan(monkeypatch, prior_health={"prices_asof": _FIXTURE_ASOF})
     assert calls == []
 
@@ -291,6 +334,7 @@ def test_backup_called_when_asof_changed(monkeypatch):
     import scan
     calls = []
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
     _run_minimal_scan(monkeypatch, prior_health={"prices_asof": "2026-02-20"})
     assert len(calls) == 1
 
@@ -301,6 +345,7 @@ def test_backup_called_when_no_prior_scan(monkeypatch):
     import scan
     calls = []
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
     _run_minimal_scan(monkeypatch, prior_health=None)
     assert len(calls) == 1
 
@@ -311,6 +356,7 @@ def test_backup_called_when_health_check_raises(monkeypatch):
     import scan
     calls = []
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
     _run_minimal_scan(monkeypatch, health_check_error=RuntimeError("db down"))
     assert len(calls) == 1
 
@@ -324,6 +370,7 @@ def test_backup_called_when_prior_asof_is_unparseable(monkeypatch):
     import scan
     calls = []
     monkeypatch.setattr(scan, "backup_to_storage", lambda conn, *a, **k: calls.append(conn) or "backup-file.sql.gz")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
     rc = _run_minimal_scan(monkeypatch, prior_health={"prices_asof": "2026-02-24T00:00:00"})
     assert rc in (0, None)
     assert len(calls) == 1
@@ -426,6 +473,7 @@ def test_coverage_guard_passes_at_80_percent(monkeypatch):
     })
     monkeypatch.setattr(_state_mod, "compute_deltas", lambda *a, **k: scored_with_deltas)
     monkeypatch.setattr(scan, "backup_to_storage", lambda *a, **k: "backup.zip")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
 
     args = scan._parse_args()
     rc = scan.run(args)
@@ -473,6 +521,7 @@ def test_conn_closed_on_exception(monkeypatch):
         raise RuntimeError("DB write exploded")
     monkeypatch.setattr(_state_mod, "save_scan", boom)
     monkeypatch.setattr(scan, "backup_to_storage", lambda *a, **k: "backup.zip")
+    monkeypatch.setattr(scan, "prune_storage_backups", lambda *a, **k: [])
 
     args = scan._parse_args()
     with pytest.raises(RuntimeError, match="DB write exploded"):
