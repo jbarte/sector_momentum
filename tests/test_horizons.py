@@ -279,7 +279,7 @@ def test_long_tolerates_more_drift_than_medium():
 def test_review_dates_reads_the_presets_own_cadence():
     """A distinct fixture per preset, not a hardcoded 'M' — a future preset on
     a different cadence must get its own calendar shape, not medium's."""
-    h = Horizon(key="x", label="X", rebalance="Q", top_n=3, buffer=2)
+    h = Horizon(key="x", label="X", rebalance="Q", top_n=3, buffer_frac=0.1)
     dates = review_dates(h, since="2026-01-15", count=2)
     assert dates == ["2026-03-31", "2026-06-30"]
 
@@ -288,7 +288,7 @@ def test_review_dates_returns_iso_strings_not_timestamps():
     """This feeds straight into build.py's JSON context — a pandas Timestamp
     is not JSON-serialisable, and the failure would surface as a build crash
     far from this function."""
-    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer=2)
+    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer_frac=0.1)
     dates = review_dates(h, since="2026-01-15", count=1)
     assert dates == ["2026-01-30"]
     assert all(isinstance(d, str) for d in dates)
@@ -298,7 +298,7 @@ def test_review_dates_count_defaults_to_six():
     """Six matches the design note ('next ~6 review dates') and gives the
     client enough runway that a normal build cadence never runs the calendar
     out before the next one refreshes it."""
-    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer=2)
+    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer_frac=0.1)
     assert len(review_dates(h, since="2026-01-15")) == 6
 
 
@@ -319,12 +319,12 @@ def test_review_dates_absorbs_a_days_worth_of_client_clock_skew():
     due — and since every later build's window only moves forward, it can
     never reappear. `since` one day past a boundary must still return that
     boundary as the first date, not skip to the next one."""
-    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer=2)
+    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer_frac=0.1)
     assert review_dates(h, since="2026-09-01", count=1) == ["2026-08-31"]
 
 
 def test_review_dates_skew_margin_does_not_shift_the_ordinary_case():
     """The margin must be invisible away from a boundary — otherwise every
     calendar would be running a few days 'behind' for no reason."""
-    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer=2)
+    h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer_frac=0.1)
     assert review_dates(h, since="2026-01-15", count=1) == ["2026-01-30"]
