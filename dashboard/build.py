@@ -643,6 +643,10 @@ def main() -> None:
     # `_compute_setup(row)` with no horizon, which falls back to
     # `default_horizon()`. If that ever stops being true the modal starts lying,
     # which is why tests/test_alerts_horizon_notice.py pins it.
+    # `exit_rank` is intentionally NOT exported here — it depends on the runtime
+    # universe size, which can differ between a guest-baked page and a signed-in
+    # rebuild. Every consumer resolves it fresh via Rescore.exitRank() instead of
+    # reading a static, potentially-stale value baked in at build time.
     _horizons_json = _json.dumps([
         {"key": h.key, "label": h.label, "rebalance": h.rebalance,
          "top_n": h.top_n, "buffer_frac": h.buffer_frac,
