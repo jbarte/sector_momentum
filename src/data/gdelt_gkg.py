@@ -204,7 +204,10 @@ def fetch_theme_headlines_bulk(
         "GKG bulk: %d/%d slices read, %d titles", ok, len(urls), len(records)
     )
     if ok == 0:
-        logger.warning("GKG bulk: no slices could be read — falling back to the API")
+        # States only what this function knows. Whether anything falls back to
+        # the DOC API is the orchestrator's decision, and asserting it here was
+        # wrong for any caller using this function directly.
+        logger.warning("GKG bulk: no slices could be read — returning no headlines")
     elif ok < len(urls):
         logger.warning(
             "GKG bulk: %d/%d slices unreadable — coverage degraded this run",

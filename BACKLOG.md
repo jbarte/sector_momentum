@@ -481,14 +481,11 @@ Recorded so they are not rediscovered from scratch.
 
 **Three of six acted on 2026-08-17** — see Done: the partial-slice-failure
 warning, the dead-code removal, and the http/https check (confirmed *not*
-free — see Done for why).
+free — see Done for why). **A fourth on 2026-08-30**: the "no slices could be
+read" warning no longer asserts caller behaviour.
 
 What remains:
 
-- **`gdelt_gkg.py`** — the "no slices could be read" warning asserts caller
-  behaviour ("falling back to the API") that belongs to the orchestrator.
-  Accurate for the only production caller; misleading only if the bulk
-  function is called directly.
 - **`gdelt_gkg.py`** — the whole 24h corpus (~50k records, each carrying the
   large themes/orgs/names columns) accumulates in memory before matching, and
   only `title` survives. Fine at `hours=24`; scales linearly, so a wider
@@ -748,6 +745,19 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## GKG bulk warning no longer asserts caller behaviour (2026-08-30)
+
+One bullet of *Deferred polish from the GDELT bulk-fetch reviews* (the other
+two remain queued, both explicitly "revisit if X"). `fetch_bulk_headlines`
+logged `no slices could be read — falling back to the API`, which is a claim
+about what the *caller* will do next. True for the only production caller,
+wrong for anything using the function directly, and not something this function
+can know. Now states its own fact — `returning no headlines` — matching the
+sibling warning two lines below it, which already only reported its own
+(`coverage degraded this run`).
+
+Message-only; no behaviour change and no test pinned the wording.
 
 ## UCITS tracking-difference monitor (2026-08-30)
 
