@@ -29,6 +29,15 @@ _EVER_SHIPPED_LABELS = {"Short", "Medium", "Long"}
 _NUMBER_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
 
 
+def _real_theme_count() -> int:
+    """The actual universe size config/themes.yaml scores — the number this
+    test must check the README against, since the README describes the LIVE
+    strategy for a real reader, not an arbitrary test fixture."""
+    import yaml
+    themes_cfg = yaml.safe_load((_ROOT / "config" / "themes.yaml").read_text())
+    return len(themes_cfg["themes"])
+
+
 def _labels():
     return {h.label for h in horizons()}
 
@@ -68,11 +77,16 @@ def test_readme_states_the_right_number_of_presets():
 
 
 def test_readme_quotes_the_shipped_band_edges():
-    """The README names concrete sell thresholds ("sell past rank 9"). Those are
-    `top_n + buffer`, so a buffer change makes the sentence wrong."""
+    """The README names concrete sell thresholds ("sell past rank 9"). Those
+    are `top_n + buffer_frac`-derived, resolved at today's REAL universe size
+    — so a buffer_frac change, OR a theme being added/removed, makes the
+    sentence wrong."""
     text = _README.read_text()
+    universe = _real_theme_count()
     for h in horizons():
-        assert re.search(rf"\brank {h.exit_rank}\b", text), (
+        exit_rank = h.exit_rank(universe)
+        assert re.search(rf"\brank {exit_rank}\b", text), (
             f"README.md does not state {h.label}'s exit rank "
-            f"({h.exit_rank} = top_n {h.top_n} + buffer {h.buffer})"
+            f"({exit_rank} = top_n {h.top_n} + buffer_frac {h.buffer_frac} "
+            f"x {universe} themes)"
         )
