@@ -688,32 +688,6 @@ EUR/SEK-denominated, so the comparison needs a currency decision (compare in
 each listing's own currency, or convert both to one) before the number means
 anything. That is a real design choice, not a detail — worth settling first.
 
-## Feature: rank-based cross-sectional standardization
-
-`zscore_cross_section` standardizes each signal with `mean` and `std(ddof=1)`
-across **18 themes**. Both estimators are noisy at n=18 and neither is robust: a
-single extreme theme inflates the std and compresses every other theme toward
-zero, so one outlier quietly flattens the spread the composite is built to read.
-`|z|` is bounded at √17 ≈ 4.12 regardless, which is its own distortion — the tail
-is clipped by sample size rather than by any deliberate choice.
-
-Rank-based (normal-score) standardization — rank cross-sectionally, map ranks
-through the inverse normal CDF — is invariant to outliers and produces the same
-distribution shape every scan.
-
-This is a **different axis** from *Composite structure — 4.2 effective signals
-of 8* above. That item is about redundancy *between* signals; this is about the
-estimator applied *to* each one. Neither answers the other.
-
-Testable with the harness that already exists: `scripts/horizon_sweep.py` and
-`backtest.py` both drive the scoring pipeline as-of historical dates, and
-`score_all` already accepts alternative signal lists, so an alternative
-standardizer is the same kind of A/B. Judge it on the two independent windows
-the horizon sweep already uses, at the configured `round_trip_bps` — sweeping at
-0 bps is how the pre-2026-08-09 presets got picked.
-
-Do not ship on a single-window improvement.
-
 ## Feature: prove the backups restore, not just that they upload
 
 `tests/test_backup_drill.py` exercises the dump/restore round trip against a
@@ -821,6 +795,59 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Rank-based cross-sectional standardization — tested, rejected (2026-08-30)
+
+The queued item proposed replacing `zscore_cross_section`'s mean/std with a
+normal-score transform (rank cross-sectionally, map through the inverse normal
+CDF), on the grounds that both estimators are noisy and non-robust at n=18 and
+that one extreme theme inflates the std and compresses every other theme toward
+zero. **The premise is correct. The conclusion does not follow — it measures
+worse, consistently, and should not be shipped.**
+
+**The premise, verified.** With a single 500 among values 1-7, `zscore` squeezes
+the seven ordinary points into a spread of **0.034** — mutually indistinguishable
+— while the normal-score transform keeps them **2.421** apart. The compression
+the item describes is real and reproducible.
+
+**The A/B.** Both standardizers run through the full backtest on the two
+DISJOINT windows this repo now uses (A: 2015-2021, n=84 rebalances; B: 2022-,
+n=56), at the configured 100 bps, over the 21 monthly cells whose band is live
+throughout (`exit_rank <= 10`, per the liveness guard shipped the same day).
+Paired per-cell comparison, which cancels the common noise:
+
+| | window A 2015-2021 | window B 2022- |
+|---|---:|---:|
+| median CAGR, zscore → rank | 13.7% → 13.2% | 14.0% → 12.6% |
+| **paired median ΔCAGR** | **−1.01pp** | **−1.95pp** |
+| cells where rank wins | 8/21 | 6/21 |
+| median Sharpe | 0.71 → 0.68 | 0.72 → 0.66 |
+| median max drawdown | −27.0% → **−30.0%** | −19.4% → **−21.9%** |
+
+Every sign agrees across two disjoint windows, on all three metrics, including
+drawdown — which the transform was supposed to help. The shipped `medium` cell
+(M/4/5) is hurt well past the 2.2pp noise floor on both: **18.0% → 14.0%**
+(Sharpe 0.98 → 0.74) on A and **19.9% → 16.9%** (0.93 → 0.79) on B.
+
+**Why, mechanically — this is the part worth keeping.** The compression is not a
+defect; it is load-bearing. When one theme is running away from the field,
+z-scoring says exactly that: *one name is a breakout and the rest are a wash*.
+The normal-score transform replaces that with evenly-spaced scores by
+construction, so it discards magnitude and keeps only order. For a **momentum**
+strategy, magnitude is the signal — how far ahead a theme is, not merely that it
+is ahead. Robustness to outliers costs the very information the ranking exists
+to read, because in this cohort the outlier is usually the trade.
+
+**Consequence for the sibling item.** *Composite structure — 4.2 effective
+signals of 8* is still a separate, unanswered question about redundancy
+*between* signals; this result says nothing about it either way. But it does
+retire the "estimator applied *to* each signal" axis: the estimator was tested
+on the protocol the item itself specified, and lost.
+
+Reproduce by swapping `src.scoring.zscore_cross_section` for a normal-score
+transform (`norm.ppf((rank - 0.5) / n)`, same NaN→0.0 contract) and re-running
+`scripts/horizon_sweep.py` on both windows. No code shipped; the experiment was
+a scratch harness.
 
 ## Sweep: flag cells whose SELL line cannot fire (2026-08-30)
 
