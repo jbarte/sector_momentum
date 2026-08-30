@@ -14,6 +14,7 @@ the YAML, no database, no network.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,12 +30,26 @@ _DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config" / "weights.yam
 # so update it whenever `medium` moves in config/weights.yaml.
 #
 # The point is to degrade to a sane strategy rather than to top_n=0 (hold
-# nothing) or buffer=0 (maximum churn).
+# nothing) or buffer_frac=0 (maximum churn).
 _FALLBACK = {
     "key": "medium", "label": "Medium", "rebalance": "M",
-    "top_n": 4, "buffer": 5,
+    "top_n": 4, "buffer_frac": 5 / 18,
     "cagr": None, "trades_per_year": None, "median_holding_days": None,
 }
+
+
+def _round_half_up(x: float) -> int:
+    """int(round-half-away-from-zero(x)).
+
+    Python's builtin round() uses banker's rounding (round-half-to-even) for
+    exact .5 ties -- round(4.5) == 4, round(2.5) == 2 -- which is not what
+    "half away from zero" means and would silently diverge from JS's
+    Math.round(), which already rounds .5 up for the non-negative inputs this
+    is always called with (buffer_frac * universe_size, both >= 0). Used by
+    Horizon.exit_rank so a rank-band boundary is computed identically on the
+    server and in the client-side mirror.
+    """
+    return int(math.floor(x + 0.5))
 
 
 @dataclass(frozen=True)
@@ -43,7 +58,9 @@ class Horizon:
     label: str                  # human-readable, e.g. "Medium"
     rebalance: str              # a src.backtest.replay REBALANCE_FREQS key
     top_n: int                  # positions held
-    buffer: int                 # hysteresis band, IN RANKS
+    buffer_frac: float          # hysteresis band width, as a FRACTION of the
+                                 # scored universe -- not an absolute rank
+                                 # count. See exit_rank().
 
     # Backtested figures for this cell, carried so the UI can show the churn
     # cost beside the return. Optional: they describe one historical sweep and
@@ -52,11 +69,18 @@ class Horizon:
     trades_per_year: float | None = None
     median_holding_days: float | None = None
 
-    @property
-    def exit_rank(self) -> int:
-        """Ranks above this leave the hold band. Positions are kept while
-        `rank <= exit_rank`, which is what makes a one-rank wobble a non-event."""
-        return self.top_n + self.buffer
+    def exit_rank(self, universe_size: int) -> int:
+        """Ranks above this leave the hold band, for a scored universe of
+        `universe_size` themes. Positions are kept while `rank <= exit_rank`,
+        which is what makes a one-rank wobble a non-event.
+
+        Resolved fresh from `universe_size` on every call rather than stored
+        as a fixed number: the buffer is a FRACTION of the universe, so
+        exit_rank widens or narrows as the theme universe grows or shrinks.
+        A stale, cached exit_rank is exactly the bug this design replaces —
+        see sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
+        """
+        return self.top_n + _round_half_up(self.buffer_frac * universe_size)
 
 
 #: Used when config carries no `costs:` block. Non-zero on purpose: a zero
@@ -108,7 +132,7 @@ def horizons(path: str | Path | None = None) -> list[Horizon]:
             label=entry.get("label") or key.title(),
             rebalance=entry.get("rebalance", "M"),
             top_n=int(entry.get("top_n", _FALLBACK["top_n"])),
-            buffer=int(entry.get("buffer", _FALLBACK["buffer"])),
+            buffer_frac=float(entry.get("buffer_frac", _FALLBACK["buffer_frac"])),
             cagr=entry.get("cagr"),
             trades_per_year=entry.get("trades_per_year"),
             median_holding_days=entry.get("median_holding_days"),

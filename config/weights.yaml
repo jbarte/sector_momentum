@@ -194,6 +194,20 @@ costs:
 # best cell in 2022- ranks 10th of 26 in 2015-2021. `medium` survives this test
 # — best in 2015-2021 and 4th of 26 in 2022- — which is the real reason to keep
 # it, rather than any single-window margin.
+#
+# FRACTIONAL BAND MIGRATION, 2026-08-30 — `buffer` (an absolute rank count) is replaced by
+# `buffer_frac` (a fraction of the scored universe), so a preset's selectivity stays stable
+# as the theme universe grows instead of silently drifting every time a theme is added or
+# removed. See sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
+#
+# The two values below were chosen so exit_rank is UNCHANGED at today's 18-theme universe —
+# this migration is a no-op on rollout day; only future universe growth diverges from what
+# absolute ranks would have done.
+#
+# The cagr/trades_per_year/median_holding_days figures below were measured under the OLD
+# absolute-rank simulation across ALL of history, not just today's universe size — they are
+# now PROVISIONAL until a fresh sweep re-validates them under fractional bands (queued
+# separately; out of scope for the mechanism this migration ships).
 horizons:
   default: medium
   presets:
@@ -201,7 +215,9 @@ horizons:
       label: Medium
       rebalance: M
       top_n: 4
-      buffer: 5
+      buffer_frac: 0.277778  # = 5/18: reproduces exit_rank 9 at today's 18-theme
+                             # universe exactly (round(0.277778*18) = 5). See
+                             # 2026-08-30 fractional-band migration below.
       cagr: 0.156
       trades_per_year: 12.9
       median_holding_days: 120
@@ -209,7 +225,8 @@ horizons:
       label: Long
       rebalance: M
       top_n: 5
-      buffer: 8
+      buffer_frac: 0.444444  # = 8/18: reproduces exit_rank 13 at today's 18-theme
+                             # universe exactly (round(0.444444*18) = 8).
       cagr: 0.140
       trades_per_year: 6.9
       median_holding_days: 183

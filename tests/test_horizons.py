@@ -128,51 +128,81 @@ def test_unknown_default_falls_back_rather_than_raising(tmp_path):
         "horizons:\n"
         "  default: nonexistent\n"
         "  presets:\n"
-        "    medium: {label: Medium, rebalance: M, top_n: 5, buffer: 3}\n"
+        "    medium: {label: Medium, rebalance: M, top_n: 5, buffer_frac: 0.15}\n"
     )
     assert default_horizon(cfg).key == "medium"
 
 
 def test_missing_config_yields_a_sane_fallback(tmp_path):
     """No config should degrade to a working strategy, not to top_n=0 (hold
-    nothing) or buffer=0 (maximum churn)."""
+    nothing) or buffer_frac=0 (maximum churn)."""
     h = default_horizon(tmp_path / "does-not-exist.yaml")
-    assert h.top_n > 0 and h.buffer > 0
+    assert h.top_n > 0 and h.buffer_frac > 0
     assert h.rebalance in REBALANCE_FREQS
 
 
 def test_fallback_matches_the_shipped_default_preset():
-    """The hardcoded fallback claims to mirror `medium` — hold it to that.
-
-    It silently stopped matching: `_FALLBACK` sat at M/5/3 (exit rank 8) through
-    two preset retunes while the shipped `medium` moved to M/4/5 (exit rank 9),
-    so a config-less run got a different book AND a different band from the
-    default it documented itself as copying. Nothing failed, because every other
-    test either reads config or only checks the fallback is non-degenerate.
-    """
+    """The hardcoded fallback claims to mirror `medium` — hold it to that."""
     shipped = default_horizon()
-    assert (shipped.rebalance, shipped.top_n, shipped.buffer) == (
-        _FALLBACK["rebalance"], _FALLBACK["top_n"], _FALLBACK["buffer"]
+    assert (shipped.rebalance, shipped.top_n) == (
+        _FALLBACK["rebalance"], _FALLBACK["top_n"]
     ), "_FALLBACK has drifted from the shipped default preset in config/weights.yaml"
+    assert shipped.buffer_frac == pytest.approx(_FALLBACK["buffer_frac"]), (
+        "_FALLBACK's buffer_frac has drifted from the shipped default preset"
+    )
 
 
-def test_exit_rank_is_the_hold_band_edge():
-    h = Horizon(key="k", label="K", rebalance="M", top_n=5, buffer=3)
-    assert h.exit_rank == 8
+def test_round_half_up_rounds_ties_away_from_zero_not_to_even():
+    """Python's builtin round() is banker's rounding (round(4.5) == 4), which
+    would silently diverge from JS's Math.round() (always rounds .5 up for
+    non-negative inputs) the first time a buffer_frac * universe_size product
+    lands on an exact .5 boundary."""
+    from src.horizons import _round_half_up
+    assert _round_half_up(4.5) == 5
+    assert _round_half_up(2.5) == 3
+    assert _round_half_up(0.4999999999) == 0
+    assert _round_half_up(0.0) == 0
+
+
+def test_exit_rank_resolves_from_universe_size():
+    h = Horizon(key="k", label="K", rebalance="M", top_n=5, buffer_frac=0.15)
+    assert h.exit_rank(20) == 8   # top_n 5 + round(0.15*20=3.0) = 8
+    assert h.exit_rank(10) == 7   # top_n 5 + round(0.15*10=1.5) = 7 (half-up rounds away from zero)
+
+
+def test_exit_rank_scales_with_universe_size_not_fixed():
+    """The whole point: the SAME preset yields a DIFFERENT exit_rank as the
+    universe grows -- this is what 'stop being silently re-tuned by universe
+    growth' actually means."""
+    h = Horizon(key="k", label="K", rebalance="M", top_n=4, buffer_frac=5 / 18)
+    assert h.exit_rank(10) != h.exit_rank(18)
+    assert h.exit_rank(18) == 9   # migration value: reproduces today's shipped exit_rank
+
+
+def test_migration_values_reproduce_todays_shipped_exit_rank():
+    """medium and long's buffer_frac must round-trip EXACTLY to today's
+    absolute exit_rank (9, 13) at today's real universe size (18) -- this is
+    what makes the migration a no-op on rollout day."""
+    by_key = {h.key: h for h in horizons()}
+    assert by_key["medium"].exit_rank(18) == 9
+    assert by_key["long"].exit_rank(18) == 13
 
 
 # ---------------------------------------------------------------------------
 # the band rule
 # ---------------------------------------------------------------------------
 
+_TEST_UNIVERSE = 20  # see plan's Global Constraints: N/20 round-trips exactly for every N used here
+
+
 @pytest.fixture
 def h():
-    return Horizon(key="k", label="K", rebalance="M", top_n=5, buffer=3)
+    return Horizon(key="k", label="K", rebalance="M", top_n=5, buffer_frac=3 / _TEST_UNIVERSE)
 
 
-def _setup(rank, horizon):
+def _setup(rank, horizon, universe_size=_TEST_UNIVERSE):
     row = {"rank": rank}
-    _compute_setup(row, horizon)
+    _compute_setup(row, horizon, universe_size=universe_size)
     return row["setup"]
 
 
@@ -180,8 +210,8 @@ def test_band_boundaries(h):
     assert _setup(1, h) == "entry"
     assert _setup(h.top_n, h) == "entry", "top_n itself is inside the buy band"
     assert _setup(h.top_n + 1, h) is None, "the hold zone is silent"
-    assert _setup(h.exit_rank, h) is None, "exit_rank itself is still held"
-    assert _setup(h.exit_rank + 1, h) == "exit"
+    assert _setup(h.exit_rank(_TEST_UNIVERSE), h) is None, "exit_rank itself is still held"
+    assert _setup(h.exit_rank(_TEST_UNIVERSE) + 1, h) == "exit"
 
 
 def test_missing_rank_is_silent(h):
@@ -196,7 +226,7 @@ def test_setup_ignores_momentum(h):
     the badge answers 'should I hold this', not 'is this accelerating'."""
     row = {"rank": 1.0, "_raw_composite": -9.0, "_raw_change": -9.0,
            "trajectory_state": "strong_down"}
-    _compute_setup(row, h)
+    _compute_setup(row, h, universe_size=_TEST_UNIVERSE)
     assert row["setup"] == "entry"
 
 
@@ -211,10 +241,10 @@ def test_every_preset_has_a_distinct_band():
     retune makes two presets coincide again that is a legitimate trade-off, but
     it should be a decision, not a surprise.
     """
-    bands = {(h.top_n, h.exit_rank) for h in horizons()}
+    bands = {(h.top_n, h.exit_rank(18)) for h in horizons()}
     assert len(bands) == len(horizons()), (
         f"presets share a band, so they tag rows identically: "
-        f"{[(h.key, h.top_n, h.exit_rank) for h in horizons()]}"
+        f"{[(h.key, h.top_n, h.exit_rank(18)) for h in horizons()]}"
     )
 
 
@@ -239,7 +269,7 @@ def test_long_tolerates_more_drift_than_medium():
     not be longer in any meaningful sense.
     """
     by_key = {h.key: h for h in horizons()}
-    assert by_key["long"].exit_rank > by_key["medium"].exit_rank
+    assert by_key["long"].exit_rank(18) > by_key["medium"].exit_rank(18)
 
 
 # ---------------------------------------------------------------------------
