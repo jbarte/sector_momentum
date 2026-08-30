@@ -661,32 +661,6 @@ decision (schema shape, how much detail to surface, whether reason 1 and 2
 should migrate into it too) rather than a three-line addition, so it belongs
 in front of brainstorming, not skipped straight to implementation.
 
-## Feature: UCITS tracking-difference monitor
-
-`config/themes.yaml` records the closest UCITS equivalent per theme — ticker,
-ISIN, TER, issuer, and a `match` quality of `exact` / `close` / `partial` — but
-nothing ever measures whether that equivalent actually *tracks* the US listing
-being scored.
-
-That gap is the difference between what the board ranks and what can be bought
-on Avanza. A `partial` match can diverge by several points a year through
-different index construction, currency hedging, or a thinner basket — enough to
-consume whatever edge the ranking finds — and one theme (Shipping) has no
-equivalent at all, which the board already flags as unbuyable.
-
-The measurement is cheap because the pipeline already fetches prices: pull the
-UCITS ticker alongside the US one, and report realized return difference over
-3m/6m/1y per theme, grouped by `match` quality. Two things fall out of it:
-
-- an empirical check on the `match` labels, which are currently hand-assigned
-  judgement rather than measured
-- an honest per-theme haircut to apply when reading the backtest, which replays
-  US listings the reader cannot buy
-
-Open question before building: many UCITS lines are thinly traded and
-EUR/SEK-denominated, so the comparison needs a currency decision (compare in
-each listing's own currency, or convert both to one) before the number means
-anything. That is a real design choice, not a detail — worth settling first.
 
 ## Audit record from the 2026-08-23 sweep
 
@@ -774,6 +748,48 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## UCITS tracking-difference monitor (2026-08-30)
+
+`config/themes.yaml` records a hand-assigned `match` quality (exact/close/
+partial) per UCITS equivalent, but nothing ever measured whether the EU-buyable
+listing actually tracks the US one this project scores. Jonas: compare in each
+listing's own currency — a percentage return is dimensionless, so a US ETF's
+USD return and its UCITS equivalent's EUR return are already comparable with no
+FX rate, which sidesteps the currency question entirely rather than answering
+it with a conversion.
+
+**Shipped:** `scripts/ucits_tracking_monitor.py` — pairs every theme's US
+ticker with its UCITS candidate(s), fetches both via the existing
+`fetch_prices` cache, and reports trailing 3m/6m/1y return difference
+(UCITS − US) per pair, grouped by `match`. 13 tests, TDD.
+
+**Run live against production data, 2026-08-30** (34 tickers, all fetched):
+
+| finding | 1y diff | reads as |
+|---|---:|---|
+| AI & Robotics (`close`) | **+40.2%** | XAIX far AHEAD of BOTZ — a `close` match should not diverge this much |
+| Quantum Computing (`close`) | **−22.5%** | QUTM well behind QTUM |
+| Biotech (`partial`) | **−24.4%** | large, but `partial` already said not to expect tracking |
+| AgTech & Food Innovation (`exact`) | −3.8% | same ticker both sides (KROP/KROP) — the `exact` label is literally true, small residual is fine |
+| Uranium & Nuclear | **no data** | Yahoo has only 5 days of history for URNU.DE — not a code bug, see below |
+
+So the tool did what it was built for: two `close`-labelled pairs show
+1-year divergence that a "close" label does not lead a reader to expect, while
+one `exact` pair (literally the same fund, cross-listed) shows almost none —
+confirming the metric is measuring something real rather than noise. **Not
+acted on yet** — a single snapshot is one data point, and 1y windows for newer
+UCITS listings partially predate the fund's own inception, which the numbers
+above do not distinguish from genuine tracking error. Re-run monthly for a few
+cycles before relabeling anything.
+
+**Uranium & Nuclear has no comparable data, and this is a real gap, not a
+tool defect.** `URNU.DE` resolves and fetches cleanly, but Yahoo Finance holds
+only 5 days of history for it — confirmed directly against `yfinance`, not an
+artifact of this project's cache. The monitor's contract is exactly built for
+this: it reports `None`/`—` rather than crashing or fabricating a number, same
+as it would for a fetch failure. Revisit once Yahoo backfills more history, or
+if a different data source is ever justified for this one ticker.
 
 ## Backup restore drill — prove the newest object restores (2026-08-30)
 
