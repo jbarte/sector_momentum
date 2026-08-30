@@ -69,6 +69,24 @@ FX_TICKER = "EURUSD=X"  # USD per 1 EUR. Every UCITS entry shipped today is
 MIN_JOINT_WEEKS = 26
 
 
+#: Currency implied by a Yahoo exchange suffix, for the ones this module has
+#: actually verified. Deliberately NOT auto-derived from FX_TICKER — a suffix
+#: not listed here must refuse FX-adjustment rather than silently borrow the
+#: EUR/USD rate, which is exactly the currency-conflation bug this module was
+#: written to fix. Extend this the day a non-Xetra entry is added.
+_SUFFIX_CURRENCY = {".de": "EUR"}
+
+
+def assumed_currency(yf_ticker: str) -> str | None:
+    """The currency implied by a ticker's Yahoo exchange suffix, or None if the
+    suffix is not one this module has verified (e.g. a future `.L`/`.SW`
+    entry) — None means "do not FX-adjust this pair," not "assume EUR."
+    """
+    if "." not in yf_ticker:
+        return None
+    return _SUFFIX_CURRENCY.get("." + yf_ticker.rsplit(".", 1)[-1].lower())
+
+
 def resolve_yf_ticker(ticker: str) -> str:
     """The Yahoo Finance symbol for a UCITS ticker as it appears in themes.yaml.
 
@@ -178,9 +196,17 @@ def tracking_stats(us: pd.Series, uc_usd: pd.Series,
     n = len(joint)
     if n < min_weeks:
         return {"correlation": None, "tracking_error": None, "n_weeks": n}
-    corr = float(joint.iloc[:, 0].corr(joint.iloc[:, 1]))
-    te = float((joint.iloc[:, 1] - joint.iloc[:, 0]).std() * (52 ** 0.5))
-    return {"correlation": corr, "tracking_error": te, "n_weeks": n}
+    corr = joint.iloc[:, 0].corr(joint.iloc[:, 1])
+    te = (joint.iloc[:, 1] - joint.iloc[:, 0]).std() * (52 ** 0.5)
+    # corr() is NaN (not an exception) when either leg has zero variance in
+    # the window — a stale/unchanged weekly close, not necessarily short
+    # history, so `n < min_weeks` above does not catch it. NaN must not reach
+    # the report as the literal string "nan".
+    return {
+        "correlation": None if pd.isna(corr) else float(corr),
+        "tracking_error": None if pd.isna(te) else float(te),
+        "n_weeks": n,
+    }
 
 
 def tracking_report(pairs: list[dict], prices: dict[str, pd.Series],
@@ -198,13 +224,22 @@ def tracking_report(pairs: list[dict], prices: dict[str, pd.Series],
     A pair whose price data is missing (fetch failed, or not yet on the grid)
     reports None for every field it cannot compute rather than raising — this
     is a monitor meant to run unattended, and a single bad ticker must not
-    blank the rest of the report.
+    blank the rest of the report. The same is true of a pair on an exchange
+    `assumed_currency` does not recognize: it falls back to the unadjusted
+    native-currency diff for THAT PAIR ONLY, with a warning, rather than
+    guessing its currency is EUR and silently mis-applying `fx`.
     """
     rows = []
     for pair in pairs:
         us = prices.get(pair["us_ticker"])
         uc = prices.get(pair["yf_ticker"])
-        uc_usd = fx_adjust_to_usd(uc, fx) if (uc is not None and fx is not None) else uc
+        pair_fx = fx if assumed_currency(pair["yf_ticker"]) == "EUR" else None
+        if fx is not None and pair_fx is None and uc is not None:
+            logger.warning(
+                "%s: exchange suffix not recognized as EUR — diff_* will use "
+                "the RAW native-currency gap for this pair, uncorrected for "
+                "FX", pair["yf_ticker"])
+        uc_usd = fx_adjust_to_usd(uc, pair_fx) if (uc is not None and pair_fx is not None) else uc
         row = dict(pair)
         for label, months in WINDOWS.items():
             us_r = trailing_return(us, as_of, months) if us is not None else None
@@ -213,11 +248,13 @@ def tracking_report(pairs: list[dict], prices: dict[str, pd.Series],
                        if uc_usd is not None else None)
             row[f"us_{label}"] = us_r
             row[f"ucits_{label}"] = uc_r  # native currency, unconverted, for the reader
-            diff_source = uc_r_adj if fx is not None else uc_r
-            row[f"diff_{label}"] = (diff_source - us_r
-                                    if us_r is not None and diff_source is not None
+            # uc_r_adj IS uc_r when fx is None (uc_usd falls back to uc above)
+            # — no separate branch needed; the FX case and the no-FX
+            # fallback are the same code path, not two.
+            row[f"diff_{label}"] = (uc_r_adj - us_r
+                                    if us_r is not None and uc_r_adj is not None
                                     else None)
-        if us is not None and uc_usd is not None and fx is not None:
+        if us is not None and uc_usd is not None and pair_fx is not None:
             row.update(tracking_stats(us, uc_usd))
         else:
             row.update({"correlation": None, "tracking_error": None, "n_weeks": 0})

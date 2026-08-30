@@ -819,7 +819,18 @@ pair scoring below the `partial` median) — split out as its own queued item,
 deliberately, since acting on a single snapshot is the wrong call regardless of
 how clean the measurement looks.
 
-12 new tests (25 total in the file), TDD.
+12 new tests (25 total in the file), TDD. Review found and fixed 3 real
+issues before merge: `tracking_stats` could return the literal string "nan"
+for `correlation` (pandas' `.corr()` returns NaN, not an exception, when
+either leg has zero variance in the window — the `n < min_weeks` guard didn't
+catch this); the FX-adjustment applied `EURUSD=X` to every UCITS pair with no
+check that the pair is actually EUR-quoted, which is the exact bug class this
+fix exists to close, silently reintroduced for a future non-Xetra entry — now
+gated by `assumed_currency()`, a suffix allowlist that refuses (falls back to
+the raw diff for that pair, with a warning) rather than assumes; and a dead
+conditional (`uc_r_adj if fx is not None else uc_r`) whose branches were
+always equal, simplified away. 4 more tests added for the currency guard,
+29 total.
 
 ## GKG bulk warning no longer asserts caller behaviour (2026-08-30)
 

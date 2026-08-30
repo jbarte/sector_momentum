@@ -1,11 +1,18 @@
 """UCITS tracking-difference monitor: does the EU-buyable ETF track the
 US-listed one this project actually scores?
 
-Comparison is deliberately IN EACH LISTING'S OWN CURRENCY, not converted to a
-common one — a percentage return is dimensionless, so a US ETF's USD return and
-its UCITS equivalent's EUR return are already comparable without an FX rate.
-Converting first would only inject FX movement into a number meant to isolate
-tracking quality. (Decided 2026-08-30, Jonas.)
+`US`/`UCITS` columns display each listing's own, native-currency return — a
+reader should see what the EUR-quoted fund actually did in EUR. But `diff_*`
+IS FX-adjusted (via `fx_adjust_to_usd`) before comparing: an unhedged UCITS
+fund's EUR price already carries the EUR/USD move on top of the US-listed
+asset it holds, so a perfectly-tracking fund would otherwise show a raw gap
+equal to the FX move. This corrects the original 2026-08-30 design decision
+("own currency, no FX conversion needed, a return is dimensionless") — true
+for two returns on the same underlying currency exposure, not true for an
+unhedged cross-currency wrapper. See scripts/ucits_tracking_monitor.py's
+module docstring for the full account, including why the bug was
+low-consequence the day it was found (a quiet FX year) but not low-consequence
+in general.
 """
 import sys
 from pathlib import Path
@@ -17,6 +24,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.ucits_tracking_monitor import (
+    assumed_currency,
     fx_adjust_to_usd,
     resolve_yf_ticker,
     theme_pairs,
@@ -76,6 +84,25 @@ def test_resolve_yf_ticker_appends_the_xetra_suffix():
 
 def test_resolve_yf_ticker_does_not_double_suffix():
     assert resolve_yf_ticker("XAIX.DE") == "XAIX.DE"
+
+
+# --- assumed_currency -----------------------------------------------------
+
+def test_assumed_currency_recognizes_xetra_as_eur():
+    assert assumed_currency("XAIX.DE") == "EUR"
+
+
+def test_assumed_currency_is_none_for_an_unverified_exchange():
+    """The regression this guards: applying EURUSD=X to a GBP/CHF listing
+    would silently corrupt diff/correlation/tracking_error exactly the way
+    the un-FX-adjusted original bug did — for a different reason. Refusing on
+    an unknown suffix is the safe failure, not a hardcoded EUR assumption."""
+    assert assumed_currency("SOMEISIN.L") is None
+    assert assumed_currency("SOMEISIN.SW") is None
+
+
+def test_assumed_currency_is_none_with_no_suffix_at_all():
+    assert assumed_currency("BOTZ") is None
 
 
 # --- theme_pairs ---------------------------------------------------------
@@ -178,7 +205,7 @@ def test_fx_adjust_to_usd_converts_a_eur_price_series():
     assert usd.tolist() == pytest.approx([110.0] * 5)
 
 
-def test_fx_adjust_to_usd_aligns_on_the_intersection_of_dates():
+def test_fx_adjust_to_usd_ffills_the_fx_rate_rather_than_intersecting_dates():
     """The two series rarely share every date exactly (different market
     holidays) — ffill the FX rate onto the price series' own dates rather than
     dropping to a bare intersection, which would silently thin the history."""
@@ -316,3 +343,28 @@ def test_tracking_report_reports_correlation_none_for_a_pair_below_min_history()
     rows = tracking_report(pairs, {"BOTZ": us, "XAIX.DE": eur}, as_of=idx[-1], fx=fx)
     assert rows[0]["correlation"] is None
     assert rows[0]["n_weeks"] < 26
+
+
+def test_tracking_report_refuses_to_fx_adjust_an_unrecognized_exchange(caplog):
+    """The bug this guards against: fx is available and the pair fetches fine,
+    but its exchange suffix (a hypothetical future non-Xetra entry) is not one
+    assumed_currency recognizes. It must fall back to the raw, unadjusted diff
+    for THIS PAIR — not silently apply EURUSD=X to a non-EUR listing, which
+    would reintroduce exactly the currency-conflation bug this module fixes."""
+    idx = pd.bdate_range(end="2026-08-28", periods=int(1.2 * 252))
+    us = pd.Series(np.linspace(100, 120, len(idx)), index=idx)
+    other = pd.Series(np.linspace(100, 120, len(idx)), index=idx)
+    fx = pd.Series(np.linspace(1.00, 1.20, len(idx)), index=idx)
+    pairs = [{"theme": "AI", "us_ticker": "BOTZ", "ucits_ticker": "XYZ",
+             "yf_ticker": "XYZ.L", "match": "close"}]  # unrecognized suffix
+
+    import logging
+    with caplog.at_level(logging.WARNING):
+        rows = tracking_report(pairs, {"BOTZ": us, "XYZ.L": other}, as_of=idx[-1], fx=fx)
+
+    # native-currency return unchanged either way here (both grow identically),
+    # so the diagnostic signal is: no FX correction applied, and correlation/
+    # tracking_error are None rather than computed on an unconverted series.
+    assert rows[0]["correlation"] is None
+    assert rows[0]["tracking_error"] is None
+    assert "not recognized as EUR" in caplog.text
