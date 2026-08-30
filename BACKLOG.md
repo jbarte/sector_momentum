@@ -62,50 +62,62 @@ wins clearly on every window where its band can fire, so this is not a claim
 that the cell is wrong; it is a claim that the *confidence* attached to it in
 `config/weights.yaml`'s comments is overstated.
 
-Options, roughly in order of value:
-1. **Say so in `config/weights.yaml`** — cheapest, and stops the next reader
-   inheriting more confidence than the data supports.
-2. **Report the effective universe size per rebalance date** in the sweep
-   output, so a degenerate window is visible in the report instead of having
-   to be inferred from an implausible trades/yr.
-3. **Make the sweep refuse (or loudly warn) when `exit_rank >= universe size`**
-   on a meaningful share of the calendar — the failure mode that produced the
-   nonsense cells above.
-4. **Consider a fractional band** (`band` as a share of the universe rather
-   than absolute ranks) so the presets stop being silently re-tuned by
-   universe growth. This one is a real design change, not a fix — the config
-   already flags the same hazard from the 13→20 theme change on 2026-08-05.
+**Three of the four options shipped 2026-08-30** — the weights.yaml caveat,
+the per-cell `live` column, and the frontier guard. See the Done entry *"Sweep:
+flag cells whose SELL line cannot fire"*. What remains is only:
 
-## `long`'s preset sits at both grid edges, so it was never bracketed
+**Consider a fractional band** — `band` as a share of the universe rather than
+absolute ranks, so the presets stop being silently re-tuned by universe growth.
+This is a real design change, not a fix; the config already flags the same
+hazard from the 13→20 theme change on 2026-08-05. The 2026-08-30 measurement
+strengthens the case: `medium`'s band is live on 100% of the 2015- calendar and
+`long`'s on 68%, purely because both are pinned to absolute ranks while the
+universe grew underneath them. Brainstorm before implementing — it changes what
+every stored preset means.
 
-Found 2026-08-26 while checking whether the shipped presets are optimal.
-`scripts/horizon_sweep.py` searches `TOP_N = [3, 4, 5]` and
-`BUFFERS = [0..8]`. The shipped `long` preset is `top_n 5, buffer 8` — the
-**maximum of both axes**. The sweep therefore stopped exactly where `long`
-sits and never looked past it, so nothing in the record says whether buffer
-9-10 (or top_n 6) is better. `medium` (`top_n 4, buffer 5`) is interior on
-both axes and genuinely bracketed; `long` is not.
+## `long`'s published churn figures understate what the reader will actually trade
 
-It is also not a local return peak — its in-grid neighbours beat it on CAGR,
-Sharpe *and* drawdown at 100 bps:
+Code review, 2026-08-30, on the sweep liveness guard (see Done). `config/weights.yaml`
+publishes `long` as `trades_per_year: 6.9`, `median_holding_days: 183`,
+`cagr: 0.140`, and `dashboard/templates/index.html.j2` renders those verbatim in
+the horizon chip. They are not wrong for the window they were measured on — they
+are wrong for the universe the reader has today.
 
-| cell | CAGR | Sharpe | max DD | trades/yr |
-|---|---|---|---|---|
-| M/5/8 (`long`, 2015- window) | 15.3% | 0.82 | -32.8% | 10.8 |
-| M/5/6 | 16.5% | 0.86 | -28.8% | 16.2 |
+`long` is `M/5/8`, so `exit_rank` is 13, and the band cannot fire until the
+scored universe exceeds 13 themes. That first happened **2018-09-28**, so on the
+2015- window the preset was **32% buy-and-hold** and its churn was suppressed by
+exactly that. At today's 18 priced themes the band is live on every rebalance.
+Measured on a fair 2022- window (universe ≥16 throughout), the same cell runs:
 
-`long` survives on the churn axis only — it is the lowest-churn cell that was
-*searched*, which is a weaker claim than optimal, and the one it is currently
-documented as. That may well be the right operating point for its purpose
-(≈7 trades/yr, half-year holds); the point is that it has not been tested
-against the cells just outside the grid.
+| | published | fair window (2022-) |
+|---|---:|---:|
+| trades/yr | 6.9 | **16.9** |
+| median hold (d) | 183 | 180 |
+| CAGR | 14.0% | 18.1% |
 
-Fix: widen `BUFFERS` past 8 (and consider `TOP_N` 6) and re-run. Watch the
-`band` column, not the raw buffer — at 18 priced themes, buffer 8/top_n 5 is
-already a 72% hold band, so there is a natural ceiling not far above; the
-point is to measure where it is rather than inherit it from the grid bounds.
-Now cheap to check properly with `--end` (shipped 2026-08-26, see Done),
-which makes disjoint early/late windows possible.
+So the chip promises roughly **7 trades a year and gets ~17** — a reader picking
+`long` to trade less is being mis-sold, and this is the preset whose entire
+purpose is low churn. (`medium` does not have this problem: exit_rank 9 is live
+on 100% of the 2015- window, so its published 12.9 trades/yr is honest.)
+
+**Not fixed in that PR deliberately.** Rewriting the numbers is easy; deciding
+what they should say is not, and it is a product decision rather than a sweep
+output:
+
+- Re-measuring on a fair window changes `long`'s advertised identity — 17
+  trades/yr is *more* churn than `medium`'s published 12.9, which would invert
+  the preset ordering the UI is built around and break
+  `test_presets_are_ordered_by_holding_period`'s sibling assumptions.
+- Re-tuning `long` to a higher buffer so it genuinely trades ~7x/yr runs
+  straight into the reason this was found: every cell past buffer 8 is *more*
+  degenerate, so there is no honest cell that delivers the promise on today's
+  universe.
+- The clean answer is probably the fractional band (see *The backtest's early
+  years cannot exercise the hold band at all*), which would make a preset's
+  churn stable as the universe grows instead of drifting with it.
+
+Brainstorm before touching it. Until then the caveat is recorded in
+`config/weights.yaml` beside the numbers themselves.
 
 ## Mobile card's expand-region nests a real button inside role="button"
 
@@ -809,6 +821,56 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Sweep: flag cells whose SELL line cannot fire (2026-08-30)
+
+Resolves the queued *"`long`'s preset sits at both grid edges, so it was never
+bracketed"*, and options 1-3 of *"The backtest's early years cannot exercise the
+hold band at all"*. **The answer is not the one the queued item expected.**
+
+Widening `BUFFERS` from 0-8 to 0-10 and re-running found no better cell — and
+the reason is a measurement error the sweep was making, not the returns. Bands
+are absolute ranks, so nothing can rank past `exit_rank = top_n + buffer` until
+the scored universe is larger than it, and the universe grew from 10 priced
+themes in 2015 to 18 in 2023. On a 2015- monthly calendar:
+
+| exit_rank | share of rebalance dates the SELL line can fire | first fires |
+|---:|---:|---|
+| 9 (`medium`, M/4/5) | **100%** | 2015-01-30 |
+| 13 (`long`, M/5/8) | **68%** | 2018-09-28 |
+| 15 | 50% | 2020-10-30 |
+| 18 | **0%** | never |
+
+So the high-buffer cells are part buy-and-hold by construction, and in a bull
+market that made them look like the *best* cells on the board — the old
+return/churn frontier, which rewards low churn, was selecting the most
+degenerate ones outright (M/5/13 at 0.4 trades/yr and no closed positions at
+all). The apparent "M/5/9 and M/5/10 beat `long`" result that motivated a wider
+grid is this artifact, not a finding.
+
+**Shipped:** `_band_live_share()` and a `live` column in the sweep report, a ⚠
+on any cell under `MIN_LIVE_SHARE` (90%), exclusion of those cells from the
+frontier (still listed in the main table — the number is the finding), the
+widened 0-10 buffer grid, and a dated confidence block in `config/weights.yaml`
+recording all of it per preset. 7 new tests in
+`tests/test_horizon_sweep_band_liveness.py`.
+
+**Also measured, and the most useful number to come out of this: the noise
+floor.** On two DISJOINT windows (2015-2021, n=84; 2022-, n=56) the same cell's
+CAGR moves by a median of **2.2pp**, against a within-window cell-to-cell spread
+of ~9pp and a cross-window rank correlation of only **+0.33**. Two cells less
+than ~2pp apart are indistinguishable. This retroactively deflates the queued
+item's own evidence — it cited M/5/6 beating `long` by 1.2pp CAGR, which is
+inside the noise. It also means picking a window's argmax overfits: the best
+cell in 2022- ranks 10th of 26 in 2015-2021.
+
+**`medium` survives all of it** — best cell in 2015-2021, 4th of 26 in the
+disjoint 2022-, band live on 100% of both. It was not changed and there is now
+much better evidence for it than there was. **`long` was not changed either**,
+deliberately: its band is dead for a third of the window, so this sweep cannot
+say whether M/5/8 is optimal, and the cells around it are measured even worse.
+Fixing that properly needs option 4 of the early-years item (a fractional band),
+which is still queued.
 
 ## Audit every UCITS entry for Avanza availability (2026-08-30)
 
