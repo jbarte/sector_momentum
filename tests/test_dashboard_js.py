@@ -1006,6 +1006,58 @@ def test_every_row_builder_carries_the_level_change_sort_key():
 # badge, so it lives in the theme cell rather than a far-right column.
 # ---------------------------------------------------------------------------
 
+_needs_node = pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+
+
+def _rescore_traj_badge_source() -> str:
+    """The Trend badge's actual RENDERED markup, from running the real
+    functions under node — not a guess from slicing rescore.js's source text.
+
+    auth.js's `trendInner` calls Rescore.trajBadgeHTML(...) rather than
+    building the markup inline (both it and index.html.j2's updateRows() share
+    this one function — see BACKLOG.md, "Rescore path flattens the Trend badge
+    to a bare glyph"). Tests that used to grep trendInner's own definition for
+    "traj-badge" etc. must follow that call into its actual output or they
+    pass on a one-line delegation that builds nothing.
+
+    Code review (2026-08-30) flagged the original version of this helper,
+    which extracted the two functions' bodies by `str.split` on their source
+    text — fragile to reformatting (a reindent silently mis-slices the body)
+    and, more importantly, never actually RUNS the code: it only proves a
+    substring occurs somewhere in the file, matching test_rescore_parity.py's
+    complaint about source-text checks in general. This calls the real
+    exported functions under `node` instead, the same pattern that file
+    already uses, with representative non-empty arguments so every literal
+    class/attribute this module cares about appears in the output.
+    """
+    rescore_js = Path(__file__).parent.parent / "dashboard" / "assets" / "rescore.js"
+    script = f"""
+        const R = require({json.dumps(str(rescore_js))});
+        process.stdout.write(
+          R.trajBadgeHTML("up", "\\u2191", "rising")
+          + R.trajBadgeInner("\\u2191", "rising")
+        );
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout
+
+
+def _auth_trend_badge_source() -> str:
+    """auth.js's `trendInner` definition, resolved through its indirection.
+
+    `trendInner` delegates to Rescore.trajBadgeHTML rather than building the
+    markup inline — a caller checking `trendInner`'s own text alone would pass
+    on a bare function call that builds nothing. Shared by every test that
+    needs "the markup auth.js's Trend badge actually renders" so the
+    indirection-following logic exists in one place, not one per test.
+    """
+    auth = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
+    trend_def = auth.split("var trendInner", 1)[1].split(";", 1)[0]
+    if "trajBadgeHTML" in trend_def:
+        return trend_def + _rescore_traj_badge_source()
+    return trend_def
+
+
 def _theme_cell_of(fragment: str) -> str:
     """The theme cell's span of a row-building fragment.
 
@@ -1020,6 +1072,7 @@ def _theme_cell_of(fragment: str) -> str:
     return after.split("composite-cell", 1)[0]
 
 
+@_needs_node
 def test_trend_badge_sits_in_the_theme_cell_beside_the_setup_badge():
     """The methodology tells the reader to read the setup badge and the Trend
     badge together: the badge describes the position band, and Trend is what
@@ -1048,9 +1101,7 @@ def test_trend_badge_sits_in_the_theme_cell_beside_the_setup_badge():
         "auth.js: the theme cell does not render the trend badge -- the setup "
         "badge and Trend must stay adjacent to be read together"
     )
-    auth = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
-    trend_def = auth.split("var trendInner", 1)[1].split(";", 1)[0]
-    assert "traj-badge" in trend_def, (
+    assert "traj-badge" in _auth_trend_badge_source(), (
         "auth.js: trendInner is in the theme cell but no longer builds a "
         "trajectory badge"
     )
@@ -1068,6 +1119,7 @@ def test_leaderboard_has_no_separate_trend_column():
     )
 
 
+@_needs_node
 def test_trend_badge_keeps_its_explanation_in_every_builder():
     """The removed `<th>` carried the only on-page explanation of what Trend
     measures (`title="Rank slope over last 3-5 scans"`). Dropping the column
@@ -1085,8 +1137,7 @@ def test_trend_badge_keeps_its_explanation_in_every_builder():
         tpl.split("{% for row in leaderboard_rows %}", 1)[1].split("{% endfor %}", 1)[0]
     )
 
-    auth = (root / "dashboard/assets/auth.js").read_text()
-    auth_badge = auth.split("var trendInner", 1)[1].split(";", 1)[0]
+    auth_badge = _auth_trend_badge_source()
 
     for name, frag in (("index.html.j2", tpl_cell), ("auth.js", auth_badge)):
         assert 'data-i18n-title=' in frag.replace("\\", ""), (
@@ -1099,6 +1150,7 @@ def test_trend_badge_keeps_its_explanation_in_every_builder():
         )
 
 
+@_needs_node
 def test_signed_in_rows_render_no_trend_placeholder_in_the_theme_cell():
     """auth.js's trend value is optional -- `latestRowMeta` returns {} when the
     query gives it nothing to work with. That fallback used to land in its own
@@ -1107,12 +1159,25 @@ def test_signed_in_rows_render_no_trend_placeholder_in_the_theme_cell():
     (`.theme-cell > * + *` only spaces ELEMENTS), rendering as `URA-`. The
     absence of a badge is already the correct way to say "no trend" -- the same
     reasoning that removed scan-history.js's placeholder in this change.
+
+    The fallback now lives inside Rescore.trajBadgeHTML, not in auth.js's own
+    trendInner assignment -- checked by actually CALLING it with a missing
+    state under node, not by grepping either file's source text (auth.js no
+    longer contains the fallback logic at all, and a source-text check of
+    trajBadgeHTML's body would only prove a substring exists, not what the
+    function actually returns).
     """
-    auth = (Path(__file__).parent.parent / "dashboard/assets/auth.js").read_text()
-    fallback = auth.split("var trendInner", 1)[1].split(";", 1)[0].rsplit(":", 1)[1]
-    assert "\u2014" not in fallback and "&mdash;" not in fallback, (
-        "auth.js still falls back to an em dash for a missing trend -- inside "
-        "the theme cell that renders as a stray character beside the ticker"
+    rescore_js = Path(__file__).parent.parent / "dashboard" / "assets" / "rescore.js"
+    script = f"""
+        const R = require({json.dumps(str(rescore_js))});
+        process.stdout.write(JSON.stringify(R.trajBadgeHTML(null, "up", "rising")));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    out = json.loads(res.stdout)
+    assert out == "", (
+        "trajBadgeHTML no longer returns empty for a missing trajectory state "
+        "-- a missing trend must render nothing, not a placeholder like an em "
+        "dash, which reads as a stray character beside the ticker"
     )
 
 

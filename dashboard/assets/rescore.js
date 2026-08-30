@@ -65,7 +65,8 @@
     if (nScans === 0) {
       sectors.forEach(function (s) {
         out[s] = { rank: null, composite: 0, delta_rank: 0, delta_composite: 0,
-                   setup: null, trajectory_label: "→", trajectory_state: "flat" };
+                   setup: null, trajectory_label: "→", trajectory_state: "flat",
+                   trajectory_word: TRAJECTORY_WORDS.flat };
       });
       return out;
     }
@@ -123,7 +124,8 @@
         delta_composite: dComp,
         setup: null,
         trajectory_label: traj.label,
-        trajectory_state: traj.state
+        trajectory_state: traj.state,
+        trajectory_word: traj.word
       };
     });
     return out;
@@ -447,10 +449,46 @@
     }
   }
 
+  // The Trend badge's markup, shared by BOTH JS builders (auth.js's
+  // renderLatestRows and updateRows() below) that used to hand-write it
+  // separately — one of them drifted to `textContent`, silently destroying
+  // the glyph/word span pair. See BACKLOG.md, "Rescore path flattens the
+  // Trend badge to a bare glyph".
+  //
+  // NOT fully consolidated: index.html.j2's Jinja loop (the initial
+  // server-rendered badge every visitor sees before any JS runs) still
+  // hand-writes the identical markup in HTML, independently, and is not
+  // folded into this. dashboard/rows.py does NOT emit this markup at all
+  // (checked: no traj-badge/traj-glyph/traj-word anywhere in that file) —
+  // it was misidentified as a third builder when this comment was first
+  // written; corrected 2026-08-30 during code review of this same fix.
+  // Two sources of truth remain (this file, and the Jinja template), not
+  // one — real markup changes still need updating in both places by hand.
+  //
+  // trajBadgeInner is the two spans a caller mutating an EXISTING badge
+  // element needs (updateRows() below, which only ever finds an
+  // already-rendered element, so state/label/word are guaranteed present —
+  // that's why it doesn't re-check `word` the way trajBadgeHTML's guard
+  // clause does). trajBadgeHTML wraps that in the outer
+  // <span class="traj-badge"> for a caller building the element from
+  // scratch and possibly with no trajectory at all (auth.js's
+  // renderLatestRows, where a row can have no trend to show).
+  function trajBadgeInner(label, word) {
+    return '<span class="traj-glyph">' + label + '</span> <span class="traj-word">'
+      + (word || "") + '</span>';
+  }
+
+  function trajBadgeHTML(state, label, word) {
+    if (!state) { return ""; }
+    return '<span class="traj-badge traj-' + state + '" data-i18n-title="trend_tip" '
+      + 'title="Rank slope over last 3–5 scans">' + trajBadgeInner(label, word) + '</span>';
+  }
+
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
               inBuyBand: inBuyBand,
               badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
+              trajBadgeInner: trajBadgeInner, trajBadgeHTML: trajBadgeHTML,
               latestRowMeta: latestRowMeta, compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,
               reviewStatus: reviewStatus, localISODate: localISODate, shortDate: shortDate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
