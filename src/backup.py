@@ -204,6 +204,93 @@ def backup_to_storage(conn, bucket: str = storage_backup.DEFAULT_BUCKET) -> str:
     return object_name
 
 
+def table_row_counts(conn) -> dict[str, int]:
+    """Row counts read back FROM THE DATABASE, per table in the current schema.
+
+    `load_tables` returns the length of the frames it was handed, so comparing
+    its return against the archive it came from compares a number with itself.
+    The restore drill needs a number the database produced. Tables absent from
+    the target are omitted, matching `load_tables`' own skip behaviour.
+    """
+    out: dict[str, int] = {}
+    with conn.cursor() as cur:
+        for name in _COLUMNS:
+            if not _table_exists(cur, name):
+                continue
+            cur.execute(f"SELECT COUNT(*) FROM {name}")
+            out[name] = int(cur.fetchone()[0])
+    return out
+
+
+def verify_backup_archive(data: bytes) -> dict:
+    """Structurally validate a backup zip before anything is restored from it.
+
+    An upload returning HTTP 200 proves the bytes left the machine. It does not
+    prove the archive is restorable, and the ways it can fail are all silent:
+    a short zip, a CSV written before a column was added, or a manifest whose
+    counts no longer describe the CSVs beside it. This is what the monthly
+    restore drill asserts before it touches a database.
+
+    Returns the manifest's row counts, max_scan_id, and the parsed tables — the
+    caller restores those rather than re-extracting, so the bytes that were
+    verified are exactly the bytes that get loaded. Raises ValueError with a
+    message naming the offending member — never a bare parse error.
+    """
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile as exc:
+        raise ValueError(f"backup is not a readable zip archive: {exc}") from exc
+
+    with zf:
+        present = set(zf.namelist())
+        # Mirror read_backup's contract exactly: a table it treats as optional
+        # must not be fatal here, or drilling an older object by name reports
+        # "broken" for an archive `restore.py` restores fine.
+        required = tuple(f"{t}.csv" for t in _REQUIRED_TABLES) + ("manifest.json",)
+        missing = [m for m in _ARCHIVE_MEMBERS if m in required and m not in present]
+        if missing:
+            raise ValueError(
+                f"backup archive is missing member(s): {', '.join(missing)}"
+            )
+        absent_optional = [m for m in _ARCHIVE_MEMBERS if m not in present]
+        if absent_optional:
+            logger.warning("archive omits optional member(s) %s — an archive "
+                           "predating that table?", ", ".join(absent_optional))
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                zf.extractall(tmp)
+                # read_backup raises on a missing required table or a CSV that
+                # has drifted from _COLUMNS — exactly the schema check wanted.
+                tables = read_backup(tmp)
+                manifest = json.loads((Path(tmp) / "manifest.json").read_text())
+        except ValueError:
+            raise
+        except (zipfile.BadZipFile, EOFError, OSError, json.JSONDecodeError) as exc:
+            # A bad CRC or truncated deflate stream surfaces here, not at open.
+            raise ValueError(f"backup archive is corrupt: {exc}") from exc
+
+    counts = {name: int(len(df)) for name, df in tables.items()}
+    # Compare only tables the CURRENT schema knows: a pre-rename archive still
+    # lists retired tables (theme_*) in its manifest, and load_tables skips
+    # those rather than failing.
+    claimed = {k: int(v) for k, v in (manifest.get("row_counts") or {}).items()
+               if k in _COLUMNS}
+    shared = {k: claimed[k] for k in claimed if k in counts}
+    actual = {k: counts[k] for k in shared}
+    if shared and shared != actual:
+        raise ValueError(
+            f"manifest disagrees with the CSVs it ships with: "
+            f"manifest={shared} actual={actual}"
+        )
+    if counts.get("scans", 0) == 0:
+        raise ValueError(
+            "backup archive has no rows in `scans` — it would restore cleanly "
+            "and prove nothing"
+        )
+    return {"row_counts": counts, "max_scan_id": manifest.get("max_scan_id"),
+            "tables": tables}
+
+
 def restore_from_storage(conn, object_name: str | None = None,
                          bucket: str = storage_backup.DEFAULT_BUCKET, *,
                          force: bool = False) -> dict[str, int]:

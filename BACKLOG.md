@@ -688,27 +688,6 @@ EUR/SEK-denominated, so the comparison needs a currency decision (compare in
 each listing's own currency, or convert both to one) before the number means
 anything. That is a real design choice, not a detail — worth settling first.
 
-## Feature: prove the backups restore, not just that they upload
-
-`tests/test_backup_drill.py` exercises the dump/restore round trip against a
-local fixture, and `test.yml` already stands up a throwaway `postgres:17`
-service container. What nothing checks is whether the **actual newest object in
-the `db-backups` bucket** can be restored.
-
-That is the failure mode backups have. An upload that returns 200 proves the
-bytes left the machine; it does not prove the zip has all its members, that the
-CSV columns still match a schema that has gained four columns since
-(`text_value`, `prices_asof`, `asof_spread_days`, …), or that
-`restore_from_storage` still works after `_ARCHIVE_MEMBERS` drifted.
-
-Fix: a monthly scheduled workflow that downloads the newest bucket object and
-restores it into the service container, asserting row counts per table. It needs
-`SUPABASE_SERVICE_KEY` (already a repo secret) and must **only ever** point
-`DATABASE_URL` at the throwaway container — the wipe guard in
-`tests/test_state_smoke.py::_same_database` exists because production was wiped
-on 2026-06-25, and a restore drill is precisely the shape of job that could do
-it again.
-
 ## Audit record from the 2026-08-23 sweep
 
 The three actionable findings from this sweep (`_modal.js.j2` inlined three
@@ -795,6 +774,68 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Backup restore drill — prove the newest object restores (2026-08-30)
+
+`tests/test_backup_drill.py` round-trips dump→write→read→load against a
+disposable Postgres, but it builds its own archive. Nothing ever checked the
+object production actually uploaded, and `scan.py` swallows upload failures as
+non-fatal — so a broken backup fails silently, and the first symptom would be
+discovering it during a restore.
+
+**Shipped:**
+
+- `src/backup.py::verify_backup_archive(data)` — structural validation before
+  anything is restored: readable zip, every `_ARCHIVE_MEMBERS` present, CSV
+  columns still matching `_COLUMNS` (via `read_backup`, so schema drift raises),
+  manifest row counts agreeing with the CSVs beside them, and a non-empty
+  `scans` table. Deliberately no stricter than the restore path it guards:
+  tables `read_backup` treats as optional may be absent, and a manifest naming
+  a retired table (`theme_*`) is not a disagreement — otherwise drilling an
+  older object by name would report "broken" for an archive `restore.py`
+  restores fine. Returns the parsed tables so the caller restores *exactly what
+  was verified* rather than extracting a second time.
+- `scripts/restore_drill.py` — downloads the newest `backup_*.zip`, verifies it,
+  restores into a throwaway DB with `force=True`, then reads the row counts back
+  **out of the database** (`table_row_counts`) and asserts they match the
+  archive per table. Exits non-zero on any mismatch. Code review caught the
+  first version comparing `load_tables`' return value, which is the length of
+  the frames it was handed — a number compared with itself, green even if
+  nothing landed.
+- It also refuses when the bucket listing comes back at the API page limit:
+  `list_objects` sends `limit=1000` unpaginated and sorts ascending, so a full
+  page means "newest" may not be in it, and silently drilling the 1000th-oldest
+  backup while reporting PASSED is precisely the silent-green failure this job
+  exists to prevent.
+- `.github/workflows/restore-drill.yml` — monthly (1st, 04:00 UTC) plus
+  `workflow_dispatch`, on a `postgres:17` service container, with an ntfy alert
+  on failure matching `scan.yml`'s pattern.
+- 27 tests in `tests/test_restore_drill.py`, TDD.
+
+**The safety design, which is the part worth re-reading before touching this.**
+The drill deletes every row in whatever `DATABASE_URL` names, which is the exact
+shape of job that wiped production on 2026-06-25. Two independent guards:
+
+1. `assert_disposable_target()` refuses any host that is not localhost, and
+   fails safe on an empty or unparseable URL (same posture as
+   `tests/test_state_wipe_guard.py`). It runs **before** the bucket is listed or
+   downloaded — pinned by a test asserting nothing was fetched on refusal.
+2. The workflow never receives `secrets.DATABASE_URL` at all. The drill does not
+   need it: bucket access is HTTPS via `SUPABASE_URL` + `SUPABASE_SERVICE_KEY`,
+   so the production credential has no reason to exist in that job's
+   environment.
+
+**One-time setup required:** the workflow reads `vars.SUPABASE_URL` (a repo
+*variable*, not a secret — the project REST origin is already shipped publicly
+to every dashboard visitor). Until it is set the job fails loudly with
+`cannot resolve Supabase URL`, which is the intended failure mode rather than a
+silent skip. `SUPABASE_SERVICE_KEY` was already a repo secret.
+
+**Not covered:** the DB leg cannot run locally (no Postgres/Docker on the dev
+machine), so the download→restore path is first exercised by CI. The archive
+verifier, the target guard, and the script's full orchestration (newest-object
+selection, `force=True`, connection close, partial-restore detection, guard
+ordering, corrupt-archive abort) are all covered by tests that need no database.
 
 ## Rank-based cross-sectional standardization — tested, rejected (2026-08-30)
 
