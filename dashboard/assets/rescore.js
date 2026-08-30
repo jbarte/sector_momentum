@@ -131,16 +131,35 @@
     return out;
   }
 
+  // The ONE place exit_rank is computed in JS. buffer_frac is a FRACTION of
+  // the scored universe (see src/horizons.py::Horizon.exit_rank), so the same
+  // preset yields a different exit_rank as the universe grows or shrinks —
+  // resolved fresh from `universeSize` on every call, never cached. Every
+  // function below that used to inline `h.top_n + h.buffer` now calls this
+  // instead: four independent copies (this file's setupForRank/selectBook,
+  // index.html.j2's applyBandBoundaries/renderHorizonStats, and
+  // scan-history.js) collapsing into one.
+  //
+  // Math.round(), not a ported round_half_up: JS's Math.round() already
+  // rounds .5 up for non-negative inputs, which is all this ever receives
+  // (buffer_frac >= 0, universeSize >= 0) — see src/horizons.py's
+  // _round_half_up docstring for why Python needed its own helper and JS
+  // does not.
+  function exitRank(horizon, universeSize) {
+    if (!horizon) { return null; }
+    return horizon.top_n + Math.round(horizon.buffer_frac * universeSize);
+  }
+
   // Position-band setup, mirroring dashboard/rows.py:_compute_setup. Entry
   // inside the buy band, Exit once past the hold band, silence in between.
-  // `horizon` is {top_n, buffer}; omitted, it falls back to the page's
+  // `horizon` is {top_n, buffer_frac}; omitted, it falls back to the page's
   // window.HORIZON_DEFAULT so this file stays usable on pages that have no
   // horizon selector.
-  function setupForRank(rank, horizon) {
+  function setupForRank(rank, horizon, universeSize) {
     var h = horizon || (typeof window !== "undefined" && window.HORIZON_DEFAULT) || null;
     if (!h || rank == null || isNaN(rank)) { return null; }
     if (rank <= h.top_n) { return "entry"; }
-    if (rank > h.top_n + h.buffer) { return "exit"; }
+    if (rank > exitRank(h, universeSize)) { return "exit"; }
     return null;
   }
 
@@ -175,10 +194,10 @@
   // The band rule itself is unchanged, and setupForRank still mirrors
   // dashboard/rows.py:_compute_setup for the server-side consumers (alerts,
   // badge scorecard) that have no reader and no holdings.
-  function badgeForRank(rank, horizon, isHeld) {
+  function badgeForRank(rank, horizon, isHeld, universeSize) {
     var h = horizon || (typeof window !== "undefined" && window.HORIZON_DEFAULT) || null;
     if (!h || rank == null || isNaN(rank)) { return null; }
-    var band = setupForRank(rank, h);
+    var band = setupForRank(rank, h, universeSize);
     if (!isHeld) { return band === "entry" ? "entry" : null; }
     return band === "exit" ? "exit" : "hold";
   }
@@ -204,11 +223,11 @@
   // and still actionable. What would be false is telling them to buy something
   // they cannot buy — the same "badge names an action you cannot take" problem
   // that Enter-on-a-holding was.
-  function badgeFor(rank, horizon, state, isHeld, unbuyable) {
+  function badgeFor(rank, horizon, state, isHeld, unbuyable, universeSize) {
     if (state === "loading") { return null; }
     var kind = (state === "ready")
-      ? badgeForRank(rank, horizon, isHeld)
-      : setupForRank(rank, horizon);
+      ? badgeForRank(rank, horizon, isHeld, universeSize)
+      : setupForRank(rank, horizon, universeSize);
     if (unbuyable && kind === "entry") { return null; }
     return kind;
   }
@@ -234,7 +253,7 @@
     var h = horizon || (typeof window !== "undefined" && window.HORIZON_DEFAULT) || null;
     if (!h || !rankedKeys) { return null; }
     var held = _toSet(heldKeys), unbuyable = _toSet(unbuyableKeys);
-    var band = h.top_n + h.buffer;
+    var band = exitRank(h, rankedKeys.length);
 
     var rankOf = {};
     for (var i = 0; i < rankedKeys.length; i++) { rankOf[rankedKeys[i]] = i; }
@@ -309,6 +328,7 @@
       var key = r.region + "|" + r.gics_sector;
       (groups[key] || (groups[key] = [])).push(r);
     });
+    var universeSize = Object.keys(groups).length;
     var out = {};
     Object.keys(groups).forEach(function (key) {
       var rows = groups[key].slice().sort(function (a, b) { return a.scan_id - b.scan_id; });
@@ -321,7 +341,7 @@
       var series = [];
       for (var i = Math.max(0, n - 5); i < n; i++) { series.push(rows[i].rank); }
       var traj = trajectoryLabel(olsSlope(series));
-      var setup = setupForRank(latest.rank, horizon);
+      var setup = setupForRank(latest.rank, horizon, universeSize);
       out[key] = {
         delta_rank: deltaStr, arrow: arrow, arrow_class: arrowClass,
         trajectory_label: traj.label, trajectory_state: traj.state,
@@ -485,7 +505,7 @@
   }
 
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
-              inBuyBand: inBuyBand,
+              inBuyBand: inBuyBand, exitRank: exitRank,
               badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               trajBadgeInner: trajBadgeInner, trajBadgeHTML: trajBadgeHTML,
