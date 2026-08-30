@@ -754,29 +754,48 @@ builder emits — the badge survived as a bare `↑` with no word, stripping the
 tooltip too.
 
 **Fix, per the queued suggestion:** extracted `Rescore.trajBadgeHTML(state,
-label, word)` and `Rescore.trajBadgeInner(label, word)` in `rescore.js` — one
-source of the markup, used by both real emitters (`auth.js`'s `trendInner`,
-which used to build it inline, and `updateRows()`, now via `.innerHTML =
-trajBadgeInner(...)` instead of `.textContent =`). Along the way found a
-second, related bug in the same code path: `rescore()`'s returned object
-never included `trajectory_word` at all (only `label`/`state`), so even a
-correctly-written two-span fix would have rendered an empty word. Both fixed
-together — they're the same bug wearing two faces.
+label, word)` and `Rescore.trajBadgeInner(label, word)` in `rescore.js`,
+shared by the two JS builders (`auth.js`'s `trendInner`, which used to build
+it inline, and `updateRows()`, now via `.innerHTML = trajBadgeInner(...)`
+instead of `.textContent =`). Along the way found a second, related bug in the
+same code path: `rescore()`'s returned object never included
+`trajectory_word` at all (only `label`/`state`), so even a correctly-written
+two-span fix would have rendered an empty word. Both fixed together — they're
+the same bug wearing two faces.
 
-Confirmed with `node` that the count of real emitters was 2, not the "four
-builders" the queued item guessed — `dashboard/rows.py` doesn't emit this
-markup (the Jinja template does, inline, in HTML) and `scan-history.js`
-deliberately renders no trend badge at all (a past scan never had one).
+**Not fully consolidated, and said so rather than overclaimed.** Confirmed
+with `node` that the count of real emitters was 2 JS builders, not the "four
+builders" the queued item guessed — `scan-history.js` deliberately renders no
+trend badge at all (a past scan never had one) — but `index.html.j2`'s Jinja
+loop (the server-rendered badge every visitor sees before any JS runs) still
+hand-writes the identical markup independently, in HTML, and was NOT folded
+into the shared function. Two sources of truth remain, not one. (Also
+corrected in the same pass: `dashboard/rows.py` was misidentified as a third
+builder in this item's original text — it emits no such markup at all;
+checked directly.)
 
 Verified live in a real browser (Playwright, `tests/test_trend_badge_rescore.py`)
 by rendering with the sentiment-ranking control force-enabled — its only
 current caller, still withdrawn in production — and toggling it: confirmed
 BOTH spans and the tooltip survive a real rescore, and confirmed the test
 actually catches the regression by re-running it against the pre-fix
-`textContent` code (2 of 3 tests failed, as expected). 3 new Playwright tests,
-1 new parity assertion, 3 existing source-text tests updated to follow the
-new indirection through `rescore.js` rather than expecting the markup inline
-in `auth.js`.
+`textContent` code (2 of 3 tests failed, as expected).
+
+**Code review found a second, live-verified bug in the same function**:
+`updateRows()` repainted the badge but never updated the row's `data-trend`
+attribute, which `_matchesTrend()` reads for the Trend filter chips — so a
+reader with a filter active could see a rescored badge disagree with what the
+filter showed or hid. Fixed (`tr.dataset.trend = r.trajectory_state`),
+confirmed the added regression test fails without the fix and passes with it.
+Also fixed: `_rescore_traj_badge_source()` (a review-flagged test helper) used
+to recover `rescore.js`'s markup by slicing source text rather than running
+it — inconsistent with `test_rescore_parity.py`'s own Node-driven pattern in
+the same PR, and fragile to reformatting. Now runs the real functions under
+`node` instead.
+
+7 new Playwright/parity tests total, 3 existing source-text tests updated to
+follow the shared-function indirection rather than expecting the markup
+inline in `auth.js`.
 
 Still dormant: `sentiment_ranking_enabled` is `False` in production, so this
 fix has no live effect until *Restore the sentiment blend control* (still

@@ -159,3 +159,19 @@ def test_the_badge_still_has_its_tooltip_after_rescoring(page):
         "?.textContent === 'rising'"
     )
     assert _alpha_traj(page).get_attribute("title") == "Rank slope over last 3–5 scans"
+
+
+def test_rescoring_updates_data_trend_so_the_trend_filter_stays_in_sync(page):
+    """Review finding: updateRows() repainted the badge but left the row's
+    data-trend attribute stale, which _matchesTrend() reads for the Trend
+    filter chips. A reader with a filter active would see a badge disagree
+    with what the filter shows or hides."""
+    row = page.locator('tr.leaderboard-row[data-sector="Alpha"]')
+    assert row.get_attribute("data-trend") == "flat"
+    page.locator(".rank-settings summary").click()
+    page.locator("#sentiment-toggle").check()
+    page.wait_for_function(
+        "document.querySelector('tr[data-sector=\"Alpha\"] .traj-word')"
+        "?.textContent === 'rising'"
+    )
+    assert row.get_attribute("data-trend") == "up"

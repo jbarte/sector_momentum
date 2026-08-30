@@ -2100,6 +2100,11 @@ document.getElementById('leaderboard-cards')?.addEventListener('keydown', functi
         // the Trend badge to a bare glyph".
         traj.innerHTML = Rescore.trajBadgeInner(r.trajectory_label, r.trajectory_word);
       }
+      // The Trend filter (_matchesTrend) reads data-trend, not the badge's own
+      // class — found in code review of the fix above: the badge repaint had
+      // no matching update here, so a reader with a Trend filter active could
+      // see a rescored badge disagree with what the filter shows or hides.
+      tr.dataset.trend = r.trajectory_state || "";
       // Rescoring changes the rank, and the rank is what the badge is derived
       // from — so data-rank has to move with it or the next badge pass (and the
       // Top 5 filter) would still be reading pre-rescore ranks.
