@@ -645,8 +645,7 @@ def main() -> None:
     # which is why tests/test_alerts_horizon_notice.py pins it.
     _horizons_json = _json.dumps([
         {"key": h.key, "label": h.label, "rebalance": h.rebalance,
-         "top_n": h.top_n, "buffer": h.buffer,
-         "exit_rank": h.exit_rank,
+         "top_n": h.top_n, "buffer_frac": h.buffer_frac,
          "trades_per_year": h.trades_per_year,
          "median_holding_days": h.median_holding_days,
          # Next ~6 review dates, ISO strings, so the client can say whether
@@ -657,7 +656,7 @@ def main() -> None:
     ])
     _horizon_default_json = _json.dumps({
         "key": _default_horizon.key, "label": _default_horizon.label,
-        "top_n": _default_horizon.top_n, "buffer": _default_horizon.buffer,
+        "top_n": _default_horizon.top_n, "buffer_frac": _default_horizon.buffer_frac,
     })
 
     macro_page_ctx = _macro_ctx(shared)

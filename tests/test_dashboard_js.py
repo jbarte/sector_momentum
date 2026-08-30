@@ -56,14 +56,13 @@ def _horizon_ctx(dumps=json.dumps):
         # day when "today" crosses a review boundary mid-test-run.
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
-             "top_n": h.top_n, "buffer": h.buffer,
-             "exit_rank": h.exit_rank,
+             "top_n": h.top_n, "buffer_frac": h.buffer_frac,
              "trades_per_year": h.trades_per_year,
              "median_holding_days": h.median_holding_days,
              "review_dates": _review_dates(h, since="2026-01-15")} for h in hs
         ]),
         horizon_default_json=dumps({
-            "key": d.key, "label": d.label, "top_n": d.top_n, "buffer": d.buffer}),
+            "key": d.key, "label": d.label, "top_n": d.top_n, "buffer_frac": d.buffer_frac}),
         unbuyable_json=dumps([]),
         theme_tickers_json=dumps({}),
         chart_dark_json=dumps({}),
@@ -2658,13 +2657,21 @@ def test_horizon_row_label_css_is_gone():
     assert ".horizon-row label" not in css
 
 
-def test_horizons_json_carries_exit_rank():
-    """exit_rank (top_n + buffer) must come from Horizon.exit_rank
-    (src/horizons.py), not be recomputed in JS a third time — scan-history.js
-    already duplicates the formula once (_h.top_n + _h.buffer); a second JS
-    copy in renderHorizonStats() would be a third place to keep in sync."""
+def test_horizons_json_carries_buffer_frac_not_a_precomputed_exit_rank():
+    """exit_rank now depends on a RUNTIME universe size (the fraction is
+    fixed, the universe isn't), so baking a single static number into the
+    build-time JSON would go stale the moment a signed-in reader's rebuild
+    sees a different universe size than the guest-baked page did. buffer_frac
+    travels instead; every consumer resolves exit_rank fresh via the one
+    shared Rescore.exitRank() function (Task 6/7 of the fractional-band plan)
+    rather than each recomputing the formula inline."""
     build_text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
-    assert '"exit_rank": h.exit_rank' in build_text
+    assert '"buffer_frac": h.buffer_frac' in build_text
+    assert '"exit_rank"' not in build_text, (
+        "a precomputed exit_rank reappeared in the exported JSON — it cannot "
+        "be correct for both a guest-baked page and a signed-in rebuild with "
+        "a different observed universe size"
+    )
 
 
 def test_horizon_stats_render_all_four_in_spec_order():
