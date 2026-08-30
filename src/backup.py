@@ -204,6 +204,55 @@ def backup_to_storage(conn, bucket: str = storage_backup.DEFAULT_BUCKET) -> str:
     return object_name
 
 
+def verify_backup_archive(data: bytes) -> dict:
+    """Structurally validate a backup zip before anything is restored from it.
+
+    An upload returning HTTP 200 proves the bytes left the machine. It does not
+    prove the archive is restorable, and the ways it can fail are all silent:
+    a short zip, a CSV written before a column was added, or a manifest whose
+    counts no longer describe the CSVs beside it. This is what the monthly
+    restore drill asserts before it touches a database.
+
+    Returns the manifest's row counts, max_scan_id, and the parsed tables — the
+    caller restores those rather than re-extracting, so the bytes that were
+    verified are exactly the bytes that get loaded. Raises ValueError with a
+    message naming the offending member — never a bare parse error.
+    """
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile as exc:
+        raise ValueError(f"backup is not a readable zip archive: {exc}") from exc
+
+    with zf:
+        present = set(zf.namelist())
+        missing = [m for m in _ARCHIVE_MEMBERS if m not in present]
+        if missing:
+            raise ValueError(
+                f"backup archive is missing member(s): {', '.join(missing)}"
+            )
+        with tempfile.TemporaryDirectory() as tmp:
+            zf.extractall(tmp)
+            # read_backup raises on a missing required table or a CSV that has
+            # drifted from _COLUMNS, which is exactly the schema check wanted.
+            tables = read_backup(tmp)
+            manifest = json.loads((Path(tmp) / "manifest.json").read_text())
+
+    counts = {name: int(len(df)) for name, df in tables.items()}
+    claimed = {k: int(v) for k, v in (manifest.get("row_counts") or {}).items()}
+    if claimed and claimed != counts:
+        raise ValueError(
+            f"manifest disagrees with the CSVs it ships with: "
+            f"manifest={claimed} actual={counts}"
+        )
+    if counts.get("scans", 0) == 0:
+        raise ValueError(
+            "backup archive has no rows in `scans` — it would restore cleanly "
+            "and prove nothing"
+        )
+    return {"row_counts": counts, "max_scan_id": manifest.get("max_scan_id"),
+            "tables": tables}
+
+
 def restore_from_storage(conn, object_name: str | None = None,
                          bucket: str = storage_backup.DEFAULT_BUCKET, *,
                          force: bool = False) -> dict[str, int]:

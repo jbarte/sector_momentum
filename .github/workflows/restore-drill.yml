@@ -1,0 +1,83 @@
+name: Backup Restore Drill
+
+# Proves the newest object in the db-backups bucket can actually be restored.
+#
+# `scan.py` uploads a full DB zip before every scan and treats an upload failure
+# as non-fatal, so a broken backup fails silently. An HTTP 200 proves the bytes
+# left the machine; it does not prove the zip has all its members, that its CSV
+# columns still match a schema which keeps gaining columns, or that
+# `_ARCHIVE_MEMBERS` has not drifted underneath `restore_from_storage`. This job
+# is the only thing that checks any of that.
+#
+# SAFETY. This job DELETES every row in the database it points at. It is given
+# DATABASE_URL pointing at the throwaway service container below and NOTHING
+# else — deliberately not `secrets.DATABASE_URL`. The drill does not need it:
+# it reaches the bucket over HTTPS with SUPABASE_URL + SUPABASE_SERVICE_KEY, so
+# the production credential has no reason to exist in this job's environment.
+# `scripts/restore_drill.py::assert_disposable_target` independently refuses any
+# host that is not localhost, before it lists or downloads anything. Production
+# was wiped on 2026-06-25 by a job of exactly this shape.
+
+on:
+  schedule:
+    - cron: "0 4 1 * *"     # 04:00 UTC on the 1st of each month
+  workflow_dispatch: {}      # and on demand, e.g. after touching src/backup.py
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: postgres:17    # matches production (Supabase 17.x)
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.lock
+
+      - name: Restore the newest backup into the throwaway database
+        env:
+          # The RESTORE TARGET. Every row here is deleted. Never a real host.
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          # Bucket access. SUPABASE_URL is the project's public REST origin (the
+          # dashboard ships it to every visitor), so it is a repo *variable*;
+          # only the service key is a secret.
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/restore_drill.py
+
+      - name: Notify drill failure
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -n "$NTFY_TOPIC" ]; then
+            curl -s \
+              -H "Title: Backup restore drill FAILED" \
+              -H "Priority: high" \
+              -H "Tags: rotating_light" \
+              -d "The newest db-backups object did not restore: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              "https://ntfy.sh/$NTFY_TOPIC" || true
+          fi
