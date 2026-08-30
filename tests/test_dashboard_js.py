@@ -1490,16 +1490,17 @@ def test_removes_existing_cut_rows_before_reinserting():
 
 def test_band_cut_rank_text_is_not_hardcoded():
     """The exit note ('a holding that falls past rank N is sold') must read N
-    from the active horizon preset, never a literal number — a Medium-preset
-    literal would be silently wrong on Long."""
+    from the active horizon preset via the one shared Rescore.exitRank()
+    function, never a literal number and never a second, independently
+    inlined h.top_n + h.buffer formula."""
     js = _apply_band_boundaries_js()
-    assert "h.top_n" in js and "h.buffer" in js, (
-        "the exit-rank text must be computed from h.top_n + h.buffer "
-        "(the active horizon preset), not a hardcoded number"
+    assert "Rescore.exitRank(" in js, (
+        "the exit-rank text must be computed via Rescore.exitRank(h, universeSize) "
+        "— inlining h.top_n + h.buffer_frac here would be a second formula copy"
     )
     assert not re.search(r"rank\s+\d", js), (
         "found a hardcoded rank number in applyBandBoundaries() — "
-        "it must be interpolated from h.top_n + h.buffer"
+        "it must be interpolated from Rescore.exitRank()"
     )
 
 
@@ -2706,7 +2707,10 @@ def _render_horizon_stats_js():
 def test_render_horizon_stats_sets_the_exit_rank_stat():
     js = _render_horizon_stats_js()
     assert "hz-exit" in js
-    assert "h.exit_rank" in js
+    assert "Rescore.exitRank(" in js, (
+        "renderHorizonStats must resolve exit_rank via the shared "
+        "Rescore.exitRank() function, not read a stale precomputed h.exit_rank"
+    )
 
 
 def test_horizon_btn_has_a_touch_target_not_the_dead_select():
@@ -3392,7 +3396,7 @@ def test_book_state_is_independent_of_dom_order():
         // the band, so it must be sold and A (rank index 0) bought instead --
         // but only if rankOf is built from RANK order, not from whichever
         // array position each row happens to occupy below.
-        var h = {{ top_n: 1, buffer: 0 }};
+        var h = {{ top_n: 1, buffer_frac: 0 }};
 
         function run(rows) {{
           var _bookState = null;
