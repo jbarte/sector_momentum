@@ -621,39 +621,6 @@ decision (schema shape, how much detail to surface, whether reason 1 and 2
 should migrate into it too) rather than a three-line addition, so it belongs
 in front of brainstorming, not skipped straight to implementation.
 
-## Audit every UCITS entry for Avanza availability
-
-`config/themes.yaml` records 17 UCITS equivalents. Every one was verified to
-*exist* (justETF, 2026-08-05); **none was ever verified to be orderable on
-Avanza**, which is the only broker this list has to serve. Those are different
-questions, and on 2026-08-25 exactly that gap bit: Healthcare Providers pointed
-at Invesco SML4 (IE00B3WMTH43) — alive, EUR 476m, trading on four exchanges,
-and not buyable on Avanza. Found by hand, by trying to place the trade.
-
-Nothing catches this. `tests/test_themes_config.py::test_ucits_entries_are_well_formed`
-checks shape (ISIN regex, `match` vocabulary, url-matches-ISIN); existence and
-availability are both outside it, and availability is not derivable from
-justETF at all.
-
-Two things to settle before building:
-
-- **Is there a data source?** Avanza has no public instrument API. The
-  realistic options are a manual re-verification pass recorded as a dated
-  comment per entry (cheap, goes stale silently) or scraping Avanza's search
-  (fragile, and this repo is public so anything with credentials is out).
-- **Does the config need a third state?** Today buyability is binary:
-  `unbuyable: true` means *no UCITS product exists anywhere* — its badge says
-  "No UCITS equivalent exists" and it drops the theme from the backtest's book.
-  SML4 was neither that nor fine. If a theme ever turns out to have a live
-  UCITS equivalent that Avanza simply will not sell, the config has no way to
-  say so, and reaching for `unbuyable` would put a false sentence on the
-  dashboard *and* silently change backtest results. The swap dodged this by
-  finding a replacement; the next one may not.
-
-One signal on prevalence: SML4 is synthetically replicated (swap-based) while
-its replacement QDVG is physical. If that is the discriminator, the other
-entries are worth checking for synthetic replication first.
-
 ## Feature: UCITS tracking-difference monitor
 
 `config/themes.yaml` records the closest UCITS equivalent per theme — ticker,
@@ -814,6 +781,23 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Audit every UCITS entry for Avanza availability (2026-08-30)
+
+`config/themes.yaml`'s 17 UCITS entries had only ever been verified to *exist*
+(justETF, 2026-08-05) — never that Avanza would actually sell them, the gap
+that let the SML4 incident (2026-08-25) through. Jonas manually re-checked all
+17 against Avanza's own instrument search: all confirmed orderable. Shipping
+remains the only theme with no UCITS equivalent at all, unchanged.
+
+Recorded as a single dated header comment at the top of the `ucits:` block
+(`config/themes.yaml`), matching the file's existing Diversifiers-header
+convention — a per-entry override comment wins over it, same as that section.
+No config schema change: this pass found no SML4-shaped exception, so the
+"does buyability need a third state" question the queued item raised stays
+open but doesn't block anything today. Goes stale silently, same as any
+manual verification — re-run on the same worry that motivated this one
+(a swap, a new theme, or just enough time passing).
 
 ## Only one row/card is expanded at a time (2026-08-29)
 

@@ -130,6 +130,15 @@ themes:
     gdelt_keywords: ["food company", "beverage industry", "food prices", "packaged food"]
 
 ucits:
+  # Avanza availability audit, 2026-08-30 (Jonas, manual check against Avanza's
+  # own instrument search — justETF only confirms an ETF exists/trades, not
+  # that this specific broker will sell it; see the 2026-08-25 SML4 incident
+  # above and BACKLOG.md's "Audit every UCITS entry for Avanza availability").
+  # All 17 entries below are confirmed orderable on Avanza. Shipping remains
+  # the only theme with no UCITS equivalent at all (unbuyable, see above) —
+  # nothing in this sweep changed that. A later per-entry comment overrides
+  # this header for that one entry, same convention as the Diversifiers note
+  # below.
   Artificial Intelligence & Robotics:
     - ticker: XAIX
       name: Xtrackers Artificial Intelligence & Big Data UCITS ETF
