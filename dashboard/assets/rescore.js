@@ -65,7 +65,8 @@
     if (nScans === 0) {
       sectors.forEach(function (s) {
         out[s] = { rank: null, composite: 0, delta_rank: 0, delta_composite: 0,
-                   setup: null, trajectory_label: "→", trajectory_state: "flat" };
+                   setup: null, trajectory_label: "→", trajectory_state: "flat",
+                   trajectory_word: TRAJECTORY_WORDS.flat };
       });
       return out;
     }
@@ -123,7 +124,8 @@
         delta_composite: dComp,
         setup: null,
         trajectory_label: traj.label,
-        trajectory_state: traj.state
+        trajectory_state: traj.state,
+        trajectory_word: traj.word
       };
     });
     return out;
@@ -447,10 +449,31 @@
     }
   }
 
+  // The Trend badge's markup, in ONE place. Every builder used to write this
+  // by hand (dashboard/rows.py, this file's own rescore() callers, and
+  // updateRows() in index.html.j2) and one of them drifted to
+  // `textContent`, silently destroying the glyph/word span pair — see
+  // BACKLOG.md, "Rescore path flattens the Trend badge to a bare glyph".
+  // trajBadgeInner is the two spans a caller mutating an EXISTING badge
+  // element needs (updateRows() below); trajBadgeHTML wraps that in the
+  // outer <span class="traj-badge"> for a caller building the element from
+  // scratch (auth.js's renderLatestRows).
+  function trajBadgeInner(label, word) {
+    return '<span class="traj-glyph">' + label + '</span> <span class="traj-word">'
+      + (word || "") + '</span>';
+  }
+
+  function trajBadgeHTML(state, label, word) {
+    if (!state) { return ""; }
+    return '<span class="traj-badge traj-' + state + '" data-i18n-title="trend_tip" '
+      + 'title="Rank slope over last 3–5 scans">' + trajBadgeInner(label, word) + '</span>';
+  }
+
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
               inBuyBand: inBuyBand,
               badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
+              trajBadgeInner: trajBadgeInner, trajBadgeHTML: trajBadgeHTML,
               latestRowMeta: latestRowMeta, compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,
               reviewStatus: reviewStatus, localISODate: localISODate, shortDate: shortDate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };

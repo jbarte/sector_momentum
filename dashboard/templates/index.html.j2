@@ -2092,7 +2092,14 @@ document.getElementById('leaderboard-cards')?.addEventListener('keydown', functi
         deltaCell.innerHTML = '<span class="arrow ' + cls + '">' + arrow + '</span> ' + dtxt;
       }
       var traj = tr.querySelector(".traj-badge");
-      if (traj) { traj.className = "traj-badge traj-" + r.trajectory_state; traj.textContent = r.trajectory_label; }
+      if (traj) {
+        traj.className = "traj-badge traj-" + r.trajectory_state;
+        // The two-span structure (Rescore.trajBadgeInner), not textContent —
+        // textContent replaces both children with one bare glyph, destroying
+        // the word and the tooltip. See BACKLOG.md, "Rescore path flattens
+        // the Trend badge to a bare glyph".
+        traj.innerHTML = Rescore.trajBadgeInner(r.trajectory_label, r.trajectory_word);
+      }
       // Rescoring changes the rank, and the rank is what the badge is derived
       // from — so data-rank has to move with it or the next badge pass (and the
       // Top 5 filter) would still be reading pre-rescore ranks.

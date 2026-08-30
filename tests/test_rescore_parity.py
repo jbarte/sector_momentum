@@ -52,12 +52,14 @@ def _py_reference(data, W):
         start = max(0, n - 5)
         series = [rank_by_scan[s][k] for s in range(start, n)]
         slope = _ols(series)
+        state = _traj(slope)[1]
         out[k] = {
             "rank": rank_now, "composite": comp_now,
             "delta_rank": d_rank, "delta_composite": d_comp,
             "setup": None,
             "trajectory_label": _traj(slope)[0],
-            "trajectory_state": _traj(slope)[1],
+            "trajectory_state": state,
+            "trajectory_word": TRAJECTORY_WORDS.get(state, "flat"),
         }
     return out
 
@@ -120,6 +122,12 @@ def test_rescore_parity_random(W, seed):
         assert js[k]["setup"] == py[k]["setup"]
         assert js[k]["trajectory_label"] == py[k]["trajectory_label"]
         assert js[k]["trajectory_state"] == py[k]["trajectory_state"]
+        assert js[k]["trajectory_word"] == py[k]["trajectory_word"], (
+            "rescore()'s returned object must carry trajectory_word — this is "
+            "the field a signed-in client-side re-render needs to draw the "
+            "full <span class=\'traj-word\'> badge, matching every other "
+            "trajectory builder (dashboard/rows.py, auth.js's renderLatestRows)"
+        )
 
 
 def test_rescore_parity_ties():

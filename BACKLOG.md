@@ -432,35 +432,6 @@ names, and the cheap subset (`sector_key`, `sector_id`, `top_sector`,
 `sector_count`, the two `scans` health columns) can be renamed independently of
 the schema at much lower risk.
 
-## Rescore path flattens the Trend badge to a bare glyph
-
-Found while re-measuring the 2026-08-09 audit's badge/trend P1 (see Done,
-2026-08-22). **Dormant, not live** — recorded so it isn't rediscovered from
-scratch.
-
-`rescoreRows()` in `dashboard/templates/index.html.j2` does:
-
-```js
-if (traj) { traj.className = "traj-badge traj-" + r.trajectory_state; traj.textContent = r.trajectory_label; }
-```
-
-`textContent` replaces the badge's children, destroying the
-`<span class="traj-glyph">` / `<span class="traj-word">` pair every other
-builder emits. The badge survives as a bare `↑` with no word — which is
-exactly the "9.84px arrow" the design audit originally complained about, and
-now also strips the tooltip and the word from a badge sitting beside the
-theme name.
-
-It cannot fire today: the only caller is the sentiment blend control, which
-was withdrawn 2026-08-14. It becomes live the moment that control is restored
-— and *that* is a queued item too ("Restore the sentiment blend control"), so
-whoever picks that up should fix this in the same branch rather than treat it
-as separate work.
-
-The fix is to write the two spans instead of `textContent`, matching
-`auth.js`'s `trendInner`. Worth extracting a shared `trajBadgeHTML(state,
-label, word)` at that point — there would then be four builders emitting the
-same markup, which is what let this one drift unnoticed in the first place.
 
 ## GDELT source alternatives — Web NGrams and BigQuery
 
@@ -764,6 +735,56 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Rescore path no longer flattens the Trend badge to a bare glyph (2026-08-30)
+
+Found while re-measuring the 2026-08-09 audit's badge/trend P1 (see Done,
+2026-08-22). Was dormant, not live — recorded so it wasn't rediscovered from
+scratch, now fixed.
+
+`updateRows()` in `dashboard/templates/index.html.j2` did:
+
+```js
+if (traj) { traj.className = "traj-badge traj-" + r.trajectory_state; traj.textContent = r.trajectory_label; }
+```
+
+`textContent` replaces the badge's children, destroying the
+`<span class="traj-glyph">` / `<span class="traj-word">` pair every other
+builder emits — the badge survived as a bare `↑` with no word, stripping the
+tooltip too.
+
+**Fix, per the queued suggestion:** extracted `Rescore.trajBadgeHTML(state,
+label, word)` and `Rescore.trajBadgeInner(label, word)` in `rescore.js` — one
+source of the markup, used by both real emitters (`auth.js`'s `trendInner`,
+which used to build it inline, and `updateRows()`, now via `.innerHTML =
+trajBadgeInner(...)` instead of `.textContent =`). Along the way found a
+second, related bug in the same code path: `rescore()`'s returned object
+never included `trajectory_word` at all (only `label`/`state`), so even a
+correctly-written two-span fix would have rendered an empty word. Both fixed
+together — they're the same bug wearing two faces.
+
+Confirmed with `node` that the count of real emitters was 2, not the "four
+builders" the queued item guessed — `dashboard/rows.py` doesn't emit this
+markup (the Jinja template does, inline, in HTML) and `scan-history.js`
+deliberately renders no trend badge at all (a past scan never had one).
+
+Verified live in a real browser (Playwright, `tests/test_trend_badge_rescore.py`)
+by rendering with the sentiment-ranking control force-enabled — its only
+current caller, still withdrawn in production — and toggling it: confirmed
+BOTH spans and the tooltip survive a real rescore, and confirmed the test
+actually catches the regression by re-running it against the pre-fix
+`textContent` code (2 of 3 tests failed, as expected). 3 new Playwright tests,
+1 new parity assertion, 3 existing source-text tests updated to follow the
+new indirection through `rescore.js` rather than expecting the markup inline
+in `auth.js`.
+
+Still dormant: `sentiment_ranking_enabled` is `False` in production, so this
+fix has no live effect until *Restore the sentiment blend control* (still
+declined pending its own forward-return validation) ships. Diffed a build
+before/after against `main`: the only differences are the changed `updateRows`
+source itself (now dead code on this path) and the cache-busting hashes that
+follow from it — every server-rendered row's `.traj-badge` markup is
+unchanged, confirming the always-live path was not touched.
 
 ## UCITS monitor: FX-adjust the diff, add correlation/tracking error (2026-08-30)
 

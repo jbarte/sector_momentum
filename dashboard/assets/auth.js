@@ -240,12 +240,8 @@
         // INSIDE the theme cell, where a bare text node gets no margin from
         // `.theme-cell > * + *` and would render jammed against the ticker.
         // No badge is already how the board says "no trend".
-        var trendInner = m.trajectory_state
-          ? '<span class="traj-badge traj-' + m.trajectory_state + '"'
-            + ' data-i18n-title="trend_tip" title="Rank slope over last 3–5 scans">'
-            + '<span class="traj-glyph">'
-            + m.trajectory_label + '</span> <span class="traj-word">' + (m.trajectory_word || "") + '</span></span>'
-          : "";
+        var trendInner = Rescore.trajBadgeHTML(
+          m.trajectory_state, m.trajectory_label, m.trajectory_word);
         var ticker = (window.THEME_TICKERS || {})[r.gics_sector] || "";
         var tickerHtml = ticker ? '<span class="theme-ticker">' + escapeHtml(ticker) + '</span>' : "";
         // rank-1 is a static fact about this row (not horizon-dependent, unlike
