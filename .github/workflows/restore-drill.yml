@@ -55,7 +55,10 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install -r requirements.lock
+        # The CPU torch index, as every other workflow uses: requirements.lock
+        # pulls torch (FinBERT), and without this pip fetches the CUDA build —
+        # ~1 GB plus the nvidia stack, on a 15-minute job that needs neither.
+        run: pip install -r requirements.lock --extra-index-url https://download.pytorch.org/whl/cpu
 
       - name: Restore the newest backup into the throwaway database
         env:

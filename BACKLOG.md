@@ -789,15 +789,28 @@ discovering it during a restore.
   anything is restored: readable zip, every `_ARCHIVE_MEMBERS` present, CSV
   columns still matching `_COLUMNS` (via `read_backup`, so schema drift raises),
   manifest row counts agreeing with the CSVs beside them, and a non-empty
-  `scans` table. Returns the parsed tables so the caller restores *exactly what
+  `scans` table. Deliberately no stricter than the restore path it guards:
+  tables `read_backup` treats as optional may be absent, and a manifest naming
+  a retired table (`theme_*`) is not a disagreement — otherwise drilling an
+  older object by name would report "broken" for an archive `restore.py`
+  restores fine. Returns the parsed tables so the caller restores *exactly what
   was verified* rather than extracting a second time.
 - `scripts/restore_drill.py` — downloads the newest `backup_*.zip`, verifies it,
-  restores into a throwaway DB with `force=True`, and asserts the restored row
-  counts match the archive's per table. Exits non-zero on any mismatch.
+  restores into a throwaway DB with `force=True`, then reads the row counts back
+  **out of the database** (`table_row_counts`) and asserts they match the
+  archive per table. Exits non-zero on any mismatch. Code review caught the
+  first version comparing `load_tables`' return value, which is the length of
+  the frames it was handed — a number compared with itself, green even if
+  nothing landed.
+- It also refuses when the bucket listing comes back at the API page limit:
+  `list_objects` sends `limit=1000` unpaginated and sorts ascending, so a full
+  page means "newest" may not be in it, and silently drilling the 1000th-oldest
+  backup while reporting PASSED is precisely the silent-green failure this job
+  exists to prevent.
 - `.github/workflows/restore-drill.yml` — monthly (1st, 04:00 UTC) plus
   `workflow_dispatch`, on a `postgres:17` service container, with an ntfy alert
   on failure matching `scan.yml`'s pattern.
-- 23 tests in `tests/test_restore_drill.py`, TDD.
+- 27 tests in `tests/test_restore_drill.py`, TDD.
 
 **The safety design, which is the part worth re-reading before touching this.**
 The drill deletes every row in whatever `DATABASE_URL` names, which is the exact

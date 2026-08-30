@@ -204,6 +204,24 @@ def backup_to_storage(conn, bucket: str = storage_backup.DEFAULT_BUCKET) -> str:
     return object_name
 
 
+def table_row_counts(conn) -> dict[str, int]:
+    """Row counts read back FROM THE DATABASE, per table in the current schema.
+
+    `load_tables` returns the length of the frames it was handed, so comparing
+    its return against the archive it came from compares a number with itself.
+    The restore drill needs a number the database produced. Tables absent from
+    the target are omitted, matching `load_tables`' own skip behaviour.
+    """
+    out: dict[str, int] = {}
+    with conn.cursor() as cur:
+        for name in _COLUMNS:
+            if not _table_exists(cur, name):
+                continue
+            cur.execute(f"SELECT COUNT(*) FROM {name}")
+            out[name] = int(cur.fetchone()[0])
+    return out
+
+
 def verify_backup_archive(data: bytes) -> dict:
     """Structurally validate a backup zip before anything is restored from it.
 
@@ -225,24 +243,44 @@ def verify_backup_archive(data: bytes) -> dict:
 
     with zf:
         present = set(zf.namelist())
-        missing = [m for m in _ARCHIVE_MEMBERS if m not in present]
+        # Mirror read_backup's contract exactly: a table it treats as optional
+        # must not be fatal here, or drilling an older object by name reports
+        # "broken" for an archive `restore.py` restores fine.
+        required = tuple(f"{t}.csv" for t in _REQUIRED_TABLES) + ("manifest.json",)
+        missing = [m for m in _ARCHIVE_MEMBERS if m in required and m not in present]
         if missing:
             raise ValueError(
                 f"backup archive is missing member(s): {', '.join(missing)}"
             )
-        with tempfile.TemporaryDirectory() as tmp:
-            zf.extractall(tmp)
-            # read_backup raises on a missing required table or a CSV that has
-            # drifted from _COLUMNS, which is exactly the schema check wanted.
-            tables = read_backup(tmp)
-            manifest = json.loads((Path(tmp) / "manifest.json").read_text())
+        absent_optional = [m for m in _ARCHIVE_MEMBERS if m not in present]
+        if absent_optional:
+            logger.warning("archive omits optional member(s) %s — an archive "
+                           "predating that table?", ", ".join(absent_optional))
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                zf.extractall(tmp)
+                # read_backup raises on a missing required table or a CSV that
+                # has drifted from _COLUMNS — exactly the schema check wanted.
+                tables = read_backup(tmp)
+                manifest = json.loads((Path(tmp) / "manifest.json").read_text())
+        except ValueError:
+            raise
+        except (zipfile.BadZipFile, EOFError, OSError, json.JSONDecodeError) as exc:
+            # A bad CRC or truncated deflate stream surfaces here, not at open.
+            raise ValueError(f"backup archive is corrupt: {exc}") from exc
 
     counts = {name: int(len(df)) for name, df in tables.items()}
-    claimed = {k: int(v) for k, v in (manifest.get("row_counts") or {}).items()}
-    if claimed and claimed != counts:
+    # Compare only tables the CURRENT schema knows: a pre-rename archive still
+    # lists retired tables (theme_*) in its manifest, and load_tables skips
+    # those rather than failing.
+    claimed = {k: int(v) for k, v in (manifest.get("row_counts") or {}).items()
+               if k in _COLUMNS}
+    shared = {k: claimed[k] for k in claimed if k in counts}
+    actual = {k: counts[k] for k in shared}
+    if shared and shared != actual:
         raise ValueError(
             f"manifest disagrees with the CSVs it ships with: "
-            f"manifest={claimed} actual={counts}"
+            f"manifest={shared} actual={actual}"
         )
     if counts.get("scans", 0) == 0:
         raise ValueError(

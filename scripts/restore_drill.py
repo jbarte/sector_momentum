@@ -30,7 +30,7 @@ from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src import storage_backup
-from src.backup import load_tables, verify_backup_archive
+from src.backup import load_tables, table_row_counts, verify_backup_archive
 from src.state import init_db
 
 logging.basicConfig(level=logging.INFO,
@@ -39,6 +39,9 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger("restore_drill")
 
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+#: storage_backup.list_objects sends this limit and does not paginate.
+_LIST_LIMIT = 1000
 
 
 def assert_disposable_target(database_url: str | None) -> None:
@@ -76,7 +79,19 @@ def main(argv=None) -> int:
 
     name = args.object_name
     if name is None:
-        names = [n for n in storage_backup.list_objects(bucket=args.bucket)
+        listing = storage_backup.list_objects(bucket=args.bucket)
+        if len(listing) >= _LIST_LIMIT:
+            # list_objects sends limit=1000 with no pagination and sorts name
+            # ascending, so a full page means "newest" is not necessarily in
+            # it. Drilling the 1000th-oldest backup while reporting PASSED is
+            # the exact silent-green failure this job exists to prevent.
+            logger.error(
+                "bucket listing returned %d objects, the API page limit — the "
+                "newest backup may not be in it. Prune the bucket or add "
+                "pagination to storage_backup.list_objects before trusting "
+                "this drill.", len(listing))
+            return 1
+        names = [n for n in listing
                  if n.startswith("backup_") and n.endswith(".zip")]
         if not names:
             logger.error("no backups found in bucket '%s'", args.bucket)
@@ -95,7 +110,12 @@ def main(argv=None) -> int:
     try:
         # The verifier's own parse, not a second extraction: what was checked is
         # exactly what gets loaded.
-        restored = load_tables(conn, report["tables"], force=True)
+        load_tables(conn, report["tables"], force=True)
+        # Read the counts back OUT of the database. load_tables returns the
+        # length of the frames it was handed, so comparing that against the
+        # archive compares a number with itself and passes even if nothing
+        # landed.
+        restored = table_row_counts(conn)
     finally:
         conn.close()
 

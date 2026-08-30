@@ -26,7 +26,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import scripts.restore_drill as drill
 from scripts.restore_drill import assert_disposable_target
-from src.backup import _ARCHIVE_MEMBERS, _COLUMNS, verify_backup_archive
+from src.backup import (
+    _ARCHIVE_MEMBERS,
+    _COLUMNS,
+    _REQUIRED_TABLES,
+    verify_backup_archive,
+)
 
 
 def _archive(*, omit=(), columns=None, counts=None, max_scan_id=7) -> bytes:
@@ -41,8 +46,10 @@ def _archive(*, omit=(), columns=None, counts=None, max_scan_id=7) -> bytes:
             rows = {c: ["1"] * counts[table] for c in use}
             zf.writestr(f"{table}.csv", pd.DataFrame(rows).to_csv(index=False))
         if "manifest.json" not in omit:
+            # A real archive only claims counts for the CSVs it actually ships.
+            claimed = {t: n for t, n in counts.items() if f"{t}.csv" not in omit}
             zf.writestr("manifest.json", json.dumps(
-                {"row_counts": counts, "max_scan_id": max_scan_id,
+                {"row_counts": claimed, "max_scan_id": max_scan_id,
                  "generated_at": "2026-08-30T00:00:00Z"}))
     return buf.getvalue()
 
@@ -98,12 +105,40 @@ def test_garbage_bytes_are_rejected_as_a_bad_zip():
         verify_backup_archive(b"this is not a zip file")
 
 
-def test_every_archive_member_is_covered_by_the_verifier():
-    """Pins the verifier to _ARCHIVE_MEMBERS so a new table cannot be added to
-    the backup without the drill learning to check it."""
-    for member in _ARCHIVE_MEMBERS:
+def test_every_required_member_is_covered_by_the_verifier():
+    """Pins the verifier to _REQUIRED_TABLES so a new required table cannot be
+    added to the backup without the drill learning to check it."""
+    required = [f"{t}.csv" for t in _REQUIRED_TABLES] + ["manifest.json"]
+    for member in required:
         with pytest.raises(ValueError, match=member.replace(".", r"\.")):
             verify_backup_archive(_archive(omit=(member,)))
+
+
+def test_an_optional_table_may_be_absent_from_an_older_archive():
+    """The verifier must not be stricter than the restore path it guards:
+    read_backup treats a since-added table as optional, so an archive predating
+    it restores fine and must not be reported broken."""
+    optional = set(_COLUMNS) - _REQUIRED_TABLES
+    assert optional, "expected at least one optional table in the schema"
+    for table in optional:
+        report = verify_backup_archive(_archive(omit=(f"{table}.csv",)))
+        assert report["row_counts"][table] == 0
+
+
+def test_a_manifest_naming_a_retired_table_is_not_a_disagreement():
+    """Pre-rename archives list theme_* in row_counts; load_tables skips those
+    rather than failing, so the verifier must too."""
+    data = _archive(counts={t: 2 for t in _COLUMNS})
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        members = {n: zf.read(n) for n in zf.namelist()}
+    members["manifest.json"] = json.dumps(
+        {"row_counts": {**{t: 2 for t in _COLUMNS}, "theme_scores": 41},
+         "max_scan_id": 7}).encode()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for n, b in members.items():
+            zf.writestr(n, b)
+    assert verify_backup_archive(buf.getvalue())["row_counts"]["scans"] == 2
 
 
 # --- the guard that keeps this job away from production ---------------------
@@ -168,8 +203,13 @@ def fake_bucket(monkeypatch):
 
 @pytest.fixture
 def fake_db(monkeypatch):
-    """Stands in for the throwaway Postgres; echoes back the row counts."""
-    state = {"loaded": None, "closed": False, "returns": None}
+    """Stands in for the throwaway Postgres.
+
+    `db_counts` is what the DATABASE reports afterwards — deliberately a
+    separate channel from what `load_tables` was handed, because the drill's
+    whole assertion is that those two agree. Defaults to a faithful restore.
+    """
+    state = {"loaded": None, "closed": False, "db_counts": None}
 
     class _Conn:
         def close(self):
@@ -177,10 +217,16 @@ def fake_db(monkeypatch):
 
     def _load(conn, tables, *, force=False):
         state["loaded"] = {"tables": tables, "force": force}
-        return state["returns"] or {t: len(df) for t, df in tables.items()}
+        return {t: len(df) for t, df in tables.items()}
+
+    def _counts(conn):
+        if state["db_counts"] is not None:
+            return state["db_counts"]
+        return {t: len(df) for t, df in state["loaded"]["tables"].items()}
 
     monkeypatch.setattr(drill, "init_db", lambda: _Conn())
     monkeypatch.setattr(drill, "load_tables", _load)
+    monkeypatch.setattr(drill, "table_row_counts", _counts)
     return state
 
 
@@ -208,10 +254,32 @@ def test_a_named_object_is_drilled_without_listing_the_bucket(
 
 
 def test_a_partial_restore_fails_the_drill(monkeypatch, fake_bucket, fake_db):
-    """The failure the drill exists to catch: it loaded, but not all of it."""
+    """The failure the drill exists to catch: load_tables raised nothing, but
+    the database does not actually hold what the archive said."""
     monkeypatch.setenv("DATABASE_URL", LOCAL)
-    fake_db["returns"] = {t: 4 for t in _COLUMNS} | {"signals": 3}
+    fake_db["db_counts"] = {t: 4 for t in _COLUMNS} | {"signals": 3}
     assert drill.main([]) == 1
+
+
+def test_a_restore_that_landed_nothing_fails_the_drill(monkeypatch, fake_bucket, fake_db):
+    """The regression this fixture shape exists for: comparing load_tables'
+    return against the archive compares a number with itself and passes even
+    when the database is empty."""
+    monkeypatch.setenv("DATABASE_URL", LOCAL)
+    fake_db["db_counts"] = {t: 0 for t in _COLUMNS}
+    assert drill.main([]) == 1
+
+
+def test_a_truncated_bucket_listing_fails_rather_than_drilling_the_wrong_object(
+        monkeypatch, fake_bucket, fake_db):
+    """list_objects sends limit=1000 and does not paginate, sorted ascending —
+    a full page means the newest backup may not be in it. Silently drilling the
+    1000th-oldest while reporting PASSED is the failure this job exists to
+    prevent."""
+    monkeypatch.setenv("DATABASE_URL", LOCAL)
+    fake_bucket["objects"] = [f"backup_{i:04d}.zip" for i in range(drill._LIST_LIMIT)]
+    assert drill.main([]) == 1
+    assert fake_bucket["downloaded"] is None
 
 
 def test_an_empty_bucket_fails_the_drill(monkeypatch, fake_bucket, fake_db):
