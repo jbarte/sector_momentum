@@ -39,6 +39,27 @@ sibling gap on the restore drill's cadence, though this doesn't need CI, a
 manual run is fine) for a few cycles, then revisit whether AI & Robotics and
 Defense should move to `partial`.
 
+## Re-sweep TOP_N/BUFFERS under the fractional band scheme
+
+Split off 2026-08-31 from *`long`'s horizon chip now reports live churn,
+not a stale config figure* (see Done) as the one part of that item's
+lineage deliberately NOT done. That fix (and the fractional-band migration
+before it, 2026-08-30) both explicitly left this out of scope — the chip
+now honestly displays whatever `medium`/`long` actually do, but nobody has
+re-run `scripts/horizon_sweep.py`'s grid search to check whether some
+*other* `top_n`/`buffer_frac` combination now performs better under
+`buffer_frac` than the absolute-rank sweep that originally chose `M/4/5`
+and `M/5/8` (2026-08-14) would have found.
+
+Not acted on yet: this is a preset-*selection* decision, not a display
+fix, and changing which presets ship (or their band widths) is a bigger
+blast radius than this backlog item's own scope — it can move
+`medium`/`long`'s advertised identity, and `config/weights.yaml`'s own
+noise-floor note already warns that cells within ~2pp of each other are
+statistically indistinguishable on a single sweep window, so a naive
+argmax re-sweep risks picking noise over signal. Needs its own
+brainstorm before touching the shipped presets.
+
 ## Mobile card's expand-region nests a real button inside role="button"
 
 Code review, 2026-08-24, on the mobile-holdings-toggle fix (see Done). An
@@ -614,12 +635,16 @@ rollout — only future universe growth diverges from what absolute ranks would
 have done, which is the whole point: the band no longer needs manual retuning
 every time a theme is added or removed.
 
-**Explicitly out of scope, left queued:** a re-sweep of `TOP_N`/`BUFFERS`
-under the new fractional grid and a re-validation of the published
-cagr/Sharpe/trades-per-year figures, which were measured under the old
-absolute-rank simulation and are now marked PROVISIONAL in
-`config/weights.yaml`. See the rewritten *`long`'s published churn figures
-understate what the reader will actually trade* Queued item for what remains.
+**Explicitly out of scope:** a re-sweep of `TOP_N`/`BUFFERS` under the new
+fractional grid and a re-validation of the published cagr/Sharpe/trades-
+per-year figures under it — still genuinely open, tracked separately as
+*Re-sweep TOP_N/BUFFERS under the fractional band scheme* in Queued.
+Separately, and already resolved (2026-08-31, see Done): the *display*
+half of the staleness this PROVISIONAL note originally worried about —
+`config/weights.yaml` no longer publishes cagr/trades_per_year/
+median_holding_days at all; the horizon chip reads them live from
+`backtests/summary.json` instead, so a re-sweep decision no longer needs
+to race a display deadline.
 
 See `sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md`.
 
