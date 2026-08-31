@@ -607,7 +607,7 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 Closes *Health panel has no signal for themes missing for reasons other than a
 stale as-of drop* (code review, 2026-08-23). A new `dropped_themes` JSONB
 column on `scans` replaces the "one dedicated column per cause" pattern that
-note flagged: `{ticker: reason}` pairs are written for every theme the scan
+note flagged: `{theme name: reason}` pairs are written for every theme the scan
 drops, covering all three known causes — `prices_failed` (ticker fetch
 failed), `asof_dropped` (dropped by `align_cohort_asof` for lagging the
 cohort's as-of date), and the previously untracked `signal_calc_failed`
