@@ -2678,6 +2678,18 @@ def test_horizons_json_carries_buffer_frac_not_a_precomputed_exit_rank():
     )
 
 
+def test_horizons_json_reads_trades_per_year_live_not_from_config():
+    """trades_per_year/median_holding_days used to be read straight from
+    the Horizon object (config/weights.yaml's hand-copied, stale figures)
+    -- the exact defect the churn-figure-honesty fix (2026-08-31) exists to
+    close. Pins that build.py now sources them from the live backtest
+    artifact instead of a Horizon attribute that no longer exists."""
+    build_text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
+    assert "_live_horizon_stats(" in build_text
+    assert '"trades_per_year": h.trades_per_year' not in build_text
+    assert '"median_holding_days": h.median_holding_days' not in build_text
+
+
 def test_horizon_stats_render_all_four_in_spec_order():
     """Spec order (Screen 1 item 5): held, sell past rank, trades/yr,
     median hold — the pre-Stage-5 markup had held/median-hold/trades."""
