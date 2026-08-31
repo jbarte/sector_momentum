@@ -640,7 +640,7 @@ fractional grid and a re-validation of the published cagr/Sharpe/trades-
 per-year figures under it — still genuinely open, tracked separately as
 *Re-sweep TOP_N/BUFFERS under the fractional band scheme* in Queued.
 Separately, and already resolved (2026-08-31, see Done): the *display*
-half of the staleness this PROVISIONAL note originally worried about —
+half of the staleness this paragraph originally marked PROVISIONAL —
 `config/weights.yaml` no longer publishes cagr/trades_per_year/
 median_holding_days at all; the horizon chip reads them live from
 `backtests/summary.json` instead, so a re-sweep decision no longer needs

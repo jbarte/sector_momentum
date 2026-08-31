@@ -111,14 +111,17 @@ costs:
 # churn. If the universe size changes again, revisit these — the band does not
 # scale itself.
 #
-# These are PRECOMPUTED OPERATING POINTS from one sweep over one market
-# history, not a live optimiser. The recorded cagr/trades_per_year are the
-# backtested figures for that cell and exist so the UI can show the churn cost
-# next to the return; they are not predictions.
+# These presets are PRECOMPUTED OPERATING POINTS from one sweep over one
+# market history, not a live optimiser — `top_n`/`buffer_frac` below are
+# that sweep's picks, not predictions. The cagr/trades_per_year/
+# median_holding_days figures the UI shows beside a preset are no longer
+# recorded in this file (2026-08-31 churn-figure-honesty fix) — the
+# dashboard reads them live from backtests/summary.json instead, so they
+# can't go stale the way the numbers that used to live here did.
 #
-# `cagr` is NET of costs.round_trip_bps (below). trades_per_year and
-# median_holding_days are unchanged by cost — the cost model is applied to
-# returns, never to selection, so the same names are picked either way.
+# The cost model (costs.round_trip_bps, below) is applied to returns, never
+# to selection — `cagr` is net of it, trades_per_year/median_holding_days
+# are unaffected, so the same names are picked either way.
 #
 # CUT FROM THREE PRESETS TO TWO, 2026-08-14. `short` is gone, not re-tuned.
 # Re-swept on warm history (the sweep starved its own signal warm-up until

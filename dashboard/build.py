@@ -663,6 +663,7 @@ def main() -> None:
     # resolve `Rescore.exitRank()` against. It is NOT a substitute for the
     # live `Rescore.exitRank()` calls used everywhere else, and nothing else
     # should read it.
+    #
     # trades_per_year/median_holding_days are read live from
     # backtests/summary.json rather than from `h` — Horizon no longer
     # carries them (2026-08-31 churn-figure-honesty fix): a config-driven
