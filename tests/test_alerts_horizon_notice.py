@@ -11,13 +11,20 @@ why this ships as a notice rather than the per-user horizon column the backlog
 originally proposed: that is multi-user machinery for one user, on the one code
 path where a bug means a missed or spurious email.
 """
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 _ROOT = Path(__file__).parent.parent
 _FOOTER = _ROOT / "dashboard" / "templates" / "_footer.html.j2"
 _TPL = _ROOT / "dashboard" / "templates"
 _SV = _TPL / "i18n" / "_core.js.j2"
+
+_needs_node = pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
 
 
 def _call_args(text: str, name: str) -> list[str]:
@@ -151,3 +158,99 @@ def test_no_jinja_comment_leaks_into_the_rendered_page():
         f"Jinja comments containing comment delimiters (they close early and "
         f"leak the remainder as page text): {sorted(set(offenders))}"
     )
+
+
+def _alerts_modal_script() -> str:
+    """The alerts modal's own `<script>...</script>` body (the one containing
+    `renderHorizonNote`), with its two Jinja interpolations swapped for literal
+    JSON — everything else in the block is plain JS, no other template
+    expressions appear in it.
+
+    Extracted by tag position rather than a full Jinja render: the surrounding
+    partial needs a large, unrelated context (health, auth, alert-prefs) just
+    to render at all, none of which this test cares about.
+    """
+    text = _FOOTER.read_text()
+    script = text.split("<script>", 2)[1].split("</script>", 1)[0]
+    assert "renderHorizonNote" in script, (
+        "the alerts modal's <script> block moved or was restructured -- "
+        "update the extraction to match"
+    )
+    # Strip Jinja comments (`{#- ... -#}`) — plain JS otherwise, but these
+    # aren't valid JS syntax and node would choke on them.
+    script = re.sub(r"\{#.*?#\}", "", script, flags=re.S)
+
+    alert_hz = {
+        "key": "medium", "label": "Medium", "top_n": 4, "buffer_frac": 0.15,
+        "exit_rank_today": 7,
+    }
+    all_hz = [
+        alert_hz,
+        {"key": "long", "label": "Long", "top_n": 4, "buffer_frac": 0.3,
+         "exit_rank_today": 10},
+    ]
+    script = script.replace(
+        "{{ horizon_default_json | js_json }}", json.dumps(alert_hz))
+    script = script.replace(
+        "{{ horizons_json | js_json }}", json.dumps(all_hz))
+    assert "{{" not in script, "unresolved Jinja expression left in the script"
+    return script
+
+
+@_needs_node
+def test_renderhorizonnote_shows_real_numbers_not_nan():
+    """Executes the actual `renderHorizonNote()` under node with a minimal DOM
+    stub, a saved `sm_horizon` selection that disagrees with the alerts
+    default, and asserts the two exit-rank nodes it fills in are real numbers.
+
+    The existing tests in this file only check markup strings -- none of them
+    ever ran this script, which is exactly how `ALERT_HZ.top_n +
+    ALERT_HZ.buffer` (reading a field this branch renamed to `buffer_frac`)
+    shipped: both nodes silently rendered "NaN" and nothing caught it.
+    """
+    script = _alerts_modal_script()
+    node_script = f"""
+    var textStore = {{}};
+    var hiddenStore = {{}};
+    function makeEl(id) {{
+      var el = {{}};
+      Object.defineProperty(el, "textContent", {{
+        get: function () {{ return textStore[id]; }},
+        set: function (v) {{ textStore[id] = v; }}
+      }});
+      Object.defineProperty(el, "hidden", {{
+        get: function () {{ return hiddenStore[id]; }},
+        set: function (v) {{ hiddenStore[id] = v; }}
+      }});
+      return el;
+    }}
+    var ids = ["alerts-modal", "alerts-close", "alerts-hz-agree", "alerts-hz-differ",
+      "alerts-hz-sel", "alerts-hz-alert", "alerts-hz-alert-exit", "alerts-hz-sel-exit",
+      "alerts-hz-alert-top", "alerts-hz-sel-top", "alerts-hz-name"];
+    var elements = {{}};
+    ids.forEach(function (id) {{ elements[id] = makeEl(id); }});
+
+    global.document = {{
+      readyState: "complete",
+      getElementById: function (id) {{ return elements[id] || null; }},
+      addEventListener: function () {{}}
+    }};
+    global.localStorage = {{
+      getItem: function (k) {{ return k === "sm_horizon" ? "long" : null; }}
+    }};
+    global.window = {{
+      SMModal: {{ bind: function () {{ return {{ open: function () {{}} }}; }} }}
+    }};
+
+    {script}
+
+    process.stdout.write(JSON.stringify({{
+      alertExit: elements["alerts-hz-alert-exit"].textContent,
+      selExit: elements["alerts-hz-sel-exit"].textContent
+    }}));
+    """
+    res = subprocess.run(
+        ["node", "-e", node_script], capture_output=True, text=True, check=True)
+    out = json.loads(res.stdout)
+    assert out["alertExit"] == 7, f"alerts-hz-alert-exit rendered {out['alertExit']!r}, not 7"
+    assert out["selExit"] == 10, f"alerts-hz-sel-exit rendered {out['selExit']!r}, not 10"

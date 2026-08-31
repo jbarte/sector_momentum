@@ -647,11 +647,28 @@ def main() -> None:
     # universe size, which can differ between a guest-baked page and a signed-in
     # rebuild. Every consumer resolves it fresh via Rescore.exitRank() instead of
     # reading a static, potentially-stale value baked in at build time.
+    #
+    # Exception: `exit_rank_today` below IS a static, build-time value, and
+    # that's intentional for that one field. It exists solely for the
+    # non-personalized alerts-vs-selection comparison modal in
+    # `_footer.html.j2`, which states cadence-level information ("here's
+    # roughly how many ranks wide the band your alerts run on is"), not a
+    # live per-reader gating decision — unlike the leaderboard badges, which
+    # must react to the specific reader's live holdings. It's baked at build
+    # time against this build's own leaderboard universe
+    # (`len(leaderboard_rows)`, the same reference universe used by the
+    # `_compute_setup(row, _default_horizon, universe_size=len(leaderboard_rows))`
+    # call above) so the modal has something to render on pages like
+    # `sentiment.html.j2` that carry no live "themes scored" DOM count to
+    # resolve `Rescore.exitRank()` against. It is NOT a substitute for the
+    # live `Rescore.exitRank()` calls used everywhere else, and nothing else
+    # should read it.
     _horizons_json = _json.dumps([
         {"key": h.key, "label": h.label, "rebalance": h.rebalance,
          "top_n": h.top_n, "buffer_frac": h.buffer_frac,
          "trades_per_year": h.trades_per_year,
          "median_holding_days": h.median_holding_days,
+         "exit_rank_today": h.exit_rank(len(leaderboard_rows)),
          # Next ~6 review dates, ISO strings, so the client can say whether
          # today is one without re-deriving the cadence rule in JS — see
          # BACKLOG.md "Badges don't say whether today is an actionable day".
@@ -661,6 +678,7 @@ def main() -> None:
     _horizon_default_json = _json.dumps({
         "key": _default_horizon.key, "label": _default_horizon.label,
         "top_n": _default_horizon.top_n, "buffer_frac": _default_horizon.buffer_frac,
+        "exit_rank_today": _default_horizon.exit_rank(len(leaderboard_rows)),
     })
 
     macro_page_ctx = _macro_ctx(shared)

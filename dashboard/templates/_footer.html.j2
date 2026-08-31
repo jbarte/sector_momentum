@@ -197,8 +197,8 @@
     }
     put("alerts-hz-sel", sel.label);
     put("alerts-hz-alert", ALERT_HZ.label);
-    put("alerts-hz-alert-exit", ALERT_HZ.top_n + ALERT_HZ.buffer);
-    put("alerts-hz-sel-exit", sel.top_n + sel.buffer);
+    put("alerts-hz-alert-exit", ALERT_HZ.exit_rank_today);
+    put("alerts-hz-sel-exit", sel.exit_rank_today);
     put("alerts-hz-alert-top", ALERT_HZ.top_n);
     put("alerts-hz-sel-top", sel.top_n);
     agree.hidden = true; differ.hidden = false;
