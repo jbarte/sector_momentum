@@ -1218,8 +1218,9 @@ header naming a window the run never evaluated" rule, and the report header
 now names both ends.
 
 11 new tests. The first disjoint run it enabled immediately found something —
-see "The backtest's early years cannot exercise the hold band at all" in
-Queued.
+see "Fractional hysteresis band — the hold band scales with the universe" in
+Done (shipped 2026-08-31; originally tracked in Queued as "The backtest's
+early years cannot exercise the hold band at all").
 
 
 ## Mobile card list still double/triple-renders from several other entry points
