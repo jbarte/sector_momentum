@@ -655,10 +655,9 @@ def main() -> None:
     # roughly how many ranks wide the band your alerts run on is"), not a
     # live per-reader gating decision — unlike the leaderboard badges, which
     # must react to the specific reader's live holdings. It's baked at build
-    # time against this build's own leaderboard universe
-    # (`len(leaderboard_rows)`, the same reference universe used by the
-    # `_compute_setup(row, _default_horizon, universe_size=len(leaderboard_rows))`
-    # call above) so the modal has something to render on pages like
+    # time against this build's own leaderboard universe (`len(leaderboard_rows)`
+    # — the same reference universe the default-horizon _compute_setup call
+    # above uses) so the modal has something to render on pages like
     # `sentiment.html.j2` that carry no live "themes scored" DOM count to
     # resolve `Rescore.exitRank()` against. It is NOT a substitute for the
     # live `Rescore.exitRank()` calls used everywhere else, and nothing else
