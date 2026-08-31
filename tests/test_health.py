@@ -173,6 +173,42 @@ class TestBuildHealthContext:
         assert ctx["health_badges"]["finbert"] is None
         assert ctx["health_any_warn"] is False
 
+    def test_dropped_themes_absent_when_key_missing(self):
+        """Old scan rows predate this column entirely -- must not KeyError,
+        must render as nothing to show."""
+        health = {
+            "run_at": "2026-07-20T06:00:00+00:00",
+            "prices_failed": 0, "sectors_expected": 18, "sectors_produced": 18,
+        }
+        ctx = build_health_context(health)
+        assert ctx["dropped_themes"] == []
+
+    def test_dropped_themes_empty_dict_shows_nothing(self):
+        health = {
+            "run_at": "2026-07-20T06:00:00+00:00",
+            "prices_failed": 0, "sectors_expected": 18, "sectors_produced": 18,
+            "dropped_themes": {},
+        }
+        ctx = build_health_context(health)
+        assert ctx["dropped_themes"] == []
+
+    def test_dropped_themes_maps_reason_codes_to_human_text(self):
+        health = {
+            "run_at": "2026-07-20T06:00:00+00:00",
+            "prices_failed": 1, "sectors_expected": 18, "sectors_produced": 16,
+            "dropped_themes": {
+                "Shipping": "prices_failed",
+                "UFO": "asof_dropped",
+                "AgTech & Food Innovation": "signal_calc_failed",
+            },
+        }
+        ctx = build_health_context(health)
+        assert ctx["dropped_themes"] == [
+            ("AgTech & Food Innovation", "signal calc failed"),
+            ("Shipping", "fetch failed"),
+            ("UFO", "stale as-of"),
+        ]  # sorted by theme name
+
 
 class TestFooterNeverGuessesHealthy:
     """`_badge()` returning None means "cannot judge this metric".
