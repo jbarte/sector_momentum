@@ -515,43 +515,6 @@ Reopen only with a real plan for reconciling every "last N scans" window
 wrong early call on data shape is expensive to unwind, same trap as the
 union-merge and false-green bugs this project has already hit.
 
-## Health panel has no signal for themes missing for reasons other than a stale as-of drop
-
-Code review, 2026-08-23, on the `asof_dropped_count` PR (see Done). Recorded,
-**not obviously worth acting on yet** — a real gap, but the fix is a design
-question, not a bug.
-
-`sectors_produced < sectors_expected` (the coverage badge) can happen for at
-least three independent reasons, and the health panel now names only one of
-them:
-
-1. the ticker fetch failed outright — tracked (`prices_failed`)
-2. `align_cohort_asof` dropped it for lagging the cohort's as-of date —
-   tracked as of 2026-08-23 (`asof_dropped_count`)
-3. `compute_signals_for_sector` (`src/pipeline.py`) returns `None` for a
-   ticker that IS present in `prices` — e.g. insufficient history for a
-   signal calculator — **not tracked anywhere**
-
-A scan where 2 themes vanish for reason 3 shows coverage red/amber with both
-`prices_failed` and `asof_dropped_count` reading a healthy 0 — a reader has no
-way to tell why, and the panel's own honest badges actively point away from
-the real cause.
-
-**The naive fix — a fourth single-purpose column for reason 3 — is exactly the
-pattern this note exists to interrupt.** Each of the three causes so far
-became its own dedicated `scans` column, badge, and footer line, requiring the
-same 4-file edit (`scan.py`, `_HEALTH_COLUMNS`, `dashboard/health.py`,
-`_footer.html.j2`). A fourth cause would make it four copies of that edit; a
-fifth would make five. The design question worth answering before adding
-reason 3 (or the next one after it) is whether to keep doing that, or
-converge on one extensible mechanism — e.g. a small `dropped_themes` JSON/text
-column recording `{ticker: reason}` pairs, with one badge and one footer line
-reading from it regardless of how many reasons exist. That is a real design
-decision (schema shape, how much detail to surface, whether reason 1 and 2
-should migrate into it too) rather than a three-line addition, so it belongs
-in front of brainstorming, not skipped straight to implementation.
-
-
 ## Audit record from the 2026-08-23 sweep
 
 The three actionable findings from this sweep (`_modal.js.j2` inlined three
@@ -638,6 +601,32 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Health panel now names which theme is missing and why, for all three causes (2026-08-31)
+
+Closes *Health panel has no signal for themes missing for reasons other than a
+stale as-of drop* (code review, 2026-08-23). A new `dropped_themes` JSONB
+column on `scans` replaces the "one dedicated column per cause" pattern that
+note flagged: `{ticker: reason}` pairs are written for every theme the scan
+drops, covering all three known causes — `prices_failed` (ticker fetch
+failed), `asof_dropped` (dropped by `align_cohort_asof` for lagging the
+cohort's as-of date), and the previously untracked `signal_calc_failed`
+(`compute_signals_for_sector` returned `None` despite the ticker being present
+in `prices`, e.g. insufficient history for a signal calculator). A scan that
+loses a theme to reason 3 now shows up in the health panel instead of reading
+clean on all existing badges.
+
+This also fixes a second, independently useful gap alongside the primary one:
+the panel previously showed only *counts* for the two already-tracked causes,
+never which theme. The footer's new "Missing" line names every dropped theme
+next to its reason (`fetch failed` / `stale as-of` / `signal calc failed`),
+sourced from the same column, and stays invisible when nothing was dropped.
+
+Historical scan rows are unaffected — `dropped_themes` is `NULL` on every scan
+taken before this shipped, and the health panel/footer treat a missing or
+`None` value as "nothing dropped" rather than erroring.
+
+See `sector_momentum-notes/specs/2026-08-31-health-panel-dropped-themes-design.md`.
 
 ## Fractional hysteresis band — the hold band scales with the universe (2026-08-31)
 
