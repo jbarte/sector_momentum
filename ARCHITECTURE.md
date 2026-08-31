@@ -159,8 +159,12 @@ pipeline — see BACKLOG.
 
 ## 6. Horizons and trading cost (`src/horizons.py`)
 
-A horizon preset is a `(rebalance cadence, top_n, buffer)` triple. `buffer` is
-a hysteresis band **in ranks**: a holding is kept while `rank <= top_n + buffer`.
+A horizon preset is a `(rebalance cadence, top_n, buffer_frac)` triple.
+`buffer_frac` is a hysteresis band width as a **fraction of the scored
+universe**, not an absolute rank count. `Horizon.exit_rank(universe_size)`
+resolves it fresh at every point of use —
+`top_n + round_half_up(buffer_frac * universe_size)` — and a holding is kept
+while `rank <= exit_rank`.
 
 **Two presets ship, both on a monthly cadence**, differing only in band width:
 `medium` = M/4/5 (band 50% of the universe) and `long` = M/5/8 (72%). A third,
@@ -193,10 +197,13 @@ a preset and the sweep that *chooses* presets share one assumption. It defaults
 non-zero deliberately: sweeping at 0 bps systematically favours whichever
 cadence trades most, which is how the pre-2026-08-09 presets were selected.
 
-**The band does not scale itself.** It is stored in absolute ranks, so changing
-the universe size silently changes the band *fraction*
-`(top_n + buffer) / n_themes` — growing 13 → 20 themes once tightened it from
-62% to 40% and tripled churn. Revisit the presets whenever the universe changes.
+**The band scales itself.** Because `buffer_frac` is a fraction of the scored
+universe rather than an absolute rank count, `exit_rank` widens or narrows
+automatically as the theme universe grows or shrinks, keeping a preset's
+selectivity — roughly, what share of the universe stays inside the buy/hold
+band — stable over time. This replaced an earlier absolute-rank scheme where
+growing 13 → 20 themes once silently tightened the band from 62% to 40% and
+tripled churn, requiring a manual retune; that failure mode is gone.
 
 ---
 
@@ -339,9 +346,10 @@ visible text.
 ## 11. Alerts
 
 `src/alerts.py` detects **band crossings** — a theme entering `rank <= top_n`
-or leaving `rank > top_n + buffer` — not band membership. Membership would
-re-send the same holdings every day. `src/personal_alerts.py` routes events to
-users by their starred positions and preferences.
+or leaving `rank > exit_rank` (the horizon's `buffer_frac`-derived exit rank,
+resolved against the scan's own scored universe) — not band membership.
+Membership would re-send the same holdings every day. `src/personal_alerts.py`
+routes events to users by their starred positions and preferences.
 
 **Alerts evaluate the CONFIG DEFAULT horizon**, and not by naming it:
 `detect_badge_events` calls `_compute_setup(row)` with no horizon argument,
