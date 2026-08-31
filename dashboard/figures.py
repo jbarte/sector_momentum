@@ -564,9 +564,11 @@ def _build_backtest_context(backtests_dir: str) -> dict:
                 # count: a multi-year backtest run's universe size varies
                 # throughout, so there is no single honest "convert to an
                 # absolute count" reference point (unlike the live dashboard,
-                # which has "today's universe"). Matches the convention
-                # scripts/horizon_sweep.py's own `band` column already uses for
-                # the identical concept.
+                # which has "today's universe"). Matches the idea behind
+                # scripts/horizon_sweep.py's own `band` column — show a share
+                # of the universe rather than a raw rank — though that column
+                # is (top_n + buffer) / universe (the whole band width), while
+                # this is buffer_frac alone (buffer only, excluding top_n).
                 "buffer_pct": f"{100 * track.get('buffer_frac', 0.0):.0f}%",
                 "cagr": f"{100 * m['cagr']:.1f}%",
                 "benchmark_cagr": f"{100 * m['benchmark_cagr']:.1f}%",

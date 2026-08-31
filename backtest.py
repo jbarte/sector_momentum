@@ -141,8 +141,11 @@ def run(args: argparse.Namespace) -> int:
     if args.rebalance != "M" or args.buffer != 0 or args.theme_top_n != 3:
         # --buffer is an absolute rank count on the CLI (unchanged UX) —
         # converted once to the fraction run_theme_track now expects, using
-        # the full configured universe as the reference point.
-        buffer_frac = (args.buffer / len(tickers)) if tickers else 0.0
+        # the configured theme count as the reference point. NOT len(tickers):
+        # that list also carries the benchmark and "SPY" (see
+        # build_theme_ticker_list), which would inflate the divisor by 1-2.
+        n_themes = len(themes_cfg.get("themes", {}))
+        buffer_frac = (args.buffer / n_themes) if n_themes else 0.0
         logger.info(
             "Ad-hoc track (top_n=%d, rebalance=%s, buffer=%d, buffer_frac=%.4f) "
             "— presets skipped",
