@@ -247,3 +247,79 @@ def test_signals_include_max_dd_1y():
     assert sig is not None
     assert "max_dd_1y" in sig
     assert sig["max_dd_1y"] < 0
+
+
+# ---------------------------------------------------------------------------
+# Dropped themes tracking (Task 2)
+# ---------------------------------------------------------------------------
+
+def _price_df_no_close(n=260):
+    """A malformed price frame -- has rows but no Close column. Exercises
+    compute_signals_for_sector's `"Close" not in sector_df.columns` branch,
+    the one case behind the untracked 3rd drop reason."""
+    idx = pd.bdate_range("2022-01-03", periods=n)
+    return pd.DataFrame({"Open": pd.Series(100.0, index=idx),
+                          "Volume": pd.Series(1_000_000, index=idx)})
+
+
+def test_dropped_out_marks_prices_failed_when_never_fetched():
+    """Ticker missing from BOTH prices and prices_before_align -- never
+    fetched at all."""
+    themes_cfg = _themes_one_member()  # Technology -> XLK, benchmark RSP
+    prices = {"RSP": _price_df()}  # XLK missing
+    dropped = {}
+    rows = build_theme_signals_rows(
+        themes_cfg, prices, prices_before_align=prices, dropped_out=dropped,
+    )
+    assert rows == []
+    assert dropped == {"Technology": "prices_failed"}
+
+
+def test_dropped_out_marks_asof_dropped_when_fetched_then_aligned_away():
+    """Ticker present in prices_before_align but missing from the current
+    prices dict -- fetched, then align_cohort_asof dropped it for
+    staleness."""
+    themes_cfg = _themes_one_member()
+    prices_before = {"XLK": _price_df(), "RSP": _price_df(step=0.3)}
+    prices_after = {"RSP": _price_df(step=0.3)}  # XLK dropped by alignment
+    dropped = {}
+    rows = build_theme_signals_rows(
+        themes_cfg, prices_after,
+        prices_before_align=prices_before, dropped_out=dropped,
+    )
+    assert rows == []
+    assert dropped == {"Technology": "asof_dropped"}
+
+
+def test_dropped_out_marks_signal_calc_failed_when_sig_is_none():
+    """Ticker present in prices (and prices_before_align), but
+    compute_signals_for_sector rejects it -- e.g. no Close column."""
+    themes_cfg = _themes_one_member()
+    prices = {"XLK": _price_df_no_close(), "RSP": _price_df(step=0.3)}
+    dropped = {}
+    rows = build_theme_signals_rows(
+        themes_cfg, prices, prices_before_align=prices, dropped_out=dropped,
+    )
+    assert rows == []
+    assert dropped == {"Technology": "signal_calc_failed"}
+
+
+def test_dropped_out_is_untouched_for_a_successful_theme():
+    themes_cfg = _themes_one_member()
+    prices = {"XLK": _price_df(), "RSP": _price_df(step=0.3)}
+    dropped = {}
+    rows = build_theme_signals_rows(
+        themes_cfg, prices, prices_before_align=prices, dropped_out=dropped,
+    )
+    assert len(rows) == 1
+    assert dropped == {}
+
+
+def test_omitting_the_new_kwargs_reproduces_existing_behavior():
+    """Every existing call site (scan.py, backtest/replay.py, other tests in
+    this file) calls build_theme_signals_rows without the two new kwargs --
+    must behave exactly as before: no tracking, no crash, same rows."""
+    themes_cfg = _themes_one_member()
+    prices = {"RSP": _price_df()}  # XLK missing -> would be dropped
+    rows = build_theme_signals_rows(themes_cfg, prices)
+    assert rows == []  # unchanged behavior, no dropped_out to check
