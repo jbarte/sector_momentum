@@ -106,10 +106,13 @@ costs:
 # `medium` and 13/18 = 72% for `long`. Keep that denominator in mind before
 # recomputing — against the 20 configured themes the same cells read 45% / 65%.
 #
-# Because the band is stored in ABSOLUTE ranks, growing the universe from 13 to
-# 20 themes on 2026-08-05 silently tightened it from 62% to 40% and tripled
-# churn. If the universe size changes again, revisit these — the band does not
-# scale itself.
+# HISTORICAL — under the OLD absolute-rank mechanism, growing the universe from
+# 13 to 20 themes on 2026-08-05 silently tightened the band from 62% to 40% and
+# tripled churn, because a rank count doesn't move when the denominator does.
+# The 2026-08-30 fractional-band migration (below) replaced `buffer` with
+# `buffer_frac`, a fraction of the scored universe, so the band now scales
+# automatically as themes are added or removed — this class of drift can't
+# recur. Kept here as the reason `buffer_frac` exists, not as live guidance.
 #
 # These are PRECOMPUTED OPERATING POINTS from one sweep over one market
 # history, not a live optimiser. The recorded cagr/trades_per_year are the
