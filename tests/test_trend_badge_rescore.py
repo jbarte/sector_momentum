@@ -104,7 +104,11 @@ def _render_with_sentiment_control(tmp_path):
 @pytest.fixture(scope="module")
 def browser():
     with sync_playwright() as pw:
-        b = pw.chromium.launch()
+        try:
+            b = pw.chromium.launch()
+        except Exception as exc:  # pragma: no cover - environment-dependent
+            pytest.skip(f"Chromium not available (run `playwright install "
+                        f"chromium`): {exc}")
         yield b
         b.close()
 
