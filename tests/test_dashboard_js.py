@@ -57,8 +57,11 @@ def _horizon_ctx(dumps=json.dumps):
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
              "top_n": h.top_n, "buffer_frac": h.buffer_frac,
-             "trades_per_year": h.trades_per_year,
-             "median_holding_days": h.median_holding_days,
+             # No longer read from Horizon (removed 2026-08-31) -- these
+             # render-smoke-test fixtures don't need a real value, just
+             # valid JSON the template can consume without crashing.
+             "trades_per_year": None,
+             "median_holding_days": None,
              "review_dates": _review_dates(h, since="2026-01-15")} for h in hs
         ]),
         horizon_default_json=dumps({

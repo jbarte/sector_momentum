@@ -91,17 +91,48 @@ def test_presets_are_ordered_by_holding_period():
     """Long holds longer and trades less than Medium. If either inverts, the
     labels lie about what the reader is choosing.
 
-    Both assertions are back after the 2026-08-14 cut to two presets. The
-    trade-count one had to be relaxed while `short` existed, because a wide band
-    on a weekly cadence churned less than a narrow band on a monthly one — Short
-    ended up trading less per year than Medium. With both presets now on the same
-    cadence, differing only in band width, holding period and trade count order
-    together again and there is no reason to accept a looser guarantee.
+    `Horizon` no longer carries these figures (2026-08-31 churn-figure
+    honesty fix, see sector_momentum-notes/specs/2026-08-31-long-churn-
+    honesty-design.md) -- they come from the live backtest artifact now,
+    same source and same real-committed-file pattern as
+    test_backtest_artifact_was_generated_at_the_configured_cost above.
+    Reading a synthetic fixture instead would only prove the mechanism
+    threads numbers through, never that the REAL shipped figures still
+    keep the labels' promise -- which is the entire point of this test.
     """
-    by_key = {h.key: h for h in horizons()}
-    m, l = by_key["medium"], by_key["long"]
-    assert m.median_holding_days < l.median_holding_days
-    assert m.trades_per_year > l.trades_per_year
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "backtests" / "summary.json"
+    if not path.exists():
+        pytest.skip("no backtest artifact committed")
+    data = json.loads(path.read_text())
+    tracks = data["tracks"]
+    m = tracks["medium"]["metrics"]
+    l = tracks["long"]["metrics"]
+    assert m["median_holding_days"] < l["median_holding_days"], (
+        f"medium ({m['median_holding_days']}d) no longer holds shorter than "
+        f"long ({l['median_holding_days']}d) -- the labels would be lying"
+    )
+    assert m["trades_per_year"] > l["trades_per_year"], (
+        f"medium ({m['trades_per_year']}/yr) no longer trades more than "
+        f"long ({l['trades_per_year']}/yr) -- the labels would be lying"
+    )
+
+
+def test_horizon_has_no_performance_attributes():
+    """cagr/trades_per_year/median_holding_days used to be config-driven
+    Horizon fields -- hand-copied sweep figures that went stale the moment
+    the scored universe grew (see the churn-figure-honesty spec). Removed
+    entirely, not merely defaulted to None: a future accidental reference
+    must fail loudly (AttributeError) rather than silently rendering an em
+    dash everywhere forever."""
+    h = horizons()[0]
+    for attr in ("cagr", "trades_per_year", "median_holding_days"):
+        assert not hasattr(h, attr), (
+            f"Horizon still has a '{attr}' attribute -- it should have been "
+            f"removed by the churn-figure-honesty fix"
+        )
 
 
 def test_presets_share_one_cadence():
