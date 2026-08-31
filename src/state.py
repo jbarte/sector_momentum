@@ -16,6 +16,7 @@ from pathlib import Path
 
 import psycopg2
 import psycopg2.extensions
+import psycopg2.extras
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ _HEALTH_COLUMNS = [
     "prices_yfinance", "prices_failed", "sectors_expected",
     "sectors_produced", "finbert_scored", "finbert_total",
     "gdelt_articles", "prices_asof", "asof_spread_days",
-    "asof_dropped_count",
+    "asof_dropped_count", "dropped_themes",
 ]
 
 # Cohort discriminator on the shared scores/signals/sentiment_signals tables.
@@ -164,6 +165,13 @@ def init_db() -> psycopg2.extensions.connection:
                 # vanishing silently; this is what lets the health panel say
                 # so instead of shipping with nothing showing it.
                 ("asof_dropped_count", "INTEGER"),
+                # {theme_name: reason_code} for every theme missing from
+                # this scan's run -- one unified mechanism for all three
+                # known causes (fetch failure, as-of staleness drop, signal
+                # calculation failure) instead of a dedicated column per
+                # reason. See src/pipeline.py::build_theme_signals_rows and
+                # scan.py::_persist_scan for where this gets populated.
+                ("dropped_themes", "JSONB"),
             ]:
                 cur.execute(
                     f"ALTER TABLE scans ADD COLUMN IF NOT EXISTS {col} {col_type}"
@@ -246,7 +254,10 @@ def save_scan(
                 placeholders = ", ".join(["%s"] * (2 + len(_health_cols)))
                 vals = (
                     run_at_str, config_hash,
-                    *(health.get(c) for c in _health_cols),
+                    *(
+                        psycopg2.extras.Json(v) if isinstance(v, dict) else v
+                        for v in (health.get(c) for c in _health_cols)
+                    ),
                 )
             else:
                 cols = "run_at, config_hash"

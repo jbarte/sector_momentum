@@ -2,6 +2,13 @@
 from __future__ import annotations
 
 
+_DROPPED_REASON_TEXT = {
+    "prices_failed": "fetch failed",
+    "asof_dropped": "stale as-of",
+    "signal_calc_failed": "signal calc failed",
+}
+
+
 def _badge(metric: str, value: int | float | None, denominator: int | None) -> str | None:
     """Return 'green', 'amber', 'red', or None (not applicable)."""
     if value is None:
@@ -68,6 +75,7 @@ def build_health_context(health: dict | None, same_asof_streak: int | None = Non
             "health_badges": {},
             "health_any_warn": False,
             "same_asof_streak": None,
+            "dropped_themes": [],
         }
 
     badges = {
@@ -87,9 +95,16 @@ def build_health_context(health: dict | None, same_asof_streak: int | None = Non
 
     any_warn = any(v in ("amber", "red") for v in badges.values() if v is not None)
 
+    dropped = health.get("dropped_themes") or {}
+    dropped_themes = sorted(
+        (name, _DROPPED_REASON_TEXT.get(reason, reason))
+        for name, reason in dropped.items()
+    )
+
     return {
         "health": health,
         "health_badges": badges,
         "health_any_warn": any_warn,
         "same_asof_streak": same_asof_streak,
+        "dropped_themes": dropped_themes,
     }

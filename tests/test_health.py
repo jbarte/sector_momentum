@@ -173,6 +173,42 @@ class TestBuildHealthContext:
         assert ctx["health_badges"]["finbert"] is None
         assert ctx["health_any_warn"] is False
 
+    def test_dropped_themes_absent_when_key_missing(self):
+        """Old scan rows predate this column entirely -- must not KeyError,
+        must render as nothing to show."""
+        health = {
+            "run_at": "2026-07-20T06:00:00+00:00",
+            "prices_failed": 0, "sectors_expected": 18, "sectors_produced": 18,
+        }
+        ctx = build_health_context(health)
+        assert ctx["dropped_themes"] == []
+
+    def test_dropped_themes_empty_dict_shows_nothing(self):
+        health = {
+            "run_at": "2026-07-20T06:00:00+00:00",
+            "prices_failed": 0, "sectors_expected": 18, "sectors_produced": 18,
+            "dropped_themes": {},
+        }
+        ctx = build_health_context(health)
+        assert ctx["dropped_themes"] == []
+
+    def test_dropped_themes_maps_reason_codes_to_human_text(self):
+        health = {
+            "run_at": "2026-07-20T06:00:00+00:00",
+            "prices_failed": 1, "sectors_expected": 18, "sectors_produced": 16,
+            "dropped_themes": {
+                "Shipping": "prices_failed",
+                "UFO": "asof_dropped",
+                "AgTech & Food Innovation": "signal_calc_failed",
+            },
+        }
+        ctx = build_health_context(health)
+        assert ctx["dropped_themes"] == [
+            ("AgTech & Food Innovation", "signal calc failed"),
+            ("Shipping", "fetch failed"),
+            ("UFO", "stale as-of"),
+        ]  # sorted by theme name
+
 
 class TestFooterNeverGuessesHealthy:
     """`_badge()` returning None means "cannot judge this metric".
@@ -221,7 +257,8 @@ class _FooterRenderHelper:
 
     _TPL = Path(__file__).parent.parent / "dashboard" / "templates"
 
-    def _render(self, health, health_badges=None, health_any_warn=False, same_asof_streak=None):
+    def _render(self, health, health_badges=None, health_any_warn=False,
+                same_asof_streak=None, dropped_themes=None):
         from jinja2 import Environment, FileSystemLoader
         from dashboard.build import register_asset_url
         env = Environment(loader=FileSystemLoader(str(self._TPL)))
@@ -231,7 +268,11 @@ class _FooterRenderHelper:
             health_badges=health_badges or {},
             health_any_warn=health_any_warn,
             same_asof_streak=same_asof_streak,
+            dropped_themes=dropped_themes or [],
         )
+
+    def _themes_row(self, html: str) -> str:
+        return html.split('class="health-label">Themes', 1)[1].split("</div>", 1)[0]
 
     def _base_health(self, **overrides):
         h = {
@@ -287,9 +328,6 @@ class TestAsofDroppedDisplay(_FooterRenderHelper):
     states, not both a bare "0" -- see the unknown-vs-zero test below.
     """
 
-    def _themes_row(self, html: str) -> str:
-        return html.split('class="health-label">Themes', 1)[1].split("</div>", 1)[0]
-
     def test_shows_the_dropped_count_when_positive(self):
         html = self._render(self._base_health(asof_dropped_count=2))
         themes_row = self._themes_row(html)
@@ -320,6 +358,40 @@ class TestAsofDroppedDisplay(_FooterRenderHelper):
         assert ">?<" in themes_row, (
             f"None must render as '?' (unknown), not a bare 0: {themes_row!r}"
         )
+
+
+class TestDroppedThemesDisplay(_FooterRenderHelper):
+    """The health panel's Themes row now names which theme is missing and
+    why (2026-08-31) -- previously only counts were shown, for any of the
+    three reasons a theme can go missing. Real Jinja renders, not source
+    scans: the guard has to handle the empty-list case (the common one)
+    cleanly."""
+
+    def test_no_line_when_dropped_themes_is_empty(self):
+        html = self._render(self._base_health(), dropped_themes=[])
+        themes_row = self._themes_row(html)
+        assert "Missing" not in themes_row
+
+    def test_shows_one_dropped_theme_with_its_reason(self):
+        html = self._render(
+            self._base_health(),
+            dropped_themes=[("Shipping", "fetch failed")],
+        )
+        themes_row = self._themes_row(html)
+        assert "Missing" in themes_row
+        assert "Shipping" in themes_row
+        assert "fetch failed" in themes_row
+
+    def test_shows_multiple_dropped_themes(self):
+        html = self._render(
+            self._base_health(),
+            dropped_themes=[("Shipping", "fetch failed"), ("UFO", "stale as-of")],
+        )
+        themes_row = self._themes_row(html)
+        assert "Shipping" in themes_row
+        assert "UFO" in themes_row
+        assert "fetch failed" in themes_row
+        assert "stale as-of" in themes_row
 
 
 class TestSameAsofStreakDisplay(_FooterRenderHelper):

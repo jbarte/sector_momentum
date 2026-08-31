@@ -151,6 +151,8 @@ def build_theme_signals_rows(
     themes_cfg: dict,
     prices: dict[str, pd.DataFrame],
     signal_params: dict | None = None,
+    prices_before_align: dict[str, pd.DataFrame] | None = None,
+    dropped_out: dict[str, str] | None = None,
 ) -> list[dict]:
     """Compute signal rows for each theme ETF vs one global benchmark.
 
@@ -159,6 +161,26 @@ def build_theme_signals_rows(
     SIGNAL_COLUMNS. breadth_above_50dma stays NaN (themes have no constituent list).
     A theme whose ETF has no price data is skipped. The benchmark falls back to "SPY"
     when the configured benchmark ticker is absent from ``prices``.
+
+    ``prices_before_align`` and ``dropped_out`` are optional and meant to be
+    passed together (same "stats_out" output-parameter convention as
+    fetch_prices/align_cohort_asof in src/data/prices.py). When given,
+    ``dropped_out`` is mutated in place with ``{theme_name: reason_code}``
+    for every theme this function skips:
+
+    - "prices_failed" -- the ticker never appears in ``prices_before_align``
+      either (never fetched at all).
+    - "asof_dropped" -- the ticker IS in ``prices_before_align`` but missing
+      from ``prices`` (fetched, then dropped for staleness by a caller's
+      alignment step before this function ran).
+    - "signal_calc_failed" -- the ticker is present in ``prices``, but
+      compute_signals_for_sector rejected it (e.g. no Close column, or an
+      unavailable benchmark).
+
+    If ``dropped_out`` is passed without ``prices_before_align``, every
+    "ticker not in prices" case is bucketed as "asof_dropped" regardless of
+    the real cause -- a plausible-looking but wrong label, not a crash. Pass
+    both together.
     """
     benchmark = themes_cfg.get("benchmark") or "ACWI"
     if benchmark not in prices and "SPY" in prices:
@@ -173,6 +195,11 @@ def build_theme_signals_rows(
         ticker = cfg["ticker"] if isinstance(cfg, dict) else cfg
         if ticker not in prices:
             logger.warning("Theme %s: ETF %s has no price data — skipping", name, ticker)
+            if dropped_out is not None:
+                if prices_before_align is not None and ticker not in prices_before_align:
+                    dropped_out[name] = "prices_failed"
+                else:
+                    dropped_out[name] = "asof_dropped"
             continue
         sector_key = f"THEME|{name}"
         sig = compute_signals_for_sector(
@@ -185,6 +212,8 @@ def build_theme_signals_rows(
             rs_momentum_fast=rs_fast,
         )
         if sig is None:
+            if dropped_out is not None:
+                dropped_out[name] = "signal_calc_failed"
             continue
         row = {"region": "THEME", "gics_sector": name, "sector_key": sector_key}
         row.update(sig)

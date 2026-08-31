@@ -9,7 +9,7 @@ HEALTH_COLUMNS = [
     "duration_s", "prices_total", "prices_cache", "prices_stooq",
     "prices_yfinance", "prices_failed", "sectors_expected",
     "sectors_produced", "finbert_scored", "finbert_total", "gdelt_articles",
-    "prices_asof", "asof_spread_days", "asof_dropped_count",
+    "prices_asof", "asof_spread_days", "asof_dropped_count", "dropped_themes",
 ]
 
 
@@ -562,3 +562,91 @@ def test_get_scan_history_selects_prices_asof_from_the_db():
 
     sql = str(mock_read.call_args)
     assert "prices_asof" in sql, "get_scan_history's SELECT does not request prices_asof"
+
+
+def test_dropped_themes_round_trip():
+    """dropped_themes is a JSONB column (dict value, not a scalar) -- the
+    only health column of this shape so far. Pins that save_scan adapts a
+    Python dict correctly rather than raising ProgrammingError, or silently
+    passing a dict through unadapted where psycopg2 would reject it against
+    a real connection."""
+    from datetime import datetime, timezone
+    from src.state import save_scan
+
+    conn, cur = _mock_conn_and_cursor()
+    cur.fetchall.return_value = []
+    cur.fetchone.return_value = (7,)
+
+    save_scan(
+        conn=conn,
+        run_at=datetime(2026, 8, 31, 6, 0, tzinfo=timezone.utc),
+        region_sector_signals=pd.DataFrame(),
+        scores_df=pd.DataFrame(),
+        health={"dropped_themes": {"Shipping": "prices_failed"}},
+    )
+
+    insert_calls = [
+        c for c in cur.execute.call_args_list
+        if "INSERT INTO scans" in str(c)
+    ]
+    assert len(insert_calls) == 1
+    call_args = insert_calls[0].args
+    vals = call_args[1] if len(call_args) > 1 else insert_calls[0][0][1]
+    # psycopg2 needs dict values wrapped (psycopg2.extras.Json) to adapt
+    # them to JSONB -- a bare dict passed straight through would raise
+    # ProgrammingError against a real connection. Json wraps the value in
+    # an object exposing .adapted holding the original dict.
+    from psycopg2.extras import Json
+    json_vals = [v for v in vals if isinstance(v, Json)]
+    assert len(json_vals) == 1, (
+        f"expected exactly one psycopg2.extras.Json-wrapped value in "
+        f"{vals!r} -- dropped_themes must be JSON-adapted before going to "
+        f"psycopg2, not passed through as a bare dict"
+    )
+    assert json_vals[0].adapted == {"Shipping": "prices_failed"}
+
+
+def test_init_db_adds_dropped_themes_column():
+    from src.state import init_db
+
+    with patch("src.state.os.environ", {"DATABASE_URL": "fake"}), \
+         patch("src.state.psycopg2.connect") as mock_connect:
+        conn, cur = _mock_conn_and_cursor()
+        mock_connect.return_value = conn
+
+        init_db()
+
+        executed_sql = " ".join(str(call) for call in cur.execute.call_args_list)
+        assert "dropped_themes" in executed_sql, "Missing ALTER TABLE for dropped_themes"
+
+
+def test_get_latest_health_selects_dropped_themes_from_the_db():
+    from src.state import get_latest_health
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame()
+        get_latest_health(conn)
+
+    sql = str(mock_read.call_args)
+    assert "dropped_themes" in sql, (
+        "get_latest_health's SELECT does not request dropped_themes"
+    )
+
+
+def test_get_latest_health_reads_dropped_themes_dict_without_crashing():
+    """_health_row_from_df's NaN->None normalization loop calls pd.isna() on
+    every health column's value -- must not choke on a dict (the only
+    non-scalar health value). A real psycopg2 connection auto-decodes JSONB
+    to a Python dict, so that is what the DataFrame cell actually holds."""
+    from src.state import get_latest_health
+
+    conn = MagicMock()
+    with patch("src.state._read_sql") as mock_read:
+        mock_read.return_value = pd.DataFrame([{
+            "run_at": "2026-08-31T06:00:00+00:00",
+            "dropped_themes": {"UFO": "asof_dropped"},
+        }])
+        result = get_latest_health(conn)
+
+    assert result["dropped_themes"] == {"UFO": "asof_dropped"}

@@ -296,7 +296,8 @@ def _same_market_date(prior_asof, as_of: pd.Timestamp) -> bool:
 
 def _persist_scan(conn, run_at, long_signals_df, scored_with_deltas,
                   sentiment_signals_df, finbert_health, *, t0, price_stats,
-                  prices_total, prices_failed, sectors_expected, sectors_produced):
+                  prices_total, prices_failed, sectors_expected, sectors_produced,
+                  dropped_themes):
     """Assemble the health dict and persist the scan. Returns scan_id."""
     from src.state import save_scan
     _health = {
@@ -330,6 +331,12 @@ def _persist_scan(conn, run_at, long_signals_df, scored_with_deltas,
         # so before this column existed. `prices_failed` doesn't cover it: a
         # drop is a stale cache, not a fetch failure.
         "asof_dropped_count": len(price_stats.get("asof_dropped") or []),
+        # {theme_name: reason_code} for every theme this run dropped, from
+        # ANY of the three known causes -- one unified mechanism instead of
+        # a dedicated column per reason. Populated by
+        # build_theme_signals_rows's dropped_out output parameter (see
+        # src/pipeline.py). Empty dict, not None, when nothing was dropped.
+        "dropped_themes": dropped_themes,
     }
     scan_id = save_scan(
         conn=conn,
@@ -419,6 +426,12 @@ def run(args: argparse.Namespace) -> int:
     # prices_failed counts fetch failures only; the alignment step below can
     # also drop tickers, and that is a different condition.
     _prices_fetched = len(prices)
+    # Captured before align_cohort_asof reassigns `prices` below -- lets
+    # build_theme_signals_rows tell "never fetched" apart from "fetched,
+    # then dropped for staleness" for the same missing ticker. align_cohort_asof
+    # returns a new dict rather than mutating its input, so this reference
+    # stays untouched by the reassignment.
+    _prices_before_align = prices
 
     # 3b. Pin every ticker to one as-of date before scoring. The composite
     #     z-scores each signal across the theme cohort, so a cohort whose
@@ -433,7 +446,11 @@ def run(args: argparse.Namespace) -> int:
 
     # 4. Compute per-theme signals + coverage guard
     logger.info("Computing signals \u2026")
-    rows = build_theme_signals_rows(themes_cfg, prices, signal_params=signal_params)
+    _dropped_themes: dict[str, str] = {}
+    rows = build_theme_signals_rows(
+        themes_cfg, prices, signal_params=signal_params,
+        prices_before_align=_prices_before_align, dropped_out=_dropped_themes,
+    )
     if not rows:
         logger.error("No signal rows produced \u2014 all themes failed. Aborting.")
         return 1
@@ -556,6 +573,7 @@ def run(args: argparse.Namespace) -> int:
                 price_stats=_price_stats, prices_total=len(unique_tickers),
                 prices_failed=len(unique_tickers) - _prices_fetched,
                 sectors_expected=expected_sectors, sectors_produced=len(rows),
+                dropped_themes=_dropped_themes,
             )
 
             # 13. Write report (non-fatal)

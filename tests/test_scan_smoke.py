@@ -574,6 +574,7 @@ def test_persist_scan_carries_asof_into_the_health_dict(monkeypatch):
         },
         prices_total=20, prices_failed=0,
         sectors_expected=18, sectors_produced=18,
+        dropped_themes={},
     )
 
     assert scan_id == 99
@@ -609,6 +610,7 @@ def test_persist_scan_handles_missing_asof(monkeypatch):
         price_stats={"cache": 0, "yfinance": 0, "stooq": 0},
         prices_total=0, prices_failed=0,
         sectors_expected=18, sectors_produced=0,
+        dropped_themes={},
     )
 
     assert captured["prices_asof"] is None
@@ -647,8 +649,47 @@ def test_persist_scan_carries_asof_dropped_count_into_the_health_dict(monkeypatc
         },
         prices_total=20, prices_failed=0,
         sectors_expected=18, sectors_produced=16,
+        dropped_themes={},
     )
 
     assert scan_id == 42
     # The COUNT, not the list -- the scans table column is INTEGER.
     assert captured["asof_dropped_count"] == 2
+
+
+def test_persist_scan_includes_dropped_themes_in_health(monkeypatch):
+    """_persist_scan must carry dropped_themes into the health dict passed
+    to save_scan -- pins the wiring, not just that the parameter exists."""
+    import scan as scan_module
+
+    captured = {}
+
+    def fake_save_scan(**kwargs):
+        captured.update(kwargs)
+        return 42
+
+    # _persist_scan does `from src.state import save_scan` INSIDE the
+    # function body (not a module-level import in scan.py), so the only
+    # correct patch target is the name where that local import resolves it
+    # from -- src.state.save_scan itself. Patching `scan_module.save_scan`
+    # would raise AttributeError: scan.py has no such module-level name.
+    monkeypatch.setattr("src.state.save_scan", fake_save_scan)
+
+    rows = _make_rows(2)
+    scored = pd.DataFrame({
+        "level_score": [0.1, 0.2], "change_score": [0.1, 0.2],
+        "data_score": [0.1, 0.2], "sentiment_score": [None, None],
+        "composite": [0.15, 0.25], "rank": [1, 2],
+        "region": ["US", "US"], "gics_sector": ["Technology", "Financials"],
+    })
+    scan_id = scan_module._persist_scan(
+        conn=object(), run_at=None, long_signals_df=pd.DataFrame(),
+        scored_with_deltas=scored, sentiment_signals_df=pd.DataFrame(),
+        finbert_health={"finbert_scored": None, "finbert_total": None,
+                         "gdelt_articles": None},
+        t0=0.0, price_stats={}, prices_total=2, prices_failed=0,
+        sectors_expected=2, sectors_produced=2,
+        dropped_themes={"Shipping": "prices_failed"},
+    )
+    assert scan_id == 42
+    assert captured["health"]["dropped_themes"] == {"Shipping": "prices_failed"}
