@@ -30,7 +30,7 @@ def _js_select_book(ranked, held, unbuyable):
       const R = require({str(_RESCORE_JS)!r});
       const out = R.selectBook(
         {json.dumps(ranked)}, {json.dumps(sorted(held))},
-        {{top_n: {_H.top_n}, buffer: {_H.buffer}}},
+        {{top_n: {_H.top_n}, buffer_frac: {_H.buffer_frac}}},
         {json.dumps(sorted(unbuyable))});
       console.log(JSON.stringify(out));
     """
@@ -41,7 +41,7 @@ def _js_select_book(ranked, held, unbuyable):
 
 def _py_picks(ranked, held, unbuyable):
     """The Python reference: _select, then simulate()'s unbuyable drop."""
-    picks = _select(ranked, set(held), _H.top_n, _H.buffer)
+    picks = _select(ranked, set(held), _H.top_n, _H.buffer_frac)
     return [sk for sk in picks if sk not in unbuyable]
 
 

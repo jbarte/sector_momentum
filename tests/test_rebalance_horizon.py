@@ -116,53 +116,78 @@ def _ranked(*keys):
 
 
 def test_buffer_zero_is_a_plain_top_n_slice():
-    """buffer=0 must reduce exactly to ranked[:top_n] regardless of what was
-    previously held — this is what every existing backtest number assumes."""
+    """buffer_frac=0 must reduce exactly to ranked[:top_n] regardless of what
+    was previously held — this is what every existing backtest number
+    assumes."""
     ranked = _ranked("A", "B", "C", "D", "E")
     for prev in (set(), {"D"}, {"D", "E"}, {"A", "D"}):
-        assert strategy._select(ranked, prev, top_n=3, buffer=0) == ["A", "B", "C"]
+        assert strategy._select(ranked, prev, top_n=3, buffer_frac=0.0) == ["A", "B", "C"]
 
 
 def test_buffer_holds_a_name_that_slipped_one_rank():
-    """The whole point: a holding at rank top_n+1 survives with buffer=1 and is
-    sold with buffer=0."""
+    """The whole point: a holding at rank top_n+1 survives with a buffer wide
+    enough to cover one more rank, and is sold with buffer_frac=0.
+
+    ranked has 4 names, so buffer_frac=0.25 -> round(0.25*4)=1 -> exit_rank=4,
+    reproducing the old buffer=1 exactly on this fixture size."""
     ranked = _ranked("A", "B", "C", "D")      # D is rank 4 (0-based 3)
     held = {"D"}
-    assert "D" not in strategy._select(ranked, held, top_n=3, buffer=0)
-    assert "D" in strategy._select(ranked, held, top_n=3, buffer=1)
+    assert "D" not in strategy._select(ranked, held, top_n=3, buffer_frac=0.0)
+    assert "D" in strategy._select(ranked, held, top_n=3, buffer_frac=0.25)
 
 
 def test_buffer_does_not_hold_past_the_band():
+    """ranked has 5 names: buffer_frac=0.2 -> round(0.2*5)=1 -> exit_rank=4
+    (reproduces old buffer=1); buffer_frac=0.4 -> round(0.4*5)=2 -> exit_rank=5
+    (reproduces old buffer=2)."""
     ranked = _ranked("A", "B", "C", "D", "E")  # E is rank 5 (0-based 4)
-    assert "E" not in strategy._select(ranked, {"E"}, top_n=3, buffer=1)
-    assert "E" in strategy._select(ranked, {"E"}, top_n=3, buffer=2)
+    assert "E" not in strategy._select(ranked, {"E"}, top_n=3, buffer_frac=0.2)
+    assert "E" in strategy._select(ranked, {"E"}, top_n=3, buffer_frac=0.4)
 
 
 def test_free_slots_fill_from_the_best_unheld():
     ranked = _ranked("A", "B", "C", "D")
-    picks = strategy._select(ranked, {"D"}, top_n=3, buffer=1)
+    picks = strategy._select(ranked, {"D"}, top_n=3, buffer_frac=0.25)  # 1/4
     assert picks == ["A", "B", "D"], "should keep D and fill from the top"
 
 
 def test_selection_never_exceeds_top_n():
     ranked = _ranked("A", "B", "C", "D", "E", "F")
-    for buffer in range(5):
-        picks = strategy._select(ranked, {"D", "E", "F"}, top_n=3, buffer=buffer)
-        assert len(picks) <= 3, f"buffer={buffer} over-filled: {picks}"
+    for buffer_frac in [b / len(ranked) for b in range(5)]:
+        picks = strategy._select(ranked, {"D", "E", "F"}, top_n=3, buffer_frac=buffer_frac)
+        assert len(picks) <= 3, f"buffer_frac={buffer_frac} over-filled: {picks}"
 
 
 def test_picks_come_out_rank_ordered():
     ranked = _ranked("A", "B", "C", "D")
-    assert strategy._select(ranked, {"D", "B"}, top_n=3, buffer=1) == ["A", "B", "D"]
+    assert strategy._select(ranked, {"D", "B"}, top_n=3, buffer_frac=0.25) == ["A", "B", "D"]
 
 
 def test_unscored_holding_is_dropped():
     """A held name whose prices vanished has no rank this period. We cannot
-    claim to still hold something we cannot rank, so it must be sold."""
+    claim to still hold something we cannot rank, so it must be sold — however
+    generous the buffer."""
     ranked = _ranked("A", "B", "C")
-    picks = strategy._select(ranked, {"GONE"}, top_n=3, buffer=5)
+    picks = strategy._select(ranked, {"GONE"}, top_n=3, buffer_frac=1.0)
     assert "GONE" not in picks
     assert picks == ["A", "B", "C"]
+
+
+def test_exit_rank_scales_with_the_dates_own_universe_size():
+    """The behavior this task actually adds: the SAME buffer_frac yields a
+    DIFFERENT exit_rank depending on how many names are ranked THIS period —
+    not a fixed number baked in once."""
+    small = _ranked("A", "B", "C", "D")          # universe 4
+    large = _ranked(*[f"N{i}" for i in range(20)])  # universe 20
+    # buffer_frac=0.25: exit_rank(4)=3+1=4, exit_rank(20)=3+5=8
+    held_small = strategy._select(small, {"D"}, top_n=3, buffer_frac=0.25)
+    held_large = strategy._select(large, {"N7"}, top_n=3, buffer_frac=0.25)
+    assert "D" in held_small       # rank 4 (0-based 3) <=> exit_rank 4: held
+    assert "N7" in held_large      # rank 8 (0-based 7) <=> exit_rank 8: held
+    ranked6 = _ranked(*[f"N{i}" for i in range(6)])   # universe 6: exit_rank(6)=3+2=5
+    assert "N5" not in strategy._select(ranked6, {"N5"}, top_n=3, buffer_frac=0.25), (
+        "rank 6 (0-based 5) must NOT survive a buffer that only reaches exit_rank 5 here"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -220,16 +245,17 @@ def _scored(order):
 
 
 def test_simulate_buffer_reduces_turnover():
-    """Alternating leadership: with buffer=0 the book churns every period; with
-    buffer=1 the incumbent is held through the wobble."""
+    """Alternating leadership: with buffer_frac=0 the book churns every
+    period; with a buffer wide enough to cover one more rank (1/3 of this
+    3-name universe) the incumbent is held through the wobble."""
     dates = _dates(4)
     orders = [("A", "B", "C"), ("B", "A", "C"), ("A", "B", "C"), ("B", "A", "C")]
     score_by_date = {d: _scored(o) for d, o in zip(dates, orders)}
     fwd = pd.DataFrame({t: [0.01] * len(dates) for t in ("ta", "tb", "tc")}, index=dates)
     inst = {"A": "ta", "B": "tb", "C": "tc"}
 
-    tight = strategy.simulate(score_by_date, fwd, inst, top_n=1, cost_bps=0, buffer=0)
-    loose = strategy.simulate(score_by_date, fwd, inst, top_n=1, cost_bps=0, buffer=1)
+    tight = strategy.simulate(score_by_date, fwd, inst, top_n=1, cost_bps=0, buffer_frac=0.0)
+    loose = strategy.simulate(score_by_date, fwd, inst, top_n=1, cost_bps=0, buffer_frac=1 / 3)
 
     assert tight["trades_total"] > loose["trades_total"]
     assert loose["holdings"] == [["A"], ["A"], ["A"], ["A"]], loose["holdings"]

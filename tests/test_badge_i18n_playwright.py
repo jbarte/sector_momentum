@@ -63,14 +63,13 @@ def _horizon_ctx_far_future(dumps=json.dumps):
         round_trip_bps=_round_trip_bps(),
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
-             "top_n": h.top_n, "buffer": h.buffer,
-             "exit_rank": h.exit_rank,
+             "top_n": h.top_n, "buffer_frac": h.buffer_frac,
              "trades_per_year": h.trades_per_year,
              "median_holding_days": h.median_holding_days,
              "review_dates": _review_dates(h, since="2099-01-01")} for h in hs
         ]),
         horizon_default_json=dumps({
-            "key": d.key, "label": d.label, "top_n": d.top_n, "buffer": d.buffer}),
+            "key": d.key, "label": d.label, "top_n": d.top_n, "buffer_frac": d.buffer_frac}),
         unbuyable_json=dumps([]),
         theme_tickers_json=dumps({}),
         chart_dark_json=dumps({}),

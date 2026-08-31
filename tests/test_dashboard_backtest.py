@@ -37,6 +37,21 @@ def test_build_backtest_figures_empty_when_none():
     assert figs == {}
 
 
+def test_track_label_shows_buffer_as_a_percentage_not_zero():
+    """Regression: the chart title used to read track["buffer"], an absolute
+    rank count. That key was renamed to buffer_frac; _track_label silently
+    fell back to 0 and every chart title said "buffer 0" once summary.json
+    was regenerated under the new schema — caught in the fractional-band
+    whole-branch review's fix-wave re-review, not by any existing test."""
+    summary = _summary()
+    summary["tracks"]["US"]["buffer_frac"] = 0.25
+    figs = _build_backtest_figures(summary)
+    parsed = json.loads(figs["US"])
+    title = parsed["layout"]["title"]["text"]
+    assert "buffer 25%" in title, title
+    assert "buffer 0" not in title, title
+
+
 def test_build_backtest_context_json_is_not_double_encoded(tmp_path):
     from dashboard.build import _build_backtest_context
     # write a minimal summary.json

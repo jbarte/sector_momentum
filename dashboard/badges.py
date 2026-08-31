@@ -129,7 +129,7 @@ def build_badge_scorecard(
                 # returns None for every row.
                 "rank": _safe_float(row_data.get("rank")),
             }
-            _compute_setup(row_dict)
+            _compute_setup(row_dict, universe_size=len(current_rows))
             setup = row_dict["setup"]
 
             ticker = ticker_map.get(sk)

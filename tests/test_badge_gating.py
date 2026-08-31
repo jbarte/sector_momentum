@@ -138,13 +138,14 @@ def test_in_buy_band_is_computed_even_when_badges_are_gated():
     the call sat on, not in _compute_setup itself.
     """
     build_text = (_PROJECT_ROOT / "dashboard" / "build.py").read_text()
-    call = build_text.index("_compute_setup(row, _default_horizon)")
+    needle = "_compute_setup(row, _default_horizon, universe_size=len(leaderboard_rows))"
+    call = build_text.index(needle)
     gate = build_text.index('if badges_gated:\n            row["setup"] = None')
     assert call < gate, (
         "_compute_setup must run before the gate, or in_buy_band is never set "
         "on a gated build"
     )
-    assert build_text.count("_compute_setup(row, _default_horizon)") == 1, (
+    assert build_text.count(needle) == 1, (
         "two call sites means one of them can drift behind the gate again"
     )
 
@@ -185,12 +186,16 @@ pytestmark_node = pytest.mark.skipif(
     shutil.which("node") is None, reason="node not available")
 
 
-def _badge(rank, top_n, buffer, is_held):
+_TEST_UNIVERSE = 20  # matches tests/test_horizons.py's convention
+
+
+def _badge(rank, top_n, buffer, is_held, universe=_TEST_UNIVERSE):
+    buffer_frac = buffer / universe
     script = f"""
       const api = require({json.dumps(str(_RESCORE_JS))});
-      const h = {{top_n: {top_n}, buffer: {buffer}}};
+      const h = {{top_n: {top_n}, buffer_frac: {buffer_frac}}};
       process.stdout.write(JSON.stringify(
-        api.badgeForRank({json.dumps(rank)}, h, {json.dumps(is_held)})));
+        api.badgeForRank({json.dumps(rank)}, h, {json.dumps(is_held)}, {universe})));
     """
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True,
                          check=True).stdout
@@ -199,7 +204,7 @@ def _badge(rank, top_n, buffer, is_held):
 
 @pytestmark_node
 def test_badge_truth_table():
-    """top_n=5, buffer=3 -> buy band 1-5, silent 6-8, exit from 9.
+    """top_n=5, buffer=3 at universe 20 -> buy band 1-5, silent 6-8, exit from 9.
 
     The two rows that motivated this change are the `held` entry band (was
     "Entry" on something already owned, which reads as a buy signal) and the
@@ -231,6 +236,22 @@ def test_unranked_row_is_never_badged():
     """A held theme with no rank must not fall through to "hold"."""
     assert _badge(None, 5, 3, True) is None
     assert _badge(float("nan"), 5, 3, True) is None
+
+
+@pytestmark_node
+def test_exit_rank_scales_with_universe_size():
+    """The property this task actually adds: Rescore.exitRank must resolve
+    fresh from whatever universe size it is given, matching
+    Horizon.exit_rank's Python behavior exactly."""
+    script = f"""
+      const api = require({json.dumps(str(_RESCORE_JS))});
+      const h = {{top_n: 5, buffer_frac: 0.15}};
+      process.stdout.write(JSON.stringify(
+        [api.exitRank(h, 20), api.exitRank(h, 10)]));
+    """
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True,
+                         check=True).stdout
+    assert json.loads(out) == [8, 7]  # 5+round(0.15*20=3.0)=8 ; 5+round(0.15*10=1.5)=7
 
 
 def test_badge_pass_rewrites_data_en_when_it_reuses_a_span():
@@ -270,12 +291,13 @@ def test_only_the_badge_pass_writes_badge_markup():
             f"{path.name} renders its own badge again — use applyHorizonBadges()"
 
 
-def _badge_for(rank, state, is_held, top_n=5, buffer=3):
+def _badge_for(rank, state, is_held, top_n=5, buffer=3, universe=_TEST_UNIVERSE):
+    buffer_frac = buffer / universe
     script = f"""
       const api = require({json.dumps(str(_RESCORE_JS))});
-      const h = {{top_n: {top_n}, buffer: {buffer}}};
+      const h = {{top_n: {top_n}, buffer_frac: {buffer_frac}}};
       process.stdout.write(JSON.stringify(api.badgeFor(
-        {json.dumps(rank)}, h, {json.dumps(state)}, {json.dumps(is_held)})));
+        {json.dumps(rank)}, h, {json.dumps(state)}, {json.dumps(is_held)}, false, {universe})));
     """
     return json.loads(subprocess.run(["node", "-e", script], capture_output=True,
                                      text=True, check=True).stdout)
@@ -335,9 +357,9 @@ def test_band_rule_itself_is_unchanged():
     seeing the plain band."""
     script = f"""
       const api = require({json.dumps(str(_RESCORE_JS))});
-      const h = {{top_n: 5, buffer: 3}};
+      const h = {{top_n: 5, buffer_frac: 0.15}};
       process.stdout.write(JSON.stringify(
-        [3, 7, 12].map(r => api.setupForRank(r, h))));
+        [3, 7, 12].map(r => api.setupForRank(r, h, 20))));
     """
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True,
                          check=True).stdout

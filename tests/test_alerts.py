@@ -13,8 +13,9 @@ from src.horizons import default_horizon
 # rather than magic ranks. IN = inside the buy band, HOLD = inside the hold band
 # but not the buy band (silent), OUT = past the hold band.
 _H = default_horizon()
-IN, HOLD, OUT = 1, _H.exit_rank, _H.exit_rank + 1
-assert IN <= _H.top_n < HOLD <= _H.exit_rank < OUT, "fixture bands are degenerate"
+_UNIVERSE = 20  # matches the tests/test_horizons.py convention (see plan Global Constraints)
+IN, HOLD, OUT = 1, _H.exit_rank(_UNIVERSE), _H.exit_rank(_UNIVERSE) + 1
+assert IN <= _H.top_n < HOLD <= _H.exit_rank(_UNIVERSE) < OUT, "fixture bands are degenerate"
 
 
 def _crossing(region, sector, from_rank, to_rank, n=5):
@@ -22,6 +23,22 @@ def _crossing(region, sector, from_rank, to_rank, n=5):
     last scan — i.e. a band crossing if the two ranks are in different bands."""
     return [(i + 1, region, sector, 0.5, 0.1, from_rank if i < n - 1 else to_rank)
             for i in range(n)]
+
+
+def _filler(region, count, rank=HOLD, n=5):
+    """Padding rows that hold steady at `rank` (HOLD by default, so they never
+    cross a band and never generate an event) across all `n` scans.
+
+    `_compute_setup`'s `universe_size` is now `len(latest scan)`, so a fixture
+    with fewer than `_UNIVERSE` (20) real rows per scan would evaluate the IN/
+    HOLD/OUT constants (which are pinned to a 20-row universe) against a
+    different, smaller universe — silently drawing the band boundaries in the
+    wrong place. Callers pad every fixture up to 20 rows per scan with this.
+    """
+    rows = []
+    for i in range(count):
+        rows.extend(_crossing(region, f"Filler{i}", rank, rank, n=n))
+    return rows
 
 
 def _history(rows: list[tuple]) -> pd.DataFrame:
@@ -35,7 +52,7 @@ def _history(rows: list[tuple]) -> pd.DataFrame:
 class TestDetectBadgeEvents:
     def test_entry_badge(self):
         """Entry: composite > 0, change > 0, trajectory up (slope <= -0.3)."""
-        df = _history(_crossing("US", "Energy", OUT, IN))
+        df = _history(_crossing("US", "Energy", OUT, IN) + _filler("US", 19))
         events = detect_badge_events(df)
         assert len(events) == 1
         assert events[0]["event"] == "entry"
@@ -43,7 +60,7 @@ class TestDetectBadgeEvents:
 
     def test_exit_badge(self):
         """Exit: trajectory down, change < 0."""
-        df = _history(_crossing("US", "Energy", IN, OUT))
+        df = _history(_crossing("US", "Energy", IN, OUT) + _filler("US", 19))
         events = detect_badge_events(df)
         assert len(events) == 1
         assert events[0]["event"] == "exit"
@@ -54,7 +71,7 @@ class TestDetectBadgeEvents:
         This is the property that stops the daily nagging: the band rule means
         every held name reads "entry" on every scan, so alerting on membership
         would email the same positions forever. Only crossings count."""
-        df = _history(_crossing("US", "Energy", IN, IN))
+        df = _history(_crossing("US", "Energy", IN, IN) + _filler("US", 19))
         assert detect_badge_events(df) == []
 
     def test_empty_dataframe(self):
@@ -69,7 +86,7 @@ class TestDetectBadgeEvents:
 
     def test_themes_cohort(self):
         """Themes use region='THEME'."""
-        df = _history(_crossing("THEME", "Uranium", OUT, IN))
+        df = _history(_crossing("THEME", "Uranium", OUT, IN) + _filler("THEME", 19))
         events = detect_badge_events(df)
         assert len(events) == 1
         assert events[0]["cohort"] == "THEME"
@@ -77,7 +94,8 @@ class TestDetectBadgeEvents:
     def test_multiple_sectors(self):
         """One entry, one exit in the same scan."""
         df = _history(_crossing("US", "Energy", OUT, IN)
-                      + _crossing("US", "Tech", IN, OUT))
+                      + _crossing("US", "Tech", IN, OUT)
+                      + _filler("US", 18))
         events = detect_badge_events(df)
         event_types = {(e["sector"], e["event"]) for e in events}
         assert ("Energy", "entry") in event_types
@@ -108,7 +126,7 @@ class TestSendAlerts:
     @patch("src.alerts.get_theme_scan_history")
     @patch("src.alerts.get_scan_history")
     def test_sends_on_events(self, mock_sector, mock_theme, mock_post):
-        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN))
+        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN) + _filler("US", 19))
         mock_theme.return_value = pd.DataFrame(
             columns=["scan_id", "region", "gics_sector", "composite", "change_score", "rank"]
         )
@@ -124,7 +142,7 @@ class TestSendAlerts:
     @patch("src.alerts.get_theme_scan_history")
     @patch("src.alerts.get_scan_history")
     def test_no_notification_on_no_badges(self, mock_sector, mock_theme, mock_post):
-        mock_sector.return_value = _history(_crossing("US", "Energy", IN, IN))
+        mock_sector.return_value = _history(_crossing("US", "Energy", IN, IN) + _filler("US", 19))
         mock_theme.return_value = pd.DataFrame(
             columns=["scan_id", "region", "gics_sector", "composite", "change_score", "rank"]
         )
@@ -151,7 +169,7 @@ class TestSendAlerts:
         self, mock_sector, mock_theme, mock_positions, mock_prefs, mock_post
     ):
         """A user with prefs still gets alerted when NTFY_TOPIC is unset."""
-        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN))
+        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN) + _filler("US", 19))
         mock_theme.return_value = pd.DataFrame()
         mock_positions.return_value = []
         mock_prefs.return_value = [
@@ -171,7 +189,7 @@ class TestSendAlerts:
         self, mock_sector, mock_theme, mock_positions, mock_prefs, mock_post
     ):
         """Per-user isolation: a bad topic must not stop the remaining users."""
-        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN))
+        mock_sector.return_value = _history(_crossing("US", "Energy", OUT, IN) + _filler("US", 19))
         mock_theme.return_value = pd.DataFrame()
         mock_positions.return_value = []
         mock_prefs.return_value = [

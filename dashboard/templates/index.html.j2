@@ -439,7 +439,7 @@
         {% for r in backtest_metrics %}
         <tr class="bt-row" data-horizon="{{ r.region }}">
           <td>{{ r.label }}</td>
-          <td>top {{ r.top_n }}, buffer {{ r.buffer }}, {{ r.rebalance }}</td>
+          <td>top {{ r.top_n }}, buffer {{ r.buffer_pct }}, {{ r.rebalance }}</td>
           <td>{{ r.start }} → {{ r.end }}</td>
           <td>{{ r.cagr }}</td><td>{{ r.benchmark_cagr }}</td><td>{{ r.sharpe }}</td>
           <td>{{ r.max_drawdown }}</td>
@@ -979,6 +979,13 @@ function applyBandBoundaries() {
   );
 
   var rows = tbody.querySelectorAll('tr.leaderboard-row');
+  // Same definition of "universe size" as applyHorizonBadges()'s _rankedKeys:
+  // every row with a valid rank, irrespective of a UI filter's display:none —
+  // hiding a row is a display choice, not a statement about whether it was
+  // scored.
+  var universeSize = Array.prototype.filter.call(
+    rows, function (tr) { return tr.hasAttribute('data-rank'); }
+  ).length;
   // A cut line only means anything while the table is in rank order. Sort by
   // Theme or by Composite descending and the band stops being contiguous — the
   // rows inside it scatter, so a single line cannot separate "in" from "out"
@@ -1002,7 +1009,7 @@ function applyBandBoundaries() {
     if (isNaN(rank)) { return; }
     var region = tr.dataset.region || '';
     if (rank <= h.top_n) { lastBuy[region] = tr; }
-    if (rank <= h.top_n + h.buffer) { lastHold[region] = tr; }
+    if (rank <= Rescore.exitRank(h, universeSize)) { lastHold[region] = tr; }
   });
 
   function nextVisibleLeaderboardRow(tr) {
@@ -1090,10 +1097,10 @@ function applyBandBoundaries() {
         && existingBuy.classList.contains('buy')) {
       existingBuy.remove();
     }
-    var exitRank = h.top_n + h.buffer;
+    var exitRankVal = Rescore.exitRank(h, universeSize);
     insertCutRow(tr, 'exit', 'band_sell_line', 'SELL LINE', [
       {key: 'band_sell_note_prefix', en: 'a holding that falls past rank'},
-      {text: String(exitRank)},
+      {text: String(exitRankVal)},
       {key: 'band_sell_note_suffix', en: 'is sold'}
     ]);
   });
@@ -1114,6 +1121,14 @@ function applyHorizonBadges() {
   var visible = badgesVisible();
   var pos = window.SMPositions;
   var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row');
+  // Same definition of "universe size" as applyBandBoundaries(): every row
+  // with a valid rank. Computed unconditionally here — unlike _rankedKeys
+  // below, which only exists inside the holdings==='ready' branch and would
+  // be undefined (throwing on .length) for a guest/unknown-holdings render,
+  // exactly the common case this function runs in on every page load.
+  var universeSize = Array.prototype.filter.call(
+    rows, function (tr) { return tr.hasAttribute('data-rank'); }
+  ).length;
   // Computed once per call, not per row: it depends only on the active
   // horizon's calendar and the reader's ack, never on a row's own data.
   // Hold never mutes (see reviewStatus's docstring: "do nothing" has no
@@ -1191,7 +1206,7 @@ function applyHorizonBadges() {
     if (visible && window.Rescore && window.Rescore.badgeFor) {
       kind = window.Rescore.badgeFor(
         rank, h, holdings, holdings === 'ready' && pos.isHeld(tr),
-        tr.dataset.unbuyable === '1');
+        tr.dataset.unbuyable === '1', universeSize);
     }
     tr.dataset.setup = kind || '';
     // The ⚠ marker is the same fact as the Exit badge, so it is written here
@@ -1371,10 +1386,16 @@ function renderHorizonStats(key) {
     var el = document.getElementById(id);
     if (el) { el.textContent = value; }
   }
+  // The reader's actual, currently-rendered universe — not a build-time
+  // constant, so this display stays correct for a signed-in rebuild whose
+  // observed universe size differs from the guest-baked page's.
+  var universeSize = document.querySelectorAll(
+    '#leaderboard-table tr.leaderboard-row[data-rank]'
+  ).length;
   // trades_per_year / median_holding_days are optional in config — a preset
   // with no recorded backtest shows an em dash rather than "NaN".
   set('hz-held', h.top_n);
-  set('hz-exit', h.exit_rank);
+  set('hz-exit', Rescore.exitRank(h, universeSize));
   set('hz-hold', h.median_holding_days == null
       ? '—' : '~' + Math.round(h.median_holding_days) + 'd');
   set('hz-trades', h.trades_per_year == null

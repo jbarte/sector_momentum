@@ -131,7 +131,7 @@ def test_dashboard_context_surfaces_the_theme_track(tmp_path):
     import json
     from dashboard.build import _build_backtest_context
 
-    track = engine.run_theme_track(_themes_cfg(), _prices(), top_n=2)
+    track = engine.run_theme_track(_themes_cfg(), _prices(), top_n=2, buffer_frac=0.28)
     out = str(tmp_path / "bt_ctx")
     write_results({"THEME": track}, out_dir=out, generated_at="2026-07-15T00:00:00Z")
 
@@ -139,6 +139,13 @@ def test_dashboard_context_surfaces_the_theme_track(tmp_path):
     assert ctx["has_backtest"] is True
     assert "THEME" in json.loads(ctx["backtest_json"])
     assert [r["region"] for r in ctx["backtest_metrics"]] == ["THEME"]
+    # The regression this task fixes: run_theme_track's return dict key was
+    # renamed "buffer" -> "buffer_frac" (Task 3), and figures.py must read
+    # the new key, not silently default to 0.
+    assert ctx["backtest_metrics"][0]["buffer_pct"] == f"{100 * track['buffer_frac']:.0f}%"
+    assert ctx["backtest_metrics"][0]["buffer_pct"] != "0%", (
+        "buffer_pct defaulted to 0 -- figures.py is still reading the old 'buffer' key"
+    )
 
 
 # ---------------------------------------------------------------------------

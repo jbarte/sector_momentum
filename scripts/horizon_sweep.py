@@ -140,9 +140,17 @@ def _is_degenerate(live: float | None) -> bool:
 def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
           unbuyable=frozenset()):
     """One grid cell. Mirrors run_theme_track's metric assembly, minus the
-    equity-curve serialisation we don't need here."""
+    equity-curve serialisation we don't need here.
+
+    `buffer` here is the sweep's own absolute-rank grid value (TOP_N x BUFFERS
+    stays absolute on purpose -- see this file's module docstring). It is
+    converted to a fraction ONLY for the call into strategy.simulate, which
+    requires buffer_frac; the returned row below still reports the original
+    absolute `buffer`, matching the exploratory grid's own units.
+    """
+    buffer_frac = buffer / max(1, len(instrument_of))
     sim = strategy.simulate(score_by_date, fwd, instrument_of,
-                            top_n=top_n, cost_bps=cost_bps, buffer=buffer,
+                            top_n=top_n, cost_bps=cost_bps, buffer_frac=buffer_frac,
                             unbuyable=unbuyable)
     if not sim["dates"]:
         return None
@@ -175,7 +183,7 @@ def _cell(score_by_date, fwd, instrument_of, benchmark, top_n, buffer, cost_bps,
     }
 
 
-def _warn_degenerate_presets(rows: list[dict]) -> list[str]:
+def _warn_degenerate_presets(rows: list[dict], universe_size: int) -> list[str]:
     """Say so, loudly, when the window cannot evaluate a preset we actually ship.
 
     The liveness guard silently dropping `medium` and `long` from the frontier
@@ -185,17 +193,25 @@ def _warn_degenerate_presets(rows: list[dict]) -> list[str]:
     `--start 2004-01-01` window does exactly this — the theme universe is
     smaller than either preset's exit_rank for years — so this is the common
     case, not an edge one.
+
+    Presets are stored as a fraction of the universe now (buffer_frac), while
+    this sweep's own exploratory grid stays absolute-rank on purpose (that
+    grid is what a future re-sweep would operate on, not this run) — so a
+    shipped preset's buffer_frac is resolved against THIS RUN's own universe
+    size before comparing it to a grid row's absolute buffer.
     """
     from src.horizons import horizons
     notes = []
     for h in horizons():
+        exit_rank = h.exit_rank(universe_size)
+        buffer_at_universe = exit_rank - h.top_n
         hit = next((r for r in rows if r["freq"] == h.rebalance
-                    and r["top_n"] == h.top_n and r["buffer"] == h.buffer), None)
+                    and r["top_n"] == h.top_n and r["buffer"] == buffer_at_universe), None)
         if hit is None or not _is_degenerate(hit.get("live")):
             continue
         notes.append(
-            f"shipped preset `{h.key}` ({h.rebalance}/{h.top_n}/{h.buffer}, "
-            f"exit_rank {h.top_n + h.buffer}) is live on only "
+            f"shipped preset `{h.key}` ({h.rebalance}/{h.top_n}/{buffer_at_universe}, "
+            f"exit_rank {exit_rank}) is live on only "
             f"{hit['live']:.0%} of this window's rebalance dates, so it is "
             f"NOT on the frontier below — it was not measured, not beaten."
         )
@@ -267,11 +283,11 @@ def main() -> int:
         logger.error("Sweep produced no cells.")
         return 1
 
-    _write(rows, args, benchmark, Path(args.out))
+    _write(rows, args, benchmark, Path(args.out), len(instrument_of))
     return 0
 
 
-def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
+def _write(rows: list[dict], args, benchmark: str, out: Path, universe_size: int) -> None:
     def fmt(v, pct=False, nd=1):
         if v is None:
             return "—"
@@ -312,7 +328,7 @@ def _write(rows: list[dict], args, benchmark: str, out: Path) -> None:
         )
 
     # The frontier: for each achievable churn level, the best return available.
-    warnings = _warn_degenerate_presets(rows)
+    warnings = _warn_degenerate_presets(rows, universe_size)
     if warnings:
         lines += ["", "> **This window cannot evaluate every shipped preset.**"]
         lines += [f"> - {w}" for w in warnings]

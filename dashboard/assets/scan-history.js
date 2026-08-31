@@ -147,8 +147,11 @@
           var nextRank = (j + 1 < group.length) ? group[j + 1].scores.rank : null;
           var isBuyCut = nextRank !== null
             && sc.rank <= _h.top_n && nextRank > _h.top_n;
+          var universeSize = group.length;
+          var exitRankVal = Rescore.exitRank(_h, universeSize);
           var isHoldCut = nextRank !== null
-            && sc.rank <= (_h.top_n + _h.buffer) && nextRank > (_h.top_n + _h.buffer);
+            && sc.rank <= exitRankVal
+            && nextRank > exitRankVal;
           // The exit cut is the more consequential of the two, so if the
           // buffer leaves no gap between them (both land on this row), only
           // the exit cut shows — same tie-break as applyBandBoundaries().
@@ -157,10 +160,9 @@
               [{key: 'band_buy_note', en: 'below this line: not a new buy'}]);
           }
           if (isHoldCut) {
-            var exitRank = _h.top_n + _h.buffer;
             html += window.buildBandCutRowHtml('exit', 'band_sell_line', 'SELL LINE', [
               {key: 'band_sell_note_prefix', en: 'a holding that falls past rank'},
-              {text: String(exitRank)},
+              {text: String(exitRankVal)},
               {key: 'band_sell_note_suffix', en: 'is sold'}
             ]);
           }

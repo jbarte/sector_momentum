@@ -505,10 +505,16 @@ def _build_history_figure(history_df) -> str:
 
 def _track_label(track: dict, key: str) -> str:
     """Human name for a track, with its policy spelled out — the chart title is
-    where a reader learns what "Long" actually means."""
+    where a reader learns what "Long" actually means.
+
+    Shown as a percentage of the universe (buffer_frac), not an absolute rank
+    count — same reasoning and convention as `buffer_pct` below: a multi-year
+    backtest run's universe size varies throughout, so there's no single
+    honest "today's universe" to convert against."""
     freq = track.get("rebalance_freq", "M")
+    buffer_pct = f"{100 * track.get('buffer_frac', 0.0):.0f}%"
     return (f"{key.title()} — top {track.get('top_n')}, "
-            f"buffer {track.get('buffer', 0)}, {freq} rebalance")
+            f"buffer {buffer_pct}, {freq} rebalance")
 
 
 def _build_backtest_figures(summary) -> dict:
@@ -560,7 +566,16 @@ def _build_backtest_context(backtests_dir: str) -> dict:
                 "benchmark": track["benchmark"], "top_n": track["top_n"],
                 "label": labels.get(region, region.title()),
                 "rebalance": track.get("rebalance_freq", "M"),
-                "buffer": track.get("buffer", 0),
+                # Displayed as a percentage of the universe, not an absolute rank
+                # count: a multi-year backtest run's universe size varies
+                # throughout, so there is no single honest "convert to an
+                # absolute count" reference point (unlike the live dashboard,
+                # which has "today's universe"). Matches the idea behind
+                # scripts/horizon_sweep.py's own `band` column — show a share
+                # of the universe rather than a raw rank — though that column
+                # is (top_n + buffer) / universe (the whole band width), while
+                # this is buffer_frac alone (buffer only, excluding top_n).
+                "buffer_pct": f"{100 * track.get('buffer_frac', 0.0):.0f}%",
                 "cagr": f"{100 * m['cagr']:.1f}%",
                 "benchmark_cagr": f"{100 * m['benchmark_cagr']:.1f}%",
                 "sharpe": f"{m['sharpe']:.2f}",

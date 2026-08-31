@@ -71,7 +71,7 @@ def test_a_degenerate_cell_is_kept_out_of_the_frontier(tmp_path):
         _row(4, 5, 0.18, 20.0, 1.0),    # honest cell
         _row(5, 13, 0.25, 0.4, 0.0),    # degenerate: never sells, best return, least churn
     ]
-    _write(rows, _Args(), "ACWI", out)
+    _write(rows, _Args(), "ACWI", out, 18)
     frontier = out.read_text().split("## Return / churn frontier")[1]
     assert "| M | 4 | 5 |" in frontier
     assert "| M | 5 | 13 |" not in frontier
@@ -80,7 +80,7 @@ def test_a_degenerate_cell_is_kept_out_of_the_frontier(tmp_path):
 def test_the_cell_table_still_lists_degenerate_cells_and_flags_them(tmp_path):
     """Excluded from the frontier is not the same as hidden — the number is the finding."""
     out = tmp_path / "sweep.md"
-    _write([_row(5, 13, 0.25, 0.4, 0.0)], _Args(), "ACWI", out)
+    _write([_row(5, 13, 0.25, 0.4, 0.0)], _Args(), "ACWI", out, 18)
     table = out.read_text().split("## Return / churn frontier")[0]
     row = next(l for l in table.splitlines() if l.startswith("| M | 5 | 13 |"))
     # band 50%, then live 0% carrying the flag — assert the live cell itself,
@@ -90,7 +90,7 @@ def test_the_cell_table_still_lists_degenerate_cells_and_flags_them(tmp_path):
 
 def test_an_honest_cell_carries_no_flag(tmp_path):
     out = tmp_path / "sweep.md"
-    _write([_row(4, 5, 0.18, 20.0, 1.0)], _Args(), "ACWI", out)
+    _write([_row(4, 5, 0.18, 20.0, 1.0)], _Args(), "ACWI", out, 18)
     row = next(l for l in out.read_text().splitlines() if l.startswith("| M | 4 | 5 |"))
     assert row.split("|")[5].strip() == "100%", row
 
@@ -116,7 +116,7 @@ def test_a_window_that_cannot_measure_a_shipped_preset_says_so(tmp_path):
     'not measured' — the default 2004- window does exactly this."""
     out = tmp_path / "sweep.md"
     _write([_row(4, 5, 0.18, 20.0, 0.43), _row(3, 2, 0.12, 30.0, 1.0)],
-           _Args(), "ACWI", out)
+           _Args(), "ACWI", out, 18)
     text = out.read_text()
     assert "cannot evaluate every shipped preset" in text
     assert "`medium`" in text and "43%" in text
@@ -126,10 +126,37 @@ def test_a_window_that_cannot_measure_a_shipped_preset_says_so(tmp_path):
 def test_no_preset_warning_when_every_shipped_preset_is_live(tmp_path):
     out = tmp_path / "sweep.md"
     _write([_row(4, 5, 0.18, 20.0, 1.0), _row(5, 8, 0.15, 10.0, 1.0)],
-           _Args(), "ACWI", out)
+           _Args(), "ACWI", out, 18)
     assert "cannot evaluate every shipped preset" not in out.read_text()
 
 
 def test_min_live_share_demands_a_band_that_is_live_nearly_always():
     """A cell live on half its dates is half buy-and-hold, not a tested rule."""
     assert 0.8 <= MIN_LIVE_SHARE <= 1.0
+
+
+def test_cell_converts_the_grid_buffer_to_a_fraction_before_calling_simulate(monkeypatch):
+    """The regression this guards: _cell()'s own buffer parameter is an
+    ABSOLUTE rank (the sweep's exploratory grid stays absolute-rank on
+    purpose), but strategy.simulate now requires buffer_frac. Calling
+    simulate(buffer=...) raises TypeError on every real invocation --
+    caught by no existing test, since nothing calls _cell() directly."""
+    import scripts.horizon_sweep as hs
+
+    captured = {}
+
+    def fake_simulate(score_by_date, fwd_returns, instrument_of, top_n=5,
+                      cost_bps=0.0, buffer_frac=0.0, unbuyable=frozenset()):
+        captured["buffer_frac"] = buffer_frac
+        return {"dates": [], "strategy_returns": [], "holdings": [], "turnover": []}
+
+    monkeypatch.setattr(hs.strategy, "simulate", fake_simulate)
+
+    instrument_of = {f"key{i}": f"TICK{i}" for i in range(20)}  # universe size 20
+    result = hs._cell({}, None, instrument_of, "ACWI", top_n=4, buffer=5, cost_bps=100.0)
+
+    assert result is None  # no dates -> _cell returns None, but simulate must have been called first
+    assert captured["buffer_frac"] == pytest.approx(5 / 20), (
+        "buffer=5 at universe_size=20 must convert to buffer_frac=0.25, "
+        "not be passed through as buffer= (which strategy.simulate no longer accepts)"
+    )

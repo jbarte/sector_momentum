@@ -69,7 +69,7 @@ def detect_badge_events(history_df: pd.DataFrame,
                 # returns None for every row and no alert is ever sent.
                 "rank": rank,
             }
-            _compute_setup(row_dict)
+            _compute_setup(row_dict, universe_size=len(latest))
             return row_dict["setup"]
 
         setup = _setup(_safe_float(row_data.get("rank")))
