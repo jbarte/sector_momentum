@@ -47,6 +47,18 @@
             for it). '?' matches the coverage badge's own convention for the
             identical "we don't know" state, two lines up. -#}
         &middot; dropped (stale as-of) <span class="badge-{{ health_badges.asof_dropped or 'unknown' }}">{{ health.asof_dropped_count if health.asof_dropped_count is not none else '?' }}</span>
+        {#- One line naming which theme and why, for ALL THREE reasons a
+            theme can go missing -- not just the stale-as-of count above.
+            No badge coloring here: the coverage badge already carries the
+            severity. Plain text, no i18n -- this panel is diagnostic
+            content, matching every other label in this row. Empty list
+            (the common case) renders nothing, so a clean scan's panel is
+            unchanged. -#}
+        {%- if dropped_themes %}
+        <br>Missing: {% for name, reason in dropped_themes -%}
+          {{ name }} ({{ reason }}){% if not loop.last %}, {% endif -%}
+        {% endfor %}
+        {%- endif %}
       </span>
     </div>
     <div class="health-row">

@@ -358,6 +358,57 @@ class TestAsofDroppedDisplay(_FooterRenderHelper):
         )
 
 
+class TestDroppedThemesDisplay(_FooterRenderHelper):
+    """The health panel's Themes row now names which theme is missing and
+    why (2026-08-31) -- previously only counts were shown, for any of the
+    three reasons a theme can go missing. Real Jinja renders, not source
+    scans: the guard has to handle the empty-list case (the common one)
+    cleanly."""
+
+    def _themes_row(self, html: str) -> str:
+        return html.split('class="health-label">Themes', 1)[1].split("</div>", 1)[0]
+
+    def _render(self, health, health_badges=None, health_any_warn=False,
+                same_asof_streak=None, dropped_themes=None):
+        from jinja2 import Environment, FileSystemLoader
+        from dashboard.build import register_asset_url
+        env = Environment(loader=FileSystemLoader(str(self._TPL)))
+        register_asset_url(env)
+        return env.get_template("_footer.html.j2").render(
+            health=health,
+            health_badges=health_badges or {},
+            health_any_warn=health_any_warn,
+            same_asof_streak=same_asof_streak,
+            dropped_themes=dropped_themes or [],
+        )
+
+    def test_no_line_when_dropped_themes_is_empty(self):
+        html = self._render(self._base_health(), dropped_themes=[])
+        themes_row = self._themes_row(html)
+        assert "Missing" not in themes_row
+
+    def test_shows_one_dropped_theme_with_its_reason(self):
+        html = self._render(
+            self._base_health(),
+            dropped_themes=[("Shipping", "fetch failed")],
+        )
+        themes_row = self._themes_row(html)
+        assert "Missing" in themes_row
+        assert "Shipping" in themes_row
+        assert "fetch failed" in themes_row
+
+    def test_shows_multiple_dropped_themes(self):
+        html = self._render(
+            self._base_health(),
+            dropped_themes=[("Shipping", "fetch failed"), ("UFO", "stale as-of")],
+        )
+        themes_row = self._themes_row(html)
+        assert "Shipping" in themes_row
+        assert "UFO" in themes_row
+        assert "fetch failed" in themes_row
+        assert "stale as-of" in themes_row
+
+
 class TestSameAsofStreakDisplay(_FooterRenderHelper):
     """The Prices row notes when the displayed scan shares its market date
     with prior scans (2026-08-23 backlog: byte-identical weekend scans) --
