@@ -34,7 +34,6 @@ _DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config" / "weights.yam
 _FALLBACK = {
     "key": "medium", "label": "Medium", "rebalance": "M",
     "top_n": 4, "buffer_frac": 5 / 18,
-    "cagr": None, "trades_per_year": None, "median_holding_days": None,
 }
 
 
@@ -62,12 +61,14 @@ class Horizon:
                                  # scored universe -- not an absolute rank
                                  # count. See exit_rank().
 
-    # Backtested figures for this cell, carried so the UI can show the churn
-    # cost beside the return. Optional: they describe one historical sweep and
-    # are not required for the strategy to run.
-    cagr: float | None = None
-    trades_per_year: float | None = None
-    median_holding_days: float | None = None
+    # No cagr/trades_per_year/median_holding_days here -- those are
+    # backtest-observed statistics, not a property of the preset mechanism
+    # itself, and a config-driven copy of them goes stale the moment the
+    # scored universe changes (2026-08-31 churn-figure-honesty fix). The
+    # dashboard reads them live from backtests/summary.json at the point
+    # of display instead -- same principle as exit_rank(), which is
+    # likewise never cached as a static field. See
+    # sector_momentum-notes/specs/2026-08-31-long-churn-honesty-design.md.
 
     def exit_rank(self, universe_size: int) -> int:
         """Ranks above this leave the hold band, for a scored universe of
@@ -133,9 +134,6 @@ def horizons(path: str | Path | None = None) -> list[Horizon]:
             rebalance=entry.get("rebalance", "M"),
             top_n=int(entry.get("top_n", _FALLBACK["top_n"])),
             buffer_frac=float(entry.get("buffer_frac", _FALLBACK["buffer_frac"])),
-            cagr=entry.get("cagr"),
-            trades_per_year=entry.get("trades_per_year"),
-            median_holding_days=entry.get("median_holding_days"),
         ))
     return out
 

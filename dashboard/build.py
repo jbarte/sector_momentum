@@ -58,6 +58,7 @@ from dashboard.figures import (                      # noqa: E402, F401
     _build_rrg_figure,
     _build_scan_history_data,
     _build_sentiment_scatter_figure,
+    _live_horizon_stats,
     build_chart_dark_map,
     build_cohort_chart_context as _figures_cohort_charts_ctx,
     build_sectors_context as _figures_sectors_ctx,
@@ -662,11 +663,19 @@ def main() -> None:
     # resolve `Rescore.exitRank()` against. It is NOT a substitute for the
     # live `Rescore.exitRank()` calls used everywhere else, and nothing else
     # should read it.
+    #
+    # trades_per_year/median_holding_days are read live from
+    # backtests/summary.json rather than from `h` — Horizon no longer
+    # carries them (2026-08-31 churn-figure-honesty fix): a config-driven
+    # copy of a backtest-observed statistic goes stale the moment the
+    # scored universe changes, exactly the defect this fix closes. See
+    # sector_momentum-notes/specs/2026-08-31-long-churn-honesty-design.md.
+    _live_stats = _live_horizon_stats(str(project_root / "backtests"))
     _horizons_json = _json.dumps([
         {"key": h.key, "label": h.label, "rebalance": h.rebalance,
          "top_n": h.top_n, "buffer_frac": h.buffer_frac,
-         "trades_per_year": h.trades_per_year,
-         "median_holding_days": h.median_holding_days,
+         "trades_per_year": _live_stats.get(h.key, {}).get("trades_per_year"),
+         "median_holding_days": _live_stats.get(h.key, {}).get("median_holding_days"),
          "exit_rank_today": h.exit_rank(len(leaderboard_rows)),
          # Next ~6 review dates, ISO strings, so the client can say whether
          # today is one without re-deriving the cadence rule in JS — see

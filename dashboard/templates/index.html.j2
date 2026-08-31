@@ -1392,8 +1392,10 @@ function renderHorizonStats(key) {
   var universeSize = document.querySelectorAll(
     '#leaderboard-table tr.leaderboard-row[data-rank]'
   ).length;
-  // trades_per_year / median_holding_days are optional in config — a preset
-  // with no recorded backtest shows an em dash rather than "NaN".
+  // trades_per_year / median_holding_days are read live from
+  // backtests/summary.json at build time (2026-08-31 churn-figure-honesty
+  // fix), not from config — a preset with no committed backtest track
+  // shows an em dash rather than "NaN".
   set('hz-held', h.top_n);
   set('hz-exit', Rescore.exitRank(h, universeSize));
   set('hz-hold', h.median_holding_days == null

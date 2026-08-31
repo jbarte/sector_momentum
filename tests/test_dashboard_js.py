@@ -57,8 +57,11 @@ def _horizon_ctx(dumps=json.dumps):
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
              "top_n": h.top_n, "buffer_frac": h.buffer_frac,
-             "trades_per_year": h.trades_per_year,
-             "median_holding_days": h.median_holding_days,
+             # No longer read from Horizon (removed 2026-08-31) -- these
+             # render-smoke-test fixtures don't need a real value, just
+             # valid JSON the template can consume without crashing.
+             "trades_per_year": None,
+             "median_holding_days": None,
              "review_dates": _review_dates(h, since="2026-01-15")} for h in hs
         ]),
         horizon_default_json=dumps({
@@ -2673,6 +2676,18 @@ def test_horizons_json_carries_buffer_frac_not_a_precomputed_exit_rank():
         "be correct for both a guest-baked page and a signed-in rebuild with "
         "a different observed universe size"
     )
+
+
+def test_horizons_json_reads_trades_per_year_live_not_from_config():
+    """trades_per_year/median_holding_days used to be read straight from
+    the Horizon object (config/weights.yaml's hand-copied, stale figures)
+    -- the exact defect the churn-figure-honesty fix (2026-08-31) exists to
+    close. Pins that build.py now sources them from the live backtest
+    artifact instead of a Horizon attribute that no longer exists."""
+    build_text = (Path(__file__).parent.parent / "dashboard" / "build.py").read_text()
+    assert "_live_horizon_stats(" in build_text
+    assert '"trades_per_year": h.trades_per_year' not in build_text
+    assert '"median_holding_days": h.median_holding_days' not in build_text
 
 
 def test_horizon_stats_render_all_four_in_spec_order():

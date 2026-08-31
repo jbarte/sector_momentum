@@ -39,57 +39,26 @@ sibling gap on the restore drill's cadence, though this doesn't need CI, a
 manual run is fine) for a few cycles, then revisit whether AI & Robotics and
 Defense should move to `partial`.
 
-## `long`'s published churn figures understate what the reader will actually trade
+## Re-sweep TOP_N/BUFFERS under the fractional band scheme
 
-Code review, 2026-08-30, on the sweep liveness guard (see Done). `config/weights.yaml`
-publishes `long` as `trades_per_year: 6.9`, `median_holding_days: 183`,
-`cagr: 0.140`, and `dashboard/templates/index.html.j2` renders those verbatim in
-the horizon chip. They are not wrong for the window they were measured on — they
-are wrong for the universe the reader has today.
+Split off 2026-08-31 from *`long`'s horizon chip now reports live churn,
+not a stale config figure* (see Done) as the one part of that item's
+lineage deliberately NOT done. That fix (and the fractional-band migration
+before it, 2026-08-30) both explicitly left this out of scope — the chip
+now honestly displays whatever `medium`/`long` actually do, but nobody has
+re-run `scripts/horizon_sweep.py`'s grid search to check whether some
+*other* `top_n`/`buffer_frac` combination now performs better under
+`buffer_frac` than the absolute-rank sweep that originally chose `M/4/5`
+and `M/5/8` (2026-08-14) would have found.
 
-`long` is `M/5/8`, so `exit_rank` is 13, and the band cannot fire until the
-scored universe exceeds 13 themes. That first happened **2018-09-28**, so on the
-2015- window the preset was **32% buy-and-hold** and its churn was suppressed by
-exactly that. At today's 18 priced themes the band is live on every rebalance.
-Measured on a fair 2022- window (universe ≥16 throughout), the same cell runs:
-
-| | published | fair window (2022-) |
-|---|---:|---:|
-| trades/yr | 6.9 | **16.9** |
-| median hold (d) | 183 | 180 |
-| CAGR | 14.0% | 18.1% |
-
-So the chip promises roughly **7 trades a year and gets ~17** — a reader picking
-`long` to trade less is being mis-sold, and this is the preset whose entire
-purpose is low churn. (`medium` does not have this problem: exit_rank 9 is live
-on 100% of the 2015- window, so its published 12.9 trades/yr is honest.)
-
-**The fractional-band mechanism shipped 2026-08-31** (see Done, *fractional
-hysteresis band*) — `buffer_frac` replaces absolute ranks, so a preset's
-selectivity no longer silently drifts as the universe grows. That was the
-"clean answer" this item pointed at, and the migration was deliberately a
-no-op at rollout: both presets' `buffer_frac` values were chosen to reproduce
-today's exit ranks exactly (9 and 13 at 18 themes), so the numbers above are
-**still unvalidated** — `config/weights.yaml` now says as much in its
-"FRACTIONAL BAND MIGRATION" comment, marking cagr/trades_per_year/
-median_holding_days PROVISIONAL until a fresh sweep re-validates them.
-
-**Still not fixed, deliberately — this was an explicit non-goal of the
-fractional-band migration.** What remains:
-
-- Re-sweep `TOP_N`/`BUFFERS` (now over `buffer_frac`) with
-  `scripts/horizon_sweep.py` to re-validate cagr/Sharpe/trades-per-year under
-  the fractional scheme, rather than trusting figures measured under the old
-  absolute-rank simulation across all of history.
-- Re-measuring on a fair window still changes `long`'s advertised identity —
-  17 trades/yr is *more* churn than `medium`'s published 12.9, which would
-  invert the preset ordering the UI is built around and break
-  `test_presets_are_ordered_by_holding_period`'s sibling assumptions.
-- Deciding what the chip should promise is a product decision, not a sweep
-  output, and still needs a brainstorm before touching it.
-
-Until then the caveat is recorded in `config/weights.yaml` beside the numbers
-themselves.
+Not acted on yet: this is a preset-*selection* decision, not a display
+fix, and changing which presets ship (or their band widths) is a bigger
+blast radius than this backlog item's own scope — it can move
+`medium`/`long`'s advertised identity, and `config/weights.yaml`'s own
+noise-floor note already warns that cells within ~2pp of each other are
+statistically indistinguishable on a single sweep window, so a naive
+argmax re-sweep risks picking noise over signal. Needs its own
+brainstorm before touching the shipped presets.
 
 ## Mobile card's expand-region nests a real button inside role="button"
 
@@ -602,6 +571,28 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## `long`'s horizon chip now reports live churn, not a stale config figure (2026-08-31)
+
+Closes *`long`'s published churn figures understate what the reader will
+actually trade* (code review, 2026-08-30). Rather than re-sweeping
+`TOP_N`/`BUFFERS` and re-publishing a fresh but still-static number in
+`config/weights.yaml`, `Horizon` no longer carries `cagr`, `trades_per_year`,
+or `median_holding_days` at all — those three fields are removed from the
+dataclass entirely, not defaulted to `None`. `dashboard/build.py` now wires
+the horizon chip to read them live from `backtests/summary.json` instead, the
+same artifact the Backtest tab was already sourcing its own numbers from, so
+the chip and the tab can no longer disagree with each other or drift out of
+sync with whatever the universe actually did.
+
+The preset-ordering risk this item flagged — a fair re-measurement making
+`long` churn *more* than `medium`, inverting the chip's implied ordering —
+was checked against the regenerated data rather than assumed away:
+`medium` runs 20.6 trades/yr with a 92.0-day median hold, `long` runs 10.5
+trades/yr with a 182.0-day median hold. The ordering holds. No re-sweep or
+preset re-selection was needed or done — `top_n`/`buffer_frac` are unchanged
+for both presets; this was purely a matter of the chip reading a live number
+instead of a stale one.
+
 ## Health panel now names which theme is missing and why, for all three causes (2026-08-31)
 
 Closes *Health panel has no signal for themes missing for reasons other than a
@@ -644,12 +635,16 @@ rollout — only future universe growth diverges from what absolute ranks would
 have done, which is the whole point: the band no longer needs manual retuning
 every time a theme is added or removed.
 
-**Explicitly out of scope, left queued:** a re-sweep of `TOP_N`/`BUFFERS`
-under the new fractional grid and a re-validation of the published
-cagr/Sharpe/trades-per-year figures, which were measured under the old
-absolute-rank simulation and are now marked PROVISIONAL in
-`config/weights.yaml`. See the rewritten *`long`'s published churn figures
-understate what the reader will actually trade* Queued item for what remains.
+**Explicitly out of scope:** a re-sweep of `TOP_N`/`BUFFERS` under the new
+fractional grid and a re-validation of the published cagr/Sharpe/trades-
+per-year figures under it — still genuinely open, tracked separately as
+*Re-sweep TOP_N/BUFFERS under the fractional band scheme* in Queued.
+Separately, and already resolved (2026-08-31, see Done): the *display*
+half of the staleness this paragraph originally marked PROVISIONAL —
+`config/weights.yaml` no longer publishes cagr/trades_per_year/
+median_holding_days at all; the horizon chip reads them live from
+`backtests/summary.json` instead, so a re-sweep decision no longer needs
+to race a display deadline.
 
 See `sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md`.
 

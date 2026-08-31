@@ -596,6 +596,39 @@ def _build_backtest_context(backtests_dir: str) -> dict:
     }
 
 
+def _live_horizon_stats(backtests_dir: str) -> dict[str, dict]:
+    """{horizon_key: {"trades_per_year": float | None, "median_holding_days":
+    float | None}} from backtests/summary.json's live measured metrics.
+
+    A second, independent read of the same artifact _build_backtest_context
+    loads above: that function pre-formats these same numbers into display
+    strings for the Backtest tab's server-rendered table (e.g. "21" or
+    "—"), while the horizon-selector chip's client-side JS
+    (renderHorizonStats() in index.html.j2) needs raw numbers to do its own
+    Math.round(). Two different shaping needs, one small cheap file read
+    each -- not worth entangling into one shared function with two output
+    modes.
+
+    A horizon key absent from the returned dict means "no data" (file
+    missing, or that horizon has no track) -- callers treat a missing key
+    the same as an explicit None value, matching the chip's existing
+    em-dash fallback for a null trades_per_year/median_holding_days.
+    """
+    from src.backtest.results import load_summary
+
+    summary = load_summary(backtests_dir)
+    stats: dict[str, dict] = {}
+    for key, track in (summary or {}).get("tracks", {}).items():
+        if not track:
+            continue
+        m = track.get("metrics") or {}
+        stats[key] = {
+            "trades_per_year": m.get("trades_per_year"),
+            "median_holding_days": m.get("median_holding_days"),
+        }
+    return stats
+
+
 def _build_rescore_data(history_df) -> dict:
     """Per-scan x per-sector data_score and sentiment_score arrays for the
     client-side leaderboard rescoring."""

@@ -64,8 +64,10 @@ def _horizon_ctx_far_future(dumps=json.dumps):
         horizons_json=dumps([
             {"key": h.key, "label": h.label, "rebalance": h.rebalance,
              "top_n": h.top_n, "buffer_frac": h.buffer_frac,
-             "trades_per_year": h.trades_per_year,
-             "median_holding_days": h.median_holding_days,
+             # No longer read from Horizon (removed 2026-08-31) -- see the
+             # matching comment in tests/test_dashboard_js.py's _horizon_ctx.
+             "trades_per_year": None,
+             "median_holding_days": None,
              "review_dates": _review_dates(h, since="2099-01-01")} for h in hs
         ]),
         horizon_default_json=dumps({

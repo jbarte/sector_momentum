@@ -62,3 +62,40 @@ def test_build_backtest_context_json_is_not_double_encoded(tmp_path):
     # values must be objects with Plotly keys, NOT strings
     assert isinstance(parsed["US"], dict)
     assert "data" in parsed["US"] and "layout" in parsed["US"]
+
+
+def test_live_horizon_stats_reads_raw_numbers_not_formatted_strings(tmp_path):
+    """The horizon-selector chip needs RAW numbers for its own client-side
+    Math.round() (index.html.j2's renderHorizonStats) -- unlike
+    _build_backtest_context's pre-formatted display strings for the
+    Backtest tab table ("21" or "—"). A second, independent read of the
+    same file, not a reuse of that function's output."""
+    from dashboard.figures import _live_horizon_stats
+    summary = _summary()
+    summary["tracks"]["US"]["metrics"]["trades_per_year"] = 21.4
+    summary["tracks"]["US"]["metrics"]["median_holding_days"] = 92.0
+    (tmp_path / "summary.json").write_text(json.dumps(summary))
+
+    stats = _live_horizon_stats(str(tmp_path))
+
+    assert stats["US"]["trades_per_year"] == 21.4
+    assert stats["US"]["median_holding_days"] == 92.0
+
+
+def test_live_horizon_stats_skips_a_none_track(tmp_path):
+    """summary["tracks"]["EU"] is None in the fixture (a track that failed
+    or was never run) -- must be skipped, not raise on None.get(...)."""
+    from dashboard.figures import _live_horizon_stats
+    (tmp_path / "summary.json").write_text(json.dumps(_summary()))
+
+    stats = _live_horizon_stats(str(tmp_path))
+
+    assert "EU" not in stats
+
+
+def test_live_horizon_stats_empty_when_file_missing(tmp_path):
+    from dashboard.figures import _live_horizon_stats
+
+    stats = _live_horizon_stats(str(tmp_path))  # no summary.json written
+
+    assert stats == {}
