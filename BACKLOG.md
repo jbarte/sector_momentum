@@ -39,61 +39,6 @@ sibling gap on the restore drill's cadence, though this doesn't need CI, a
 manual run is fine) for a few cycles, then revisit whether AI & Robotics and
 Defense should move to `partial`.
 
-## The backtest's early years cannot exercise the hold band at all
-
-Found 2026-08-26, immediately after `--end` shipped (see Done) made a
-disjoint early window runnable for the first time. Running
-`--start 2004-01-01 --end 2014-12-31` produced obvious nonsense — `M/4/5` at
-**3.0 trades/yr and a 486-day median hold** (versus 12.9 and 120 on the full
-window), and `M/4/6`, `M/4/7`, `M/4/8` all at 0.6 trades/yr with *no closed
-positions at all*. The cause is not a bug in the sweep; it is the data.
-
-**The theme universe grows from 1 to 18 across the backtest window**, because
-thematic ETFs mostly did not exist earlier:
-
-| year-start | theme instruments with price data |
-|---|---|
-| 2004 | 1 of 18 |
-| 2008 | 7 |
-| 2012 | 10 |
-| 2015 | 10 |
-| 2018 | 12 |
-| 2020 | 15 |
-| 2022 | 18 (full) |
-
-Bands are stored in **absolute ranks**, so a preset's SELL line cannot fire
-until the universe is *larger* than its `exit_rank` — before that every
-holding is inside the band by construction and the hysteresis is a no-op:
-
-- `medium` (exit_rank 9) — band first meaningful **2010-11-05**
-- `long` (exit_rank 13) — band first meaningful **2018-09-05**
-
-So `long`'s defining parameter has roughly **eight years** of history that can
-actually exercise it, not twenty-two. And a "2004-" sweep is not evaluating 18
-themes since 2004; it is evaluating a universe that is mostly absent for the
-first third of the window, which is why the early cells degenerate.
-
-**Consequence for the preset choice.** The presets were picked on 2004- and
-re-checked on 2015- (nested, and both dominated by the same recent years where
-the data actually exists). That is much weaker evidence than "wins on two
-windows" sounds — there is effectively one regime under it. `medium` still
-wins clearly on every window where its band can fire, so this is not a claim
-that the cell is wrong; it is a claim that the *confidence* attached to it in
-`config/weights.yaml`'s comments is overstated.
-
-**Three of the four options shipped 2026-08-30** — the weights.yaml caveat,
-the per-cell `live` column, and the frontier guard. See the Done entry *"Sweep:
-flag cells whose SELL line cannot fire"*. What remains is only:
-
-**Consider a fractional band** — `band` as a share of the universe rather than
-absolute ranks, so the presets stop being silently re-tuned by universe growth.
-This is a real design change, not a fix; the config already flags the same
-hazard from the 13→20 theme change on 2026-08-05. The 2026-08-30 measurement
-strengthens the case: `medium`'s band is live on 100% of the 2015- calendar and
-`long`'s on 68%, purely because both are pinned to absolute ranks while the
-universe grew underneath them. Brainstorm before implementing — it changes what
-every stored preset means.
-
 ## `long`'s published churn figures understate what the reader will actually trade
 
 Code review, 2026-08-30, on the sweep liveness guard (see Done). `config/weights.yaml`
@@ -119,24 +64,32 @@ So the chip promises roughly **7 trades a year and gets ~17** — a reader picki
 purpose is low churn. (`medium` does not have this problem: exit_rank 9 is live
 on 100% of the 2015- window, so its published 12.9 trades/yr is honest.)
 
-**Not fixed in that PR deliberately.** Rewriting the numbers is easy; deciding
-what they should say is not, and it is a product decision rather than a sweep
-output:
+**The fractional-band mechanism shipped 2026-08-31** (see Done, *fractional
+hysteresis band*) — `buffer_frac` replaces absolute ranks, so a preset's
+selectivity no longer silently drifts as the universe grows. That was the
+"clean answer" this item pointed at, and the migration was deliberately a
+no-op at rollout: both presets' `buffer_frac` values were chosen to reproduce
+today's exit ranks exactly (9 and 13 at 18 themes), so the numbers above are
+**still unvalidated** — `config/weights.yaml` now says as much in its
+"FRACTIONAL BAND MIGRATION" comment, marking cagr/trades_per_year/
+median_holding_days PROVISIONAL until a fresh sweep re-validates them.
 
-- Re-measuring on a fair window changes `long`'s advertised identity — 17
-  trades/yr is *more* churn than `medium`'s published 12.9, which would invert
-  the preset ordering the UI is built around and break
+**Still not fixed, deliberately — this was an explicit non-goal of the
+fractional-band migration.** What remains:
+
+- Re-sweep `TOP_N`/`BUFFERS` (now over `buffer_frac`) with
+  `scripts/horizon_sweep.py` to re-validate cagr/Sharpe/trades-per-year under
+  the fractional scheme, rather than trusting figures measured under the old
+  absolute-rank simulation across all of history.
+- Re-measuring on a fair window still changes `long`'s advertised identity —
+  17 trades/yr is *more* churn than `medium`'s published 12.9, which would
+  invert the preset ordering the UI is built around and break
   `test_presets_are_ordered_by_holding_period`'s sibling assumptions.
-- Re-tuning `long` to a higher buffer so it genuinely trades ~7x/yr runs
-  straight into the reason this was found: every cell past buffer 8 is *more*
-  degenerate, so there is no honest cell that delivers the promise on today's
-  universe.
-- The clean answer is probably the fractional band (see *The backtest's early
-  years cannot exercise the hold band at all*), which would make a preset's
-  churn stable as the universe grows instead of drifting with it.
+- Deciding what the chip should promise is a product decision, not a sweep
+  output, and still needs a brainstorm before touching it.
 
-Brainstorm before touching it. Until then the caveat is recorded in
-`config/weights.yaml` beside the numbers themselves.
+Until then the caveat is recorded in `config/weights.yaml` beside the numbers
+themselves.
 
 ## Mobile card's expand-region nests a real button inside role="button"
 
@@ -685,6 +638,31 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Fractional hysteresis band — the hold band scales with the universe (2026-08-31)
+
+Closes the "Consider a fractional band" remainder of *The backtest's early
+years cannot exercise the hold band at all* (2026-08-26/30). `buffer` — an
+absolute rank count — is replaced by `buffer_frac`, a fraction of the scored
+universe: `Horizon.exit_rank(universe_size)` now resolves
+`top_n + round_half_up(buffer_frac * universe_size)` fresh at every point of
+use (backtest simulation, live badge/alert gating, the alerts-horizon modal,
+`scripts/horizon_sweep.py`'s own grid) instead of reading a number baked in at
+whatever universe size happened to exist when the preset was picked. The two
+shipped presets' `buffer_frac` values (`medium` 5/18, `long` 8/18) were chosen
+to reproduce today's exit ranks exactly, so the migration is a no-op at
+rollout — only future universe growth diverges from what absolute ranks would
+have done, which is the whole point: the band no longer needs manual retuning
+every time a theme is added or removed.
+
+**Explicitly out of scope, left queued:** a re-sweep of `TOP_N`/`BUFFERS`
+under the new fractional grid and a re-validation of the published
+cagr/Sharpe/trades-per-year figures, which were measured under the old
+absolute-rank simulation and are now marked PROVISIONAL in
+`config/weights.yaml`. See the rewritten *`long`'s published churn figures
+understate what the reader will actually trade* Queued item for what remains.
+
+See `sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md`.
 
 ## The backup bucket now prunes itself after every successful upload (2026-08-30)
 
