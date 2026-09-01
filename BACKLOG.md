@@ -20,6 +20,68 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
+## Review panel leaks guest-inappropriate controls — two confirmed bugs
+
+Found 2026-08-31, verified live on the deployed dashboard (not just from
+reading code) as a genuine signed-out guest (confirmed via the header's
+own `Sign in` button, and `window.SMPositions.holdingsState() ===
+"unknown"`). The review panel (`_review_panel.html.j2`,
+`renderReviewPanel()` in `index.html.j2`) is *designed* to show a guest
+only a bare date — "holdings need a session, so there is no book to
+report" per its own comment — but two independent implementation bugs
+leak signed-in-only controls anyway:
+
+1. **CSS specificity bug.** `dashboard/templates/css/_tables.css.j2:471`
+   sets `.rp-lock { display: inline-flex; ... }`. Author CSS always beats
+   the browser's default `[hidden] { display: none }` UA rule when both
+   apply to the same element — `renderReviewPanel()` correctly sets
+   `lockWrap.hidden` (confirmed live: `hasAttribute('hidden') === true`),
+   but the checkbox renders anyway (confirmed live:
+   `getComputedStyle(...).display === "flex"`). A guest sees a "Lock book
+   until the review" checkbox with genuinely nothing behind it to lock.
+   Fix: add an explicit `.rp-lock[hidden] { display: none; }` override (or
+   equivalent — whatever this codebase's established pattern is for a
+   `display`-bearing class that also needs `hidden` to work; check for
+   precedent elsewhere before inventing a new one).
+2. **JS ordering bug.** `renderReviewPanel()` in `index.html.j2` (around
+   line 1429) sets `doneBtn.hidden = !status.due;` *before* the
+   `if (!book) { ...; return; }` guest-gating check a few lines later. When
+   a review is due (confirmed live, "Review due · Aug 31" today), the
+   `Done ✓` button unhides for everyone, guest included, even though the
+   line immediately below it never assigns it a real purpose for a guest.
+   Fix: move the `doneBtn.hidden` assignment after the guest early-return
+   (or gate it on `!!book` directly), so it only ever unhides once a real
+   book exists to mark as reviewed.
+
+Both are clear-cause, small, verifiable fixes — the panel's *intent*
+(guest sees date-only) is already correct in the code; these are
+implementation slips, not a design question. Should not need its own
+brainstorm.
+
+## Guest sign-in status isn't clearly signaled — needs a design pass
+
+Raised 2026-08-31, alongside the review-panel bugs above (which are one
+symptom of the same underlying gap, not the whole of it). Today's
+signed-in-status affordances: a top banner ("You're viewing data from
+`<date>`. Sign in for the latest data and all features.") and a small
+`#auth-signin` button in the header styled identically to the generic
+`.lang-toggle` buttons next to it (`_chrome.css.j2:48-49` — no distinct
+color, weight, or visual treatment of its own) — confirmed insufficiently
+prominent by a live look at the deployed site.
+
+**Wanted:** a clear, hard-to-miss, page-wide signal of guest vs signed-in
+state — "color coding some element or similar" (Jonas's own framing) —
+not scoped to any one panel. Needs its own brainstorm before
+implementation: real open questions include how prominent/persistent it
+should be (a banner that scrolls away vs. something fixed), whether it
+replaces or supplements the existing top banner and header button, what
+"color coding" concretely means here (a themed border/background on the
+whole page? a persistent badge? something else?), and whether it should
+interact with the review-panel bugs above (e.g. once those are fixed,
+does a guest even need a strong signal on THAT panel specifically, since
+it will already read as clearly non-personalized).
+
+
 ## UCITS monitor: an automated label-disagreement flag
 
 Split off 2026-08-30 from the FX/metric fix (see Done) as the one part of it
