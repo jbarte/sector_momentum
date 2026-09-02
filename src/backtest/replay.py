@@ -175,6 +175,19 @@ _FORWARD_FREQS: dict[str, tuple[str, int]] = {
 }
 
 
+# Deliberately-conservative (i.e. UNDER, never over) calendar-day length per
+# _FORWARD_FREQS base, used only to size how many periods
+# forward_rebalance_dates must generate from FETCH_START to comfortably
+# reach an arbitrary future `since`. Using the true average (30.4 days/month)
+# instead of a shortest-case bound under-generates periods for a `since` far
+# from the epoch: at 23 years out, a 31-vs-30.4-day/period rounding error
+# alone is enough to fall ~6 periods short, which is exactly what the first
+# version of this fix did (caught by test_forward_count_is_respected).
+# Shortest possible period (28-day February, 90-day quarter) guarantees this
+# never happens, at the cost of a handful of extra, cheap date_range rows.
+_FORWARD_BASE_DAYS: dict[str, int] = {"W-FRI": 7, "BME": 28, "BQE": 90}
+
+
 def forward_rebalance_dates(freq: str, since: pd.Timestamp | str,
                              count: int = 6) -> list[pd.Timestamp]:
     """Approximate future review dates: the last weekday of each period from
@@ -185,6 +198,20 @@ def forward_rebalance_dates(freq: str, since: pd.Timestamp | str,
     `since` is INCLUSIVE: if it lands exactly on a period boundary, that date
     is the first result. This is the case that matters most — it is what lets
     a build running ON a review day say so, rather than reporting the next one.
+
+    For a step>1 cadence (2W, 2M) the thinning that picks every Nth period is
+    anchored at a FIXED epoch (`FETCH_START`, the same anchor `rebalance_dates`
+    uses), never at `since`. Anchoring at `since` instead was the shipped
+    behaviour until this comment was added, and it was a real, silent bug for
+    any step>1 cadence: which periods count as "on" flipped depending on
+    which day happened to fall inside the window, so a daily CI rebuild could
+    hand the reader a completely different 2M calendar than yesterday's build
+    -- `since=2026-09-02` gave Aug/Oct/Dec/Feb, `since=2026-09-05` (3 days
+    later) gave Sep/Nov/Jan/Mar, disjoint. Anchoring at FETCH_START instead
+    makes the calendar depend only on the cadence, matching the phase
+    `rebalance_dates` actually measured backtest performance on (verified:
+    both produce 2026 dates Jan 30 / Mar 31 / May 29 / Jul 31 / Sep 30 / Nov 30
+    for 2M) rather than a coincidence of build timing.
     """
     if freq not in _FORWARD_FREQS:
         raise ValueError(
@@ -193,10 +220,14 @@ def forward_rebalance_dates(freq: str, since: pd.Timestamp | str,
         )
     base_freq, step = _FORWARD_FREQS[freq]
     since_ts = pd.Timestamp(since).normalize()
-    # Over-fetch by `step`: date_range's first hit may fall on a boundary that
-    # gets thinned away by [::step], so periods=count alone can under-deliver.
-    raw = pd.date_range(start=since_ts, periods=count * step + step, freq=base_freq)
-    return [pd.Timestamp(d) for d in raw][::step][:count]
+    epoch = pd.Timestamp(FETCH_START)
+    # Enough periods to comfortably span epoch -> since, plus count*step more
+    # so the post-filter, post-thin result never falls short of `count`.
+    span_days = max(0, (since_ts - epoch).days)
+    periods = span_days // _FORWARD_BASE_DAYS[base_freq] + count * step + step
+    raw = pd.date_range(start=epoch, periods=periods, freq=base_freq)
+    thinned = [pd.Timestamp(d) for d in raw][::step]
+    return [d for d in thinned if d >= since_ts][:count]
 
 
 def score_themes_as_of(

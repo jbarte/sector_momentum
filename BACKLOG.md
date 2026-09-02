@@ -624,30 +624,65 @@ should visibly change.
 (0.444444) are unchanged, so the band is identical and `exit_rank` is still 13
 at 18 themes.
 
-Full-history artifact (2008-2026), `long` before -> after:
+Full-history artifact (2008-2026), `long` before -> after (before-figures
+re-read from the pre-change committed artifact, not retyped from memory):
 
 | | CAGR | Sharpe | max DD | trades/yr | median hold |
 |---|---:|---:|---:|---:|---:|
-| M/5/8 (was) | 12.1% | 0.70 | -38.1% | 10.0 | 182d |
+| M/5/8 (was) | 12.1% | 0.70 | -38.1% | 10.5 | 182d |
 | **2M/5/8 (now)** | **15.2%** | **0.78** | **-36.1%** | **6.5** | **303d** |
 
-`medium` is untouched (12.0% CAGR, 20.5 trades/yr, 92d). Separation went from
-1.54x churn / 1.95x hold to **3.15x / 3.29x**, and the review calendars now
-actually diverge: medium monthly, long every other month (verified in the
-built page — long's dates are a strict subset of medium's, so the cadences
-nest rather than drifting past each other).
+`medium` is unchanged mechanism, ~20.5 trades/yr / 92d both before and after
+(small day-to-day drift from fresh price data, not from this change).
+Churn separation goes 1.96x -> **3.15x**, hold separation 1.95x -> **3.29x**,
+and the review calendars now actually diverge: medium monthly, long every
+other month (verified in the built page — long's dates are a strict subset of
+medium's, so the cadences nest rather than drifting past each other).
+
+**The max DD column above is mostly a sampling artifact, not a real risk
+reduction — do not read it as "this preset got safer."** `max_drawdown` runs
+on the rebalance-sampled equity curve, and 2M has half as many sample points
+as M over the same span. Verified directly: sub-sampling `medium`'s own
+UNCHANGED curve to every other point (no strategy change at all) moves ITS
+reported max DD by +1.85pp (-47.58% -> -45.74%) — almost the entire +2.0pp
+`long` shows here. The true peak-to-trough excursion between two 2M sample
+points is real and simply isn't captured at this sampling frequency. CAGR and
+trades/yr are unaffected (they don't depend on path granularity); Sharpe
+plausibly is affected in some direction by the coarser return series but
+wasn't isolated the same way, so treat it as directional evidence, not a
+clean number.
 
 **Why `long` slowed instead of `medium` speeding up.** A sweep of every
 sub-monthly cell — W, 2W, and a purpose-built 3W cadence added for the
 question — over two DISJOINT windows (2019-2021, 2022-) found 96 cells live
 on both and **zero** that beat `medium`'s M/4/5 on both. 3W is not a middle
 ground: it is worse than 2W, not between 2W and M. Faster review is not
-available on this universe at this cost.
+available on this universe at this cost. 3W is NOT in the shipped
+`REBALANCE_FREQS`/`scripts/horizon_sweep.py::CADENCES` — it was added
+temporarily to answer this question and reverted; reproducing that specific
+part of the sweep needs re-adding it the same way (a two-line, two-file
+change, see git history around this commit for the exact diff) rather than
+being rerunnable from `scripts/horizon_sweep.py --start ...` as shipped.
+
+**A real, previously-latent bug shipped alongside this**, found and fixed in
+review before merge: `src/backtest/replay.py::forward_rebalance_dates` (the
+client-facing calendar `review_dates` reads, separate from the backtest's own
+`rebalance_dates`) anchored its every-Nth-period thinning at `since` (the
+build date) rather than a fixed epoch. Harmless for every step=1 cadence ever
+shipped (W, M, Q — `[::1]` is a no-op), but `long`'s new 2M is the first
+step=2 preset, and its phase — which months count as "on" — silently flipped
+depending on which day CI happened to rebuild: `since=2026-09-02` gave the
+reader Aug/Oct/Dec/Feb, `since=2026-09-05` (3 days later) gave Sep/Nov/Jan/Mar,
+a disjoint calendar. Fixed by anchoring at `FETCH_START`, the same epoch
+`rebalance_dates` already uses — now stable across build dates and matches
+the phase the backtest actually measured (verified: both produce 2026-01-30,
+03-31, 05-29, 07-31, 09-30, 11-30 for 2M).
 
 **Known cost, accepted:** `long`'s Sharpe on the 2019-2021 window falls
 1.34 -> 1.07 for flat CAGR there (31.8% -> 31.0%, inside the ~2.2pp noise
 floor) — same return, bumpier ride on that window. The 2022- window and the
-full history both improve on every axis, which is why it ships.
+full history both improve on return, Sharpe and churn; max DD's apparent
+improvement is caveated above.
 
 **Two tests were deliberately overturned**, not deleted:
 `test_presets_share_one_cadence` -> `test_presets_do_not_share_a_cadence`, and
