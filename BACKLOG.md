@@ -101,27 +101,6 @@ sibling gap on the restore drill's cadence, though this doesn't need CI, a
 manual run is fine) for a few cycles, then revisit whether AI & Robotics and
 Defense should move to `partial`.
 
-## Re-sweep TOP_N/BUFFERS under the fractional band scheme
-
-Split off 2026-08-31 from *`long`'s horizon chip now reports live churn,
-not a stale config figure* (see Done) as the one part of that item's
-lineage deliberately NOT done. That fix (and the fractional-band migration
-before it, 2026-08-30) both explicitly left this out of scope — the chip
-now honestly displays whatever `medium`/`long` actually do, but nobody has
-re-run `scripts/horizon_sweep.py`'s grid search to check whether some
-*other* `top_n`/`buffer_frac` combination now performs better under
-`buffer_frac` than the absolute-rank sweep that originally chose `M/4/5`
-and `M/5/8` (2026-08-14) would have found.
-
-Not acted on yet: this is a preset-*selection* decision, not a display
-fix, and changing which presets ship (or their band widths) is a bigger
-blast radius than this backlog item's own scope — it can move
-`medium`/`long`'s advertised identity, and `config/weights.yaml`'s own
-noise-floor note already warns that cells within ~2pp of each other are
-statistically indistinguishable on a single sweep window, so a naive
-argmax re-sweep risks picking noise over signal. Needs its own
-brainstorm before touching the shipped presets.
-
 ## Mobile card's expand-region nests a real button inside role="button"
 
 Code review, 2026-08-24, on the mobile-holdings-toggle fix (see Done). An
@@ -633,6 +612,53 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## `long` moved to a bi-monthly cadence — the presets finally differ (2026-09-02)
+
+Closes *Re-sweep TOP_N/BUFFERS under the fractional band scheme* (split off
+2026-08-31), and fixes the complaint that drove it: `medium` and `long` were
+too similar. Both were monthly, so switching preset changed the hold band but
+handed the reader the **same review date** — the one thing a horizon choice
+should visibly change.
+
+**One field moved:** `long.rebalance` M -> 2M. `top_n` (5) and `buffer_frac`
+(0.444444) are unchanged, so the band is identical and `exit_rank` is still 13
+at 18 themes.
+
+Full-history artifact (2008-2026), `long` before -> after:
+
+| | CAGR | Sharpe | max DD | trades/yr | median hold |
+|---|---:|---:|---:|---:|---:|
+| M/5/8 (was) | 12.1% | 0.70 | -38.1% | 10.0 | 182d |
+| **2M/5/8 (now)** | **15.2%** | **0.78** | **-36.1%** | **6.5** | **303d** |
+
+`medium` is untouched (12.0% CAGR, 20.5 trades/yr, 92d). Separation went from
+1.54x churn / 1.95x hold to **3.15x / 3.29x**, and the review calendars now
+actually diverge: medium monthly, long every other month (verified in the
+built page — long's dates are a strict subset of medium's, so the cadences
+nest rather than drifting past each other).
+
+**Why `long` slowed instead of `medium` speeding up.** A sweep of every
+sub-monthly cell — W, 2W, and a purpose-built 3W cadence added for the
+question — over two DISJOINT windows (2019-2021, 2022-) found 96 cells live
+on both and **zero** that beat `medium`'s M/4/5 on both. 3W is not a middle
+ground: it is worse than 2W, not between 2W and M. Faster review is not
+available on this universe at this cost.
+
+**Known cost, accepted:** `long`'s Sharpe on the 2019-2021 window falls
+1.34 -> 1.07 for flat CAGR there (31.8% -> 31.0%, inside the ~2.2pp noise
+floor) — same return, bumpier ride on that window. The 2022- window and the
+full history both improve on every axis, which is why it ships.
+
+**Two tests were deliberately overturned**, not deleted:
+`test_presets_share_one_cadence` -> `test_presets_do_not_share_a_cadence`, and
+`test_shipped_presets_agree_on_review_dates` ->
+`test_shipped_presets_have_distinct_review_calendars`. The old rule's real
+concern — a faster-cadence preset trading LESS than the slower one — is now
+pinned directly and generically by the new
+`test_the_faster_cadence_preset_is_not_the_lower_churn_one`, which derives
+cadence order from `REBALANCE_FREQS` rather than hardcoding which preset is
+faster.
+
 ## `long`'s horizon chip now reports live churn, not a stale config figure (2026-08-31)
 
 Closes *`long`'s published churn figures understate what the reader will
@@ -697,10 +723,11 @@ rollout — only future universe growth diverges from what absolute ranks would
 have done, which is the whole point: the band no longer needs manual retuning
 every time a theme is added or removed.
 
-**Explicitly out of scope:** a re-sweep of `TOP_N`/`BUFFERS` under the new
-fractional grid and a re-validation of the published cagr/Sharpe/trades-
-per-year figures under it — still genuinely open, tracked separately as
-*Re-sweep TOP_N/BUFFERS under the fractional band scheme* in Queued.
+**Explicitly out of scope at the time:** a re-sweep of `TOP_N`/`BUFFERS`
+under the new fractional grid. Since resolved (2026-09-02, see Done): the
+re-sweep ran over two disjoint windows and every cadence, and moved `long`
+to a bi-monthly cadence — `top_n`/`buffer_frac` were left where this
+migration put them.
 Separately, and already resolved (2026-08-31, see Done): the *display*
 half of the staleness this paragraph originally marked PROVISIONAL —
 `config/weights.yaml` no longer publishes cagr/trades_per_year/

@@ -166,13 +166,20 @@ resolves it fresh at every point of use —
 `top_n + round_half_up(buffer_frac * universe_size)` — and a holding is kept
 while `rank <= exit_rank`.
 
-**Two presets ship, both on a monthly cadence**, differing only in band width:
-`medium` = M/4/5 (band 50% of the universe) and `long` = M/5/8 (72%). A third,
+**Two presets ship, on different cadences**: `medium` = M/4/5 (monthly review,
+band 50% of the universe) and `long` = 2M/5/8 (bi-monthly review, 72%). A third,
 weekly preset was removed 2026-08-14: swept on two independent windows, every
-weekly cell was dominated, and the five best cells overall were monthly or
-bi-weekly with a 50-67% band. Cadence contributes little; band width does the
-work. `tests/test_horizons.py` asserts the presets share one cadence, so
-re-introducing that dimension fails a test rather than going unnoticed.
+weekly cell was dominated.
+
+`long` moved from M to 2M on 2026-09-02 — cadence only, `top_n` and
+`buffer_frac` unchanged. Until then both presets were monthly and produced the
+*same* review date, so switching preset changed the band but never changed when
+the reader was told to look. A sweep of every sub-monthly cell (W, 2W and a
+purpose-built 3W) over two disjoint windows found none that beat `medium`'s
+M/4/5 on both, so differentiation had to come from slowing `long` rather than
+speeding `medium` up. `tests/test_horizons.py` now asserts the presets do NOT
+share a cadence, and separately pins the failure the old one-cadence rule stood
+in for: the faster-cadence preset must not be the lower-churn one.
 
 Note `long` holds *more* names than `medium` (5 vs 4), which is deliberate:
 concentration is a risk choice and holding period is a horizon choice, and the

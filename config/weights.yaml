@@ -91,14 +91,34 @@ costs:
 # stays within top_n + buffer, so a one-rank wobble no longer forces a trade.
 # It is the single biggest churn lever — far more than the cadence.
 #
-# THE TWO PRESETS SHARE A CADENCE. Both rebalance monthly; what separates them
-# is the width of the hold band. That is the whole design, and it is what the
-# 2026-08-14 warm sweep found: cadence barely moves the result, band width does
-# the work, and no weekly cell won anything on either window.
+# THE PRESETS NO LONGER SHARE A CADENCE, as of 2026-09-02. `medium` reviews
+# monthly (M, ~30d), `long` bi-monthly (2M, ~61d). Until then both were
+# monthly and handed the reader the SAME review date, so switching preset
+# changed the band but never changed when you were told to look — which is
+# what made the two feel interchangeable.
+#
+# This reverses the 2026-08-14 "one cadence, two band widths" decision
+# deliberately, on evidence rather than preference. That decision's two
+# stated risks were checked before overturning it:
+#   - "the faster-cadence option can trade less than the slower one" — does
+#     NOT happen here: medium runs 26.2 trades/yr against long's 10.7 on the
+#     2022- window, and 26.1 vs 9.4 on 2019-2021. Ordering holds on both.
+#   - "separate review calendars for the badges to be blind to" — the badges
+#     are not blind to it: `_horizons_json` already exports `review_dates`
+#     per preset and the client reads `currentHorizon().review_dates` with a
+#     per-preset ack key, so divergent calendars were always supported.
+#
+# WHY LONG GOT SLOWER RATHER THAN MEDIUM FASTER. A 2026-09-02 sweep of every
+# sub-monthly cell — W, 2W, and a purpose-built 3W cadence — over two
+# DISJOINT windows (2019-2021, 2022-) found 96 cells live on both and ZERO
+# that beat the shipped `medium` M/4/5 on both. 3W is not a middle ground: it
+# is worse than 2W, not between 2W and M. Faster review is simply not
+# available on this universe at this cost, so differentiation had to come
+# from slowing `long` down.
 #
 # (They also differ slightly in book size — `medium` holds 4, `long` holds 5.
 # That is a consequence of which cells won, not part of the design: don't
-# describe the two as differing ONLY in band width.)
+# describe the two as differing ONLY in band width or ONLY in cadence.)
 #
 # The band as a FRACTION of the universe is what generalises:
 # (top_n + buffer) / n_themes. THE BACKTEST PRICES 18 THEMES (20 are configured;
@@ -226,7 +246,15 @@ horizons:
                              # 2026-08-30 fractional-band migration below.
     long:
       label: Long
-      rebalance: M
+      # 2M (~61d) since 2026-09-02, was M. top_n and buffer_frac are
+      # UNCHANGED — cadence is the only field that moved. Measured on two
+      # disjoint windows: worst-window CAGR 17.2% -> 20.5%, trades/yr
+      # 17.0 -> 10.7, and the review calendar finally differs from
+      # `medium`'s. Cost: Sharpe on the 2019-2021 window falls 1.34 -> 1.07
+      # for flat CAGR there (31.8% -> 31.0%, inside the noise floor below) —
+      # same return, bumpier ride on that window; the 2022- window improves
+      # on both axes. See the cadence note above.
+      rebalance: 2M
       top_n: 5
       buffer_frac: 0.444444  # = 8/18: reproduces exit_rank 13 at today's 18-theme
                              # universe exactly (round(0.444444*18) = 8).
