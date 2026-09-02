@@ -20,29 +20,83 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
-## Guest sign-in status isn't clearly signaled — needs a design pass
+## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
 
-Raised 2026-08-31, alongside the review-panel bugs (now fixed, see Done —
-they were one symptom of the same underlying gap, not the whole of it).
-Today's
-signed-in-status affordances: a top banner ("You're viewing data from
-`<date>`. Sign in for the latest data and all features.") and a small
-`#auth-signin` button in the header styled identically to the generic
-`.lang-toggle` buttons next to it (`_chrome.css.j2:48-49` — no distinct
-color, weight, or visual treatment of its own) — confirmed insufficiently
-prominent by a live look at the deployed site.
+Decided 2026-09-02. **Supersedes "Guest sign-in status isn't clearly
+signaled"** (recorded 2026-08-31), which asked for colour-coding to signal
+guest vs signed-in state. The demo framing answers that question differently
+and better — the label *is* the signal — so that item is absorbed here rather
+than left running alongside.
 
-**Wanted:** a clear, hard-to-miss, page-wide signal of guest vs signed-in
-state — "color coding some element or similar" (Jonas's own framing) —
-not scoped to any one panel. Needs its own brainstorm before
-implementation: real open questions include how prominent/persistent it
-should be (a banner that scrolls away vs. something fixed), whether it
-replaces or supplements the existing top banner and header button, what
-"color coding" concretely means here (a themed border/background on the
-whole page? a persistent badge? something else?), and whether it should
-interact with the review-panel fix (now shipped, see Done — e.g. does a
-guest even need a strong signal on THAT panel specifically, since it now
-already reads as clearly non-personalized).
+**The direction.** The signed-out view is a **demo**: every feature works and
+explores real data, but the data is pinned to a fixed historical scan that
+never advances, and is labelled as demo data. Signing in is what makes it
+live.
+
+**Why this rather than hiding features.** The first framing was "guest should
+only see the gated list, no other features". The intent behind it turned out
+to be demo mode, and the two pull opposite ways — a demo shows the machinery
+and withholds the *value*, not the reverse. For a momentum scanner the value
+is specifically *which themes to buy right now*; that it ranks, how it scores,
+and what the backtest says are the sales pitch and cost nothing to show. Of
+the options weighed (frozen snapshot, locked per-tab previews, masked theme
+identities, and list-only), the frozen snapshot is the only one where guests
+keep the full product **and** nothing current leaks — it resolves the tension
+instead of trading one side against the other.
+
+**Today's design is already a weak demo mode** — full features on 7-day-lagged
+data (`dashboard/gating.py`, `LAG_DAYS = 7`, `apply_leaderboard_lag()`). Two
+problems with the dial where it currently sits:
+
+- **It doesn't read as a demo.** The signal is one banner ("You're viewing
+  data from `<date>`", `index.html.j2:24-30`, i18n key `gate_banner_prefix`)
+  plus a `#auth-signin` button carrying the generic `.lang-toggle` class —
+  `_chrome.css.j2:48-49` adds only `white-space: nowrap`, so it has no
+  distinct colour, weight or treatment of its own (re-verified 2026-09-02).
+  It reads as the real product with an apologetic note attached.
+- **7-day-old momentum rankings are still largely actionable**, and the
+  summary strip's **In the Buy Band** cell names the current top-4 picks
+  outright to anyone who loads the page. That is the sharpest value leak on
+  the site — sharper than any of the analysis tabs.
+
+**Distinction that decides the cost, for whoever specs this:** the existing
+content gate is real for *freshness* — RLS returns 401 to `anon` on every
+table and view (verified live 2026-08-23, see the audit item below). But
+whatever the build bakes is public by construction, so hiding anything from
+guests in CSS/JS would be cosmetic only. A frozen snapshot works precisely
+because it changes *what gets baked*, which is the honest version and also the
+larger change.
+
+**Open questions, all for the spec:**
+
+- **Which scan gets frozen, and who picks it** — a hand-pinned scan id in
+  config, or a rolling "N months back" rule? A hand-pinned one eventually goes
+  stale *as a demo* (its themes drift out of relevance); a rolling one
+  re-introduces a moving window, just a slower one.
+- **How stale is stale enough** to leak nothing while still demonstrating
+  something a reader reads as representative.
+- **What replaces the lag banner** — the demo label's wording, placement, and
+  whether it stays dismissible (today's is).
+- **Does the Sentiment page freeze with it**, and does `build.py`'s existing
+  deliberate cap on `sentiment_signals_df` collapse into the same mechanism.
+- **What happens to the parts that are inherently "now"** — Market Context's
+  SPY/VIX chips and `markLive()` read live regardless of scan, so either they
+  freeze too (and say so) or the page mixes frozen and live data in one view.
+  Decide this alongside *Consider dropping the Market Context chips* below,
+  not separately: if the chips go, most of this question goes with them.
+- **Whether the Backtest / Correlation / RRG tabs freeze at all** — they are
+  historical or universe-wide rather than pick-revealing, so they may not need
+  to move.
+- **Cost side:** CI rebuilds and redeploys daily; a frozen guest build changes
+  what that daily run is *for*, and the signed-in path (`upgradeLeaderboard()`,
+  `renderLatestRows()`, `markLive()` in `auth.js`) becomes the only consumer
+  of fresh data in the published artifact.
+
+**Needs the full brainstorm → spec → plan flow** per CLAUDE.md — the blast
+radius spans `gating.py`, `build.py`, the templates, CI's daily rebuild and
+the sign-in value proposition, and a wrong early call is expensive to unwind.
+The 2026-09-02 discussion got as far as choosing the frozen-snapshot shape;
+the questions above are what it did not settle.
 
 
 ## UCITS monitor: an automated label-disagreement flag
