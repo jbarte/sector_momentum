@@ -166,13 +166,33 @@ resolves it fresh at every point of use —
 `top_n + round_half_up(buffer_frac * universe_size)` — and a holding is kept
 while `rank <= exit_rank`.
 
-**Two presets ship, both on a monthly cadence**, differing only in band width:
-`medium` = M/4/5 (band 50% of the universe) and `long` = M/5/8 (72%). A third,
+**Two presets ship, on different cadences**: `medium` = M/4/5 (monthly review,
+band 50% of the universe) and `long` = 2M/5/8 (bi-monthly review, 72%). A third,
 weekly preset was removed 2026-08-14: swept on two independent windows, every
-weekly cell was dominated, and the five best cells overall were monthly or
-bi-weekly with a 50-67% band. Cadence contributes little; band width does the
-work. `tests/test_horizons.py` asserts the presets share one cadence, so
-re-introducing that dimension fails a test rather than going unnoticed.
+weekly cell was dominated.
+
+`long` moved from M to 2M on 2026-09-02 — cadence only, `top_n` and
+`buffer_frac` unchanged. Until then both presets were monthly and produced the
+*same* review date, so switching preset changed the band but never changed when
+the reader was told to look. A sweep of every sub-monthly cell (W, 2W and a
+3W cadence added temporarily to answer the question, then reverted — it is
+not in the shipped `REBALANCE_FREQS`) over two disjoint windows found none
+that beat `medium`'s M/4/5 on both, so differentiation had to come from
+slowing `long` rather than speeding `medium` up. `tests/test_horizons.py`
+now asserts the presets do NOT share a cadence, and separately pins the
+failure the old one-cadence rule stood in for: the faster-cadence preset
+must not be the lower-churn one.
+
+Shipping a step>1 cadence for the first time (2M) surfaced a real, previously
+latent bug in `forward_rebalance_dates` (the client-facing calendar projector
+`review_dates` uses, distinct from the backtest's own `rebalance_dates`): it
+anchored its every-Nth-period thinning at `since` (the build date) rather than
+a fixed epoch, so the live 2M calendar's phase — which months count as "on" —
+silently flipped depending on which day the daily CI rebuild happened to run,
+and could disagree with the phase the backtest actually measured. Never
+triggered before this change: every previously-shipped preset had step=1
+(W, M, Q), where `[::1]` is a no-op regardless of anchor. Fixed by anchoring
+at `FETCH_START`, the same epoch `rebalance_dates` already uses.
 
 Note `long` holds *more* names than `medium` (5 vs 4), which is deliberate:
 concentration is a risk choice and holding period is a horizon choice, and the

@@ -135,17 +135,65 @@ def test_horizon_has_no_performance_attributes():
         )
 
 
-def test_presets_share_one_cadence():
-    """The two-preset design is 'one cadence, two band widths'.
+def test_presets_do_not_share_a_cadence():
+    """The presets must hand the reader DIFFERENT review dates.
 
-    Adding a preset on a different cadence would reintroduce what the 2026-08-14
-    cut removed: a lineup where the faster-cadence option can trade less than the
-    slower one, and three separate review calendars for the badges to be blind to.
-    Deliberate enough to be worth failing a test over rather than discovering in
-    a sweep months later.
+    Replaces test_presets_share_one_cadence (2026-08-14 - 2026-09-02), which
+    asserted the opposite. Both presets were monthly, so switching preset
+    changed the hold band but never changed when the reader was told to look:
+    the review panel showed one date whichever preset was selected, which is
+    what made the two feel interchangeable. `long` moved to 2M on 2026-09-02
+    to fix exactly that.
+
+    Pinned in the same spirit the old assertion was: collapsing back to one
+    cadence should fail here rather than quietly un-differentiate the lineup
+    months later.
     """
     cadences = {h.rebalance for h in horizons()}
-    assert len(cadences) == 1, f"presets span multiple cadences: {sorted(cadences)}"
+    assert len(cadences) > 1, (
+        f"every preset is on the {cadences.pop()!r} cadence again — switching "
+        f"preset would show the reader the same review date either way, which "
+        f"is the differentiation problem the 2026-09-02 change fixed"
+    )
+
+
+def test_the_faster_cadence_preset_is_not_the_lower_churn_one():
+    """The specific failure the old one-cadence rule existed to prevent.
+
+    Retiring test_presets_share_one_cadence gave up a blunt guarantee, so the
+    real risk it was standing in for is now pinned directly: a lineup where
+    the faster-cadence preset trades LESS than the slower one is incoherent
+    (the labels would promise the reverse of what they deliver). Measured on
+    both sweep windows before the change: medium 26.2 vs long 10.7 trades/yr
+    (2022-) and 26.1 vs 9.4 (2019-2021).
+
+    Reads the live artifact rather than config for the same reason
+    test_presets_are_ordered_by_holding_period does -- config no longer
+    carries these figures.
+    """
+    import json
+    from pathlib import Path
+    from src.backtest.replay import REBALANCE_FREQS
+
+    path = Path(__file__).resolve().parent.parent / "backtests" / "summary.json"
+    if not path.exists():
+        pytest.skip("no backtest artifact committed")
+    tracks = json.loads(path.read_text())["tracks"]
+    by_key = {h.key: h for h in horizons()}
+
+    def period_len(freq: str) -> int:
+        base, step = REBALANCE_FREQS[freq]
+        return {"W": 7, "M": 30, "Q": 91}[base] * step
+
+    ranked = sorted(by_key.values(), key=lambda h: period_len(h.rebalance))
+    for faster, slower in zip(ranked, ranked[1:]):
+        f = tracks[faster.key]["metrics"]["trades_per_year"]
+        s = tracks[slower.key]["metrics"]["trades_per_year"]
+        assert f > s, (
+            f"{faster.key} reviews more often than {slower.key} "
+            f"({faster.rebalance} vs {slower.rebalance}) but trades LESS "
+            f"({f} vs {s}/yr) -- the labels promise the reverse"
+        )
 
 
 def test_default_is_one_of_the_presets():
@@ -342,12 +390,34 @@ def test_review_dates_count_defaults_to_six():
     assert len(review_dates(h, since="2026-01-15")) == 6
 
 
-def test_shipped_presets_agree_on_review_dates():
-    """Both shipped presets share one cadence (test_presets_share_one_cadence)
-    — their calendars must therefore be identical, not just same-shaped."""
+def test_shipped_presets_have_distinct_review_calendars():
+    """The presets must not hand the reader the same dates.
+
+    Replaces test_shipped_presets_agree_on_review_dates (which asserted the
+    calendars were IDENTICAL, correct while both presets were monthly). Since
+    2026-09-02 `medium` is M and `long` is 2M, so the calendars must actually
+    diverge — that divergence is the whole point of the change, and an
+    accidental collapse back to one cadence would otherwise only show up as a
+    reader noticing the two presets feel the same again.
+    """
     by_key = {h.key: h for h in horizons()}
-    assert (review_dates(by_key["medium"], since="2026-01-15")
-            == review_dates(by_key["long"], since="2026-01-15"))
+    med = review_dates(by_key["medium"], since="2026-01-15")
+    lng = review_dates(by_key["long"], since="2026-01-15")
+    assert med != lng, (
+        f"medium and long produce identical review calendars ({med}) — "
+        f"switching preset would not change when the reader is told to look"
+    )
+    # 2M is every other M date, so the cadences NEST: within a shared span,
+    # every long review day is also a medium review day. Compared over
+    # medium's span rather than the raw lists -- review_dates returns a fixed
+    # COUNT, so long's six bi-monthly dates reach further out than medium's
+    # six monthly ones and a naive subset check fails on span, not nesting.
+    overlap = [d for d in lng if d <= med[-1]]
+    assert overlap, "long has no review date inside medium's span to compare"
+    assert set(overlap) <= set(med), (
+        f"long's calendar does not nest inside medium's — a long review can "
+        f"land on a day medium skips: medium={med} long_in_span={overlap}"
+    )
 
 
 def test_review_dates_absorbs_a_days_worth_of_client_clock_skew():

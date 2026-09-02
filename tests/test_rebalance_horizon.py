@@ -83,9 +83,19 @@ def test_forward_since_inclusive_when_it_lands_on_a_boundary():
 
 
 def test_forward_doubled_cadence_is_every_second_period_end():
-    monthly = replay.forward_rebalance_dates("M", "2026-08-15", count=8)
+    """2M's dates must be a subsequence of M's -- every 2M date is also an M
+    date, just not every other one counting from `since` (see
+    test_forward_2m_phase_matches_the_backtested_calendar and
+    test_forward_dates_are_stable_across_build_dates for why the phase is
+    anchored at FETCH_START, not at `since`)."""
+    monthly = {d for d in replay.forward_rebalance_dates("M", "2026-08-15", count=12)}
     doubled = replay.forward_rebalance_dates("2M", "2026-08-15", count=4)
-    assert doubled == monthly[::2][:4]
+    assert set(doubled) <= monthly, (
+        f"2M dates {[d.date().isoformat() for d in doubled]} are not all "
+        f"M dates {sorted(d.date().isoformat() for d in monthly)}"
+    )
+    gaps = [(doubled[i + 1] - doubled[i]).days for i in range(len(doubled) - 1)]
+    assert all(55 <= g <= 65 for g in gaps), f"2M gaps should be ~2 months: {gaps}"
 
 
 def test_forward_count_is_respected():
@@ -293,3 +303,45 @@ def test_cagr_scales_with_periods_per_year():
     fast = metrics.cagr(eq, periods_per_year=2)
     assert fast > slow
     assert (1 + slow) ** 2 == pytest.approx(1 + fast, rel=1e-9)
+
+
+def test_forward_dates_are_stable_across_build_dates():
+    """The step>1 cadences (2W, 2M) must not re-anchor their phase to `since`
+    (the CI build date) -- otherwise which weeks/months count as 'on' flips
+    depending on which day the dashboard happens to be rebuilt, and CI
+    rebuilds daily. Found live: since=2026-09-02 gave 2M dates
+    Aug/Oct/Dec/Feb; since=2026-09-05 (3 days later, same month) gave
+    Sep/Nov/Jan/Mar -- a completely disjoint calendar from a 3-day build-time
+    difference.
+
+    Two `since` values inside the same period must agree on every date at or
+    after the later one.
+    """
+    for freq in ("2W", "2M"):
+        a = replay.forward_rebalance_dates(freq, "2026-09-02", count=6)
+        b = replay.forward_rebalance_dates(freq, "2026-09-05", count=6)
+        b_from_a = [d for d in a if d >= pd.Timestamp("2026-09-05")]
+        assert b[:len(b_from_a)] == b_from_a, (
+            f"{freq}: since=2026-09-02 gives {[d.date().isoformat() for d in a]}, "
+            f"since=2026-09-05 gives {[d.date().isoformat() for d in b]} -- "
+            f"these must agree on shared dates, not diverge to a different phase"
+        )
+
+
+def test_forward_2m_phase_matches_the_backtested_calendar():
+    """The live review calendar's phase (which months are 'on') must match
+    what `rebalance_dates` actually measured performance on -- otherwise the
+    numbers on the page describe a calendar the reader is never shown.
+
+    `rebalance_dates` anchors its 2-period thinning at the start of the
+    fetched price index (FETCH_START), grouped from real trading days.
+    forward_rebalance_dates has no price index, so it must anchor at the
+    same FETCH_START epoch to land on the same phase.
+    """
+    idx = pd.bdate_range(replay.FETCH_START, "2027-01-01")
+    backtested = replay.rebalance_dates(idx, "2M", since="2026-01-01")
+    live = replay.forward_rebalance_dates("2M", "2026-01-01", count=6)
+    assert [d.date() for d in live] == [d.date() for d in backtested[:6]], (
+        f"live phase {[d.date().isoformat() for d in live]} != "
+        f"backtested phase {[d.date().isoformat() for d in backtested[:6]]}"
+    )
