@@ -1426,7 +1426,10 @@ function renderReviewPanel() {
   var book = window.SM_BOOK_STATE;
   panel.hidden = false;
   actions.innerHTML = '';
-  doneBtn.hidden = !status.due;
+  // Default hidden -- unhidden below only once a real book exists to mark
+  // reviewed. Both early returns below (stale calendar, guest) leave it at
+  // this default rather than whatever a previous render left it as.
+  doneBtn.hidden = true;
 
   // review_dates bakes only 6 dates from build time. CI rebuilds daily so this
   // should never fire in production -- but a dashboard left unbuilt for six
@@ -1448,6 +1451,8 @@ function renderReviewPanel() {
     countEl.textContent = '';
     return;
   }
+
+  doneBtn.hidden = !status.due;
 
   if (!status.due) {
     headline.textContent = t('rp_next_review', 'Next review') + ' · ' + sd(status.nextDate);
