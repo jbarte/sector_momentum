@@ -42,7 +42,6 @@ import os
 from datetime import date, timedelta
 
 import pandas as pd
-import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -503,9 +502,3 @@ def align_cohort_asof(
         })
 
     return out, as_of
-
-
-def load_universe(config_path: str = "config/universe.yaml") -> dict:
-    """Load universe.yaml and return the parsed dict."""
-    with open(config_path, "r") as fh:
-        return yaml.safe_load(fh)

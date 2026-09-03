@@ -15,7 +15,6 @@ Quadrant interpretation:
 """
 
 import pandas as pd
-import numpy as np
 
 
 def compute_rs(sector_close: pd.Series, benchmark_close: pd.Series) -> pd.Series:
@@ -27,26 +26,6 @@ def compute_rs(sector_close: pd.Series, benchmark_close: pd.Series) -> pd.Series
     sector_aligned = sector_close.loc[common_index]
     bench_aligned = benchmark_close.loc[common_index]
     return sector_aligned / bench_aligned
-
-
-def compute_rs_slope(rs: pd.Series, window: int = 10) -> pd.Series:
-    """
-    Rolling linear-regression slope of the RS series over `window` periods.
-    Use numpy polyfit on rolling windows. Returns a Series (same index as rs,
-    NaN for the first window-1 periods).
-    """
-    slopes = np.full(len(rs), np.nan)
-    rs_values = rs.values
-    x = np.arange(window)
-
-    for i in range(window - 1, len(rs_values)):
-        y = rs_values[i - window + 1 : i + 1]
-        if np.any(np.isnan(y)):
-            continue
-        slope, _ = np.polyfit(x, y, 1)
-        slopes[i] = slope
-
-    return pd.Series(slopes, index=rs.index)
 
 
 def compute_rrg(

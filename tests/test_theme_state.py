@@ -54,14 +54,6 @@ def test_theme_scan_history_reads_shared_table(monkeypatch):
     assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
 
 
-def test_theme_rrg_history_reads_shared_table(monkeypatch):
-    seen = _capture(monkeypatch)
-    state.get_theme_rrg_history(_FakeConn(), n_scans=6)
-    assert "from theme_signals" not in seen["q"], "still reading the legacy table"
-    assert "from signals" in seen["q"]
-    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
-
-
 def test_theme_history_selects_the_contracted_columns(monkeypatch):
     """The dashboard indexes this frame by name, so the SELECT list is the API.
 
@@ -73,17 +65,6 @@ def test_theme_history_selects_the_contracted_columns(monkeypatch):
     for col in ("scan_id", "run_at", "region", "gics_sector", "level_score",
                 "change_score", "data_score", "sentiment_score", "composite", "rank"):
         assert col in seen["q"], f"{col} missing from the theme history SELECT"
-
-
-def test_theme_signals_reads_shared_table_and_keeps_theme_column(monkeypatch):
-    """dashboard/rows.py filters this frame with signals_df["theme"] — the
-    column name is a contract, and the shared table calls it gics_sector."""
-    seen = _capture(monkeypatch)
-    state.get_theme_signals_for_latest_scan(_FakeConn())
-    assert "from theme_signals" not in seen["q"], "still reading the legacy table"
-    assert "from signals" in seen["q"]
-    assert "as theme" in seen["q"], "gics_sector must be aliased back to theme"
-    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
 
 
 def test_dead_theme_scores_reader_is_gone():
@@ -101,7 +82,7 @@ def test_theme_signals_query_is_deterministically_ordered(monkeypatch):
     byte-for-byte equivalence check against that baseline). The fix belongs in
     the shared helper, not a per-reader special case."""
     seen = _capture(monkeypatch)
-    state.get_theme_signals_for_latest_scan(_FakeConn())
+    state.get_signals_for_latest_scan(_FakeConn())
     assert "order by t.region, t.gics_sector, t.signal_name" in seen["q"]
 
 
@@ -140,18 +121,6 @@ def test_rrg_history_without_end_scan_id_is_unchanged(monkeypatch):
     assert "scan_id <= %s" not in seen["q"]
     assert "order by scan_id desc limit %s" in seen["q"]
     assert seen["p"][0] == 6
-
-
-def test_theme_rrg_history_forwards_end_scan_id(monkeypatch):
-    """The THEME-cohort wrapper must pass end_scan_id through, or the fix
-    above is unreachable from the one call site that actually needs it
-    (dashboard/build.py uses get_rrg_history directly today, but the wrapper
-    exists for exactly this shape of call and must not silently drop the
-    argument)."""
-    seen = _capture(monkeypatch)
-    state.get_theme_rrg_history(_FakeConn(), n_scans=6, end_scan_id=163)
-    assert 163 in seen["p"]
-    assert ["THEME"] in list(seen["p"]), "not filtered to the THEME cohort"
 
 
 def test_recent_scan_filter_end_scan_id_param_order():

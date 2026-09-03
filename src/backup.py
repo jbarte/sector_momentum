@@ -177,11 +177,6 @@ def load_tables(conn, tables: dict[str, pd.DataFrame], *, force: bool = False) -
     return counts
 
 
-def backup_database(conn, backup_dir: str | Path = "backups") -> Path:
-    """Dump the DB and write a CSV backup. Returns the backup directory."""
-    return write_backup(dump_tables(conn), backup_dir)
-
-
 def restore_database(conn, backup_dir: str | Path = "backups", *, force: bool = False) -> dict[str, int]:
     """Load a CSV backup into the DB. Returns per-table inserted counts."""
     return load_tables(conn, read_backup(backup_dir), force=force)

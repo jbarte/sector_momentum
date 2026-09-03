@@ -43,14 +43,12 @@ dashboard/assets/supabase.min.js
 backups/
 .superpowers/
 
-# Research/report script output (scripts/walkforward_weights.py,
-# scripts/regime_research.py, scripts/horizon_sweep.py, scripts/ucits_tracking_monitor.py)
+# Research/report script output (scripts/horizon_sweep.py,
+# scripts/ucits_tracking_monitor.py)
 # -- this is a public repo; research findings live in the private notes repo instead.
 # horizon_sweep.md was a pre-existing gap here (found 2026-08-30 while fixing
 # this for ucits_tracking.md) -- never bitten because it has always been run
 # with an explicit --out pointed elsewhere in practice, not because the default
 # was safe.
-/walkforward_weights.md
-/regime_research.md
 /horizon_sweep.md
 /ucits_tracking.md

@@ -630,6 +630,63 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## Dead-code sweep — 7 orphans removed, most from the sector retirement (2026-09-03)
+
+Follow-on from removing `save_theme_scan` (below): an AST sweep of all 289
+top-level definitions in production Python for functions with zero non-test
+references. Everything found is deleted here, and the sweep now comes back
+clean.
+
+**Orphaned by `1ff80d8`** (retire sector cohort, 2026-08-05) — the same commit
+that stranded `save_theme_scan`. It deleted the driver
+`scripts/walkforward_weights.py` but left its libraries behind:
+
+- `src/backtest/walkforward.py` (136 lines) + `tests/test_walkforward.py`
+  (13 tests) — reachable only from its own tests; `src/backtest/__init__.py`
+  is empty and `backtest.py` imports just `replay`/`engine`/`results`.
+- `src/backtest/regime.py` (50 lines) + `tests/test_regime.py` (7 tests) —
+  same situation, from the regime-conditional-weighting spike.
+
+Both were **research** code, not accidents: the walk-forward question was
+answered and recorded as PARK ("walk-forward selection never beats fixed
+0.50/0.50", 2026-07-26), with findings written up in the notes repo. The
+conclusion survives there; only the implementation is gone, and git has it if
+the question ever reopens.
+
+**Redundant THEME wrappers**, left over from cohort unification once
+`DEFAULT_REGIONS = (THEME_REGION,)` made the general readers theme-scoped:
+
+- `get_theme_signals_for_latest_scan` — `build.py` uses the general
+  `get_signals_for_latest_scan`.
+- `get_theme_rrg_history` — `build.py` calls `get_rrg_history()` directly.
+
+Their sibling `get_theme_scan_history` is **live** (`src/alerts.py:211`) and
+untouched.
+
+**Small leftovers:**
+
+- `backup_database()` — the legacy local-CSV backup *writer*, superseded by
+  `backup_to_storage`. Had zero tests as well as zero callers. Its sibling
+  `restore_database()` is still used by `restore.py` and stays.
+- `load_universe()` (`src/data/prices.py`) — both real callers
+  (`scan.py`, `dashboard/build.py`) open `universe.yaml` themselves.
+- `compute_rs_slope()` — the pipeline only uses `latest_rrg`; not dispatched
+  by name anywhere either.
+
+**Coverage kept rather than dropped.** Two tests were rerouted instead of
+deleted, since they cover shared machinery rather than the removed functions:
+the `_latest_scan_query` ORDER BY regression (earned by a real production
+ordering bug, 2026-08-02) now runs against `get_signals_for_latest_scan`, and
+`test_theme_readers_exclude_sector_rows` keeps its region-filter assertions via
+the surviving `get_theme_scan_history`.
+
+Also removed the imports the deletions orphaned (`yaml` in `prices.py`, `numpy`
+in `relative_strength.py` — `compute_rs_slope` was its only user) and the
+`.gitignore` rules for research output whose generator scripts no longer exist.
+
+Net: 1367 → 1343 tests (24 removed, exactly the count of the deleted tests),
+19 skipped unchanged.
+
 ## `save_theme_scan` removed — orphaned since the sector cohort was retired (2026-09-02)
 
 Dead code, found incidentally while fixing a stale docstring on it (see the
