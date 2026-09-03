@@ -452,38 +452,6 @@ def get_sentiment_signals_for_scan(
     )
 
 
-def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
-    """Theme signal rows for the most recent scan. Empty DataFrame if none.
-
-    Reads the shared `signals` table filtered to the THEME cohort. The
-    gics_sector column is aliased back to `theme` because dashboard/rows.py
-    filters this frame with signals_df["theme"].
-    """
-    return _latest_scan_query(
-        conn, "signals",
-        "t.gics_sector AS theme, t.signal_name, t.raw_value, t.z_value",
-        regions=(THEME_REGION,),
-    )
-
-
-def get_theme_rrg_history(
-    conn: psycopg2.extensions.connection,
-    n_scans: int = 6,
-    end_scan_id: int | None = None,
-) -> pd.DataFrame:
-    """rs_ratio and rs_momentum for themes over the last n_scans, for RRG tail traces.
-
-    Reads the shared `signals` table filtered to the THEME cohort. Columns:
-    scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum — identical to
-    get_rrg_history, which is what _build_rrg_figure expects.
-
-    `end_scan_id` — see get_rrg_history.
-    """
-    return get_rrg_history(
-        conn, n_scans=n_scans, regions=(THEME_REGION,), end_scan_id=end_scan_id
-    )
-
-
 def get_theme_scan_history(
     conn: psycopg2.extensions.connection,
     n_scans: int | None = None,

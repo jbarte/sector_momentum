@@ -518,8 +518,7 @@ def test_readers_exclude_retired_sector_rows(db_conn):
 def test_theme_readers_exclude_sector_rows(db_conn):
     """Theme readers now read tables holding sector rows — a missing region
     filter would put sectors on the themes page."""
-    from src.state import (get_theme_scan_history, get_theme_signals_for_latest_scan,
-                           THEME_REGION)
+    from src.state import get_theme_scan_history, THEME_REGION
 
     with db_conn:
         with db_conn.cursor() as cur:
@@ -537,22 +536,10 @@ def test_theme_readers_exclude_sector_rows(db_conn):
                     (scan_id, THEME_REGION, "Space", 1.0, 0.5, 0.8, None, 0.9, 1.0),
                 ],
             )
-            cur.executemany(
-                "INSERT INTO signals (scan_id, region, gics_sector, signal_name, "
-                "raw_value, z_value) VALUES (%s, %s, %s, %s, %s, %s)",
-                [
-                    (scan_id, "US", "Technology", "rs_ratio", 101.0, 1.0),
-                    (scan_id, THEME_REGION, "Space", "rs_ratio", 102.0, 1.5),
-                ],
-            )
 
     hist = get_theme_scan_history(db_conn, n_scans=None)
     assert set(hist["region"]) == {THEME_REGION}
     assert set(hist["gics_sector"]) == {"Space"}
-
-    sigs = get_theme_signals_for_latest_scan(db_conn)
-    assert "theme" in sigs.columns, "the theme column contract was broken"
-    assert set(sigs["theme"]) == {"Space"}
 
 
 @skipif_no_db

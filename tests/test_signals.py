@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.signals.relative_strength import compute_rs, compute_rs_slope, compute_rrg, latest_rrg
+from src.signals.relative_strength import compute_rs, compute_rrg, latest_rrg
 from src.signals.momentum import compute_returns, compute_acceleration
 from src.signals.technical import compute_ma_structure, compute_obv
 
@@ -40,21 +40,6 @@ def test_compute_rs_returns_series():
     rs = compute_rs(sector, bench)
     assert isinstance(rs, pd.Series)
     assert len(rs) == len(sector.index.intersection(bench.index))
-
-
-def test_compute_rs_slope_shape():
-    """Shape matches input; first window-1 values are NaN."""
-    sector = make_prices(300, seed=3)
-    bench = make_prices(300, seed=4)
-    rs = compute_rs(sector, bench)
-    window = 10
-    slope = compute_rs_slope(rs, window=window)
-    assert isinstance(slope, pd.Series)
-    assert len(slope) == len(rs)
-    # First window-1 entries should all be NaN
-    assert slope.iloc[: window - 1].isna().all()
-    # At least some non-NaN values after the warm-up
-    assert slope.iloc[window - 1 :].notna().any()
 
 
 def test_compute_rrg_columns():
