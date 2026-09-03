@@ -453,31 +453,26 @@ def test_get_alert_prefs_query_filters_enabled(monkeypatch):
 
 @skipif_no_db
 def test_same_day_rerun_leaves_one_set_of_theme_rows(db_conn):
-    """Re-scanning the same date must replace, not duplicate, dual-written themes."""
+    """Re-scanning the same date must replace, not duplicate, the theme rows."""
     from datetime import datetime
-    from src.state import save_scan, save_theme_scan, THEME_REGION
+    from src.state import save_scan, THEME_REGION
 
-    signals_df, scores_df = _make_scan_data()
-    theme_scores = pd.DataFrame([
-        {"region": THEME_REGION, "gics_sector": "Space", "level_score": 1.0,
-         "change_score": 0.5, "data_score": 0.8, "sentiment_score": None,
-         "composite": 0.8, "rank": 1.0},
-    ])
-    theme_signals = pd.DataFrame([
-        {"region": THEME_REGION, "gics_sector": "Space", "signal_name": "rs_ratio",
-         "raw_value": 101.2, "z_value": 1.3},
-    ])
+    # "Space" is carried as an ordinary member rather than written by a
+    # separate call: save_scan is the only persist path since the sector
+    # cohort was retired (2026-08-05). Keep the list at three — the helper's
+    # score columns come from 3-element literals, so a longer one goes ragged.
+    signals_df, scores_df = _make_scan_data(
+        ["Technology", "Financials", "Space"]
+    )
 
     run_at = datetime(2026, 8, 1, 9, 0, 0)
     for _ in range(2):
-        scan_id = save_scan(db_conn, run_at, signals_df, scores_df)
-        save_theme_scan(db_conn, scan_id, theme_scores, theme_signals)
+        save_scan(db_conn, run_at, signals_df, scores_df)
 
     rows = get_scan_history(db_conn, n_scans=None, regions=(THEME_REGION,))
-    # save_scan writes _make_scan_data's members and save_theme_scan adds
-    # "Space", so one clean set is len(scores_df) + 1. The point of the test is
-    # that a same-day re-run REPLACES: two passes must not double any of them.
-    assert len(rows) == len(scores_df) + 1, \
+    # The point of the test is that a same-day re-run REPLACES: two passes
+    # must not double any of them.
+    assert len(rows) == len(scores_df), \
         f"expected one set of rows after re-run, got {len(rows)}"
     assert (rows["gics_sector"] == "Space").sum() == 1, "theme row duplicated"
     assert not rows["gics_sector"].duplicated().any(), "rows duplicated on re-run"

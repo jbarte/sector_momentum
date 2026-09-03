@@ -452,68 +452,6 @@ def get_sentiment_signals_for_scan(
     )
 
 
-def save_theme_scan(
-    conn: psycopg2.extensions.connection,
-    scan_id: int,
-    scores_df: pd.DataFrame,
-    signals_df: pd.DataFrame,
-    sentiment_signals_df: pd.DataFrame | None = None,
-) -> None:
-    """Insert the THEME cohort's scores/signals into the shared cohort tables
-    for an existing scan_id.
-
-    scores_df columns: region, gics_sector, level_score, change_score, data_score,
-    sentiment_score, composite, rank (region is "THEME"; gics_sector is the theme
-    name). signals_df columns: region, gics_sector, signal_name, raw_value, z_value.
-    sentiment_signals_df (optional) columns: theme, signal_name, value, text_value
-    — the info-only derived FinBERT sentiment signals for the theme cohort.
-    """
-    score_cols = ["level_score", "change_score", "data_score",
-                  "sentiment_score", "composite", "rank"]
-    with conn:
-        with conn.cursor() as cur:
-            if not scores_df.empty:
-                cur.executemany(
-                    "INSERT INTO scores "
-                    "(scan_id, region, gics_sector, level_score, change_score, "
-                    "data_score, sentiment_score, composite, rank) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    _rows_from_df(
-                        scores_df.assign(region=THEME_REGION), scan_id,
-                        key_cols=["region", "gics_sector"],
-                        float_cols=score_cols,
-                    ),
-                )
-            if not signals_df.empty:
-                cur.executemany(
-                    "INSERT INTO signals "
-                    "(scan_id, region, gics_sector, signal_name, raw_value, z_value) "
-                    "VALUES (%s, %s, %s, %s, %s, %s)",
-                    _rows_from_df(
-                        signals_df.assign(region=THEME_REGION), scan_id,
-                        key_cols=["region", "gics_sector", "signal_name"],
-                        float_cols=["raw_value", "z_value"],
-                    ),
-                )
-            if sentiment_signals_df is not None and not sentiment_signals_df.empty:
-                # sentiment_signals_df is keyed by `theme`, not region/gics_sector.
-                shared_sent = sentiment_signals_df.assign(
-                    region=THEME_REGION
-                ).rename(columns={"theme": "gics_sector"})
-                cur.executemany(
-                    "INSERT INTO sentiment_signals "
-                    "(scan_id, region, gics_sector, signal_name, value, text_value) "
-                    "VALUES (%s, %s, %s, %s, %s, %s)",
-                    _rows_from_df(
-                        shared_sent, scan_id,
-                        key_cols=["region", "gics_sector", "signal_name"],
-                        float_cols=["value"],
-                        raw_cols=["text_value"],
-                    ),
-                )
-    logger.info("Saved %d theme scores for scan_id=%d", len(scores_df), scan_id)
-
-
 def get_theme_signals_for_latest_scan(conn: psycopg2.extensions.connection) -> pd.DataFrame:
     """Theme signal rows for the most recent scan. Empty DataFrame if none.
 
