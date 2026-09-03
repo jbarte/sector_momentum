@@ -604,7 +604,8 @@ contamination worse, not better. Key findings kept for the record:
   `fetch_sp500_constituents()`), aggregation weighting, and the Trends
   day-cache (since shipped, 2026-07-07).
 
-Phase 1 design + plan: `design/{specs,plans}/2026-06-26-symbol-trends-*`.
+Phase 1 design + plan: `{specs,plans}/2026-06-26-symbol-trends-*` in the
+private `sector_momentum-notes` repo.
 
 ## Streamlit live drill-down
 
