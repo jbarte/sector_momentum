@@ -23,7 +23,6 @@ Treat naming, formatting, and style preferences as Nit at most.
 - `docs/index.html` and anything under `docs/assets/` — generated build output
   from `dashboard/build.py`, not hand-edited source. Review the template
   (`dashboard/templates/index.html.j2`) and `dashboard/build.py` instead.
-- `design/` — design specs and implementation plans, not code.
 - Plotly JSON blobs embedded in the dashboard.
 - Pre-existing issues unrelated to the PR's diff.
 
@@ -32,9 +31,12 @@ Treat naming, formatting, and style preferences as Nit at most.
 - **No secrets in tracked files.** `.env` is gitignored and holds `DATABASE_URL`
   and `SUPABASE_SERVICE_KEY`; they must never appear in committed code, logs, or
   workflow files.
-- **Scan resilience.** External fetches (yfinance/stooq prices, Google Trends)
-  must fail soft — a fetch error (e.g. Trends 429) should fall back to neutral
-  values and let the scan complete, not abort the run.
+- **Scan resilience.** External fetches (yfinance prices, GDELT headlines for
+  FinBERT sentiment) must fail soft — a fetch error should fall back to neutral
+  values and let the scan complete, not abort the run. A soft failure must also
+  stay *visible* in the health metrics: one that rendered identically to a
+  deliberate skip went unnoticed for 10 scans (see the FinBERT `except` branch
+  in `scan.py`).
 - **Canonical composite stays pure-data.** The stored `composite`/`rank` are
   data-only; sentiment is stored but blended into rankings only client-side in
   the dashboard. Flag any change that folds sentiment into the server-side

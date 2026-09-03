@@ -466,7 +466,7 @@ def save_theme_scan(
     sentiment_score, composite, rank (region is "THEME"; gics_sector is the theme
     name). signals_df columns: region, gics_sector, signal_name, raw_value, z_value.
     sentiment_signals_df (optional) columns: theme, signal_name, value, text_value
-    — the info-only derived Trends signals for the theme cohort.
+    — the info-only derived FinBERT sentiment signals for the theme cohort.
     """
     score_cols = ["level_score", "change_score", "data_score",
                   "sentiment_score", "composite", "rank"]
