@@ -630,6 +630,39 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+## `save_theme_scan` removed — orphaned since the sector cohort was retired (2026-09-02)
+
+Dead code, found incidentally while fixing a stale docstring on it (see the
+stale-reference entry below). No production caller since `1ff80d8` ("retire
+sector cohort from scan, backtest, reports and config", 2026-08-05), which
+deleted both the import and the call from `scan.py`.
+
+**Why it existed and why it stopped mattering.** It was the theme half of the
+two-cohort era: sectors persisted through `save_scan()`, themes through
+`save_theme_scan()`. Cohort unification (PRs 1-5, 2026-08-01→04) made the
+shared `scores`/`signals`/`sentiment_signals` tables the single source of
+truth, with this function dual-writing `region='THEME'`. Retiring the sector
+cohort then left themes as the only cohort, so `scan.py` called `save_scan()`
+directly and this path was simply left behind.
+
+**It was not a pure duplicate** — it stamped `region=THEME_REGION` (where
+`save_scan()` requires `region` to already be a column) and renamed sentiment's
+`theme` → `gics_sector`. Both were reimplemented inline at the call site
+(`scan.py:238-242`) rather than reused, so the logic lived in two places and
+only the `scan.py` copy ever ran. That copy is covered by
+`tests/test_theme_sentiment.py`, so deleting this lost no live-behaviour
+coverage.
+
+**Tests:** removed the six `save_theme_scan` tests and their three exclusive
+helpers from `tests/test_theme_state.py` (its ~13 reader tests and the
+`_FakeConn`/`_FakeCursor` harness they share are untouched). Rerouted
+`test_same_day_rerun_leaves_one_set_of_theme_rows` in `tests/test_state_smoke.py`
+onto `save_scan`, preserving its replace-don't-duplicate coverage on the path
+that actually ships.
+
+`scripts/theme_tables_drop.sql`'s mention is left alone — it is a historical
+account of how rows reached the shared tables, and still true.
+
 ## Review panel no longer leaks guest-inappropriate controls (2026-09-02)
 
 Fixes both bugs found 2026-08-31 and verified live as a signed-out guest. The
