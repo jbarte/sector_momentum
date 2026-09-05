@@ -33,18 +33,22 @@
 
   /* Summary strip (Stage 4): one stacked block on a phone, not three columns
      — three cells at 375px give each ~125px, narrower than a single band
-     pill. Cell C (id renamed cell-market-context -> cell-track-record by the
-     2026-09-05 track-record chip) stays hidden here for the same space
-     reason, not the original SPY/VIX-duplication one: it no longer shows
-     what .mobile-scan-meta (Stage 3) already carries at this width, but a
-     third ~125px-wide cell still doesn't fit next to the other two. */
+     pill.
+
+     Cell C is VISIBLE here as of 2026-09-05. It was hidden under the SPY/VIX
+     chips because .mobile-scan-meta (Stage 3) already printed the same
+     SPY/VIX numbers a few hundred pixels above — a duplication argument. The
+     track-record chips have no such echo anywhere on a phone, so hiding them
+     removes the feature outright rather than de-duplicating it. The "a third
+     ~125px cell doesn't fit" reason this comment used to give was never true
+     at this breakpoint: `grid-template-columns: 1fr` immediately below
+     stacks the cells, so width was never the constraint. */
   .summary-strip {
     grid-template-columns: 1fr;
     background: var(--surface);
   }
   .strip-cell { background: var(--surface); padding: 14px 16px; }
   #cell-todays-read { padding-left: 16px; padding-right: 16px; }
-  #cell-track-record { display: none; }
   /* Same reason Cell C is hidden: .mobile-scan-meta already prints the scan
      id and date a couple of hundred pixels above this, and the strip's own
      subline repeats them verbatim. Found at the 375px browser gate.
@@ -285,6 +289,13 @@
   .more-filters summary,
   .segment-btn,
   .lag-banner-btn,
+  /* The track-record guide trigger. It inherited its 44px from
+     `.context-chips { min-height: 44px }` while it lived in the header;
+     that rule went with the SPY/VIX chips, leaving an ~15px-tall 11px
+     button as the ONLY route to the guide on touch — title tooltips do not
+     exist there. Only cell C's eyebrow is a <button>; cells A and B use
+     <p>, so this cannot inflate them. */
+  button.strip-eyebrow,
   .footer-link { min-height: 44px; }
 
   /* Footer anchors are plain links, not .footer-link buttons. */

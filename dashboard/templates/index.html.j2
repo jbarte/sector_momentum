@@ -93,20 +93,39 @@
       host div to exist even on a build with no backtest artifact. -#}
   {% if has_backtest or auth %}
   <div class="strip-cell" id="cell-track-record">
+    {#- Gated with the chips below, not just with the outer cell: on an
+        auth-configured build with no backtest artifact the cell exists only
+        to host markLive()'s Live chip, and a "what this compares" trigger
+        with nothing beside it explains nothing. (The SPY/VIX version left
+        its eyebrow rendering in that case; this is the fix, not parity.) -#}
+    {% if has_backtest %}
     <button type="button" class="strip-eyebrow tab-guide-btn"
             data-guide="guide_body_track_record"
             aria-label="Performance vs benchmark — what this compares"
             data-i18n-aria="track_record_aria">
+      {#- No .cc-info glyph span here: .tab-guide-btn::before (_guides.css.j2)
+          already supplies the ⓘ, and .tab-guide-btn:hover colours it. The
+          SPY/VIX button this replaced carried both and rendered the glyph
+          TWICE ("ⓘ Market context ⓘ") -- a pre-existing bug inherited when
+          this cell was built, caught 2026-09-05 by looking at the rendered
+          page rather than the markup. -#}
       <span class="cc-label" data-i18n="strip_eyebrow_vs_bench">vs ACWI</span>
-      <span class="cc-info" aria-hidden="true">&#9432;</span>
     </button>
+    {% endif %}
     {#- Same id the SPY/VIX chips used, so markLive() is untouched. Values
         are filled by renderHorizonStats() -- they differ per horizon, the
         same reason hz-held/hz-trades server-render an em dash. -#}
     <div class="market-chips" id="market-context-chips">
+      {#- Inner guard, mirroring the `{% if macro %}` the SPY/VIX chips had:
+          the host div must exist for markLive() on an auth-configured build,
+          but with no backtest artifact there is nothing to put in it, and
+          "1M — 12M —" beside a "what this compares" button explains nothing.
+          The div renders empty in that case, exactly as it used to. -#}
+      {% if has_backtest %}
       <span class="chip" id="tr-m1-chip"><span data-i18n="track_record_1m">1M</span> <b id="tr-m1">—</b></span>
       <span class="chip" id="tr-m12-chip"><span data-i18n="track_record_12m">12M</span> <b id="tr-m12">—</b></span>
       <span class="chip-word" id="tr-stale" hidden></span>
+      {% endif %}
     </div>
   </div>
   {% endif %}

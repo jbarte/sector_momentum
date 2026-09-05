@@ -172,13 +172,31 @@ def test_eyebrow_labels_exist_for_all_three_cells():
         assert f'data-i18n="{key}"' in INDEX
 
 
-def test_mobile_hides_what_the_scan_meta_row_already_says():
-    """At 375px .mobile-scan-meta (Stage 3) already prints the scan id, date,
-    SPY and VIX. Cell C and the strip's subline repeat exactly that, within a
-    couple of hundred pixels of it — so both are hidden at this width rather
-    than printing the same facts twice on one screen. Found at the browser
-    gate; caught nowhere else, since both are correct in isolation."""
+def test_mobile_hides_the_subline_that_the_scan_meta_row_repeats():
+    """At 375px .mobile-scan-meta (Stage 3) already prints the scan id and
+    date; the strip's subline repeats exactly that within a couple of hundred
+    pixels of it, so it is hidden at this width rather than printing the same
+    facts twice on one screen. Found at the browser gate; caught nowhere
+    else, since it is correct in isolation."""
     css = (ROOT / "dashboard/templates/css/_responsive.css.j2").read_text()
     mobile = css[css.index("@media (max-width: 600px)"):]
-    assert re.search(r"#cell-track-record\s*\{\s*display:\s*none", mobile)
     assert re.search(r"\.strip-subline\s*\{\s*display:\s*none", mobile)
+
+
+def test_mobile_does_not_hide_the_track_record_cell():
+    """Cell C used to be hidden here, and the reason was DE-DUPLICATION: the
+    SPY/VIX chips it carried were already printed by .mobile-scan-meta a few
+    hundred pixels above. The track-record chips that replaced them have no
+    such echo anywhere on a phone, so the same rule would remove the feature
+    outright instead of de-duplicating it — including its staleness warning.
+
+    (The comment that survived the swap justified the hide as "a third ~125px
+    cell doesn't fit". That was never true at this breakpoint: the rule right
+    below sets grid-template-columns: 1fr, which stacks the cells, so width
+    was never the constraint. Restored 2026-09-05.)"""
+    css = (ROOT / "dashboard/templates/css/_responsive.css.j2").read_text()
+    mobile = css[css.index("@media (max-width: 600px)"):]
+    assert not re.search(r"#cell-track-record\s*\{\s*display:\s*none", mobile), (
+        "Cell C is hidden on mobile again -- that removes the feature on "
+        "phones rather than de-duplicating it; see this test's docstring"
+    )

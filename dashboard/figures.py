@@ -614,10 +614,19 @@ def _window_excess(equity_curve: list[dict], days: int) -> tuple[float, str] | N
     """Excess return (strategy - benchmark) in percentage points over the
     trailing `days`, with the actual from-date it was measured from.
 
-    Anchored by DATE, never by list index: engine.py appends one calendar
-    date past the final rebalance, so the curve's last point is a stub a day
-    after the last real rebalance. Indexing back one point would measure a
-    single day and render labelled as a month.
+    Anchored by DATE, never by list index, because the gap between the last
+    two points is NOT the cadence. engine.py appends one calendar date past
+    the final rebalance (`eq_dates.append(later[0])`), and metrics.
+    equity_curve prepends the initial 1.0, so that extra date carries a real
+    equity value rather than a placeholder -- the curve simply ends with a
+    point one *day* after the previous one. On the live artifact that final
+    step is 2026-08-31 -> 2026-09-01. Indexing back one point would measure
+    that single day and render it labelled "1M".
+
+    (An earlier version of this docstring called the last point a "stub with
+    no data". That was wrong about the mechanism -- corrected 2026-09-05 --
+    though the date-anchoring it justified is still required, for the reason
+    above.)
 
     Returns None when the curve does not reach back far enough -- a short
     track shows no figure rather than one measured from its own first point.
@@ -633,8 +642,16 @@ def _window_excess(equity_curve: list[dict], days: int) -> tuple[float, str] | N
         return None
 
     target = end - _timedelta(days=days)
-    prior = [p for p in equity_curve
-             if _date.fromisoformat(p["date"]) <= target]
+    # Parse defensively: one malformed point must not abort the whole
+    # dashboard build. A point we cannot date simply cannot anchor a window,
+    # so it is skipped and the figure degrades to an em dash.
+    prior = []
+    for p in equity_curve:
+        try:
+            if _date.fromisoformat(p["date"]) <= target:
+                prior.append(p)
+        except (KeyError, TypeError, ValueError):
+            continue
     if not prior:
         return None
     start = prior[-1]
