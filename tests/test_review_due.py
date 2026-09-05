@@ -159,8 +159,12 @@ def test_review_panel_markup_has_all_regions_and_starts_hidden():
     assert "hidden" in btn_tag, "#review-done-btn must start hidden"
 
 
-@pytest.mark.parametrize("key", ["review_due", "review_done", "review_next_label"])
+@pytest.mark.parametrize("key", ["review_done", "rp_review_due", "rp_next_review"])
 def test_swedish_has_the_new_review_strings(key):
+    """review_due/review_next_label were dropped 2026-09-03: the review panel
+    was rebuilt around the rp_* keys and those two carried no data-i18n any
+    more, so this test was pinning strings nothing rendered. Assert the keys
+    the panel actually reads."""
     sv = _CORE_JS.read_text()
     assert f"{key}:" in sv, f"{key} carries data-i18n but has no Swedish entry"
 
