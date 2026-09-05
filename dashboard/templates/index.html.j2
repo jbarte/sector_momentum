@@ -261,7 +261,7 @@
     {#- Visible text rather than aria-label on a bare glyph: an aria-label would
         override the visible name for AT, and a control that silently re-ranks
         the board should say so on its face. -#}
-    {#- Sentiment is alpha, so the control that blends it into the ranking is not
+    {#- Sentiment is experimental, so the control that blends it into the ranking is not
         rendered at all (build.SENTIMENT_RANKING_ENABLED). Not merely hidden: the
         wiring below early-returns when the control is absent, which is what
         stops a reader who once enabled it from having it silently re-applied
@@ -307,7 +307,7 @@
         <tr>
           {#- "Data" was dropped 2026-08-12 (with sentiment weighted 0 by default
               the composite IS the data score); "Sentiment" was dropped 2026-08-19
-              with the 6-column restructure — sentiment is alpha and excluded from
+              with the 6-column restructure — sentiment is experimental and excluded from
               the ranking, so the column was "—" in every row. Level and Change
               merged into one stacked-bar cell in the same change. -#}
           <th scope="col" onclick="sortTable(0)" data-col="0" tabindex="0" data-i18n="col_rank">#</th>
@@ -375,7 +375,7 @@
      Tab: RRG
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel" role="tabpanel">
-  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
+  <p class="tab-note" data-i18n="note_sentiment">Sentiment is shown for research only &mdash; it is excluded from the composite score and the ranking.</p>
   <div class="utility-row">
     <button type="button" class="tab-guide-btn" data-guide="guide_body_rrg" data-i18n="guide_summary">How to read this tab</button>
   </div>
@@ -404,7 +404,7 @@
      Tab: Movers
      ============================================================ -->
 <section id="tab-movers" class="tab-panel" role="tabpanel">
-  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
+  <p class="tab-note" data-i18n="note_sentiment">Sentiment is shown for research only &mdash; it is excluded from the composite score and the ranking.</p>
   <div class="utility-row">
     <button type="button" class="tab-guide-btn" data-guide="guide_body_movers" data-i18n="guide_summary">How to read this tab</button>
   </div>
@@ -415,7 +415,7 @@
      Tab: History
      ============================================================ -->
 <section id="tab-history" class="tab-panel" role="tabpanel">
-  <p class="tab-note" data-i18n="note_sentiment">Sentiment weighting affects the leaderboard ranking only.</p>
+  <p class="tab-note" data-i18n="note_sentiment">Sentiment is shown for research only &mdash; it is excluded from the composite score and the ranking.</p>
   <div class="utility-row">
     <button type="button" class="tab-guide-btn" data-guide="guide_body_history" data-i18n="guide_summary">How to read this tab</button>
   </div>
@@ -447,7 +447,7 @@
      Tab: Backtest
      ============================================================ -->
 <section id="tab-backtest" class="tab-panel" role="tabpanel">
-  <p class="tab-note" data-i18n-html="note_backtest">Equal-weight, long-only, <strong>net of {{ round_trip_bps | round | int }} bps round-trip trading costs</strong>. Price-based signals only (breadth &amp; sentiment excluded). Each horizon is a rebalance cadence plus a hysteresis band: a holding is kept while its rank stays within top-N + buffer, so a one-rank wobble is not a trade.</p>
+  <p class="tab-note" data-i18n-html="note_backtest">Equal-weight, long-only, <strong>net of {{ round_trip_bps | round | int }} bps round-trip trading costs</strong> (bps = basis points; 100 bps = 1%). Price-based signals only (breadth &amp; sentiment excluded). Each horizon is a rebalance cadence plus a hysteresis band: a holding is kept while its rank stays within top-N + buffer, so a one-rank wobble is not a trade.</p>
   <p class="tab-note" data-i18n-html="note_backtest_caveat"><strong>These are precomputed operating points from one sweep over one market history (2008–2026), not a live optimiser.</strong> The universe is replayed as it stands today, so themes that launched later are simply absent from the early years. Read the trades/year column next to the return, not instead of it.</p>
   {% if has_backtest %}
   <div class="table-wrap">
@@ -2372,6 +2372,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
                European (UCITS) fund that corresponds to the US ETF being scored.</p>
           </div>
     <div class="tab-guide-body" data-guide-body="guide_body_rrg" hidden data-i18n-html="guide_body_rrg">
+            <p><strong>RRG</strong> stands for <strong>Relative Rotation Graph</strong> &mdash; a standard way of showing how a set of holdings is rotating around its benchmark over time.</p>
             <p>Themes are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
             <h3>Four quadrants</h3>
             <ul>
@@ -2434,9 +2435,16 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             <li><strong>Strategy CAGR</strong> &mdash; the annual growth rate the rules
                 produced. Compare it to <strong>Bench CAGR</strong> beside it; beating the
                 benchmark is the whole point.</li>
-            <li><strong>Sharpe</strong> &mdash; return earned per unit of bumpiness.
-                Higher is better. It is the fairest single column for comparing rows,
-                because it does not reward taking wild risks.</li>
+            <li><strong>Sharpe (rf=0)</strong> &mdash; return earned per unit of
+                bumpiness. Higher is better. It is the fairest single column for
+                comparing rows, because it does not reward taking wild risks.
+                <em>rf=0</em> means the risk-free rate is treated as zero: no
+                allowance is made for what cash would have earned over the same
+                period, so every figure here is higher than a cash-adjusted
+                Sharpe would be. Note it does <strong>not</strong> inflate every
+                row by the same amount &mdash; the overstatement is larger for
+                steadier rows &mdash; so it flatters a low-churn preset more
+                than a busy one.</li>
             <li><strong>Max DD</strong> &mdash; the worst peak-to-trough fall along the
                 way. A number like &minus;38% means that at some point this strategy was
                 down 38% from its high. Ask yourself honestly whether you would have kept

@@ -136,8 +136,11 @@ not been validated, so `SENTIMENT_RANKING_ENABLED` in `dashboard/build.py` is
 `False`, which means: the "Ranking" cogwheel that blended sentiment into the
 composite client-side is **not rendered** (absent, not hidden — the wiring
 early-returns on a missing control, so a stale `localStorage` preference cannot
-silently re-apply the blend), the leaderboard's Sentiment column is hidden by
-CSS, and the page carries an `alpha` badge. The stored composite was never
+silently re-apply the blend), the leaderboard's Sentiment column was removed
+outright by the 2026-08-19 6-column restructure (not merely hidden by CSS),
+and the page carries an `experimental` badge (labelled `alpha` until
+2026-09-05 -- renamed because in a momentum dashboard "alpha" also means
+excess return). The stored composite was never
 affected either way. Restoring it is one flag, but blocked on validating the
 pipeline — see BACKLOG.
 
@@ -332,7 +335,7 @@ Split into focused modules: `rows.py` (leaderboard rows + badges),
 
 - **`docs/index.html`** — Leaderboard, RRG, Drill-down, Movers, History,
   Backtest, Correlation. EN/SV toggle.
-- **`docs/sentiment.html`** — FinBERT news sentiment (info-only, **alpha**).
+- **`docs/sentiment.html`** — FinBERT news sentiment (info-only, **experimental**).
 - **`docs/reports/report_<scan_id>.md`** — per-scan Markdown snapshots.
 
 ### Modals
