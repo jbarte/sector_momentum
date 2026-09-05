@@ -28,6 +28,16 @@ Object.assign(SV, {
   hz_hold: "medianinnehav",
   hz_trades: "affärer/år",
   review_done: "Klar ✓",
+  {#- The leaderboard's Trend column (.traj-word) never had an i18n path at
+      all -- data-i18n was added 2026-09-05. Reusing the Badge scorecard's
+      words for the identical five trajectory states (badge_rising_fast etc,
+      _badges.js.j2) rather than inventing new Swedish: same concept, already
+      shipped, keeps the two surfaces consistent. #}
+  trend_word_strong_up: "Stiger snabbt",
+  trend_word_up: "Stiger",
+  trend_word_flat: "Flat",
+  trend_word_down: "Faller",
+  trend_word_strong_down: "Faller snabbt",
   rp_next_review: "Nästa granskning",
   rp_review_due: "Granskning väntar",
   rp_no_action: "Ingen åtgärd förrän dess.",

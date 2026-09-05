@@ -65,6 +65,17 @@ _DYNAMIC_ATTRS = {
     # setAttribute() forms carrying a variable rather than a literal.
     "BADGE_I18N[kind]": {"badge_entry", "badge_hold", "badge_exit"},
     "key": {"position_held_tip", "position_mark_held_tip"},
+    # Trend column word (.traj-word): baked via Jinja in the initial render,
+    # built as a JS string in rescore.js's trajBadgeInner() for the two
+    # client-side repaint paths. Both key off the same trajectory_state.
+    "trend_word_{{ row.trajectory_state }}": {
+        "trend_word_strong_up", "trend_word_up", "trend_word_flat",
+        "trend_word_down", "trend_word_strong_down",
+    },
+    "trend_word_' + state + '": {
+        "trend_word_strong_up", "trend_word_up", "trend_word_flat",
+        "trend_word_down", "trend_word_strong_down",
+    },
 }
 
 # Keys the page requests that do not resolve today. Frozen so the gap cannot
