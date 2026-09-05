@@ -323,7 +323,7 @@
             -#}{% if row.ticker %}<span class="theme-ticker">{{ row.ticker }}</span>{% endif %}{#-
             -#}{% if row.unbuyable %}<span class="unbuyable-badge" data-i18n="badge_unbuyable" data-i18n-title="unbuyable_tip" title="No UCITS equivalent exists, so this cannot be bought from an EU account. It is still scored because it shapes how every other theme ranks.">⊘ not buyable in EU</span>{% endif %}{#-
             -#}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}{#-
-            -#}<span class="traj-badge traj-{{ row.trajectory_state }}" data-i18n-title="trend_tip" title="Rank slope over last 3–5 scans"><span class="traj-glyph">{{ row.trajectory_label }}</span> <span class="traj-word">{{ row.trajectory_word }}</span></span>{#-
+            -#}<span class="traj-badge traj-{{ row.trajectory_state }}" data-i18n-title="trend_tip" title="Rank slope over last 3–5 scans"><span class="traj-glyph">{{ row.trajectory_label }}</span> <span class="traj-word" data-i18n="trend_word_{{ row.trajectory_state }}">{{ row.trajectory_word }}</span></span>{#-
           -#}</td>
           <td class="composite-cell">{{ row.composite_bar | safe }}</td>
           <td data-sort-value="{{ row._raw_level if row._raw_level is not none else '' }}">{{ row.level_change_bars | safe }}</td>
@@ -2126,7 +2126,7 @@ document.getElementById('leaderboard-cards')?.addEventListener('keydown', functi
         // textContent replaces both children with one bare glyph, destroying
         // the word and the tooltip. See BACKLOG.md, "Rescore path flattens
         // the Trend badge to a bare glyph".
-        traj.innerHTML = Rescore.trajBadgeInner(r.trajectory_label, r.trajectory_word);
+        traj.innerHTML = Rescore.trajBadgeInner(r.trajectory_label, r.trajectory_word, r.trajectory_state);
       }
       // The Trend filter (_matchesTrend) reads data-trend, not the badge's own
       // class — found in code review of the fix above: the badge repaint had

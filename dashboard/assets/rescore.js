@@ -493,15 +493,20 @@
   // <span class="traj-badge"> for a caller building the element from
   // scratch and possibly with no trajectory at all (auth.js's
   // renderLatestRows, where a row can have no trend to show).
-  function trajBadgeInner(label, word) {
-    return '<span class="traj-glyph">' + label + '</span> <span class="traj-word">'
+  // data-i18n so applyLang() translates the word after this HTML is
+  // inserted -- both call sites (updateRows() in index.html.j2, renderLatestRows()
+  // in auth.js) already trigger a full applyLang() pass right after rebuilding
+  // rows, same pattern as UNBUYABLE_BADGE / setup-badge.
+  function trajBadgeInner(label, word, state) {
+    return '<span class="traj-glyph">' + label + '</span> <span class="traj-word"'
+      + (state ? ' data-i18n="trend_word_' + state + '"' : '') + '>'
       + (word || "") + '</span>';
   }
 
   function trajBadgeHTML(state, label, word) {
     if (!state) { return ""; }
     return '<span class="traj-badge traj-' + state + '" data-i18n-title="trend_tip" '
-      + 'title="Rank slope over last 3–5 scans">' + trajBadgeInner(label, word) + '</span>';
+      + 'title="Rank slope over last 3–5 scans">' + trajBadgeInner(label, word, state) + '</span>';
   }
 
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,

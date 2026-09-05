@@ -23,33 +23,21 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ## Untranslated dashboard strings — Swedish readers see English
 
 Found 2026-09-03 during the dashboard JS/i18n sweep, **verified live** against
-the built page (`lang=sv`, then reading the DOM).
+the built page (`lang=sv`, then reading the DOM). The trend-words gap this
+item originally led with is fixed — see Done, "Leaderboard trend words now
+translate". What remains:
 
-**1. Trend words never translate.** `TRAJECTORY_WORDS` in
-`dashboard/assets/rescore.js:44` is a hardcoded English map —
-`surging / rising / flat / falling / sliding` — read by `trajectoryLabel()`
-and handed to `trajBadgeHTML()` as the `word` argument. Nothing in that path
-consults the i18n dictionaries. The server-side half matches:
-`row.trajectory_word` is baked by `_compute_rank_trajectories` in `build.py`
-and rendered raw at `index.html.j2:326`. So **both** the baked rows and the
-signed-in `renderLatestRows()` rows are English-only. Confirmed live: the
-`.traj-word` element reads `flat` with the page in Swedish.
-
-Note this is *not* the same thing as the `badge_rising`/`badge_flat`/… keys —
-those are live, and translate the **Badge scorecard** table, which is a
-different surface. Swedish exists there and works; it is the leaderboard's
-trend column that has no i18n path at all. Their vocabulary is also not
-interchangeable: the scorecard says *Stiger/Faller* against the trend column's
-*rising/falling*, and there is no existing Swedish for `surging` or `sliding`.
-
-**2. Four Backtest columns have no Swedish entry.** `bt_horizon`, `bt_policy`,
+**1. Four Backtest columns have no Swedish entry.** `bt_horizon`, `bt_policy`,
 `bt_trades`, `bt_hold` carry `data-i18n` on the table header
 (`index.html.j2:437`) but appear in no SV dictionary, so they render English.
 Frozen in `tests/test_i18n_coverage.py`'s `_KNOWN_BROKEN` so the gap cannot
 grow — remove them from that set as they are translated, which the test also
-enforces.
+enforces. (`hz_trades`/`hz_hold` already carry Swedish for the identical
+concepts elsewhere in the leaderboard — "affärer/år" / "medianinnehav" — worth
+checking whether `bt_trades`/`bt_hold` should just reuse those words before
+picking new ones.)
 
-**3. `note_sentiment` is requested from the wrong dictionary.** It is defined
+**2. `note_sentiment` is requested from the wrong dictionary.** It is defined
 in `SV_HTML` (`i18n/_sentiment.js.j2:14`) — correctly, since it carries markup
 — but `index.html.j2:360,389,400` requests it as plain `data-i18n`, which
 `_i18n.html.j2` resolves from `SV`. So the RRG / Movers / History tab notes
@@ -60,26 +48,14 @@ weighting affects the leaderboard ranking only.") and the Swedish one (the
 alpha notice) say different things, so someone has to decide which is
 intended before choosing between `data-i18n-html` and an `SV` entry.
 
-**4. `lastScan`** is injected at runtime by `scan-history.js:217` with
+**3. `lastScan`** is injected at runtime by `scan-history.js:217` with
 `data-i18n="lastScan"` and has no SV entry either, so the scan-history banner's
-label stays English. Caught by the guard once it was widened to scan
-`dashboard/*.py` and `dashboard/assets/*.js` rather than templates alone —
-`data-i18n` is emitted from all three.
+label stays English.
 
-**Why none of this was fixed in the sweep that found it:** these are behaviour
-changes to user-visible strings in a language the sweep could not proofread,
-and the words need *choosing*, not just translating — `surging` and `sliding`
-have no prior Swedish. That is a native speaker's call, not a cleanup.
-
-**Shape of the fix for (1).** The trajectory state
-(`strong_up`/`up`/`flat`/`down`/`strong_down`) is already on the badge as a
-`traj-<state>` class and is the natural key, so this wants i18n keys per state
-rather than a second hardcoded map. Both producers must be covered — the
-client-side `TRAJECTORY_WORDS` path *and* the server-baked `trajectory_word` —
-or the two halves disagree the moment a signed-in reader's rows re-render.
-Worth deciding at the same time whether `.traj-word` should carry a
-`data-i18n` attribute so `applyLang()` handles it on switch, instead of the
-word being baked once at render time.
+**Why none of this was fixed alongside the trend words:** `note_sentiment` is
+a copy decision (which sentence is actually intended), not a translation, and
+the `bt_*`/`lastScan` gap is small enough it seemed better bundled with
+whichever of these gets picked up next rather than done as a one-off.
 
 ## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
 
@@ -690,6 +666,55 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Leaderboard trend words now translate (2026-09-05)
+
+Fixes the first of the four gaps in "Untranslated dashboard strings" (see
+Queued, trimmed to the remaining three). The leaderboard's Trend column
+(`.traj-word` — surging/rising/flat/falling/sliding) had **no i18n path at
+all** on any of its three render sites: the baked initial HTML
+(`index.html.j2:326`, sourced from `TRAJECTORY_WORDS` in `dashboard/rows.py`),
+the client-side rescore repaint (`index.html.j2`'s `updateRows()`), and the
+signed-in upgrade (`auth.js`'s `renderLatestRows()`) — both of the latter via
+the identical `TRAJECTORY_WORDS` map in `rescore.js`. All three read a
+hardcoded English word and wrote it as plain text with nothing to translate.
+
+**The fix reuses the page's existing mechanism rather than adding one.**
+Tracing all three call sites showed each already triggers a full
+`window.applyLang()` pass immediately after building the word into the DOM —
+`updateRows()` ends by calling `applyHorizonBadges()`, which calls
+`applyLang()` at its own tail; `upgradeLeaderboard()` calls `applyLang()`
+directly after `renderLatestRows()`. So the fix is three `data-i18n` additions
+and nothing else: the baked span, `trajBadgeInner()` (given a new optional
+`state` parameter, defaulting to no attribute so its other 2-argument caller
+in `test_dashboard_js.py` is byte-for-byte unchanged — verified directly under
+Node), and `trajBadgeHTML()` forwarding the `state` it already received.
+Confirmed live: `data-i18n="trend_word_strong_up"` etc. now renders correctly
+translated in both English and Swedish, immediately, with no new call to wire
+up.
+
+**Word choice: reused the Badge scorecard's existing vocabulary rather than
+inventing new Swedish.** `badge_rising_fast`/`badge_rising`/`badge_flat`/
+`badge_falling`/`badge_falling_fast` already translate the identical five
+trajectory states for a different surface (the Badge scorecard's historical
+performance table) — "Stiger snabbt" / "Stiger" / "Flat" / "Faller" /
+"Faller snabbt". The new `trend_word_*` keys reuse those exact words rather
+than choosing separate ones for `surging`/`sliding`, keeping the two surfaces
+consistent instead of saying the same thing two different ways.
+
+**Guard extended**, not bypassed: `tests/test_i18n_coverage.py`'s
+`_DYNAMIC_ATTRS` now covers both new dynamic forms (the Jinja
+`trend_word_{{ row.trajectory_state }}` and the JS-string
+`trend_word_' + state + '`), each mapped to the five keys. Verified by
+deliberately deleting one of the five keys and confirming the suite goes red,
+same discipline as every fix to this file so far.
+
+**Verification:** `pytest` — 1346 passed, 19 skipped, unchanged from before
+this fix (no new test functions, only new `_DYNAMIC_ATTRS`/dictionary
+entries). All 156 `test_dashboard_js.py` tests pass unmodified. Confirmed
+directly under Node that `trajBadgeInner`/`trajBadgeHTML` produce the new
+attribute only when a state is passed, and produce byte-identical output to
+before when it is not.
 
 ## Dead i18n keys removed — 14 orphaned Swedish strings, plus a guard (2026-09-03)
 
