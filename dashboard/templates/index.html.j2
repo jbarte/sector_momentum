@@ -1412,14 +1412,38 @@ function renderHorizonStats(key) {
   // Staleness is surfaced, never hidden: a silently absent element reads as
   // "deliberately off", which is how a FinBERT outage passed unnoticed for
   // 10 scans. Shows the as-of date inline once the artifact is old.
+  // data-i18n/data-en are (re)set on every render rather than left to
+  // _i18n.html.j2's data-en first-sight capture: this function runs BEFORE
+  // that capture, so the first capture would otherwise grab "as of <date>"
+  // whole as the English base, and a later language toggle would restore
+  // that frozen date instead of retranslating "as of"/"per" against the
+  // CURRENT date. Same base+data-suffix split applyHorizonBadges() uses for
+  // its own dynamic suffix, and the same contract _i18n.html.j2's
+  // translate() comment documents: the caller must still set data-i18n for
+  // a later toggle to find the element.
   var staleEl = document.getElementById('tr-stale');
   if (staleEl) {
     staleEl.hidden = !h.track_stale;
-    staleEl.textContent = h.track_stale && h.track_as_of
-      ? (window.translate ? window.translate('track_record_as_of', 'as of') : 'as of')
-        + ' ' + h.track_as_of
-      : '';
+    staleEl.setAttribute('data-i18n', 'track_record_as_of');
+    staleEl.setAttribute('data-en', 'as of');
+    if (h.track_stale && h.track_as_of) {
+      staleEl.setAttribute('data-suffix', ' ' + h.track_as_of);
+      staleEl.textContent = (window.translate ? window.translate('track_record_as_of', 'as of') : 'as of')
+        + ' ' + h.track_as_of;
+    } else {
+      staleEl.removeAttribute('data-suffix');
+      staleEl.textContent = '';
+    }
   }
+  // The guide dialog always names the as-of date and both windows' actual
+  // from-dates -- curve points land on rebalance boundaries, so "1M"/"12M"
+  // are the nearest rebalance AT OR BEFORE the target, not exactly 30/365
+  // days (long rebalances bi-monthly, so its "1M" can run well past 30
+  // days). Plain text, not i18n-managed: these are dates, not translated
+  // words -- the surrounding paragraph's own labels carry the translation.
+  set('guide-tr-as-of', h.track_as_of || '—');
+  set('guide-tr-m1-from', h.m1_from || '—');
+  set('guide-tr-m12-from', h.m12_from || '—');
 }
 
 // The review panel. Reads SM_BOOK_STATE (written by applyHorizonBadges) and

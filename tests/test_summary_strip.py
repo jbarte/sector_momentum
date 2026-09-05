@@ -127,6 +127,32 @@ def test_track_record_cell_has_an_outer_guard():
     )
 
 
+def test_vs_acwi_label_matches_the_configured_benchmark():
+    """index.html.j2's Cell C eyebrow hardcodes "vs ACWI" (EN) / "mot ACWI"
+    (SV) as the track-record chips' label, while dashboard/figures.py's
+    `_window_excess` computes the excess return generically against whatever
+    `track["benchmark"]` the equity curve carries -- correct today only
+    because config/themes.yaml's `benchmark:` happens to be ACWI. Nothing
+    else pins that agreement, so a future change to the config would
+    silently make the label lie about what the chips actually measure.
+    Pinned here rather than threaded through the template: `benchmark` is a
+    single global config value (themes.yaml's own comment), so a config
+    change is the only way this could ever drift, and this test forces
+    whoever makes that change to also update the hardcoded label (both
+    languages) in the same commit."""
+    import yaml
+    themes_cfg = yaml.safe_load((ROOT / "config/themes.yaml").read_text())
+    benchmark = (themes_cfg or {}).get("benchmark") or "ACWI"
+    assert benchmark == "ACWI", (
+        f"config/themes.yaml's benchmark is now {benchmark!r}, but "
+        f"index.html.j2's Cell C eyebrow and dashboard/templates/i18n/"
+        f"_core.js.j2's Swedish translation still hardcode 'vs ACWI' / "
+        f"'mot ACWI' -- update strip_eyebrow_vs_bench in both places"
+    )
+    assert "vs ACWI" in INDEX, "the hardcoded EN label this test pins is gone"
+    assert 'mot ACWI' in SV, "the hardcoded SV label this test pins is gone"
+
+
 def test_mark_live_targets_the_new_cell():
     """Left pointing at #context-chips, markLive() silently takes its
     .meta-cluster fallback and the Live chip lands back in the header."""

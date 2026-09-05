@@ -85,7 +85,6 @@ def test_auth_ctx_never_contains_secrets(monkeypatch):
 _AUTH = {"url": "https://abc.supabase.co", "key": "sb_publishable_test123"}
 _HEADER_CTX = {
     "active_segment": "sectors",
-    "macro": None,
     "active_scan_id": 7,
     "scan_date": "2026-07-18",
 }
