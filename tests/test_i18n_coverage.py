@@ -13,7 +13,8 @@ page renders English:
 1. **Which dictionary.** `_i18n.html.j2` resolves `data-i18n`, `-aria` and
    `-title` from `SV`, but `data-i18n-html` from `SV_HTML`. Merging them hides
    a key defined only in `SV_HTML` yet requested as plain `data-i18n`
-   (`note_sentiment` does exactly this today).
+   (`note_sentiment` did exactly this until it was given its own `SV` entry,
+   separate from `_sentiment.js.j2`'s `SV_HTML` one, 2026-09-05).
 2. **Every emitter.** `data-i18n` is written by templates, by
    `dashboard/*.py` (`breakdown.py`) and by `dashboard/assets/*.js`. Scanning
    templates alone silently ignored `ucits_title`, `unbuyable_note`,
@@ -80,18 +81,10 @@ _DYNAMIC_ATTRS = {
 
 # Keys the page requests that do not resolve today. Frozen so the gap cannot
 # grow silently; a separate test fails if one starts resolving and is not
-# removed from here. A snapshot of known bugs, not an accepted state -- see the
-# Queued backlog item on untranslated dashboard strings.
-_KNOWN_BROKEN = {
-    # No Swedish entry anywhere (Backtest table header).
-    "bt_horizon", "bt_policy", "bt_trades", "bt_hold",
-    # Defined in SV_HTML but requested via plain data-i18n at
-    # index.html.j2:360,389,400, so SV is consulted and Swedish never renders.
-    # The two strings say different things, so fixing it is a copy decision.
-    "note_sentiment",
-    # Injected at runtime by scan-history.js; no SV entry anywhere.
-    "lastScan",
-}
+# removed from here. A snapshot of known bugs, not an accepted state -- see
+# BACKLOG.md's Done entries on untranslated dashboard strings for what has
+# lived here before and why.
+_KNOWN_BROKEN: set[str] = set()
 
 
 def _dictionaries() -> dict[str, set[str]]:

@@ -3,11 +3,17 @@
    angle brackets). note_backtest / note_backtest_caveat moved for that reason
    on 2026-08-09 — the caveat had been showing literal <strong> in Swedish. #}
 Object.assign(SV, {
+  bt_horizon: "Horisont",
+  bt_policy: "Regel",
   bt_window: "Period",
   bt_stratcagr: "Strategi CAGR",
   bt_benchcagr: "Index CAGR",
   bt_sharpe: "Sharpe (rf=0)",
-  bt_maxdd: "Max nedgång"
+  bt_maxdd: "Max nedgång",
+  // Same words as hz_trades/hz_hold (_core.js.j2) -- identical concepts,
+  // just a table header here instead of the horizon selector's own label.
+  bt_trades: "affärer/år",
+  bt_hold: "medianinnehav"
 });
 
 Object.assign(SV_HTML, {

@@ -144,6 +144,13 @@ Object.assign(SV, {
   digest_gains: "Störst uppgång:",
   digest_drops: "Störst nedgång:",
   note_correlation: "60 handelsdagars rullande parvis avkastningskorrelation. Topp-5-teman i fetstil. Rött = rör sig tillsammans; blått = rör sig oberoende.",
+  // RRG/Movers/History tabs' plain-text note (data-i18n reads SV). NOT the
+  // same string as _sentiment.js.j2's note_sentiment -- that one carries
+  // <strong> markup and lives in SV_HTML for the Sentiment page's alpha
+  // notice on purpose. Two different concepts sharing one key name, kept
+  // apart by which dictionary each is read from.
+  note_sentiment: "Sentimentvikt påverkar endast topplistans rangordning.",
+  lastScan: "Senaste skanning:",
   correlation_no_data: "Inte tillräckligt med prishistorik för en 60-dagars korrelationsmatris.",
   gate_banner_prefix: "Du ser data från",
   gate_banner_suffix: ". Logga in för senaste data och alla funktioner.",

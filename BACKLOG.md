@@ -20,43 +20,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
-## Untranslated dashboard strings — Swedish readers see English
-
-Found 2026-09-03 during the dashboard JS/i18n sweep, **verified live** against
-the built page (`lang=sv`, then reading the DOM). The trend-words gap this
-item originally led with is fixed — see Done, "Leaderboard trend words now
-translate". What remains:
-
-**1. Four Backtest columns have no Swedish entry.** `bt_horizon`, `bt_policy`,
-`bt_trades`, `bt_hold` carry `data-i18n` on the table header
-(`index.html.j2:437`) but appear in no SV dictionary, so they render English.
-Frozen in `tests/test_i18n_coverage.py`'s `_KNOWN_BROKEN` so the gap cannot
-grow — remove them from that set as they are translated, which the test also
-enforces. (`hz_trades`/`hz_hold` already carry Swedish for the identical
-concepts elsewhere in the leaderboard — "affärer/år" / "medianinnehav" — worth
-checking whether `bt_trades`/`bt_hold` should just reuse those words before
-picking new ones.)
-
-**2. `note_sentiment` is requested from the wrong dictionary.** It is defined
-in `SV_HTML` (`i18n/_sentiment.js.j2:14`) — correctly, since it carries markup
-— but `index.html.j2:360,389,400` requests it as plain `data-i18n`, which
-`_i18n.html.j2` resolves from `SV`. So the RRG / Movers / History tab notes
-render English in Swedish. The definition site even carries a comment warning
-that "a copy in SV would silently never be used"; the inverse mistake was made
-at the usage site. Not a mechanical fix: the English string ("Sentiment
-weighting affects the leaderboard ranking only.") and the Swedish one (the
-alpha notice) say different things, so someone has to decide which is
-intended before choosing between `data-i18n-html` and an `SV` entry.
-
-**3. `lastScan`** is injected at runtime by `scan-history.js:217` with
-`data-i18n="lastScan"` and has no SV entry either, so the scan-history banner's
-label stays English.
-
-**Why none of this was fixed alongside the trend words:** `note_sentiment` is
-a copy decision (which sentence is actually intended), not a translation, and
-the `bt_*`/`lastScan` gap is small enough it seemed better bundled with
-whichever of these gets picked up next rather than done as a one-off.
-
 ## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
 
 Decided 2026-09-02. **Supersedes "Guest sign-in status isn't clearly
@@ -666,6 +629,41 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Remaining Swedish translations filled in (2026-09-05)
+
+Closes the "Untranslated dashboard strings" item (the fourth gap, trend words,
+shipped earlier the same day — see below). Copy filled in on the explicit
+basis that it can be corrected later rather than blocking on getting it
+exactly right first time:
+
+- **`bt_horizon`** → "Horisont", **`bt_policy`** → "Regel" — new words, chosen
+  to match the Backtest table's existing tone (`bt_window` "Period",
+  `bt_maxdd` "Max nedgång").
+- **`bt_trades`** → "affärer/år", **`bt_hold`** → "medianinnehav" — reused
+  verbatim from `hz_trades`/`hz_hold` (`_core.js.j2`), the identical concepts
+  already translated for the horizon selector, rather than picking separate
+  words for the same thing.
+- **`note_sentiment`** given its own `SV` entry ("Sentimentvikt påverkar
+  endast topplistans rangordning.") for the RRG/Movers/History tab note.
+  Deliberately **not** reusing `_sentiment.js.j2`'s `SV_HTML` entry of the same
+  name — that one is a different piece of copy (the Sentiment page's alpha
+  notice, carries `<strong>` markup) for a different surface. Two concepts
+  sharing one key name, kept apart by dictionary (`SV` vs `SV_HTML`), which
+  the guard's per-dictionary checking (see below) treats as fully separate.
+- **`lastScan`** → "Senaste skanning:".
+
+`tests/test_i18n_coverage.py`'s `_KNOWN_BROKEN` emptied back to `set()` now
+that nothing is deliberately broken; the "no stale entries" test would have
+failed had any of the four not actually been fixed.
+
+**Verified live**, not just by the guard: rebuilt the dashboard and confirmed
+in-browser that all four render correctly in Swedish (Backtest headers,
+all three sentiment tab notes, and `lastScan` via direct `applyLang()`
+exercise, since it's injected at runtime rather than baked), and that English
+still round-trips correctly. Full suite: 1346 passed, 19 skipped — unchanged,
+since this is dictionary content, not new test functions. Clean console.
+
 
 ## Leaderboard trend words now translate (2026-09-05)
 
