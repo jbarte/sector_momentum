@@ -175,7 +175,7 @@ gone, and nothing reads or writes the `trends-cache` bucket any more — though
 the bucket itself still exists in the Supabase project (10 stale objects,
 85 KB, last written 2026-07-19) and can be deleted by hand. Sentiment now
 comes from GDELT headlines scored by FinBERT (`--no-finbert` skips it), and
-is **alpha** — excluded from the composite and from the ranking. See
+is **experimental** — excluded from the composite and from the ranking. See
 ARCHITECTURE § 4.
 
 ## Dev commands

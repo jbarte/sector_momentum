@@ -136,8 +136,10 @@
          scores their tone with <strong>FinBERT</strong>, a language model trained on
          financial text. This is shown for interest and is <strong>excluded from the
          ranking</strong>, because headline tone is noisy and often lags the price.
-         The leaderboard has an optional toggle to blend it in at a weight you
-         choose, but the canonical ranking is pure price data.</p>
+         There was once an optional toggle to blend it into the ranking at a
+         weight you chose; it was withdrawn while sentiment remains unvalidated,
+         so the ranking is pure price data and nothing on the Sentiment page
+         moves it.</p>
 
       <h3>The backtest, and how much to trust it</h3>
       <p>The Backtest tab replays the strategy over history: at each rebalance date
@@ -160,10 +162,12 @@
 
       <h3>Where the data comes from</h3>
       <p>Daily prices come from yfinance, cached locally so
-         each trading day&rsquo;s close is picked up once. News comes from GDELT.
-         Macro context in the header shows the S&amp;P 500 versus its 200-day average
-         and the VIX volatility index &mdash; both for context only; neither affects
-         any score.</p>
+         each trading day&rsquo;s close is picked up once. News comes from GDELT.</p>
+      <p><strong>ACWI</strong> &mdash; the MSCI All Country World Index, a broad
+         global stock index covering developed and emerging markets &mdash; is
+         the benchmark this scanner compares itself to. It is what the two
+         relative-strength signals measure each theme against, and it is the
+         &ldquo;Bench CAGR&rdquo; column the backtest is judged beside.</p>
 
       <h3>What this deliberately does not do</h3>
       <p>It does not size positions, account for tax or trading costs in the live

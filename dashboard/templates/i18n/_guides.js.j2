@@ -39,6 +39,7 @@ Object.assign(SV_HTML, {
       <h3>Mer detaljer</h3>
       <p>Klicka på en rad för att fälla ut den — du får varje underliggande signal, och den europeiska (UCITS) fond som motsvarar den amerikanska ETF:en som poängsätts.</p>`,
   guide_body_rrg: `
+      <p><strong>RRG</strong> står för <strong>Relative Rotation Graph</strong> — ett vedertaget sätt att visa hur en uppsättning innehav roterar kring sitt jämförelseindex över tid.</p>
       <p>Teman plottas efter <strong>relativ styrka mot jämförelseindex</strong> (x-axel) och om den relativa styrkan <strong>accelererar eller bromsar in</strong> (y-axel). Båda axlarna är centrerade kring 100.</p>
       <h3>Fyra kvadranter</h3>
       <ul>
@@ -105,7 +106,7 @@ Object.assign(SV_HTML, {
       <p>Var och en av de två raderna är en horisont. Läs kolumnerna <strong>Affärer/år</strong> och <strong>Median­innehav</strong> tillsammans med avkastningen, aldrig var för sig — en högre avkastning som kräver dubbelt så mycket handel är inte självklart bättre, och varje affär kostar något.</p>
       <ul>
         <li><strong>Strategi-CAGR</strong> — den årliga tillväxttakt reglerna gav. Jämför med <strong>Index-CAGR</strong> bredvid; att slå index är hela poängen.</li>
-        <li><strong>Sharpe</strong> — avkastning per enhet skakighet. Högre är bättre. Det är den ärligaste enskilda kolumnen för att jämföra rader, eftersom den inte belönar vilt risktagande.</li>
+        <li><strong>Sharpe (rf=0)</strong> — avkastning per enhet skakighet. Högre är bättre. Det är den ärligaste enskilda kolumnen för att jämföra rader, eftersom den inte belönar vilt risktagande. <em>rf=0</em> betyder att den riskfria räntan sätts till noll: ingen hänsyn tas till vad kontanter hade gett under samma period, så varje siffra här är högre än ett kontantjusterat Sharpe skulle vara. Observera att den <strong>inte</strong> höjer alla rader lika mycket — överskattningen är större för jämnare rader — så den smickrar en lugn förinställning mer än en aktiv.</li>
         <li><strong>Max DD</strong> — det värsta fallet från topp till botten. Ett tal som −38% betyder att strategin vid något tillfälle låg 38% under sin topp. Fråga dig ärligt om du hade hållit ut.</li>
         <li><strong>Affärer/år</strong> och <strong>Medianinnehav</strong> — hur mycket arbete det är, och hur länge en position typiskt varade.</li>
       </ul>
@@ -142,6 +143,11 @@ Object.assign(SV_HTML, {
       <p>Korrelation är bakåtblickande och <strong>stiger i en kris</strong> — när marknader faller hårt faller det mesta tillsammans och de blå cellerna blir röda. Betrakta detta som en vägledning för normala förhållanden, inte en garanti för skydd när du behöver den som mest.</p>
       <p>En begränsning till: två teman kan vara okorrelerade och <em>båda</em> vara dåliga. Låg korrelation säger att de rör sig olika, inte att något av dem är värt att äga.</p>`,
   guide_body_track_record: `
+      <p><strong>ACWI</strong> är MSCI All Country World Index — ett brett
+      globalt aktieindex som täcker både utvecklade marknader och
+      tillväxtmarknader. Det är måttstocken den här skannern mäter sig mot:
+      att slå det är hela skälet att köra en strategi i stället för att bara
+      köpa hela marknaden.</p>
       <p>Båda talen är <strong>överavkastning mot ACWI</strong> för vald
       horisont — strategins avkastning minus indexets över samma period.
       Enheten är <strong>procentenheter</strong> — visas som "pp" på chipsen

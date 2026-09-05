@@ -527,10 +527,13 @@ thead th[tabindex="0"]:focus-visible {
   top: 8px;
 }
 
-/* "alpha" marker on the Sentiment segment and its page note. Deliberately the
+/* "experimental" marker on the Sentiment segment and its page note (read
+   "alpha" until 2026-09-05 -- renamed because in a momentum dashboard "alpha"
+   also means excess return, which is exactly what the track-record chips on
+   the Themes page show). Deliberately the
    quietest thing in the command bar — it qualifies a nav item, it should not
    compete with it. */
-.alpha-badge {
+.experimental-badge {
   display: inline-block;
   margin-left: 5px;
   padding: 0 4px;
@@ -544,7 +547,7 @@ thead th[tabindex="0"]:focus-visible {
   border: 1px solid var(--border);
   vertical-align: 1px;
 }
-.alpha-note { border-left: 3px solid var(--border); padding-left: 10px; }
+.experimental-note { border-left: 3px solid var(--border); padding-left: 10px; }
 
 /* Which band alerts run on. The agreement line is a quiet confirmation; the
    disagreement one has to be noticed, so it gets the warning colour and a rule

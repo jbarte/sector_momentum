@@ -15,7 +15,7 @@ their own `thead th`/table-cell ancestor.
 Several selectors are DELIBERATELY excluded from the floor: icon glyphs read
 by shape rather than parsed as text (the thead sort-direction arrows), and
 quiet secondary labels that must not compete with what they qualify
-(.alpha-badge — its own code comment: "Deliberately
+(.experimental-badge — its own code comment: "Deliberately
 the quietest thing in the command bar" — plus .lc-label, .theme-ticker and,
 since the 2026-08-19 leaderboard restructure, `thead th`). Each is pinned
 below with its own assertion, not silently skipped, so a future change to any
@@ -274,7 +274,7 @@ def test_table_header_is_deliberately_exempt_from_the_floor():
     (sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md).
     They are uppercase, wide-tracked labels for columns whose CONTENT carries
     the reading weight — the redesign deliberately quiets the header so the row
-    doesn't compete with it. Same category as .alpha-badge: below the floor on
+    doesn't compete with it. Same category as .experimental-badge: below the floor on
     purpose, pinned here rather than silently skipped.
 
     NOTE: this reverses the 2026-08-15 sub-12px audit, which raised `thead th`
@@ -286,7 +286,7 @@ def test_table_header_is_deliberately_exempt_from_the_floor():
 def test_theme_ticker_is_deliberately_exempt_from_the_floor():
     """The US ETF ticker beside a theme name — a quiet secondary identifier
     that must not compete with the 15px theme name it qualifies. Same
-    reasoning as .alpha-badge."""
+    reasoning as .experimental-badge."""
     css = _css("_tables.css.j2")
     assert _resolved_px(_rule_font_size(css, ".theme-ticker")) < 12
 
@@ -300,12 +300,12 @@ def test_sort_direction_arrows_are_deliberately_exempt_from_the_floor():
     assert _resolved_px(_rule_font_size(css, "thead th.sort-desc::after"), context_px=11) < 12
 
 
-def test_alpha_badge_is_deliberately_exempt_from_the_floor():
+def test_experimental_badge_is_deliberately_exempt_from_the_floor():
     """Existing code comment: "Deliberately the quietest thing in the
     command bar — it qualifies a nav item, it should not compete with it."
     A 12px floor would defeat that documented intent."""
     css = _css("_chrome.css.j2")
-    assert _resolved_px(_rule_font_size(css, ".alpha-badge")) < 12
+    assert _resolved_px(_rule_font_size(css, ".experimental-badge")) < 12
 
 
 def test_level_change_label_is_deliberately_exempt_from_the_floor():
@@ -337,7 +337,7 @@ def test_summary_strip_eyebrow_is_deliberately_exempt_from_the_floor():
     """The strip's three eyebrow labels ("TODAY'S READ", "IN THE BUY BAND",
     "MARKET CONTEXT") are uppercase tracked-out category labels that name the
     cell they sit above — the same "quiet secondary label that must not
-    compete with what it qualifies" case as .alpha-badge. The design spec
+    compete with what it qualifies" case as .experimental-badge. The design spec
     (2026-08-18 leaderboard redesign, Screen 1 item 2) specifies 11px with
     .10em tracking; uppercase at that tracking reads larger than its nominal
     size. Pinned here rather than silently skipped."""

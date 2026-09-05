@@ -17,6 +17,6 @@ Object.assign(SV, {
 });
 
 Object.assign(SV_HTML, {
-  note_backtest: "Likaviktad, endast lång, <strong>efter {{ round_trip_bps | round | int }} punkters transaktionskostnad tur och retur</strong>. Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje horisont är en ombalanseringstakt plus ett hysteresband: ett innehav behålls så länge dess rang håller sig inom topp-N + buffert, så en enstaka rangförändring är ingen affär.",
+  note_backtest: "Likaviktad, endast lång, <strong>efter {{ round_trip_bps | round | int }} punkters transaktionskostnad tur och retur</strong> (punkter = baspunkter; 100 punkter = 1%). Endast prisbaserade signaler (bredd och sentiment exkluderade). Varje horisont är en ombalanseringstakt plus ett hysteresband: ett innehav behålls så länge dess rang håller sig inom topp-N + buffert, så en enstaka rangförändring är ingen affär.",
   note_backtest_caveat: "<strong>Detta är förberäknade driftpunkter från en svepning över en marknadshistorik (2008–2026), inte en live-optimerare.</strong> Universumet spelas upp som det ser ut idag, så teman som lanserades senare saknas helt i de tidiga åren. Läs kolumnen affärer/år bredvid avkastningen, inte i stället för den."
 });
