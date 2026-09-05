@@ -21,16 +21,14 @@ _TPL = _ROOT / "dashboard" / "templates"
 _PAGES = ["index.html.j2", "sentiment.html.j2"]
 
 
-def test_sentiment_page_still_carries_the_market_context_guide_body():
-    """sentiment.html.j2 has no summary strip of its own, so it still relies on
-    the shared header's chips and this guide for its "what these mean" copy.
-    index.html.j2 no longer does — the track-record chip (2026-09-05) replaced
-    its Cell C copy of these chips with its own guide, see
-    test_index_page_carries_the_track_record_guide_body below. Task 3 removes
-    this include (and the header chips) from sentiment.html.j2 too; until then
-    both must keep resolving."""
+def test_sentiment_page_has_no_market_context_guide_left():
+    """Task 3 (2026-09-05) removed the market-context chips (and this guide)
+    entirely — the sentiment page has no track-record cell to explain, so it
+    gets no replacement guide either, unlike index.html.j2 (see
+    test_index_page_carries_the_track_record_guide_body below)."""
     text = (_TPL / "sentiment.html.j2").read_text()
-    assert '{% include "_guide_market_context.html.j2" %}' in text
+    assert '{% include "_guide_market_context.html.j2" %}' not in text
+    assert not (_TPL / "_guide_market_context.html.j2").exists()
 
 
 def test_index_page_carries_the_track_record_guide_body():
@@ -40,13 +38,6 @@ def test_index_page_carries_the_track_record_guide_body():
     text = (_TPL / "index.html.j2").read_text()
     assert '{% include "_guide_track_record.html.j2" %}' in text
     assert '{% include "_guide_market_context.html.j2" %}' not in text
-
-
-def test_the_guide_body_declares_the_key_the_chips_open():
-    body = (_TPL / "_guide_market_context.html.j2").read_text()
-    assert 'data-guide-body="guide_body_market_context"' in body
-    # The i18n pass needs the node present at load to swap EN/SV on it.
-    assert 'data-i18n-html="guide_body_market_context"' in body
 
 
 def test_the_chips_are_one_tappable_control():
@@ -78,12 +69,15 @@ def test_the_guide_dispatch_prefers_an_explicit_label(page):
     assert '.cc-label' in text, f"{page}'s guide dispatch does not prefer .cc-label"
 
 
-def test_the_leaderboard_guide_no_longer_duplicates_the_copy():
-    """It points at the chips instead. Duplicated copy is how two versions drift."""
+def test_the_leaderboard_guide_has_no_market_context_pointer_left():
+    """The leaderboard guide used to end with an inline SPY/VIX explanation,
+    then (Stage 4) a "Tap them" pointer at the header chips. Task 3
+    (2026-09-05) removed the chips outright, so the pointer has nothing left
+    to point at and is gone too — not repointed at Cell C, which has its own
+    guide trigger already."""
     index = (_TPL / "index.html.j2").read_text()
-    # The distinctive sentence from the old inline section.
     assert "the US market's distance from its" not in index
-    assert "Tap them" in index
+    assert "Market context chips" not in index
 
 
 # ---------------------------------------------------------------------------
@@ -124,22 +118,21 @@ def test_no_template_uses_an_i18n_attribute_the_pass_ignores():
     )
 
 
-@pytest.mark.parametrize("key", [
-    "market_context_title", "market_context_aria", "chip_live", "chip_live_tip",
-])
+@pytest.mark.parametrize("key", ["chip_live", "chip_live_tip"])
 def test_swedish_has_the_new_plain_strings(key):
     sv = (_TPL / "i18n" / "_core.js.j2").read_text()
     assert f"{key}:" in sv
 
 
-def test_swedish_has_the_guide_body_in_the_html_bundle():
-    """data-i18n-html reads SV_HTML, not SV — a copy in SV would never be used."""
+def test_market_context_keys_are_gone_from_both_i18n_bundles():
+    """Task 3 (2026-09-05) deleted the market-context chips and their guide;
+    the keys that only they used must not linger in either bundle."""
+    core = (_TPL / "i18n" / "_core.js.j2").read_text()
     guides = (_TPL / "i18n" / "_guides.js.j2").read_text()
-    assert "guide_body_market_context:" in guides
-    body_at = guides.index("guide_body_market_context:")
-    assert "Object.assign(SV_HTML" in guides[:body_at], (
-        "guide_body_market_context must be assigned into SV_HTML"
-    )
+    for dead in ("market_context_title:", "market_context_aria:", "strip_eyebrow_market:"):
+        assert dead not in core, f"{dead} still in _core.js.j2"
+    assert "guide_body_market_context:" not in guides
+    assert not (_TPL / "i18n" / "_macro.js.j2").exists()
 
 
 def test_the_live_chip_is_translatable_and_explained():

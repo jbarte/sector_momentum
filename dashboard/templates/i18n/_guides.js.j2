@@ -36,9 +36,6 @@ Object.assign(SV_HTML, {
       </ul>
       <p>Läs Trend <em>tillsammans med</em> märket. Gå in plus ↑ är ett tema som anländer. Behåll plus ↓↓ är ett på väg ut som ännu inte fallit tillräckligt för att utlösa Gå ur.</p>
 
-      <h3>Marknadskontext-chips</h3>
-      <p><strong>Live</strong>-, <strong>SPY</strong>- och <strong>VIX</strong>-chipsen i rubriken beskriver hela marknaden, inte något enskilt tema. De ändrar inga poäng — de säger hur mycket du bör lita på tavlan. <strong>Tryck på dem</strong> för hela förklaringen.</p>
-
       <h3>Mer detaljer</h3>
       <p>Klicka på en rad för att fälla ut den — du får varje underliggande signal, och den europeiska (UCITS) fond som motsvarar den amerikanska ETF:en som poängsätts.</p>`,
   guide_body_rrg: `
@@ -159,18 +156,4 @@ Object.assign(SV_HTML, {
       <p>Avkastningen är efter antagen transaktionskostnad, samma förbehåll
       som Backtest-fliken. Siffrorna kommer från senaste körningen av
       <code>backtest.py</code>.</p>`
-});
-
-// The market-context chips' guide, opened by tapping the chips themselves. In
-// SV_HTML because the body carries markup (data-i18n-html reads that bundle).
-Object.assign(SV_HTML, {
-  guide_body_market_context: `
-  <p>Dessa chips beskriver <strong>hela marknaden</strong>, inte något enskilt tema. De ändrar inga poäng och flyttar ingen rankning &mdash; de säger <strong>hur mycket du bör lita på tavlan</strong>.</p>
-  <ul>
-    <li><strong>Live</strong> &mdash; du ser den senaste skanningen. Utloggad visas en fördröjd publik ögonblicksbild, och då saknas chipet.</li>
-    <li><strong>SPY mot 200-DMA</strong> &mdash; den amerikanska marknadens avstånd från sitt 200-dagars medelvärde. <span class="signal-hi">Positivt</span> = långsiktig upptrend; <span class="signal-lo">negativt</span> = nedtrend.</li>
-    <li><strong>VIX</strong> &mdash; hur mycket volatilitet handlare förväntar sig. Lugnt (&lt;&nbsp;15), Förhöjt (15&ndash;25), Stressat (&gt;&nbsp;25).</li>
-  </ul>
-  <p>Samma topprankade tema betyder olika saker i en lugn upptrend och i en stressad, fallande marknad, där även det starkaste temat sannolikt också faller. Rang är <em>relativ</em>: den säger att ett tema slår de andra, aldrig att det stiger.</p>
-  <p><strong>Varför detta är kontext och inte signaler.</strong> SPY mot 200-DMA mättes som poängunderlag i juli 2026 och <strong>parkerades</strong> medvetet: inget regimberoende viktningsschema slog den fasta 50/50-uppdelningen mellan Nivå och Förändring i båda regionerna. Det är alltså ett evidensbaserat beslut att inte agera automatiskt på dem &mdash; bedömningen lämnas till dig, med flit.</p>`
 });

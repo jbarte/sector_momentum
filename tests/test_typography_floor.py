@@ -300,12 +300,6 @@ def test_sort_direction_arrows_are_deliberately_exempt_from_the_floor():
     assert _resolved_px(_rule_font_size(css, "thead th.sort-desc::after"), context_px=11) < 12
 
 
-def test_market_context_info_glyph_is_deliberately_exempt_from_the_floor():
-    """The ⓘ icon on the market-context chips — same category as .chevron."""
-    css = _css("_chrome.css.j2")
-    assert _resolved_px(_rule_font_size(css, ".context-chips .cc-info")) < 12
-
-
 def test_alpha_badge_is_deliberately_exempt_from_the_floor():
     """Existing code comment: "Deliberately the quietest thing in the
     command bar — it qualifies a nav item, it should not compete with it."

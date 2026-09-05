@@ -85,34 +85,23 @@ def test_market_context_chips_are_not_duplicated_on_the_leaderboard_page():
         "the desktop SPY chip must be gone from the command bar on the leaderboard page"
 
 
-def test_market_context_chips_are_restored_on_the_sentiment_page():
-    """Found in whole-branch review: sentiment.html.j2 shares this header but
-    has no summary strip of its own (Stage 4's plan never listed it in Task
-    2's file scope). Without a header echo, SPY/VIX/Live existed nowhere on
-    that page at all — a real regression, not the "duplicate on desktop"
-    case the sibling test above guards against."""
-    html = _render_header("sentiment", macro=_MACRO)
-    assert "SPY" in html
-    assert 'id="market-context-chips"' in html, (
-        "markLive() (auth.js) targets this id — it must exist on the "
-        "sentiment page's header too, not only inside index.html.j2's Cell C"
-    )
+def test_market_context_chips_are_gone_from_the_sentiment_page_too():
+    """Task 3 (2026-09-05) removed the market-context chips outright, not just
+    from index.html.j2's Cell C — the sentiment page has no track-record cell
+    to explain, so it gets no chips and no guide trigger at all, on any build
+    (with or without auth configured)."""
+    for auth in (False, True):
+        html = _render_header("sentiment", macro=_MACRO, auth=auth)
+        assert "SPY" not in html
+        assert 'id="market-context-chips"' not in html
+        assert "tab-guide-btn" not in html
 
 
-def test_market_context_chips_need_macro_or_auth_on_the_sentiment_page():
-    """Same guard the pre-Stage-4 header block used, and the one Cell C was
-    found missing in this same review: a build with neither macro data nor
-    auth configured must render no trigger at all, not a guide button with
-    nothing beside it to explain."""
-    html = _render_header("sentiment", macro=None, auth=False)
-    assert "tab-guide-btn" not in html
-
-
-def test_the_mobile_scan_meta_row_keeps_its_own_spy_vix_echo():
-    """Stage 3's mobile row is a separate element and stays — it is the phone's
-    only view of these numbers once Cell C is hidden at that width."""
+def test_the_mobile_scan_meta_row_has_no_spy_vix_echo_left():
+    """Stage 3's mobile row survives (scan id/date still need a phone-width
+    home), but its SPY/VIX echo went with the rest of the macro stack."""
     assert 'class="mobile-scan-meta"' in HEADER
-    assert "macro.spy_distance_pct" in HEADER
+    assert "macro" not in HEADER
 
 
 def test_track_record_cell_keeps_the_guide_reachable():

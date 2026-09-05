@@ -134,7 +134,7 @@ def _render_context_keys() -> set[str]:
     `.update(...)`. This walks both sources:
       1. The literal `xxx_ctx = { ... }` dicts declared in build.py's main().
       2. The `return { ... }` dict literals of the context-builder functions
-         in dashboard/figures.py, sentiment.py, badges.py, and macro.py.
+         in dashboard/figures.py, sentiment.py, and badges.py.
     """
     dashboard_dir = Path(__file__).parent.parent / "dashboard"
     all_keys: set[str] = set()
@@ -142,12 +142,11 @@ def _render_context_keys() -> set[str]:
     build_text = (dashboard_dir / "build.py").read_text()
     all_keys |= _dict_literal_keys(build_text, re.compile(r"\w+_ctx\s*=\s*\{"))
 
-    for module_name in ("figures.py", "sentiment.py", "badges.py", "macro.py"):
+    for module_name in ("figures.py", "sentiment.py", "badges.py"):
         module_text = (dashboard_dir / module_name).read_text()
         # Grabs every `return { ... }` dict literal in the module — a superset
         # of just the context-builder functions is fine here since extra keys
-        # (e.g. macro.build_macro_context's nested "spy_last" etc.) only widen
-        # the set, never cause a false "missing" report below.
+        # only widen the set, never cause a false "missing" report below.
         all_keys |= _dict_literal_keys(module_text, re.compile(r"return \{"))
     return all_keys
 
@@ -2199,19 +2198,17 @@ def test_leaderboard_cards_have_keyboard_activation():
 
 
 def test_mobile_scan_meta_markup_exists():
-    """The mobile echo of the desktop meta-cluster (scan id, date, SPY/VIX)
+    """The mobile echo of the desktop meta-cluster (scan id, date)
     — a distinct class from the pre-existing .scan-meta on #auth-email-label,
-    which is an unrelated element (the signed-in user's email)."""
+    which is an unrelated element (the signed-in user's email). The SPY/VIX
+    echo was removed with the macro-context chips (see
+    test_market_context_is_gone_from_every_template)."""
     header = (Path(__file__).parent.parent
               / "dashboard/templates/_header.html.j2").read_text()
     assert 'class="mobile-scan-meta"' in header
     assert 'data-i18n="scan_prefix"' in header
     assert "{{ active_scan_id }}" in header
     assert "{{ scan_date[:10] }}" in header
-    # Guarded by the same `{% if macro %}` the desktop chips use — a build
-    # with no FRED data must not crash rendering this row.
-    meta_start = header.index('class="mobile-scan-meta"')
-    assert "{%- if macro %}" in header[meta_start:]
 
 
 def test_scan_prefix_has_sv_translation():
@@ -3465,3 +3462,16 @@ def test_render_horizon_stats_fills_the_track_record_chips():
             f"renderHorizonStats does not touch {token} -- the chips would "
             f"keep their em-dash placeholder after a horizon switch"
         )
+
+
+def test_market_context_is_gone_from_every_template():
+    """The SPY/VIX chips were replaced by the track-record chips. The header
+    copy existed only because sentiment.html.j2 has no strip of its own --
+    and markLive() never fires there (upgradeLeaderboard returns early with
+    no #leaderboard-table), so it needs no replacement."""
+    root = Path(__file__).parent.parent
+    for name in ("index.html.j2", "_header.html.j2"):
+        tpl = (root / "dashboard/templates" / name).read_text()
+        for dead in ("macro_vix_", "macro_chip_spy", "guide_body_market_context",
+                     "market_context_title", "strip_eyebrow_market"):
+            assert dead not in tpl, f"{name} still references {dead}"

@@ -63,11 +63,6 @@ from dashboard.figures import (                      # noqa: E402, F401
     build_cohort_chart_context as _figures_cohort_charts_ctx,
     build_sectors_context as _figures_sectors_ctx,
 )
-from dashboard.macro import (                        # noqa: E402, F401
-    build_macro_context,
-    build_page_context as _macro_ctx,
-    fetch_macro_data,
-)
 from dashboard.reports import (                      # noqa: E402, F401
     build_scan_index,
     _generate_scan_reports,
@@ -635,8 +630,6 @@ def main() -> None:
     # ------------------------------------------------------------------
     template_dir = Path(__file__).parent / "templates"
 
-    # Compute cross-page contexts once (macro makes a network call)
-    logger.info("Fetching macro regime data …")
     # Hoisted so BOTH pages get them: the leaderboard needs them for its
     # selector, and the SHARED footer's alerts modal states which band alerts
     # actually use. `horizon_default_json` is the config default, and the config
@@ -695,8 +688,6 @@ def main() -> None:
         "exit_rank_today": _default_horizon.exit_rank(len(leaderboard_rows)),
     })
 
-    macro_page_ctx = _macro_ctx(shared)
-
     # --- Sectors page ---
     logger.info("Building sectors page context …")
     sectors_ctx = {
@@ -743,7 +734,6 @@ def main() -> None:
     sectors_ctx.update(_figures_cohort_charts_ctx(shared))
     sectors_ctx.update(_badges_ctx(shared))
     sectors_ctx.update(_validation_ctx(shared))
-    sectors_ctx.update(macro_page_ctx)
     sectors_ctx.update(auth_ctx)
     sectors_ctx.update(build_health_context(health_row, same_asof_streak=same_asof_streak))
 
@@ -779,7 +769,6 @@ def main() -> None:
         "horizon_default_json": _horizon_default_json,
     }
     sentiment_ctx.update(_sentiment_ctx(shared))
-    sentiment_ctx.update(macro_page_ctx)
     sentiment_ctx.update(auth_ctx)
 
     _render(

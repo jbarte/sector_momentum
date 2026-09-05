@@ -27,43 +27,15 @@
         .strip-subline; sentiment.html.j2 has no strip of its own, so without
         this row the Sentiment page showed no scan date anywhere on desktop
         once data WAS present — the 2026-08-22 fix only covered the empty
-        state. Own condition (scan_date alone, not `macro or auth`): a build
-        with neither macro nor auth still has a scan to name. Hidden at/below
-        600px — .mobile-scan-meta already covers the row there (see
+        state. Own condition (scan_date alone): a build with no auth
+        configured still has a scan to name. Hidden at/below 600px —
+        .mobile-scan-meta already covers the row there (see
         _responsive.css.j2's paired boundary). -#}
     {% if scan_date %}
     <span class="desktop-scan-meta">
       <span data-i18n="scan_prefix">Scan</span> #{{ active_scan_id }}
       <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
     </span>
-    {% endif %}
-    {#- Stage 4 (2026-08-21) moved these chips out of the header into
-        index.html.j2's summary strip (Cell C, #cell-market-context) — but
-        that strip is index-only, and sentiment.html.j2 (which shares this
-        header) has no strip of its own. Without this, SPY/VIX/Live existed
-        nowhere on the Sentiment page at all — Stage 4's plan never listed
-        sentiment.html.j2 in its file scope, so the gap shipped unnoticed.
-        Found in whole-branch review. Same #market-context-chips id
-        markLive() (auth.js) already targets, and the same own condition
-        (`macro or auth`) the pre-Stage-4 header block used — never both on
-        screen at once, since Cell C only renders on index.html.j2
-        (active_segment == "sectors"). -#}
-    {% if macro or auth %}
-    <button type="button" class="context-chips tab-guide-btn"
-            data-guide="guide_body_market_context"
-            aria-label="Market context — what these mean"
-            data-i18n-aria="market_context_aria">
-      <span class="cc-label" data-i18n="market_context_title">Market context</span>
-      <span class="cc-info" aria-hidden="true">&#9432;</span>
-    </button>
-    <div class="market-chips" id="market-context-chips">
-      {% if macro %}
-      <span class="chip {{ 'chip-up' if macro.spy_above else 'chip-down' }}">SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%</span>
-      <span class="chip-word" data-i18n="{{ 'macro_chip_spy_above' if macro.spy_above else 'macro_chip_spy_below' }}">{{ 'above 200-DMA' if macro.spy_above else 'below 200-DMA' }}</span>
-      <span class="chip chip-{{ macro.vix_band|lower }}">VIX {{ "%.1f"|format(macro.vix_last) }}</span>
-      <span class="chip-word" data-i18n="macro_vix_{{ macro.vix_band|lower }}">{{ macro.vix_band|lower }}</span>
-      {% endif %}
-    </div>
     {% endif %}
     {% endif %}
     {% if auth %}
@@ -88,16 +60,16 @@
     </div>
     <button id="lang-toggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="Switch language">SV</button>
   </div>
-  {#- Mobile-only second row: the meta-cluster's chips and scan context
-      condense to icon-only/hidden below 600px (see _responsive.css.j2's
-      touch-target rules), so a phone reader loses the scan id, date, and
-      SPY/VIX numbers entirely. This mirrors them in one condensed line.
-      Named .mobile-scan-meta, not .scan-meta: that class already exists on
-      #auth-email-label above (the signed-in user's email) — an unrelated
-      element this would silently collide with if reused. Visibility is
-      entirely _responsive.css.j2's call (display:none there above 600px),
-      not an inline style — that file is guaranteed last in the cascade
-      (see its own header comment) so nothing here needs to pre-hide it.
+  {#- Mobile-only second row: the meta-cluster's scan context condenses to
+      icon-only/hidden below 600px (see _responsive.css.j2's touch-target
+      rules), so a phone reader loses the scan id and date entirely. This
+      mirrors them in one condensed line. Named .mobile-scan-meta, not
+      .scan-meta: that class already exists on #auth-email-label above (the
+      signed-in user's email) — an unrelated element this would silently
+      collide with if reused. Visibility is entirely _responsive.css.j2's
+      call (display:none there above 600px), not an inline style — that
+      file is guaranteed last in the cascade (see its own header comment)
+      so nothing here needs to pre-hide it.
 
       Guarded on scan_date, not just wrapped: `scan_date[:10]` slices an
       undefined var, which raises (Jinja's default Undefined tolerates bare
@@ -108,10 +80,6 @@
   <div class="mobile-scan-meta">
     <span data-i18n="scan_prefix">Scan</span> #{{ active_scan_id }}
     <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
-    {%- if macro %}
-    <span aria-hidden="true">&middot;</span> SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%
-    <span aria-hidden="true">&middot;</span> VIX {{ "%.1f"|format(macro.vix_last) }}
-    {%- endif %}
   </div>
   {% endif %}
 </header>
