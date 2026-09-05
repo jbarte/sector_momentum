@@ -79,7 +79,7 @@
 .auth-status:empty { display: none; }
 
 /* =========================================================
-   Chips (macro indicators in command bar)
+   Chips (command bar / summary strip)
    ========================================================= */
 .chip {
   display: inline-flex;
@@ -96,9 +96,6 @@
 }
 .chip-up   { background: color-mix(in srgb, var(--up) 12%, transparent); color: var(--up); }
 .chip-down { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); }
-.chip-calm      { background: color-mix(in srgb, var(--up) 12%, transparent); color: var(--up); }
-.chip-elevated  { background: color-mix(in srgb, var(--fg1) 8%, transparent); color: var(--fg1); }
-.chip-stressed  { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); }
 
 /* =========================================================
    Card shell
@@ -549,40 +546,6 @@ thead th[tabindex="0"]:focus-visible {
 }
 .alpha-note { border-left: 3px solid var(--border); padding-left: 10px; }
 
-/* Market-context chips as one tappable control.
-   Reads as a chip group, not a button: no fill, no border of its own — the
-   chips already carry visual weight, and a third box around them would compete
-   with the segment toggle beside it. The ⓘ is the only added affordance, and
-   the whole group is one hit target, which is what makes this work on touch
-   where `title` tooltips do not exist at all. */
-.context-chips {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 6px;
-  margin: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  background: none;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-.context-chips:hover { border-color: var(--border); background: var(--bg-sunken); }
-.context-chips:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 1px; }
-.context-chips .cc-info { font-size: 11px; color: var(--fg4); line-height: 1; }
-.context-chips:hover .cc-info { color: var(--fg2); }
-/* Carries the dialog heading and the accessible name; never shown. Clipped
-   rather than display:none so it stays in the accessibility tree. */
-.context-chips .cc-label {
-  position: absolute;
-  width: 1px; height: 1px;
-  margin: -1px; padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 /* Which band alerts run on. The agreement line is a quiet confirmation; the
    disagreement one has to be noticed, so it gets the warning colour and a rule
    rather than being another paragraph of grey. */
@@ -617,7 +580,7 @@ thead th[tabindex="0"]:focus-visible {
   color: var(--fg4);
   margin: 0 0 9px;
 }
-/* The market-context eyebrow is a <button> (the guide trigger); strip the UA
+/* The track-record eyebrow is a <button> (the guide trigger); strip the UA
    button chrome so it reads as the same label as the other two cells'. */
 button.strip-eyebrow {
   display: inline-flex;
@@ -630,6 +593,12 @@ button.strip-eyebrow {
   cursor: pointer;
 }
 button.strip-eyebrow:hover .cc-label { color: var(--fg2); }
+/* .cc-info (the decorative info-circle glyph) already inherits the button's
+   color/size/tracking, so it reads correctly with no rule of its own — but
+   without one it silently dims out of step with .cc-label on hover. This
+   restores the pairing the old .context-chips:hover .cc-info rule gave the
+   header chips before they were deleted. */
+button.strip-eyebrow:hover .cc-info { color: var(--fg2); }
 button.strip-eyebrow:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 2px; }
 
 .strip-headline {

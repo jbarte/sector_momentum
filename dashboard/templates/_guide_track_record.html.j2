@@ -1,0 +1,34 @@
+<div class="tab-guide-body" data-guide-body="guide_body_track_record" hidden data-i18n-html="guide_body_track_record">
+  <p>Both numbers are <strong>excess return over ACWI</strong>, in percentage
+  points, for the horizon selected above — the strategy's return minus the
+  benchmark's over the same window.</p>
+  <p>They are <strong>point-in-time</strong>: the backtest curve reflects the
+  themes the strategy actually held at each historical rebalance, including
+  the hysteresis band. It is not today's picks measured backwards, which
+  would credit the strategy with picks it had not made.</p>
+  <h3>Why two windows</h3>
+  <p>One month of a five-holding thematic strategy is mostly noise. The same
+  strategy on the same day can read strongly positive over one month and
+  strongly negative over twelve, or the reverse — the window picks the
+  story. Both are shown so neither is read alone.</p>
+  <p>Returns are net of the round-trip trading cost assumption, the same
+  caveat the Backtest tab carries.</p>
+</div>
+{#- Sibling, not a child of the div above: that div's innerHTML is fully
+    replaced on every language toggle (data-i18n-html), which would wipe any
+    dates injected into it by JS. Sharing its data-guide-body value means the
+    guide script's existing show()/hide() toggle (index.html.j2, keyed only
+    on that attribute) needs no change to show or hide this alongside it.
+
+    Curve points land on rebalance boundaries, so the measured span is the
+    nearest rebalance at or before the target, not exactly 30/365 days --
+    long rebalances bi-monthly, so its "1M" window can span well over 30
+    days. Naming the actual from-dates and the as-of date here (rather than
+    only in the chips' title tooltips) means the reader never has to take
+    "1M"/"12M" on faith. Filled by renderHorizonStats() (index.html.j2) on
+    every render and horizon switch, so it always matches the chips above. -#}
+<p class="tab-guide-body" data-guide-body="guide_body_track_record" hidden>
+  <span data-i18n="guide_tr_dates_asof">Figures as of</span> <b id="guide-tr-as-of">—</b>.
+  <span data-i18n="guide_tr_dates_m1">1M measured from</span> <b id="guide-tr-m1-from">—</b>.
+  <span data-i18n="guide_tr_dates_m12">12M measured from</span> <b id="guide-tr-m12-from">—</b>.
+</p>

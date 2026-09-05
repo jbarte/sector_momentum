@@ -134,7 +134,7 @@ def _render_context_keys() -> set[str]:
     `.update(...)`. This walks both sources:
       1. The literal `xxx_ctx = { ... }` dicts declared in build.py's main().
       2. The `return { ... }` dict literals of the context-builder functions
-         in dashboard/figures.py, sentiment.py, badges.py, and macro.py.
+         in dashboard/figures.py, sentiment.py, and badges.py.
     """
     dashboard_dir = Path(__file__).parent.parent / "dashboard"
     all_keys: set[str] = set()
@@ -142,12 +142,11 @@ def _render_context_keys() -> set[str]:
     build_text = (dashboard_dir / "build.py").read_text()
     all_keys |= _dict_literal_keys(build_text, re.compile(r"\w+_ctx\s*=\s*\{"))
 
-    for module_name in ("figures.py", "sentiment.py", "badges.py", "macro.py"):
+    for module_name in ("figures.py", "sentiment.py", "badges.py"):
         module_text = (dashboard_dir / module_name).read_text()
         # Grabs every `return { ... }` dict literal in the module — a superset
         # of just the context-builder functions is fine here since extra keys
-        # (e.g. macro.build_macro_context's nested "spy_last" etc.) only widen
-        # the set, never cause a false "missing" report below.
+        # only widen the set, never cause a false "missing" report below.
         all_keys |= _dict_literal_keys(module_text, re.compile(r"return \{"))
     return all_keys
 
@@ -2199,19 +2198,17 @@ def test_leaderboard_cards_have_keyboard_activation():
 
 
 def test_mobile_scan_meta_markup_exists():
-    """The mobile echo of the desktop meta-cluster (scan id, date, SPY/VIX)
+    """The mobile echo of the desktop meta-cluster (scan id, date)
     — a distinct class from the pre-existing .scan-meta on #auth-email-label,
-    which is an unrelated element (the signed-in user's email)."""
+    which is an unrelated element (the signed-in user's email). The SPY/VIX
+    echo was removed with the macro-context chips (see
+    test_market_context_is_gone_from_every_template)."""
     header = (Path(__file__).parent.parent
               / "dashboard/templates/_header.html.j2").read_text()
     assert 'class="mobile-scan-meta"' in header
     assert 'data-i18n="scan_prefix"' in header
     assert "{{ active_scan_id }}" in header
     assert "{{ scan_date[:10] }}" in header
-    # Guarded by the same `{% if macro %}` the desktop chips use — a build
-    # with no FRED data must not crash rendering this row.
-    meta_start = header.index('class="mobile-scan-meta"')
-    assert "{%- if macro %}" in header[meta_start:]
 
 
 def test_scan_prefix_has_sv_translation():
@@ -2250,7 +2247,7 @@ def test_mobile_scan_meta_survives_missing_scan_date():
 # ---------------------------------------------------------------------------
 
 def _render_header_full(active_segment, scan_date=None, active_scan_id=None,
-                         macro=None, auth=False):
+                         auth=False):
     from jinja2 import Environment, FileSystemLoader
     from dashboard.build import register_asset_url
     tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
@@ -2258,7 +2255,7 @@ def _render_header_full(active_segment, scan_date=None, active_scan_id=None,
     register_asset_url(env)
     return env.get_template("_header.html.j2").render(
         active_segment=active_segment, scan_date=scan_date,
-        active_scan_id=active_scan_id, macro=macro, auth=auth)
+        active_scan_id=active_scan_id, auth=auth)
 
 
 def test_desktop_scan_meta_markup_exists():
@@ -2368,14 +2365,17 @@ def test_desktop_scan_meta_shares_its_style_with_scan_meta_not_a_copy():
 
 
 def test_meta_cluster_page_scoping_guard_is_not_duplicated():
-    """The desktop scan-meta row and the market-context chips both exist only
-    on pages sharing this header without their own summary strip -- today that
-    means `active_segment != "sectors"`, checked twice: once per block. Code
-    review (2026-08-23, three independent angles) flagged this as the kind of
-    duplication that drifts silently -- a third segment added later would need
-    the same edit made twice to opt out correctly, and nothing forces that.
-    Consolidated into one wrapping guard; each inner block keeps only the
-    condition specific to it (`scan_date` vs `macro or auth`).
+    """The desktop scan-meta row exists only on pages sharing this header
+    without their own summary strip -- today that means
+    `active_segment != "sectors"`. Code review (2026-08-23, three independent
+    angles) flagged a since-removed sibling block (the market-context chips,
+    replaced 2026-09-05 by the track-record chips, which live in
+    index.html.j2's own summary strip instead) for checking that same guard a
+    second time -- the kind of duplication that drifts silently, since a
+    third segment added later would need the same edit made twice to opt out
+    correctly, and nothing forces that. Consolidated into one wrapping guard;
+    the remaining inner block keeps only the condition specific to it
+    (`scan_date`).
     """
     header = (Path(__file__).parent.parent
               / "dashboard/templates/_header.html.j2").read_text()
@@ -3435,3 +3435,151 @@ def test_book_state_is_independent_of_dom_order():
         "different (sortTable()-style reordered) DOM order -- the "
         "collection is still order-dependent"
     )
+
+
+def test_track_record_chips_render_and_keep_the_live_host_id():
+    """markLive() (auth.js) inserts the Live chip into #market-context-chips.
+    The id stays on the new chips' host so markLive needs no change."""
+    root = Path(__file__).parent.parent
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+
+    assert 'id="market-context-chips"' in tpl, (
+        "markLive()'s host id was removed -- the Live chip would fall back to "
+        "the header, away from where Stage 4 put it"
+    )
+    for el in ('id="tr-m1"', 'id="tr-m12"', 'id="tr-m1-chip"', 'id="tr-m12-chip"'):
+        assert el in tpl, f"{el} missing from the track-record cell"
+    assert "SPY " not in tpl, "the SPY chip survived the replacement"
+    assert "macro.vix_band" not in tpl, "the VIX chip survived the replacement"
+
+
+def test_render_horizon_stats_fills_the_track_record_chips():
+    """renderHorizonStats is what switchHorizon already calls, so extending
+    it means switchHorizon needs no change at all."""
+    root = Path(__file__).parent.parent
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+    body = tpl.split("function renderHorizonStats", 1)[1].split("\n}", 1)[0]
+
+    for token in ("tr-m1", "tr-m12", "chip-up", "chip-down"):
+        assert token in body, (
+            f"renderHorizonStats does not touch {token} -- the chips would "
+            f"keep their em-dash placeholder after a horizon switch"
+        )
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_render_horizon_stats_renders_staleness_not_just_the_chips():
+    """Behavioral proof, not just source-pinned: a reviewer once deleted the
+    entire `<span id="tr-stale">` element and the `staleEl` block from
+    renderHorizonStats() and the full test suite still passed -- the client
+    half of staleness was completely unpinned (the Python `stale` flag itself
+    is well covered). Executes the real, verbatim-extracted function under
+    node with a minimal DOM stub and asserts both states: a stale horizon
+    unhides #tr-stale and names its as-of date; a fresh horizon leaves it
+    hidden and empty. Follows the doc-comment for `#tr-stale` in
+    index.html.j2 ("Staleness is surfaced, never hidden ... a FinBERT outage
+    passed unnoticed for 10 scans")."""
+    fn = _render_horizon_stats_js()
+    node_script = f"""
+    var textStore = {{}};
+    var hiddenStore = {{}};
+    var classes = {{}};
+    var attrs = {{}};
+    function makeEl(id) {{
+      var el = {{}};
+      attrs[id] = {{}};
+      Object.defineProperty(el, "textContent", {{
+        get: function () {{ return textStore[id]; }},
+        set: function (v) {{ textStore[id] = v; }}
+      }});
+      Object.defineProperty(el, "hidden", {{
+        get: function () {{ return hiddenStore[id]; }},
+        set: function (v) {{ hiddenStore[id] = v; }}
+      }});
+      classes[id] = [];
+      el.classList = {{
+        add: function (c) {{ classes[id].push(c); }},
+        remove: function () {{}}
+      }};
+      el.setAttribute = function (name, v) {{ attrs[id][name] = v; }};
+      el.getAttribute = function (name) {{
+        return Object.prototype.hasOwnProperty.call(attrs[id], name) ? attrs[id][name] : null;
+      }};
+      el.removeAttribute = function (name) {{ delete attrs[id][name]; }};
+      return el;
+    }}
+    var ids = ["hz-held", "hz-exit", "hz-hold", "hz-trades",
+      "tr-m1", "tr-m1-chip", "tr-m12", "tr-m12-chip", "tr-stale",
+      "guide-tr-as-of", "guide-tr-m1-from", "guide-tr-m12-from"];
+    var elements = {{}};
+    ids.forEach(function (id) {{ elements[id] = makeEl(id); }});
+
+    global.document = {{
+      getElementById: function (id) {{ return elements[id] || null; }},
+      querySelectorAll: function () {{ return []; }}
+    }};
+    global.Rescore = {{ exitRank: function () {{ return 7; }} }};
+    global.window = {{}};
+
+    var HORIZONS = [
+      {{key: "stale", top_n: 5, buffer_frac: 0.5, trades_per_year: 10,
+        median_holding_days: 20, m1: 1.2, m12: 32.2,
+        m1_from: "2026-06-01", m12_from: "2025-07-01",
+        track_as_of: "2026-07-01", track_stale: true}},
+      {{key: "fresh", top_n: 5, buffer_frac: 0.5, trades_per_year: 10,
+        median_holding_days: 20, m1: 1.2, m12: 32.2,
+        m1_from: "2026-08-01", m12_from: "2025-09-01",
+        track_as_of: "2026-09-01", track_stale: false}}
+    ];
+
+    {fn}
+
+    renderHorizonStats("stale");
+    var staleState = {{
+      hidden: elements["tr-stale"].hidden,
+      text: elements["tr-stale"].textContent,
+      i18nKey: elements["tr-stale"].getAttribute("data-i18n")
+    }};
+    renderHorizonStats("fresh");
+    var freshState = {{
+      hidden: elements["tr-stale"].hidden,
+      text: elements["tr-stale"].textContent,
+      i18nKey: elements["tr-stale"].getAttribute("data-i18n")
+    }};
+
+    process.stdout.write(JSON.stringify({{stale: staleState, fresh: freshState}}));
+    """
+    res = subprocess.run(["node", "-e", node_script], capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    out = json.loads(res.stdout)
+    assert out["stale"]["hidden"] is False, (
+        "a stale horizon must unhide #tr-stale -- staleness must never render "
+        "as a silently absent element"
+    )
+    assert "2026-07-01" in out["stale"]["text"], (
+        f"#tr-stale did not name the as-of date for a stale horizon: "
+        f"{out['stale']['text']!r}"
+    )
+    assert out["stale"]["i18nKey"] == "track_record_as_of", (
+        "#tr-stale never gets a data-i18n attribute -- a later language "
+        "toggle cannot find and retranslate it (2026-09-05 review finding)"
+    )
+    assert out["fresh"]["hidden"] is True, (
+        "a fresh horizon must keep #tr-stale hidden"
+    )
+    assert out["fresh"]["text"] == "", (
+        f"#tr-stale must be empty for a fresh horizon, got {out['fresh']['text']!r}"
+    )
+
+
+def test_market_context_is_gone_from_every_template():
+    """The SPY/VIX chips were replaced by the track-record chips. The header
+    copy existed only because sentiment.html.j2 has no strip of its own --
+    and markLive() never fires there (upgradeLeaderboard returns early with
+    no #leaderboard-table), so it needs no replacement."""
+    root = Path(__file__).parent.parent
+    for name in ("index.html.j2", "_header.html.j2"):
+        tpl = (root / "dashboard/templates" / name).read_text()
+        for dead in ("macro_vix_", "macro_chip_spy", "guide_body_market_context",
+                     "market_context_title", "strip_eyebrow_market"):
+            assert dead not in tpl, f"{name} still references {dead}"

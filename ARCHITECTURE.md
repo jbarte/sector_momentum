@@ -53,7 +53,7 @@ across cohorts, so anything that pools two cohorts into one ranking is a bug.
 |---|---|---|
 | Daily price/volume | **yfinance** | `src/data/prices.py`; parquet cache per ticker, aggressive freshness rules |
 | News sentiment | **GDELT** headlines + **ProsusAI/finbert** | `src/data/news_sentiment.py`; per-theme keyword queries, signed polarity z-scored across themes. **Info-only** |
-| Macro context | **FRED** | `src/data/macro.py`; header chips only, affects no score |
+| Macro context (unused) | FRED (stub, unwired) | `src/data/macro.py`; `fetch_fred()` is an unfinished Phase-1 stub that always returns `{}` and is never called from `scan.py` or anywhere else. The dashboard chips that once rendered FRED data (`dashboard/macro.py`) were deleted along with the SPY/VIX header chips; only `tests/test_macro.py` still imports this module. |
 
 **Single source of price truth.** stooq was the second leg of a two-source
 fallback until 2026-08-09, when it was retired: its CSV endpoint now requires
@@ -324,7 +324,7 @@ and embedded **Plotly** figures. Self-contained and offline-capable.
 
 Split into focused modules: `rows.py` (leaderboard rows + badges),
 `figures.py` (Plotly), `breakdown.py` (drill-down panel), `correlation.py`
-(heatmap), `sentiment.py`, `macro.py`, `health.py`, `validation.py`,
+(heatmap), `sentiment.py`, `health.py`, `validation.py`,
 `badges.py` (scorecard), `gating.py`, `reports.py`,
 `data_export.py`.
 
@@ -341,13 +341,15 @@ Every dialog binds `window.SMModal.bind()` from `_modal.js.j2` — focus trap,
 Escape, backdrop close, focus restore. Nothing hand-rolls that: the 2026-08-09
 audit's P1 finding was a modal declaring `aria-modal="true"` and implementing
 none of it, and the fix was to extract this helper. Current users: the
-methodology modal, the tab guides, the market-context chips and the alerts
+methodology modal, the tab guides, the track-record chips and the alerts
 panel.
 
-The **market-context chips** (`Live` / `SPY` / `VIX`) in the header are one
-tappable control opening their own guide body, in a shared partial included by
-both pages — `title` tooltips do not exist on touch, so tapping is the only way
-that explanation reaches a phone.
+The **track-record chips** (`1M` / `12M` vs ACWI) in the leaderboard's summary
+strip (Cell C) are one tappable control opening their own guide body,
+`_guide_track_record.html.j2`, included only by `index.html.j2` — the
+Sentiment page has no track-record cell and gets no such control. `title`
+tooltips do not exist on touch, so tapping is the only way that explanation
+reaches a phone.
 
 The **alerts panel** is a modal opened from a footer link. Its overlay is a
 separate wrapper around `#alert-prefs`, deliberately: `alert-prefs.js` owns that

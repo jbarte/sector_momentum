@@ -63,11 +63,6 @@ from dashboard.figures import (                      # noqa: E402, F401
     build_cohort_chart_context as _figures_cohort_charts_ctx,
     build_sectors_context as _figures_sectors_ctx,
 )
-from dashboard.macro import (                        # noqa: E402, F401
-    build_macro_context,
-    build_page_context as _macro_ctx,
-    fetch_macro_data,
-)
 from dashboard.reports import (                      # noqa: E402, F401
     build_scan_index,
     _generate_scan_reports,
@@ -635,8 +630,6 @@ def main() -> None:
     # ------------------------------------------------------------------
     template_dir = Path(__file__).parent / "templates"
 
-    # Compute cross-page contexts once (macro makes a network call)
-    logger.info("Fetching macro regime data …")
     # Hoisted so BOTH pages get them: the leaderboard needs them for its
     # selector, and the SHARED footer's alerts modal states which band alerts
     # actually use. `horizon_default_json` is the config default, and the config
@@ -676,6 +669,12 @@ def main() -> None:
          "top_n": h.top_n, "buffer_frac": h.buffer_frac,
          "trades_per_year": _live_stats.get(h.key, {}).get("trades_per_year"),
          "median_holding_days": _live_stats.get(h.key, {}).get("median_holding_days"),
+         "m1": _live_stats.get(h.key, {}).get("m1"),
+         "m1_from": _live_stats.get(h.key, {}).get("m1_from"),
+         "m12": _live_stats.get(h.key, {}).get("m12"),
+         "m12_from": _live_stats.get(h.key, {}).get("m12_from"),
+         "track_as_of": _live_stats.get(h.key, {}).get("as_of"),
+         "track_stale": _live_stats.get(h.key, {}).get("stale", False),
          "exit_rank_today": h.exit_rank(len(leaderboard_rows)),
          # Next ~6 review dates, ISO strings, so the client can say whether
          # today is one without re-deriving the cadence rule in JS — see
@@ -688,8 +687,6 @@ def main() -> None:
         "top_n": _default_horizon.top_n, "buffer_frac": _default_horizon.buffer_frac,
         "exit_rank_today": _default_horizon.exit_rank(len(leaderboard_rows)),
     })
-
-    macro_page_ctx = _macro_ctx(shared)
 
     # --- Sectors page ---
     logger.info("Building sectors page context …")
@@ -737,7 +734,6 @@ def main() -> None:
     sectors_ctx.update(_figures_cohort_charts_ctx(shared))
     sectors_ctx.update(_badges_ctx(shared))
     sectors_ctx.update(_validation_ctx(shared))
-    sectors_ctx.update(macro_page_ctx)
     sectors_ctx.update(auth_ctx)
     sectors_ctx.update(build_health_context(health_row, same_asof_streak=same_asof_streak))
 
@@ -773,7 +769,6 @@ def main() -> None:
         "horizon_default_json": _horizon_default_json,
     }
     sentiment_ctx.update(_sentiment_ctx(shared))
-    sentiment_ctx.update(macro_page_ctx)
     sentiment_ctx.update(auth_ctx)
 
     _render(

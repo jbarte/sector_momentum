@@ -17,7 +17,6 @@ Object.assign(SV, {
   // applyLang()'s first pass, so only SV is listed here.
   strip_eyebrow_read: "Dagens läge",
   strip_eyebrow_band: "I köpbandet",
-  strip_eyebrow_market: "Marknadsläge",
   read_leads: "leder listan.",
   read_bottom_rising: "Nedre halvan vänder uppåt.",
   read_bottom_falling: "Nedre halvan fortsätter nedåt.",
@@ -28,6 +27,18 @@ Object.assign(SV, {
   hz_hold: "medianinnehav",
   hz_trades: "affärer/år",
   review_done: "Klar ✓",
+  strip_eyebrow_vs_bench: "mot ACWI",
+  track_record_aria: "Avkastning mot index — vad detta jämför",
+  track_record_1m: "1 mån",
+  track_record_12m: "12 mån",
+  track_record_as_of: "per",
+  // Guide-dialog live figures (finding A, 2026-09-05 whole-branch review):
+  // the guide always names the as-of date and both from-dates, not just the
+  // stale case. Placeholder Swedish, same "ship now, correct later" basis as
+  // the rest of this week's fill-ins.
+  guide_tr_dates_asof: "Siffrorna gäller per",
+  guide_tr_dates_m1: "1 mån mätt från",
+  guide_tr_dates_m12: "12 mån mätt från",
   {#- The leaderboard's Trend column (.traj-word) never had an i18n path at
       all -- data-i18n was added 2026-09-05. Reusing the Badge scorecard's
       words for the identical five trajectory states (badge_rising_fast etc,
@@ -61,8 +72,6 @@ Object.assign(SV, {
   badge_alpha: "alfa",
   chip_live: "Live",
   chip_live_tip: "Visar den senaste skanningen",
-  market_context_aria: "Marknadskontext — vad dessa betyder",
-  market_context_title: "Marknadskontext",
   alerts_title: "Aviseringar",
   alerts_intro: "Få en push-avisering efter varje skanning: Gå ur för teman du äger, plus nya Gå in-signaler.",
   alerts_enable: "Aktivera aviseringar",

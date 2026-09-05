@@ -87,33 +87,26 @@
     <p class="band-note" id="band-empty" data-i18n="band_empty" hidden>No themes in the band on this view.</p>
   </div>
 
-  {#- Same guard the old header block had (_header.html.j2, pre-Stage 4):
-      render when EITHER macro data exists (real numbers to show) OR auth is
-      configured — a build with no FRED data still needs this DOM host to
-      exist, because markLive() (auth.js) targets #market-context-chips
-      after a signed-in upgrade, which can happen on exactly that build.
-      Without this outer guard the eyebrow button rendered unconditionally —
-      an "what these mean" trigger with nothing beside it to explain on a
-      build with neither. Found in whole-branch review. -#}
-  {% if macro or auth %}
-  <div class="strip-cell" id="cell-market-context">
-    {#- The eyebrow is the guide trigger, replacing the header's #context-chips
-        button. .cc-label so the shared dispatch uses it as the dialog heading
-        rather than the live numbers beside it. -#}
+  {#- Guard mirrors the old `macro or auth`: render when there is a real
+      figure to show OR auth is configured, because markLive() (auth.js)
+      targets #market-context-chips after a signed-in upgrade and needs the
+      host div to exist even on a build with no backtest artifact. -#}
+  {% if has_backtest or auth %}
+  <div class="strip-cell" id="cell-track-record">
     <button type="button" class="strip-eyebrow tab-guide-btn"
-            data-guide="guide_body_market_context"
-            aria-label="Market context — what these mean"
-            data-i18n-aria="market_context_aria">
-      <span class="cc-label" data-i18n="strip_eyebrow_market">Market context</span>
+            data-guide="guide_body_track_record"
+            aria-label="Performance vs benchmark — what this compares"
+            data-i18n-aria="track_record_aria">
+      <span class="cc-label" data-i18n="strip_eyebrow_vs_bench">vs ACWI</span>
       <span class="cc-info" aria-hidden="true">&#9432;</span>
     </button>
+    {#- Same id the SPY/VIX chips used, so markLive() is untouched. Values
+        are filled by renderHorizonStats() -- they differ per horizon, the
+        same reason hz-held/hz-trades server-render an em dash. -#}
     <div class="market-chips" id="market-context-chips">
-      {% if macro %}
-      <span class="chip {{ 'chip-up' if macro.spy_above else 'chip-down' }}">SPY {{ "%+.1f"|format(macro.spy_distance_pct) }}%</span>
-      <span class="chip-word" data-i18n="{{ 'macro_chip_spy_above' if macro.spy_above else 'macro_chip_spy_below' }}">{{ 'above 200-DMA' if macro.spy_above else 'below 200-DMA' }}</span>
-      <span class="chip chip-{{ macro.vix_band|lower }}">VIX {{ "%.1f"|format(macro.vix_last) }}</span>
-      <span class="chip-word" data-i18n="macro_vix_{{ macro.vix_band|lower }}">{{ macro.vix_band|lower }}</span>
-      {% endif %}
+      <span class="chip" id="tr-m1-chip"><span data-i18n="track_record_1m">1M</span> <b id="tr-m1">—</b></span>
+      <span class="chip" id="tr-m12-chip"><span data-i18n="track_record_12m">12M</span> <b id="tr-m12">—</b></span>
+      <span class="chip-word" id="tr-stale" hidden></span>
     </div>
   </div>
   {% endif %}
@@ -1402,6 +1395,55 @@ function renderHorizonStats(key) {
       ? '—' : '~' + Math.round(h.median_holding_days) + 'd');
   set('hz-trades', h.trades_per_year == null
       ? '—' : Math.round(h.trades_per_year));
+  // The two performance chips. Excess return in percentage points vs the
+  // benchmark; null when the curve doesn't reach back that far, which shows
+  // an em dash rather than a wrong number measured from a short track.
+  function setChip(valueId, chipId, pp) {
+    var el = document.getElementById(valueId);
+    var chip = document.getElementById(chipId);
+    if (!el || !chip) { return; }
+    chip.classList.remove('chip-up', 'chip-down');
+    if (pp == null) { el.textContent = '—'; return; }
+    el.textContent = (pp >= 0 ? '+' : '') + pp.toFixed(1) + 'pp';
+    chip.classList.add(pp >= 0 ? 'chip-up' : 'chip-down');
+  }
+  setChip('tr-m1', 'tr-m1-chip', h.m1);
+  setChip('tr-m12', 'tr-m12-chip', h.m12);
+  // Staleness is surfaced, never hidden: a silently absent element reads as
+  // "deliberately off", which is how a FinBERT outage passed unnoticed for
+  // 10 scans. Shows the as-of date inline once the artifact is old.
+  // data-i18n/data-en are (re)set on every render rather than left to
+  // _i18n.html.j2's data-en first-sight capture: this function runs BEFORE
+  // that capture, so the first capture would otherwise grab "as of <date>"
+  // whole as the English base, and a later language toggle would restore
+  // that frozen date instead of retranslating "as of"/"per" against the
+  // CURRENT date. Same base+data-suffix split applyHorizonBadges() uses for
+  // its own dynamic suffix, and the same contract _i18n.html.j2's
+  // translate() comment documents: the caller must still set data-i18n for
+  // a later toggle to find the element.
+  var staleEl = document.getElementById('tr-stale');
+  if (staleEl) {
+    staleEl.hidden = !h.track_stale;
+    staleEl.setAttribute('data-i18n', 'track_record_as_of');
+    staleEl.setAttribute('data-en', 'as of');
+    if (h.track_stale && h.track_as_of) {
+      staleEl.setAttribute('data-suffix', ' ' + h.track_as_of);
+      staleEl.textContent = (window.translate ? window.translate('track_record_as_of', 'as of') : 'as of')
+        + ' ' + h.track_as_of;
+    } else {
+      staleEl.removeAttribute('data-suffix');
+      staleEl.textContent = '';
+    }
+  }
+  // The guide dialog always names the as-of date and both windows' actual
+  // from-dates -- curve points land on rebalance boundaries, so "1M"/"12M"
+  // are the nearest rebalance AT OR BEFORE the target, not exactly 30/365
+  // days (long rebalances bi-monthly, so its "1M" can run well past 30
+  // days). Plain text, not i18n-managed: these are dates, not translated
+  // words -- the surrounding paragraph's own labels carry the translation.
+  set('guide-tr-as-of', h.track_as_of || '—');
+  set('guide-tr-m1-from', h.m1_from || '—');
+  set('guide-tr-m12-from', h.m12_from || '—');
 }
 
 // The review panel. Reads SM_BOOK_STATE (written by applyHorizonBadges) and
@@ -2228,7 +2270,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
     {% include "_guide_illo.html.j2" %}
     <h2 id="guide-modal-title" data-i18n="guide_summary">How to read this tab</h2>
-    {% include "_guide_market_context.html.j2" %}
+    {% include "_guide_track_record.html.j2" %}
     <div class="tab-guide-body" data-guide-body="guide_body_leaderboard" hidden data-i18n-html="guide_body_leaderboard">
             <p>Themes are ranked strongest to weakest. Everything is measured
                <strong>against the other themes today</strong>, not against zero — so
@@ -2299,17 +2341,6 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             <p>Read Trend <em>with</em> the badge. Enter plus ↑ is a theme arriving.
                Hold plus ↓↓ is one on its way out that has not fallen far enough to
                trigger an Exit yet.</p>
-
-            {#- The "Market context chips" section moved to
-                _guide_market_context.html.j2 on 2026-08-14: the chips render in the
-                shared header, so their explanation had to be reachable from the
-                Sentiment page too, and it is now opened by tapping the chips
-                themselves. Kept as a pointer rather than duplicated copy. -#}
-            <h3>Market context chips</h3>
-            <p>The <strong>Live</strong>, <strong>SPY</strong> and <strong>VIX</strong>
-               chips in the header describe the whole market, not any theme. They change
-               no scores &mdash; they tell you how much to trust the board.
-               <strong>Tap them</strong> for the full explanation.</p>
 
             <h3>Getting more detail</h3>
             <p>Click any row to expand it — you get every underlying signal, and the
@@ -2490,8 +2521,8 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     var btn = e.target.closest ? e.target.closest(".tab-guide-btn") : null;
     if (!btn) { return; }
     e.preventDefault();
-    // data-guide-label wins over the trigger's text: the market-context chips
-    // are a trigger whose visible text is live data ("SPY +10.1% VIX 14.6"),
+    // data-guide-label wins over the trigger's text: the track-record chips
+    // are a trigger whose visible text is live data ("1M +1.2pp 12M +32.2pp"),
     // which made a nonsense dialog heading. Text remains the default so every
     // existing "How to read this tab" / "How is the sentiment score
     // calculated?" button keeps mirroring its own wording.

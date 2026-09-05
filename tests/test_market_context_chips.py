@@ -18,21 +18,24 @@ import pytest
 _ROOT = Path(__file__).parent.parent
 _TPL = _ROOT / "dashboard" / "templates"
 
-_PAGES = ["index.html.j2", "sentiment.html.j2"]
+
+def test_sentiment_page_has_no_market_context_guide_left():
+    """Task 3 (2026-09-05) removed the market-context chips (and this guide)
+    entirely — the sentiment page has no track-record cell to explain, so it
+    gets no replacement guide either, unlike index.html.j2 (see
+    test_index_page_carries_the_track_record_guide_body below)."""
+    text = (_TPL / "sentiment.html.j2").read_text()
+    assert '{% include "_guide_market_context.html.j2" %}' not in text
+    assert not (_TPL / "_guide_market_context.html.j2").exists()
 
 
-@pytest.mark.parametrize("page", _PAGES)
-def test_both_pages_carry_the_market_context_guide_body(page):
-    """The header is shared, so the explanation has to be reachable from both."""
-    text = (_TPL / page).read_text()
-    assert '{% include "_guide_market_context.html.j2" %}' in text
-
-
-def test_the_guide_body_declares_the_key_the_chips_open():
-    body = (_TPL / "_guide_market_context.html.j2").read_text()
-    assert 'data-guide-body="guide_body_market_context"' in body
-    # The i18n pass needs the node present at load to swap EN/SV on it.
-    assert 'data-i18n-html="guide_body_market_context"' in body
+def test_index_page_carries_the_track_record_guide_body():
+    """index.html.j2's Cell C now explains the 1M/12M performance chips, not
+    the market-context ones -- see test_sentiment_page_still_carries_the_market_
+    context_guide_body above for why the two pages now diverge."""
+    text = (_TPL / "index.html.j2").read_text()
+    assert '{% include "_guide_track_record.html.j2" %}' in text
+    assert '{% include "_guide_market_context.html.j2" %}' not in text
 
 
 def test_the_chips_are_one_tappable_control():
@@ -40,34 +43,64 @@ def test_the_chips_are_one_tappable_control():
     summary strip's Cell C — spec Screen 1 item 1. The control they hang off
     is now the cell's eyebrow label rather than a header button, but the
     property this test exists for is unchanged: the explanation is reachable
-    from one real <button>, not a div with a click handler."""
+    from one real <button>, not a div with a click handler. Cell C's own
+    content changed (2026-09-05, track-record chip) from the SPY/VIX chips to
+    the 1M/12M performance ones, but the tappable-control shape is the same."""
     index = (_TPL / "index.html.j2").read_text()
-    assert 'id="cell-market-context"' in index
+    assert 'id="cell-track-record"' in index
     assert 'id="market-context-chips"' in index
-    assert 'data-guide="guide_body_market_context"' in index
-    cell = index[index.index('id="cell-market-context"'):]
+    assert 'data-guide="guide_body_track_record"' in index
+    cell = index[index.index('id="cell-track-record"'):]
     cell = cell[:cell.index("</section>")]
     assert re.search(r'<button[^>]*class="strip-eyebrow tab-guide-btn"', cell)
     # And nothing is left behind in the command bar to render them twice.
     assert 'id="context-chips"' not in (_TPL / "_header.html.j2").read_text()
 
 
-@pytest.mark.parametrize("page", _PAGES)
-def test_the_guide_dispatch_prefers_an_explicit_label(page):
-    """The chips' visible text is live data ("SPY +10.1% VIX 14.6"), which made a
-    nonsense dialog heading when the dispatch used textContent. Caught in the
-    browser, so pin it: both pages carry their own copy of this dispatch and both
-    must prefer `.cc-label`."""
-    text = (_TPL / page).read_text()
-    assert '.cc-label' in text, f"{page}'s guide dispatch does not prefer .cc-label"
+def test_index_guide_dispatch_prefers_an_explicit_label():
+    """index.html.j2's track-record trigger's visible text is live data
+    ("1M +1.2pp 12M +32.2pp"), which made a nonsense dialog heading when the
+    dispatch used textContent. Caught in the browser, so pin it: the dispatch
+    must prefer a `.cc-label` child over the trigger's own text."""
+    text = (_TPL / "index.html.j2").read_text()
+    assert '.cc-label' in text, "index.html.j2's guide dispatch does not prefer .cc-label"
 
 
-def test_the_leaderboard_guide_no_longer_duplicates_the_copy():
-    """It points at the chips instead. Duplicated copy is how two versions drift."""
+def test_sentiment_guide_dispatch_has_no_vacuous_cc_label_check():
+    """Finding 7 (2026-09-05 track-record-chip review): sentiment.html.j2's
+    copy of the dispatch used to prefer `.cc-label` too, a leftover from when
+    the header's SPY/VIX chips (which did carry that class) rendered on both
+    pages. Those chips are gone and no element on this page has ever carried
+    `.cc-label`, so the check was vacuous — it could never actually fire.
+    Simplified to a plain textContent read; this pins the simplification so a
+    future copy-paste from index.html.j2 doesn't reintroduce dead code here."""
+    text = (_TPL / "sentiment.html.j2").read_text()
+    assert '.cc-label' not in text
+
+
+def test_the_track_record_guide_body_declares_the_key_the_chips_open():
+    """Analogue of the deleted test_the_guide_body_declares_the_key_the_chips_
+    open (see git show 2eeb589:tests/test_market_context_chips.py), which
+    pinned the same property for the now-deleted market-context guide. Cell
+    C's trigger button emits data-guide="guide_body_track_record" (see
+    test_the_chips_are_one_tappable_control above); if the guide partial's
+    own attributes drift from that key, SMModal opens an empty dialog and
+    nothing fails — the i18n pass simply finds no node to swap EN/SV on."""
+    body = (_TPL / "_guide_track_record.html.j2").read_text()
+    assert 'data-guide-body="guide_body_track_record"' in body
+    # The i18n pass needs the node present at load to swap EN/SV on it.
+    assert 'data-i18n-html="guide_body_track_record"' in body
+
+
+def test_the_leaderboard_guide_has_no_market_context_pointer_left():
+    """The leaderboard guide used to end with an inline SPY/VIX explanation,
+    then (Stage 4) a "Tap them" pointer at the header chips. Task 3
+    (2026-09-05) removed the chips outright, so the pointer has nothing left
+    to point at and is gone too — not repointed at Cell C, which has its own
+    guide trigger already."""
     index = (_TPL / "index.html.j2").read_text()
-    # The distinctive sentence from the old inline section.
     assert "the US market's distance from its" not in index
-    assert "Tap them" in index
+    assert "Market context chips" not in index
 
 
 # ---------------------------------------------------------------------------
@@ -108,22 +141,21 @@ def test_no_template_uses_an_i18n_attribute_the_pass_ignores():
     )
 
 
-@pytest.mark.parametrize("key", [
-    "market_context_title", "market_context_aria", "chip_live", "chip_live_tip",
-])
+@pytest.mark.parametrize("key", ["chip_live", "chip_live_tip"])
 def test_swedish_has_the_new_plain_strings(key):
     sv = (_TPL / "i18n" / "_core.js.j2").read_text()
     assert f"{key}:" in sv
 
 
-def test_swedish_has_the_guide_body_in_the_html_bundle():
-    """data-i18n-html reads SV_HTML, not SV — a copy in SV would never be used."""
+def test_market_context_keys_are_gone_from_both_i18n_bundles():
+    """Task 3 (2026-09-05) deleted the market-context chips and their guide;
+    the keys that only they used must not linger in either bundle."""
+    core = (_TPL / "i18n" / "_core.js.j2").read_text()
     guides = (_TPL / "i18n" / "_guides.js.j2").read_text()
-    assert "guide_body_market_context:" in guides
-    body_at = guides.index("guide_body_market_context:")
-    assert "Object.assign(SV_HTML" in guides[:body_at], (
-        "guide_body_market_context must be assigned into SV_HTML"
-    )
+    for dead in ("market_context_title:", "market_context_aria:", "strip_eyebrow_market:"):
+        assert dead not in core, f"{dead} still in _core.js.j2"
+    assert "guide_body_market_context:" not in guides
+    assert not (_TPL / "i18n" / "_macro.js.j2").exists()
 
 
 def test_the_live_chip_is_translatable_and_explained():

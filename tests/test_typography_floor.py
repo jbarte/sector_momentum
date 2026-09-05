@@ -13,9 +13,9 @@ at exactly 12px; .chevron and the sort-direction arrows are `em` relative to
 their own `thead th`/table-cell ancestor.
 
 Several selectors are DELIBERATELY excluded from the floor: icon glyphs read
-by shape rather than parsed as text (the thead sort-direction arrows,
-.cc-info's info-circle), and quiet secondary labels that must not compete
-with what they qualify (.alpha-badge — its own code comment: "Deliberately
+by shape rather than parsed as text (the thead sort-direction arrows), and
+quiet secondary labels that must not compete with what they qualify
+(.alpha-badge — its own code comment: "Deliberately
 the quietest thing in the command bar" — plus .lc-label, .theme-ticker and,
 since the 2026-08-19 leaderboard restructure, `thead th`). Each is pinned
 below with its own assertion, not silently skipped, so a future change to any
@@ -298,12 +298,6 @@ def test_sort_direction_arrows_are_deliberately_exempt_from_the_floor():
     css = _css("_tables.css.j2")
     assert _resolved_px(_rule_font_size(css, "thead th.sort-asc::after"), context_px=11) < 12
     assert _resolved_px(_rule_font_size(css, "thead th.sort-desc::after"), context_px=11) < 12
-
-
-def test_market_context_info_glyph_is_deliberately_exempt_from_the_floor():
-    """The ⓘ icon on the market-context chips — same category as .chevron."""
-    css = _css("_chrome.css.j2")
-    assert _resolved_px(_rule_font_size(css, ".context-chips .cc-info")) < 12
 
 
 def test_alpha_badge_is_deliberately_exempt_from_the_floor():
