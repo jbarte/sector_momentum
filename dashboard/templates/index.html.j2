@@ -104,8 +104,14 @@
         are filled by renderHorizonStats() -- they differ per horizon, the
         same reason hz-held/hz-trades server-render an em dash. -#}
     <div class="market-chips" id="market-context-chips">
-      <span class="chip" id="tr-m1-chip"><span data-i18n="track_record_1m">1M</span> <b id="tr-m1">—</b></span>
-      <span class="chip" id="tr-m12-chip"><span data-i18n="track_record_12m">12M</span> <b id="tr-m12">—</b></span>
+      {#- title/data-i18n-title so the unit is explained without opening the
+          guide -- "pp" is jargon, and the gap-between-two-percentages point
+          is the part a reader actually needs. Same pattern the trend badge
+          and the unbuyable badge already use. -#}
+      <span class="chip" id="tr-m1-chip" data-i18n-title="track_record_unit_tip"
+            title="Percentage points ahead of (or behind) ACWI over this window"><span data-i18n="track_record_1m">1M</span> <b id="tr-m1">—</b></span>
+      <span class="chip" id="tr-m12-chip" data-i18n-title="track_record_unit_tip"
+            title="Percentage points ahead of (or behind) ACWI over this window"><span data-i18n="track_record_12m">12M</span> <b id="tr-m12">—</b></span>
       <span class="chip-word" id="tr-stale" hidden></span>
     </div>
   </div>
