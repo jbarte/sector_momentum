@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
@@ -596,9 +598,67 @@ def _build_backtest_context(backtests_dir: str) -> dict:
     }
 
 
-def _live_horizon_stats(backtests_dir: str) -> dict[str, dict]:
+# Trailing windows for the summary strip's performance chips, in days.
+# Two windows, not one: the window picks the story. Measured 2026-09-05,
+# `medium` read +1.2pp over 1M and +32.2pp over 12M -- showing either alone
+# invites the reader to over-update on an arbitrary framing. See
+# sector_momentum-notes/specs/2026-09-05-strategy-track-record-chip-design.md.
+_TRACK_WINDOW_DAYS = {"m1": 30, "m12": 365}
+
+# backtests/summary.json refreshes only on a manual `python3 backtest.py`.
+# Past this, a window labelled "1M" is measuring a month that ended long ago.
+_TRACK_STALE_AFTER_DAYS = 35
+
+
+def _window_excess(equity_curve: list[dict], days: int) -> tuple[float, str] | None:
+    """Excess return (strategy - benchmark) in percentage points over the
+    trailing `days`, with the actual from-date it was measured from.
+
+    Anchored by DATE, never by list index: engine.py appends one calendar
+    date past the final rebalance, so the curve's last point is a stub a day
+    after the last real rebalance. Indexing back one point would measure a
+    single day and render labelled as a month.
+
+    Returns None when the curve does not reach back far enough -- a short
+    track shows no figure rather than one measured from its own first point.
+    """
+    from datetime import date as _date, timedelta as _timedelta
+
+    if not equity_curve:
+        return None
+    last = equity_curve[-1]
+    try:
+        end = _date.fromisoformat(last["date"])
+    except (KeyError, ValueError):
+        return None
+
+    target = end - _timedelta(days=days)
+    prior = [p for p in equity_curve
+             if _date.fromisoformat(p["date"]) <= target]
+    if not prior:
+        return None
+    start = prior[-1]
+
+    # 0 or None on either leg would make the ratio meaningless or raise.
+    if not start.get("strategy") or not start.get("benchmark"):
+        return None
+    if last.get("strategy") is None or last.get("benchmark") is None:
+        return None
+
+    strat = last["strategy"] / start["strategy"]
+    bench = last["benchmark"] / start["benchmark"]
+    return (100.0 * (strat - bench), start["date"])
+
+
+def _live_horizon_stats(backtests_dir: str, today: date | None = None) -> dict[str, dict]:
     """{horizon_key: {"trades_per_year": float | None, "median_holding_days":
-    float | None}} from backtests/summary.json's live measured metrics.
+    float | None, "m1"/"m12": float | None (excess pp vs benchmark over the
+    trailing 30/365 days), "m1_from"/"m12_from": str | None (the actual
+    curve date each was measured from), "as_of": str | None, "stale": bool}}
+    from backtests/summary.json's live measured metrics.
+
+    `today` is injectable so the staleness flag is testable, matching
+    dashboard/gating.py::_pick_lagged_scan's `now` parameter.
 
     A second, independent read of the same artifact _build_backtest_context
     loads above: that function pre-formats these same numbers into display
@@ -616,16 +676,33 @@ def _live_horizon_stats(backtests_dir: str) -> dict[str, dict]:
     """
     from src.backtest.results import load_summary
 
+    ref_today = today or date.today()
     summary = load_summary(backtests_dir)
     stats: dict[str, dict] = {}
     for key, track in (summary or {}).get("tracks", {}).items():
         if not track:
             continue
         m = track.get("metrics") or {}
-        stats[key] = {
+        curve = track.get("equity_curve") or []
+        entry = {
             "trades_per_year": m.get("trades_per_year"),
             "median_holding_days": m.get("median_holding_days"),
+            "as_of": track.get("end"),
+            "stale": False,
         }
+        for name, days in _TRACK_WINDOW_DAYS.items():
+            got = _window_excess(curve, days)
+            entry[name] = got[0] if got else None
+            entry[f"{name}_from"] = got[1] if got else None
+
+        end_str = track.get("end")
+        if end_str:
+            try:
+                age = (ref_today - date.fromisoformat(end_str)).days
+                entry["stale"] = age > _TRACK_STALE_AFTER_DAYS
+            except ValueError:
+                entry["stale"] = False
+        stats[key] = entry
     return stats
 
 
