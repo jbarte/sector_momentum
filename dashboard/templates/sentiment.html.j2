@@ -212,14 +212,13 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
     var btn = e.target.closest ? e.target.closest(".tab-guide-btn") : null;
     if (!btn) { return; }
     e.preventDefault();
-    // data-guide-label wins over the trigger's text: the market-context chips
-    // are a trigger whose visible text is live data ("SPY +10.1% VIX 14.6"),
-    // which made a nonsense dialog heading. Text remains the default so every
-    // existing "How to read this tab" / "How is the sentiment score
-    // calculated?" button keeps mirroring its own wording.
-    var labelEl = btn.querySelector ? btn.querySelector(".cc-label") : null;
-    var label = labelEl ? labelEl.textContent.trim()
-                        : (btn.textContent || "").trim();
+    // This page's only guide trigger is the plain "How is the sentiment
+    // score calculated?" button, so the dialog heading just mirrors its own
+    // text. (index.html.j2 carries a second copy of this dispatch that
+    // additionally prefers an explicit label child, because its
+    // track-record trigger's visible text is live data — no element on this
+    // page ever carries that marker class.)
+    var label = (btn.textContent || "").trim();
     show(btn.getAttribute("data-guide"), label);
   });
 })();

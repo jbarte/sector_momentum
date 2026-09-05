@@ -18,8 +18,6 @@ import pytest
 _ROOT = Path(__file__).parent.parent
 _TPL = _ROOT / "dashboard" / "templates"
 
-_PAGES = ["index.html.j2", "sentiment.html.j2"]
-
 
 def test_sentiment_page_has_no_market_context_guide_left():
     """Task 3 (2026-09-05) removed the market-context chips (and this guide)
@@ -59,14 +57,39 @@ def test_the_chips_are_one_tappable_control():
     assert 'id="context-chips"' not in (_TPL / "_header.html.j2").read_text()
 
 
-@pytest.mark.parametrize("page", _PAGES)
-def test_the_guide_dispatch_prefers_an_explicit_label(page):
-    """The chips' visible text is live data ("SPY +10.1% VIX 14.6"), which made a
-    nonsense dialog heading when the dispatch used textContent. Caught in the
-    browser, so pin it: both pages carry their own copy of this dispatch and both
-    must prefer `.cc-label`."""
-    text = (_TPL / page).read_text()
-    assert '.cc-label' in text, f"{page}'s guide dispatch does not prefer .cc-label"
+def test_index_guide_dispatch_prefers_an_explicit_label():
+    """index.html.j2's track-record trigger's visible text is live data
+    ("1M +1.2pp 12M +32.2pp"), which made a nonsense dialog heading when the
+    dispatch used textContent. Caught in the browser, so pin it: the dispatch
+    must prefer a `.cc-label` child over the trigger's own text."""
+    text = (_TPL / "index.html.j2").read_text()
+    assert '.cc-label' in text, "index.html.j2's guide dispatch does not prefer .cc-label"
+
+
+def test_sentiment_guide_dispatch_has_no_vacuous_cc_label_check():
+    """Finding 7 (2026-09-05 track-record-chip review): sentiment.html.j2's
+    copy of the dispatch used to prefer `.cc-label` too, a leftover from when
+    the header's SPY/VIX chips (which did carry that class) rendered on both
+    pages. Those chips are gone and no element on this page has ever carried
+    `.cc-label`, so the check was vacuous — it could never actually fire.
+    Simplified to a plain textContent read; this pins the simplification so a
+    future copy-paste from index.html.j2 doesn't reintroduce dead code here."""
+    text = (_TPL / "sentiment.html.j2").read_text()
+    assert '.cc-label' not in text
+
+
+def test_the_track_record_guide_body_declares_the_key_the_chips_open():
+    """Analogue of the deleted test_the_guide_body_declares_the_key_the_chips_
+    open (see git show 2eeb589:tests/test_market_context_chips.py), which
+    pinned the same property for the now-deleted market-context guide. Cell
+    C's trigger button emits data-guide="guide_body_track_record" (see
+    test_the_chips_are_one_tappable_control above); if the guide partial's
+    own attributes drift from that key, SMModal opens an empty dialog and
+    nothing fails — the i18n pass simply finds no node to swap EN/SV on."""
+    body = (_TPL / "_guide_track_record.html.j2").read_text()
+    assert 'data-guide-body="guide_body_track_record"' in body
+    # The i18n pass needs the node present at load to swap EN/SV on it.
+    assert 'data-i18n-html="guide_body_track_record"' in body
 
 
 def test_the_leaderboard_guide_has_no_market_context_pointer_left():

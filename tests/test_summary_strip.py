@@ -49,52 +49,34 @@ def test_all_three_drift_phrases_are_present_and_keyed():
         assert f'data-i18n="read_bottom_{drift}"' in INDEX, drift
 
 
-def _render_header(active_segment, macro=None, auth=False):
-    """_header.html.j2 is shared by index.html.j2 and sentiment.html.j2, and
-    since Cell C (Stage 4) is index-only, whether the header's own SPY/VIX
-    chips render now depends on active_segment — a raw text scan of the
-    .j2 source can't distinguish "renders for sentiment" from "renders for
-    both", since both branches' markup is present in the source
-    unconditionally. Same minimal-render technique
-    test_mobile_scan_meta_survives_missing_scan_date (test_dashboard_js.py)
-    uses for this exact template."""
+def _render_header(active_segment, auth=False):
+    """_header.html.j2 is shared by index.html.j2 and sentiment.html.j2.
+    Same minimal-render technique test_mobile_scan_meta_survives_missing_
+    scan_date (test_dashboard_js.py) uses for this exact template."""
     from jinja2 import Environment, FileSystemLoader
     from dashboard.build import register_asset_url
     env = Environment(loader=FileSystemLoader(str(ROOT / "dashboard" / "templates")))
     register_asset_url(env)
     return env.get_template("_header.html.j2").render(
-        active_segment=active_segment, macro=macro, auth=auth)
-
-
-_MACRO = {"spy_above": True, "spy_distance_pct": 1.0, "vix_band": "Calm", "vix_last": 12.0}
-
-
-def test_market_context_chips_are_not_duplicated_on_the_leaderboard_page():
-    """Stage 4 moves them into Cell C for index.html.j2 (active_segment ==
-    "sectors"). Rendering the header for that page must not also carry
-    them, or desktop would show SPY/VIX twice — Cell C and the header
-    would both display the same numbers at once. No scan_date is passed
-    here, so .mobile-scan-meta (which also carries SPY/VIX, on purpose —
-    see test_the_mobile_scan_meta_row_keeps_its_own_spy_vix_echo below)
-    never renders in this call, meaning any "SPY" found below can only
-    have come from the desktop chip this test forbids."""
-    assert 'id="context-chips"' not in HEADER
-    html = _render_header("sectors", macro=_MACRO)
-    assert "mobile-scan-meta" not in html, "unexpected: scan_date was not passed"
-    assert "SPY" not in html, \
-        "the desktop SPY chip must be gone from the command bar on the leaderboard page"
+        active_segment=active_segment, auth=auth)
 
 
 def test_market_context_chips_are_gone_from_the_sentiment_page_too():
     """Task 3 (2026-09-05) removed the market-context chips outright, not just
     from index.html.j2's Cell C — the sentiment page has no track-record cell
     to explain, so it gets no chips and no guide trigger at all, on any build
-    (with or without auth configured)."""
-    for auth in (False, True):
-        html = _render_header("sentiment", macro=_MACRO, auth=auth)
-        assert "SPY" not in html
-        assert 'id="market-context-chips"' not in html
-        assert "tab-guide-btn" not in html
+    (with or without auth configured). Also covers the leaderboard page's own
+    header (active_segment="sectors"): with `macro` gone from the template
+    entirely, there is nothing left that could render the desktop SPY/VIX
+    chips there either — see test_the_chips_are_one_tappable_control in
+    test_market_context_chips.py for the companion assertion that
+    'id="context-chips"' is gone from _header.html.j2 for good."""
+    for segment in ("sectors", "sentiment"):
+        for auth in (False, True):
+            html = _render_header(segment, auth=auth)
+            assert "SPY" not in html
+            assert 'id="market-context-chips"' not in html
+            assert "tab-guide-btn" not in html
 
 
 def test_the_mobile_scan_meta_row_has_no_spy_vix_echo_left():

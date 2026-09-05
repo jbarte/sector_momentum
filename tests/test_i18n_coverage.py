@@ -49,12 +49,6 @@ _ATTR_DICT = {
 # or passed as a variable to setAttribute. Each maps to the keys it can
 # produce. An unregistered one FAILS the test rather than being skipped.
 _DYNAMIC_ATTRS = {
-    "macro_vix_{{ macro.vix_band|lower }}": {
-        "macro_vix_calm", "macro_vix_elevated", "macro_vix_stressed",
-    },
-    "{{ 'macro_chip_spy_above' if macro.spy_above else 'macro_chip_spy_below' }}": {
-        "macro_chip_spy_above", "macro_chip_spy_below",
-    },
     "badge_{{ row.badge_key }}": None,  # resolved from _BADGE_ORDER below
     # Band-cut rows, built by buildBandCutRowHtml() as a JS string at runtime
     # rather than by Jinja -- so a scan for "{{" misses them too. Keys come

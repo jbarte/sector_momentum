@@ -593,6 +593,12 @@ button.strip-eyebrow {
   cursor: pointer;
 }
 button.strip-eyebrow:hover .cc-label { color: var(--fg2); }
+/* .cc-info (the decorative info-circle glyph) already inherits the button's
+   color/size/tracking, so it reads correctly with no rule of its own — but
+   without one it silently dims out of step with .cc-label on hover. This
+   restores the pairing the old .context-chips:hover .cc-info rule gave the
+   header chips before they were deleted. */
+button.strip-eyebrow:hover .cc-info { color: var(--fg2); }
 button.strip-eyebrow:focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 2px; }
 
 .strip-headline {

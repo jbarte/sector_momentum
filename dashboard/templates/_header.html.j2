@@ -16,12 +16,13 @@
     {% endif %}
   </div>
   <div class="meta-cluster">
-    {#- Both blocks below exist only on pages sharing this header without
-        their own summary strip — today that is the Sentiment page, checked
-        once here rather than per block (code review, 2026-08-23: the guard
-        was duplicated on each conditional, which a future third segment
-        could silently opt into by half-editing). Each block keeps only the
-        condition specific to it. -#}
+    {#- The scan-date block below exists only on pages sharing this header
+        without their own summary strip — today that is the Sentiment page
+        (code review, 2026-08-23: the guard used to be duplicated on the
+        conditional inside the block, which a future third segment could
+        silently opt into by half-editing; it is now checked once here
+        instead). The auth block that follows is a sibling, not nested here —
+        it renders on every segment, guarded only by `auth`. -#}
     {% if active_segment != "sectors" %}
     {#- index.html.j2's summary strip prints the scan id/date on desktop via
         .strip-subline; sentiment.html.j2 has no strip of its own, so without

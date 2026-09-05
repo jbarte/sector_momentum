@@ -13,9 +13,9 @@ at exactly 12px; .chevron and the sort-direction arrows are `em` relative to
 their own `thead th`/table-cell ancestor.
 
 Several selectors are DELIBERATELY excluded from the floor: icon glyphs read
-by shape rather than parsed as text (the thead sort-direction arrows,
-.cc-info's info-circle), and quiet secondary labels that must not compete
-with what they qualify (.alpha-badge — its own code comment: "Deliberately
+by shape rather than parsed as text (the thead sort-direction arrows), and
+quiet secondary labels that must not compete with what they qualify
+(.alpha-badge — its own code comment: "Deliberately
 the quietest thing in the command bar" — plus .lc-label, .theme-ticker and,
 since the 2026-08-19 leaderboard restructure, `thead th`). Each is pinned
 below with its own assertion, not silently skipped, so a future change to any
