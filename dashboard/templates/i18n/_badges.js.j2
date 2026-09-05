@@ -16,6 +16,12 @@ Object.assign(SV, {
   badge_sc_hit_rate: "Träffgrad",
   badge_sc_mean: "Medel",
   badge_sc_median: "Median",
+  {#- The Badge scorecard renders these via data-i18n="badge_{{ row.badge_key }}"
+      (index.html.j2), keyed off _BADGE_ORDER in dashboard/badges.py -- a
+      dynamically assembled attribute, so a plain grep for these key names
+      finds nothing. They were deleted as dead on 2026-09-03 for exactly that
+      reason and restored the same day; tests/test_i18n_coverage.py now guards
+      them. #}
   badge_rising_fast: "↑↑ Stiger snabbt",
   badge_rising: "↑ Stiger",
   badge_flat: "→ Flat",

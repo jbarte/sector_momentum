@@ -53,17 +53,6 @@ Object.assign(SV_HTML, {
       <h3>Så använder du den</h3>
       <p>Teman roterar Ledande → Försvagas → Eftersläpar → Förbättras → Ledande. Köp i <span class="signal-hi">Förbättras</span> före rörelsen till Ledande; sälj i <span class="signal-lo">Försvagas</span> före fallet till Eftersläpar. Prickade svanslinjer visar de senaste 3 skanningspositionerna — svansens riktning betyder mer än nuvarande position.</p>
       <p><em>Obs: nuvarande axlar är kompositbaserade approximationer. Äkta JdK RS-Ratio/Momentum kräver daglig prisdata relativt ett jämförelseindex.</em></p>`,
-  guide_body_rrg_themes: `
-      <p>Teman plottas efter <strong>relativ styrka mot jämförelseindex</strong> (x-axel) och om den relativa styrkan <strong>accelererar eller bromsar in</strong> (y-axel). Båda axlarna är centrerade kring 100.</p>
-      <h3>Fyra kvadranter</h3>
-      <ul>
-        <li><strong>Ledande (uppe till höger):</strong> Överpresterar OCH accelererar.</li>
-        <li><strong>Försvagas (nere till höger):</strong> Överpresterar men bromsar in. <span class="signal-lo">Främsta ur-/minska-signal.</span></li>
-        <li><strong>Eftersläpar (nere till vänster):</strong> Underpresterar OCH bromsar in. Undvik.</li>
-        <li><strong>Förbättras (uppe till vänster):</strong> Underpresterar men accelererar. <span class="signal-hi">Främsta insteg-signal.</span></li>
-      </ul>
-      <h3>Så använder du den</h3>
-      <p>Teman roterar Ledande → Försvagas → Eftersläpar → Förbättras → Ledande. Köp i <span class="signal-hi">Förbättras</span> före rörelsen till Ledande; sälj i <span class="signal-lo">Försvagas</span> före fallet till Eftersläpar. Prickade svanslinjer visar de senaste skanningspositionerna — svansens riktning betyder mer än nuvarande position.</p>`,
   guide_body_drilldown: `
       <p>Välj ett tema för att se historiken för dess poängkomponenter över alla lagrade skanningar.</p>
       <h3>Viktiga mönster</h3>
@@ -75,14 +64,6 @@ Object.assign(SV_HTML, {
       </ul>
       <h3>Så använder du den</h3>
       <p>Kombinera med topplistans Trend-märke. Ett tema som visar <span class="signal-hi">↑</span> på topplistan och som även har stigande komposit och change_score i detaljvyn är läget med högst övertygelse. Ett tema med hög rang men platt eller fallande change_score halkar sannolikt i nästa skanning.</p>`,
-  guide_body_drilldown_themes: `
-      <p>Välj ett tema för att se historiken för dess poängkomponenter över alla lagrade skanningar.</p>
-      <h3>Viktiga mönster</h3>
-      <ul>
-        <li><span class="signal-hi">Komposit stiger + förändringspoäng stiger:</span> ihållande acceleration. Starkast läge för ingång.</li>
-        <li><span class="signal-lo">Komposit nära topp + förändringspoäng vänder negativt:</span> temat toppar. Minska eller gå ur.</li>
-        <li>Komposit faller men förändringspoäng stiger: bottenprocess. Invänta bekräftelse innan insteg.</li>
-      </ul>`,
   guide_body_movers: `
       <p>Rangförändring mellan de två senaste skanningarna. <span class="signal-hi">Gröna staplar</span> = teman som klättrade på topplistan; <span class="signal-lo">terrakotta-staplar</span> = teman som halkade.</p>
       <h3>Så använder du den</h3>
@@ -90,13 +71,6 @@ Object.assign(SV_HTML, {
         <li>En enskild stor positiv rörelse kan vara en datahändelse snarare än ihållande momentum — bekräfta i Detaljvy-fliken innan du agerar.</li>
         <li>Teman med 2+ stora positiva rörelser i rad i Historik-fliken bär mer övertygelse än enstaka hopp.</li>
         <li><span class="signal-lo">Varningsflagga:</span> ett högt rankat tema med en stor negativ stapel här är en tidig topp-signal. Kolla topplistans Trend-märke — om det visar <span class="signal-lo">↓</span> eller <span class="signal-lo">↓↓</span> är vändningen sannolikt verklig.</li>
-      </ul>`,
-  guide_body_movers_themes: `
-      <p>Rangförändring mellan de två senaste skanningarna. <span class="signal-hi">Gröna staplar</span> = teman som klättrade på topplistan; <span class="signal-lo">terrakotta-staplar</span> = teman som halkade.</p>
-      <h3>Så använder du den</h3>
-      <ul>
-        <li>En enskild stor positiv rörelse kan vara brus — bekräfta i Detaljvy-fliken innan du agerar.</li>
-        <li>Teman med 2+ stora positiva rörelser i rad i Historik-fliken bär mer övertygelse.</li>
       </ul>`,
   guide_body_history: `
       <p>Kompositpoängens trend över alla lagrade skanningar för varje tema. Kompositen är ett tvärsnitts-z-värde — 0 = kohortgenomsnitt för den skanningen.</p>
@@ -109,14 +83,6 @@ Object.assign(SV_HTML, {
       </ul>
       <h3>Så använder du den</h3>
       <p>Använd som kontext för nuvarande rang. Ett tema rankat #1 efter att stadigt ha stigit under 10 skanningar har en annan riskprofil än en som hoppade från #8 förra skanningen. Långa, jämna uppgångar är de insteg värda att behålla; V-formade vändningar är de att handla snabbt eller hoppa över.</p>`,
-  guide_body_history_themes: `
-      <p>Kompositpoängens trend över alla lagrade skanningar för varje tema. Kompositen är ett tvärsnitts-z-värde — 0 = temagenomsnitt för den skanningen.</p>
-      <h3>Viktiga mönster</h3>
-      <ul>
-        <li><span class="signal-hi">Konsekvent uppåtlutning:</span> kvalitetsmomentum över flera skanningar.</li>
-        <li><span class="signal-lo">Skarp spik följt av vändning:</span> sannolikt en engångshändelse, ej hållbart.</li>
-        <li>Gradvis återhämtning från negativt territorium: möjlig framväxande chans.</li>
-      </ul>`,
   sentiment_footnote: `
     Nedre högra kvadranten (data före sentiment) är den tidiga rotationszonen.
     Ihåliga punkter = ingen sentimentdata denna skanning (källa otillgänglig eller enbart EU).

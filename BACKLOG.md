@@ -20,6 +20,67 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
+## Untranslated dashboard strings — Swedish readers see English
+
+Found 2026-09-03 during the dashboard JS/i18n sweep, **verified live** against
+the built page (`lang=sv`, then reading the DOM).
+
+**1. Trend words never translate.** `TRAJECTORY_WORDS` in
+`dashboard/assets/rescore.js:44` is a hardcoded English map —
+`surging / rising / flat / falling / sliding` — read by `trajectoryLabel()`
+and handed to `trajBadgeHTML()` as the `word` argument. Nothing in that path
+consults the i18n dictionaries. The server-side half matches:
+`row.trajectory_word` is baked by `_compute_rank_trajectories` in `build.py`
+and rendered raw at `index.html.j2:326`. So **both** the baked rows and the
+signed-in `renderLatestRows()` rows are English-only. Confirmed live: the
+`.traj-word` element reads `flat` with the page in Swedish.
+
+Note this is *not* the same thing as the `badge_rising`/`badge_flat`/… keys —
+those are live, and translate the **Badge scorecard** table, which is a
+different surface. Swedish exists there and works; it is the leaderboard's
+trend column that has no i18n path at all. Their vocabulary is also not
+interchangeable: the scorecard says *Stiger/Faller* against the trend column's
+*rising/falling*, and there is no existing Swedish for `surging` or `sliding`.
+
+**2. Four Backtest columns have no Swedish entry.** `bt_horizon`, `bt_policy`,
+`bt_trades`, `bt_hold` carry `data-i18n` on the table header
+(`index.html.j2:437`) but appear in no SV dictionary, so they render English.
+Frozen in `tests/test_i18n_coverage.py`'s `_KNOWN_BROKEN` so the gap cannot
+grow — remove them from that set as they are translated, which the test also
+enforces.
+
+**3. `note_sentiment` is requested from the wrong dictionary.** It is defined
+in `SV_HTML` (`i18n/_sentiment.js.j2:14`) — correctly, since it carries markup
+— but `index.html.j2:360,389,400` requests it as plain `data-i18n`, which
+`_i18n.html.j2` resolves from `SV`. So the RRG / Movers / History tab notes
+render English in Swedish. The definition site even carries a comment warning
+that "a copy in SV would silently never be used"; the inverse mistake was made
+at the usage site. Not a mechanical fix: the English string ("Sentiment
+weighting affects the leaderboard ranking only.") and the Swedish one (the
+alpha notice) say different things, so someone has to decide which is
+intended before choosing between `data-i18n-html` and an `SV` entry.
+
+**4. `lastScan`** is injected at runtime by `scan-history.js:217` with
+`data-i18n="lastScan"` and has no SV entry either, so the scan-history banner's
+label stays English. Caught by the guard once it was widened to scan
+`dashboard/*.py` and `dashboard/assets/*.js` rather than templates alone —
+`data-i18n` is emitted from all three.
+
+**Why none of this was fixed in the sweep that found it:** these are behaviour
+changes to user-visible strings in a language the sweep could not proofread,
+and the words need *choosing*, not just translating — `surging` and `sliding`
+have no prior Swedish. That is a native speaker's call, not a cleanup.
+
+**Shape of the fix for (1).** The trajectory state
+(`strong_up`/`up`/`flat`/`down`/`strong_down`) is already on the badge as a
+`traj-<state>` class and is the natural key, so this wants i18n keys per state
+rather than a second hardcoded map. Both producers must be covered — the
+client-side `TRAJECTORY_WORDS` path *and* the server-baked `trajectory_word` —
+or the two halves disagree the moment a signed-in reader's rows re-render.
+Worth deciding at the same time whether `.traj-word` should carry a
+`data-i18n` attribute so `applyLang()` handles it on switch, instead of the
+word being baked once at render time.
+
 ## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
 
 Decided 2026-09-02. **Supersedes "Guest sign-in status isn't clearly
@@ -629,6 +690,112 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+## Dead i18n keys removed — 14 orphaned Swedish strings, plus a guard (2026-09-03)
+
+Follow-on sweep of the dashboard JS/i18n/CSS surface. **JS functions came back
+clean** — all 174 definitions across `dashboard/assets/` and the template
+inline scripts are referenced — and **CSS came back clean** too: all 8
+apparently-unused classes are built dynamically (`chip-{{ vix_band }}`,
+`etf-match-{match}`, `badge-{{ health_badges.x }}`).
+
+**Removed — superseded by the review-panel rebuild:** `review_due`,
+`review_next_label`. The panel reads `rp_review_due` / `rp_next_review`, which
+carry identical Swedish values.
+
+**Removed — left by the theme/sector rename and the leaderboard restructure:**
+`segment_themes` (the live key is `segment_sectors`, which labels the button
+"Teman"), `col_theme` (live key `col_sector`), `note_themes`, `themes_empty`,
+`col_data`, `note_backtest_themes`, `bt_hitrate`, `bt_turnover`.
+
+**Removed — four whole guide bodies from the two-cohort era** (~34 lines of
+Swedish prose): `guide_body_rrg_themes`, `guide_body_drilldown_themes`,
+`guide_body_movers_themes`, `guide_body_history_themes`. When themes were one
+cohort of several, each tab had a themes-specific guide; the live keys are the
+un-suffixed `guide_body_rrg` etc. **The first pass of this sweep missed all
+four**, because its key parser only matched quoted values and these are
+backtick template literals — the parser was fixed for the test but the sweep
+was not re-run with it until code review pointed at them.
+
+**A test was pinning two of them.** `test_swedish_has_the_new_review_strings`
+asserted `review_due`, `review_done`, `review_next_label` on the rationale that
+each "carries data-i18n" — true only of `review_done` since the panel rebuild.
+Rerouted onto the three keys the panel actually reads.
+
+### Six keys were deleted as dead, wrongly, and restored the same day
+
+`badge_rising`, `badge_rising_fast`, `badge_flat`, `badge_falling`,
+`badge_falling_fast`, `badge_no_badge` are **live**. `index.html.j2` renders
+the Badge scorecard's first column as `data-i18n="badge_{{ row.badge_key }}"`,
+assembled at render time from `_BADGE_ORDER` in `dashboard/badges.py`, so
+grepping the templates for `badge_rising_fast` finds nothing. Caught in code
+review before merge; restored with a comment at the definition site saying why
+grep misses them.
+
+**The verification that should have caught it was itself broken, which is the
+more useful lesson.** The check ran in the browser as
+`if (window.SV && !(k in window.SV))` — but `_i18n.html.j2` declares
+`var SV = {}` inside a closure, so `window.SV` is `undefined`, the condition
+short-circuited, and the loop tested nothing. It reported "0 missing" and that
+clean result was quoted as evidence for the deletions. A green check that
+cannot fail is worse than no check: same shape as the FinBERT failure that
+rendered identically to a deliberate skip and went unnoticed for 10 scans.
+
+**Guard added** — `tests/test_i18n_coverage.py`, three static tests, no
+browser. It checks the two dictionaries **separately**, because
+`_i18n.html.j2` resolves `data-i18n`/`-aria`/`-title` from `SV` but
+`data-i18n-html` from `SV_HTML`; merging them hides a real class of bug. Any
+attribute assembled at render time must be registered in `_DYNAMIC_ATTRS` with
+the keys it can produce — an unregistered one **fails** rather than being
+skipped, since silently skipping is precisely what made the badge keys look
+dead. Confirmed to fail when the deletion is re-applied, rather than assumed
+to work.
+
+Writing it that way immediately found a third dynamic form nobody had listed:
+`buildBandCutRowHtml()` builds `data-i18n="' + p.key + '"` and
+`"' + eyebrowKey + '"` as a **JavaScript string at runtime**, so even a search
+for Jinja's `{{` misses it. Its five `band_*` keys are now registered and
+guarded.
+
+**A second review pass found the guard's own scan was too narrow**, in a way
+that mattered: it covered `data-i18n="literal"` attributes in templates only.
+Two gaps followed from that, both closed the same day:
+
+- **Wrong scope.** `data-i18n` is also written from `dashboard/*.py`
+  (`breakdown.py`) and `dashboard/assets/*.js`, not templates alone.
+  Widening the scan immediately surfaced `lastScan` — injected at runtime by
+  `scan-history.js`, no Swedish entry anywhere — a real gap the first version
+  of the guard could not have seen.
+- **Wrong attribute form.** `setAttribute("data-i18n", X)` call sites were
+  invisible to a regex expecting a literal `attr="value"` string. This left
+  `BADGE_I18N`'s `badge_entry`/`badge_hold`/`badge_exit` — the leaderboard's
+  actual Enter/Hold/Exit badges, reachable only via `index.html.j2`'s
+  `badge.setAttribute('data-i18n', BADGE_I18N[kind])` — with **no guard at
+  all**: deleting `badge_hold` left the full suite green. Fixed by matching
+  both attribute forms and registering `setAttribute` sites carrying a
+  variable in `_DYNAMIC_ATTRS`, same fail-loud rule as the Jinja and
+  JS-string forms above.
+
+A third pass found the dictionary parser itself never reset which
+`Object.assign` block it was inside at a block's closing `});`, so a
+key-shaped line after one block could be misattributed to it — and that the
+bundle list should come from `_i18n.html.j2`'s own `{% include %}` lines, not
+a directory glob, so a bundle written but never wired in cannot read as
+"defined." Both fixed; each fix was verified by deliberately reintroducing the
+bug it closes and confirming the suite goes red, not assumed to work.
+
+**Three pre-existing gaps ended up frozen in `_KNOWN_BROKEN`** so they cannot
+grow, and logged in Queued rather than fixed here: `bt_horizon`, `bt_policy`,
+`bt_trades`, `bt_hold` have no Swedish entry at all; `note_sentiment` is
+defined in `SV_HTML` but requested via plain `data-i18n`, so three tab notes
+render English; and `lastScan` above. The test also fails if a frozen entry
+starts resolving without being removed from the list.
+
+**Left alone deliberately:** `switchCohort()` and its `<select>` are
+unreachable — `cohorts()` hardcodes a single THEME cohort so
+`{% if cohort_list | length > 1 %}` never fires — but the template comment
+keeps the markup on purpose so a second cohort needs no template change.
+Documented intent, not an oversight.
 
 ## Dead-code sweep — 7 orphans removed, most from the sector retirement (2026-09-03)
 
