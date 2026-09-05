@@ -13,8 +13,11 @@ page renders English:
 1. **Which dictionary.** `_i18n.html.j2` resolves `data-i18n`, `-aria` and
    `-title` from `SV`, but `data-i18n-html` from `SV_HTML`. Merging them hides
    a key defined only in `SV_HTML` yet requested as plain `data-i18n`
-   (`note_sentiment` did exactly this until it was given its own `SV` entry,
-   separate from `_sentiment.js.j2`'s `SV_HTML` one, 2026-09-05).
+   (`note_sentiment` did exactly this: defined in `SV_HTML` for the Sentiment
+   page, but also requested via plain `data-i18n` by three tab notes, which
+   silently rendered English. Those notes were vestigial -- they described a
+   sentiment blend control that had been withdrawn -- and were deleted
+   2026-09-05, which is the real reason the mismatch is gone.)
 2. **Every emitter.** `data-i18n` is written by templates, by
    `dashboard/*.py` (`breakdown.py`) and by `dashboard/assets/*.js`. Scanning
    templates alone silently ignored `ucits_title`, `unbuyable_note`,
