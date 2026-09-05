@@ -21,11 +21,25 @@ _TPL = _ROOT / "dashboard" / "templates"
 _PAGES = ["index.html.j2", "sentiment.html.j2"]
 
 
-@pytest.mark.parametrize("page", _PAGES)
-def test_both_pages_carry_the_market_context_guide_body(page):
-    """The header is shared, so the explanation has to be reachable from both."""
-    text = (_TPL / page).read_text()
+def test_sentiment_page_still_carries_the_market_context_guide_body():
+    """sentiment.html.j2 has no summary strip of its own, so it still relies on
+    the shared header's chips and this guide for its "what these mean" copy.
+    index.html.j2 no longer does — the track-record chip (2026-09-05) replaced
+    its Cell C copy of these chips with its own guide, see
+    test_index_page_carries_the_track_record_guide_body below. Task 3 removes
+    this include (and the header chips) from sentiment.html.j2 too; until then
+    both must keep resolving."""
+    text = (_TPL / "sentiment.html.j2").read_text()
     assert '{% include "_guide_market_context.html.j2" %}' in text
+
+
+def test_index_page_carries_the_track_record_guide_body():
+    """index.html.j2's Cell C now explains the 1M/12M performance chips, not
+    the market-context ones -- see test_sentiment_page_still_carries_the_market_
+    context_guide_body above for why the two pages now diverge."""
+    text = (_TPL / "index.html.j2").read_text()
+    assert '{% include "_guide_track_record.html.j2" %}' in text
+    assert '{% include "_guide_market_context.html.j2" %}' not in text
 
 
 def test_the_guide_body_declares_the_key_the_chips_open():
@@ -40,12 +54,14 @@ def test_the_chips_are_one_tappable_control():
     summary strip's Cell C — spec Screen 1 item 1. The control they hang off
     is now the cell's eyebrow label rather than a header button, but the
     property this test exists for is unchanged: the explanation is reachable
-    from one real <button>, not a div with a click handler."""
+    from one real <button>, not a div with a click handler. Cell C's own
+    content changed (2026-09-05, track-record chip) from the SPY/VIX chips to
+    the 1M/12M performance ones, but the tappable-control shape is the same."""
     index = (_TPL / "index.html.j2").read_text()
-    assert 'id="cell-market-context"' in index
+    assert 'id="cell-track-record"' in index
     assert 'id="market-context-chips"' in index
-    assert 'data-guide="guide_body_market_context"' in index
-    cell = index[index.index('id="cell-market-context"'):]
+    assert 'data-guide="guide_body_track_record"' in index
+    cell = index[index.index('id="cell-track-record"'):]
     cell = cell[:cell.index("</section>")]
     assert re.search(r'<button[^>]*class="strip-eyebrow tab-guide-btn"', cell)
     # And nothing is left behind in the command bar to render them twice.

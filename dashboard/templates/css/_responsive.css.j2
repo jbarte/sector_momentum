@@ -33,16 +33,18 @@
 
   /* Summary strip (Stage 4): one stacked block on a phone, not three columns
      — three cells at 375px give each ~125px, narrower than a single band
-     pill. Cell C is hidden here because .mobile-scan-meta (Stage 3) already
-     carries SPY/VIX at this width; showing both prints the same two numbers
-     twice on one screen. */
+     pill. Cell C (id renamed cell-market-context -> cell-track-record by the
+     2026-09-05 track-record chip) stays hidden here for the same space
+     reason, not the original SPY/VIX-duplication one: it no longer shows
+     what .mobile-scan-meta (Stage 3) already carries at this width, but a
+     third ~125px-wide cell still doesn't fit next to the other two. */
   .summary-strip {
     grid-template-columns: 1fr;
     background: var(--surface);
   }
   .strip-cell { background: var(--surface); padding: 14px 16px; }
   #cell-todays-read { padding-left: 16px; padding-right: 16px; }
-  #cell-market-context { display: none; }
+  #cell-track-record { display: none; }
   /* Same reason Cell C is hidden: .mobile-scan-meta already prints the scan
      id and date a couple of hundred pixels above this, and the strip's own
      subline repeats them verbatim. Found at the 375px browser gate.

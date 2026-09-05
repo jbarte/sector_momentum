@@ -1,0 +1,18 @@
+<div class="tab-guide-body" data-guide-body="guide_body_track_record" hidden data-i18n-html="guide_body_track_record">
+  <p>Both numbers are <strong>excess return over ACWI</strong>, in percentage
+  points, for the horizon selected above — the strategy's return minus the
+  benchmark's over the same window.</p>
+  <p>They are <strong>point-in-time</strong>: the backtest curve reflects the
+  themes the strategy actually held at each historical rebalance, including
+  the hysteresis band. It is not today's picks measured backwards, which
+  would credit the strategy with picks it had not made.</p>
+  <h3>Why two windows</h3>
+  <p>One month of a five-holding thematic strategy is mostly noise. The same
+  strategy on the same day can read <strong>+1.2pp over one month and
+  +32.2pp over twelve</strong> — the window picks the story. Both are shown
+  so neither is read alone.</p>
+  <p>Returns are net of the round-trip trading cost assumption, the same
+  caveat the Backtest tab carries. Figures come from the last
+  <code>backtest.py</code> run; when that becomes old, the chips show the
+  date they are current as of.</p>
+</div>

@@ -3435,3 +3435,33 @@ def test_book_state_is_independent_of_dom_order():
         "different (sortTable()-style reordered) DOM order -- the "
         "collection is still order-dependent"
     )
+
+
+def test_track_record_chips_render_and_keep_the_live_host_id():
+    """markLive() (auth.js) inserts the Live chip into #market-context-chips.
+    The id stays on the new chips' host so markLive needs no change."""
+    root = Path(__file__).parent.parent
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+
+    assert 'id="market-context-chips"' in tpl, (
+        "markLive()'s host id was removed -- the Live chip would fall back to "
+        "the header, away from where Stage 4 put it"
+    )
+    for el in ('id="tr-m1"', 'id="tr-m12"', 'id="tr-m1-chip"', 'id="tr-m12-chip"'):
+        assert el in tpl, f"{el} missing from the track-record cell"
+    assert "SPY " not in tpl, "the SPY chip survived the replacement"
+    assert "macro.vix_band" not in tpl, "the VIX chip survived the replacement"
+
+
+def test_render_horizon_stats_fills_the_track_record_chips():
+    """renderHorizonStats is what switchHorizon already calls, so extending
+    it means switchHorizon needs no change at all."""
+    root = Path(__file__).parent.parent
+    tpl = (root / "dashboard/templates/index.html.j2").read_text()
+    body = tpl.split("function renderHorizonStats", 1)[1].split("\n}", 1)[0]
+
+    for token in ("tr-m1", "tr-m12", "chip-up", "chip-down"):
+        assert token in body, (
+            f"renderHorizonStats does not touch {token} -- the chips would "
+            f"keep their em-dash placeholder after a horizon switch"
+        )

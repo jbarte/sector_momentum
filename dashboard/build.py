@@ -676,6 +676,12 @@ def main() -> None:
          "top_n": h.top_n, "buffer_frac": h.buffer_frac,
          "trades_per_year": _live_stats.get(h.key, {}).get("trades_per_year"),
          "median_holding_days": _live_stats.get(h.key, {}).get("median_holding_days"),
+         "m1": _live_stats.get(h.key, {}).get("m1"),
+         "m1_from": _live_stats.get(h.key, {}).get("m1_from"),
+         "m12": _live_stats.get(h.key, {}).get("m12"),
+         "m12_from": _live_stats.get(h.key, {}).get("m12_from"),
+         "track_as_of": _live_stats.get(h.key, {}).get("as_of"),
+         "track_stale": _live_stats.get(h.key, {}).get("stale", False),
          "exit_rank_today": h.exit_rank(len(leaderboard_rows)),
          # Next ~6 review dates, ISO strings, so the client can say whether
          # today is one without re-deriving the cadence rule in JS — see
