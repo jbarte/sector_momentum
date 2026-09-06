@@ -69,7 +69,7 @@ that keeps them out of every read.
 
 `docs/` (the published GitHub Pages dashboard, incl. `docs/reports/`) is a **build
 output, not tracked in git** (gitignored). Build it locally to verify a change
-(`python3 dashboard/build.py`); it's fine to have a local `docs/` on any branch since
+(`make build`); it's fine to have a local `docs/` on any branch since
 it's never staged. CI rebuilds it fresh on every run and deploys it directly as a
 GitHub Pages artifact (`actions/upload-pages-artifact` + `actions/deploy-pages`) — see
 the `pages-artifact-deploy` design doc in `sector_momentum-notes` (private repo, see
@@ -163,12 +163,61 @@ To catch drift after the fact, run `/backlog-sync` (`.claude/commands/backlog-sy
 it audits each Queued/Parked item against git history, merged PRs, and the actual code,
 then fixes anything already shipped or stale via a `chore:` PR.
 
+## Secrets
+
+`.env` is gitignored; `.env.example` is the tracked, secret-free template.
+Three variables, and they are not equally sensitive:
+
+| Variable | Sensitivity |
+|---|---|
+| `SUPABASE_SERVICE_KEY` | **Highest.** Service-role key; bypasses RLS and writes the private `db-backups` bucket. |
+| `DATABASE_URL` | **High.** Contains the Postgres password. |
+| `SUPABASE_PUBLISHABLE_KEY` | **Not secret.** The anon key, already baked into the public dashboard HTML; protected by RLS at the database, not by being hidden. |
+
+A local `.env` without `SUPABASE_SERVICE_KEY` still runs scans and builds,
+but the pre-scan Storage backup degrades and `make restore` fails outright.
+
+**Migration to 1Password Environments is half-done, deliberately.** The
+`1password` MCP server is wired up (`.mcp.json`) and the guard rails are in
+place, but `.env` still holds literal values. Finishing it means creating a
+1Password Environment and letting the MCP generate the local `.env` of
+`op://` references — done that way so the values travel from the vault to
+the file without passing through Claude's context. `op run` passes literals
+through unchanged, so both forms work and there is no flag day.
+
+**Create a NEW Environment for this project.** The Environment that already
+exists in the vault belongs to `strategy_execution` (a separate repo that
+shares the same MCP server); reusing it would mix two projects' credentials
+into one blast radius. The three variables above are what it needs.
+
+### What the deny list is, and is not
+
+`.claude/settings.json` denies Claude Code direct `op`, `env`, `printenv`,
+`.env` reads, and edits to `Makefile`/`settings.json` themselves (otherwise
+the guard is one edit deep — adding `env` to an allow-listed `make` target
+would defeat it).
+
+**It is a speed bump, not a security boundary, and should not be described
+as one.** A deny list enumerates command names; the ways to read a file are
+effectively unbounded. `python3 -c` alone defeats it, and denying that would
+make the agent useless. It exists to stop casual and accidental exposure —
+an absent-minded `cat .env` in a transcript — not a determined one. The
+actual boundary is that the values live in 1Password and are resolved into
+a child process, never written to a shared file or pasted into chat.
+
+CI does not use `.env` at all: `scan.yml` takes `DATABASE_URL` /
+`SUPABASE_SERVICE_KEY` from GitHub Actions secrets, and `load_dotenv()`
+no-ops there with no file present. This is a local-dev concern only.
+
 ## Backups
 
 The DB is backed up to a **private Supabase Storage bucket `db-backups`** (one
 `backup_<UTC>.zip` per scan, taken *before* each run) — not git. Requires the
 `SUPABASE_SERVICE_KEY` secret (CI) / env var (local) and the bucket to exist.
-Restore with `python restore.py` (latest) / `--list` / `--local <dir>` (old git backups).
+Restore with `make restore` (latest). For the other modes run
+`op run --env-file=.env -- python3 restore.py --list` / `--local <dir>`
+yourself — `make restore` deliberately exposes only the default, and
+Claude Code is denied `op` directly.
 
 Google Trends was removed from the pipeline; the `--no-cache` flag it used is
 gone, and nothing reads or writes the `trends-cache` bucket any more — though
@@ -180,13 +229,20 @@ ARCHITECTURE § 4.
 
 ## Dev commands
 
+Anything needing a secret goes through `make`, which wraps the command in
+`op run` so 1Password resolves `.env` into the child process only. Claude
+Code is denied direct `op`, `env`, `printenv` and `.env` reads
+(`.claude/settings.json`); these targets are the one sanctioned path, and
+they must never gain a form that prints a secret. Your own shell is
+unrestricted.
+
 ```bash
-# Rebuild dashboard from existing DB
-python3 dashboard/build.py
-
-# Run full scan (requires API keys in .env)
-python3 scan.py
-
-# Run tests
-pytest
+make build     # Rebuild dashboard from existing DB
+make scan      # Run a full scan — WRITES to the live database
+make restore   # Restore latest backup — DESTRUCTIVE
+make test      # Run tests (no secrets needed; DB-backed tests skip)
+make help      # List targets
 ```
+
+`op run` passes plain values through unchanged, so these work whether
+`.env` holds literal values or `op://` references — see *Secrets* above.

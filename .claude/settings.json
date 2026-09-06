@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make build)",
+      "Bash(make test)",
+      "Bash(make help)"
+    ],
+    "deny": [
+      "Bash(op)",
+      "Bash(op *)",
+      "Bash(/opt/homebrew/bin/op *)",
+
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./**/.env)",
+      "Read(./.secrets/**)",
+      "Bash(cat .env)",
+      "Bash(cat ./.env)",
+      "Bash(less .env)",
+      "Bash(head .env)",
+      "Bash(tail .env)",
+      "Bash(grep * .env)",
+      "Bash(sed * .env)",
+      "Bash(awk * .env)",
+      "Bash(env)",
+      "Bash(env *)",
+      "Bash(printenv)",
+      "Bash(printenv *)",
+
+      "Edit(./Makefile)",
+      "Write(./Makefile)",
+      "Edit(./.claude/settings.json)",
+      "Write(./.claude/settings.json)"
+    ]
+  }
+}
