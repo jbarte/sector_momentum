@@ -1,10 +1,22 @@
 # Sanctioned way to run anything that needs a secret.
 #
-# `op run` reads .env, resolves any op:// references against 1Password, and
-# injects the results into the child process only — nothing is written to
-# disk and nothing is printed. Plain (non-reference) values pass straight
-# through, so these targets work both before and after .env is migrated to
-# 1Password Environments; there is no flag day.
+# .env is a mount created by the 1Password MCP server's create_local_env_file
+# (1password.dev/environments/local-env-file), tied to the sector_momentum
+# Environment. It already delivers resolved values, not op:// references —
+# confirmed 2026-09-06 by running `make build` with 1Password's CLI
+# integration (Settings → Developer → "Integrate with 1Password CLI") turned
+# OFF and it still worked. `op run` here is a pass-through: it reads already-
+# resolved values from the mount and injects them into the child process
+# only, without ever needing the CLI's account-wide shared session.
+#
+# THIS MATTERS BEYOND THIS REPO: that CLI integration toggle is account-wide,
+# not per-project — turning it on for any reason exposes every vault in the
+# tenant (including client vaults, for a consultancy account) to every shell
+# on the machine, this one included. Never turn it on to make a `make`
+# target work. If a future need genuinely requires op://-reference
+# resolution (op run against literal op:// strings, not a mount), use a
+# vault-scoped OP_SERVICE_ACCOUNT_TOKEN instead — never the shared CLI
+# session.
 #
 # .claude/settings.json denies Claude Code direct `op`, `env`, `printenv`
 # and .env reads. These targets are the narrow hole in that wall: they run

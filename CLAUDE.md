@@ -177,18 +177,32 @@ Three variables, and they are not equally sensitive:
 A local `.env` without `SUPABASE_SERVICE_KEY` still runs scans and builds,
 but the pre-scan Storage backup degrades and `make restore` fails outright.
 
-**Migration to 1Password Environments is half-done, deliberately.** The
-`1password` MCP server is wired up (`.mcp.json`) and the guard rails are in
-place, but `.env` still holds literal values. Finishing it means creating a
-1Password Environment and letting the MCP generate the local `.env` of
-`op://` references — done that way so the values travel from the vault to
-the file without passing through Claude's context. `op run` passes literals
-through unchanged, so both forms work and there is no flag day.
+**Migration to 1Password Environments is done (2026-09-06).** `.env` is a
+*mount* created by `mcp__1password__create_local_env_file`, tied to the
+dedicated `sector_momentum` Environment — not a file holding `op://`
+reference strings. The mount already delivers resolved values, so the
+values travel from the vault to the process without passing through
+Claude's context (only variable names and IDs do), and without `.env` ever
+holding anything in git. `op run` in the `Makefile` is a pass-through on top
+of that, not the thing doing the resolving — see the `Makefile`'s own
+comment for how that was confirmed.
 
-**Create a NEW Environment for this project.** The Environment that already
-exists in the vault belongs to `strategy_execution` (a separate repo that
-shares the same MCP server); reusing it would mix two projects' credentials
-into one blast radius. The three variables above are what it needs.
+**`sector_momentum` has its own Environment, separate from `strategy_execution`'s**
+(a separate repo sharing the same MCP server); reusing one Environment across
+projects would mix their blast radius.
+
+**1Password's CLI-integration toggle (Settings → Developer → "Integrate with
+1Password CLI", i.e. `developers.cliSharedLockState.enabled`) must stay
+OFF, and this is a decision shared across every project on this Mac, not
+one either project can make alone.** It's account-wide: turning it on
+exposes *every* vault in the tenant — including client vaults, for a
+consultancy account — to every shell on the machine for as long as
+1Password stays unlocked. Confirmed empirically 2026-09-06: `make build`
+still works with the toggle off, because the mount above needs no CLI
+session at all. If a future change to this repo ever seems to need the
+toggle on, that's a sign something regressed to needing `op://`-string
+resolution via the personal CLI session — the fix is a vault-scoped
+`OP_SERVICE_ACCOUNT_TOKEN`, never flipping this toggle on.
 
 ### What the deny list is, and is not
 
