@@ -25,12 +25,7 @@
       "Bash(env)",
       "Bash(env *)",
       "Bash(printenv)",
-      "Bash(printenv *)",
-
-      "Edit(./Makefile)",
-      "Write(./Makefile)",
-      "Edit(./.claude/settings.json)",
-      "Write(./.claude/settings.json)"
+      "Bash(printenv *)"
     ]
   }
 }

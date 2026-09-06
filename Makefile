@@ -16,11 +16,11 @@
 
 OP_RUN := op run --env-file=.env --
 
-.PHONY: help build scan test restore
+.PHONY: help build scan test restore restore-list restore-local
 
 help:  ## Show the available targets
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-9s %s\n", $$1, $$2}'
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 
 build: ## Rebuild the dashboard into docs/ (reads the DB)
 	$(OP_RUN) python3 dashboard/build.py
@@ -30,6 +30,12 @@ scan:  ## Run a full scan — WRITES to the live database
 
 restore: ## Restore the latest DB backup — DESTRUCTIVE, overwrites live data
 	$(OP_RUN) python3 restore.py
+
+restore-list: ## List available Storage backups without restoring
+	$(OP_RUN) python3 restore.py --list
+
+restore-local: ## Restore from a local backup dir — DESTRUCTIVE. Usage: make restore-local DIR=path/to/backup
+	$(OP_RUN) python3 restore.py --local $(DIR)
 
 test:  ## Run the test suite (needs no secrets; DB-backed tests skip)
 	python3 -m pytest -q

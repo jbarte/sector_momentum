@@ -193,9 +193,13 @@ into one blast radius. The three variables above are what it needs.
 ### What the deny list is, and is not
 
 `.claude/settings.json` denies Claude Code direct `op`, `env`, `printenv`,
-`.env` reads, and edits to `Makefile`/`settings.json` themselves (otherwise
-the guard is one edit deep — adding `env` to an allow-listed `make` target
-would defeat it).
+and `.env` reads. It no longer also denies editing `Makefile`/itself — that
+self-edit protection was dropped 2026-09-06 (it was blocking legitimate
+Makefile changes, e.g. adding `restore-list`/`restore-local`) once we
+confirmed Claude Code's own auto-mode classifier separately gates edits to
+`.claude/settings.json` regardless of what the file's deny list says, so the
+"one edit deep" concern (adding `env` to an allow-listed `make` target to
+defeat the list) is still covered.
 
 **It is a speed bump, not a security boundary, and should not be described
 as one.** A deny list enumerates command names; the ways to read a file are
@@ -214,10 +218,9 @@ no-ops there with no file present. This is a local-dev concern only.
 The DB is backed up to a **private Supabase Storage bucket `db-backups`** (one
 `backup_<UTC>.zip` per scan, taken *before* each run) — not git. Requires the
 `SUPABASE_SERVICE_KEY` secret (CI) / env var (local) and the bucket to exist.
-Restore with `make restore` (latest). For the other modes run
-`op run --env-file=.env -- python3 restore.py --list` / `--local <dir>`
-yourself — `make restore` deliberately exposes only the default, and
-Claude Code is denied `op` directly.
+Restore with `make restore` (latest), `make restore-list` (list backups
+without restoring), or `make restore-local DIR=<dir>` (restore from a local
+directory instead of Storage).
 
 Google Trends was removed from the pipeline; the `--no-cache` flag it used is
 gone, and nothing reads or writes the `trends-cache` bucket any more — though
@@ -237,11 +240,13 @@ they must never gain a form that prints a secret. Your own shell is
 unrestricted.
 
 ```bash
-make build     # Rebuild dashboard from existing DB
-make scan      # Run a full scan — WRITES to the live database
-make restore   # Restore latest backup — DESTRUCTIVE
-make test      # Run tests (no secrets needed; DB-backed tests skip)
-make help      # List targets
+make build          # Rebuild dashboard from existing DB
+make scan           # Run a full scan — WRITES to the live database
+make restore        # Restore latest backup — DESTRUCTIVE
+make restore-list   # List available Storage backups without restoring
+make restore-local  # Restore from a local backup dir — DESTRUCTIVE. Usage: DIR=<dir>
+make test           # Run tests (no secrets needed; DB-backed tests skip)
+make help           # List targets
 ```
 
 `op run` passes plain values through unchanged, so these work whether
