@@ -20,6 +20,54 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
+## Per-position trailing stop-loss — backtested and validated, not shipped
+
+2026-09-07. Prompted by a question about what the sell line is actually for
+(it's hysteresis against noise, not risk control — the strategy has zero
+drawdown-based exit anywhere; see the conversation, and
+`sector_momentum-notes` if this gets a design doc).
+
+**The backtest result, exploratory (`scripts/stoploss_sweep.py`,
+`strategy.simulate_with_stop` in `src/backtest/strategy.py`, on
+`explore/trailing-stop-backtest`).** A trailing stop — checked on daily
+closes, exits to cash until the next review, sell-leg-only cost charged at
+the moment it fires — beats the no-stop baseline on CAGR, Sharpe, AND max
+drawdown together, for BOTH shipped presets, on BOTH of this repo's
+established disjoint validation windows (2019-2021, 2022-):
+
+| preset | window | CAGR: none → 10% stop | Sharpe: none → 10% | max DD: none → 10% |
+|---|---|---|---|---|
+| medium | 2019-2021 | 37.5% → 102.7% | 1.40 → 2.01 | -23.3% → -9.0% |
+| medium | 2022- | 19.4% → 35.3% | 0.91 → 1.63 | -18.2% → -10.5% |
+| long | 2019-2021 | 31.0% → 97.7% | 1.07 → 2.24 | -25.4% → -1.9% |
+| long | 2022- | 20.6% → 36.4% | 0.91 → 1.86 | -23.6% → -14.5% |
+
+15% is close behind 10% on most cells and sometimes wins on Sharpe (`long`
+2019-2021: 2.41 vs 2.24) — the exact threshold needs its own decision, not
+just "10% won this table." The likely mechanism: `long`'s hysteresis band is
+wide by design (holds through rank 13 of 18) so it doesn't churn on noise,
+but that same width lets a crashing theme ride the ENTIRE fall until the
+next bi-monthly review even considers selling it — a rule checked between
+reviews closes exactly that gap.
+
+**Why this isn't shipped yet — the real gap is infrastructure, not the
+number.** Today the strategy only ever looks at prices on review dates. A
+live stop needs prices checked BETWEEN scans (daily, probably): a mid-cycle
+trigger, a way to alert "sell X now" outside the normal monthly digest, and
+dashboard/badge logic that currently assumes setup only changes at a
+review. That's real design work — brainstorm it before building, per this
+file's own guidance on when to use the full spec/plan flow.
+
+**Before shipping any threshold:** this needs the same warm-start rigor as
+every other backtest number in this repo (see `replay.DEFAULT_EVAL_START`
+and the warm-vs-cold sweep history above) — the two windows above already
+give real out-of-sample evidence, but the specific threshold hasn't been
+picked with a sweep run the way the horizon presets were (`horizon_sweep.py`
+picked `M/4/5` from a full grid at 70 AND 100 bps; this only compared six
+`stop_frac` values at one cost).
+
+---
+
 ## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
 
 Decided 2026-09-02. **Supersedes "Guest sign-in status isn't clearly
