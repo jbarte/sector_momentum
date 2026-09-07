@@ -233,17 +233,39 @@ deliberately NOT built yet. Correlation now orders the hand-assigned `match`
 labels correctly on the first live pull (median: exact 0.93 > close 0.84 >
 partial 0.54), and two `close`-labelled pairs read as outliers within their own
 group — AI & Robotics at 0.73 and Defense at 0.60, both the lowest `close`
-correlations, both closer to the `partial` median than their own group's.
+correlations.
+
+**Correction (2026-09-07):** the original "both closer to the `partial`
+median than their own group's" does not hold on its own numbers — checked
+while re-running the monitor, not guessed at. |0.73 − 0.84| = 0.11 vs
+|0.73 − 0.54| = 0.19: AI & Robotics is closer to its OWN group's median.
+Only Defense fits the "closer to partial" framing (|0.60 − 0.84| = 0.24 vs
+|0.60 − 0.54| = 0.06). Both are still the two lowest `close` correlations —
+that part stands — but they are not equally strong anomalies, and treating
+them as a matched pair overstated the AI & Robotics case.
+
+**Re-run 2026-09-07** (`scripts/ucits_tracking_monitor.py`, 8 days after the
+first pull): medians essentially unchanged — exact 0.93, close ~0.84–0.85,
+partial 0.54 — as expected, since a 190-week correlation barely moves in one
+week. **This does not count as a second independent monthly cycle** — it's
+the same rolling window plus a few days, not a genuinely different period.
+Also visible this run: Quantum Computing's UCITS pair (QUTM) has only 66
+weeks of joint history, well short of the ~190 the rest of the `close` group
+carries — a recently-listed fund, not yet informative for this measurement;
+excluding it from the `close` group barely moves the median (0.85 vs 0.84),
+so it isn't distorting anything yet, but is worth remembering if it's still
+short-history next time.
 
 **Not acted on yet, deliberately.** A rule like "flag a `close` pair scoring
-below the `partial` median" would fire on these two off a SINGLE snapshot.
-Correlation over 190 weeks is a real measurement, not noise, but relabeling a
-theme's tracking quality is a config change with real consequences (it changes
-what a reader expects to be able to buy) and deserves more than one data point
-before acting. Re-run monthly (the monitor has no schedule yet — see the
-sibling gap on the restore drill's cadence, though this doesn't need CI, a
-manual run is fine) for a few cycles, then revisit whether AI & Robotics and
-Defense should move to `partial`.
+below the `partial` median" would fire on Defense off two data points that
+are, per the above, really only one meaningfully independent measurement so
+far. Relabeling a theme's tracking quality is a config change with real
+consequences (it changes what a reader expects to be able to buy) and
+deserves more than that before acting. Re-run genuinely monthly (the monitor
+has no schedule yet — see the sibling gap on the restore drill's cadence,
+though this doesn't need CI, a manual run is fine, next one due ~2026-10-07)
+for a few real cycles, then revisit Defense specifically — AI & Robotics no
+longer looks like it belongs in the same sentence.
 
 ## Mobile card's expand-region nests a real button inside role="button"
 
