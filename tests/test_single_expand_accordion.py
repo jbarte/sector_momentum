@@ -22,23 +22,23 @@ from tests.test_dashboard_render_coalescing import (  # noqa: E402
 
 
 def _open_breakdown_ids(pg):
-    """sector_ids whose desktop breakdown row is currently expanded."""
+    """theme_ids whose desktop breakdown row is currently expanded."""
     return pg.evaluate("""() => Array.from(
         document.querySelectorAll('.breakdown-row.open')
     ).map(el => el.id.replace(/^bd-/, ''))""")
 
 
 def _open_card_ids(pg):
-    """sector_ids whose mobile card is currently expanded."""
+    """theme_ids whose mobile card is currently expanded."""
     return pg.evaluate("""() => Array.from(
         document.querySelectorAll('.leaderboard-card.open')
-    ).map(el => el.dataset.sectorId)""")
+    ).map(el => el.dataset.themeId)""")
 
 
 def _two_row_ids(pg):
     ids = pg.evaluate("""() => Array.from(
-        document.querySelectorAll('.leaderboard-row[data-sector-id]')
-    ).map(tr => tr.dataset.sectorId)""")
+        document.querySelectorAll('.leaderboard-row[data-theme-id]')
+    ).map(tr => tr.dataset.themeId)""")
     assert len(ids) >= 2, f"need two expandable rows to test an accordion, got {ids}"
     return ids[0], ids[1]
 
@@ -72,7 +72,7 @@ def test_collapsed_row_reports_aria_expanded_false(page):
     page.evaluate("(id) => toggleBreakdown(id)", b)
     expanded = page.evaluate(
         """(id) => document.querySelector(
-             '.leaderboard-row[data-sector-id="' + id + '"]'
+             '.leaderboard-row[data-theme-id="' + id + '"]'
            ).getAttribute('aria-expanded')""", a)
     assert expanded == "false", (
         f"the auto-collapsed row still reports aria-expanded={expanded!r}"
@@ -82,17 +82,17 @@ def test_collapsed_row_reports_aria_expanded_false(page):
 def test_opening_a_second_mobile_card_closes_the_first(page):
     cards = page.evaluate("""() => Array.from(
         document.querySelectorAll('.leaderboard-card[role="button"]')
-    ).map(c => c.dataset.sectorId)""")
+    ).map(c => c.dataset.themeId)""")
     if len(cards) < 2:
         pytest.skip(f"need two expandable mobile cards, got {cards}")
     a, b = cards[0], cards[1]
 
     page.evaluate("""(id) => document.querySelector(
-        '.leaderboard-card[data-sector-id="' + id + '"]').click()""", a)
+        '.leaderboard-card[data-theme-id="' + id + '"]').click()""", a)
     assert _open_card_ids(page) == [a]
 
     page.evaluate("""(id) => document.querySelector(
-        '.leaderboard-card[data-sector-id="' + id + '"]').click()""", b)
+        '.leaderboard-card[data-theme-id="' + id + '"]').click()""", b)
     assert _open_card_ids(page) == [b], (
         "opening a second mobile card left the first one open"
     )

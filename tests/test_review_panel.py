@@ -76,11 +76,11 @@ def test_panel_handles_an_exhausted_review_calendar():
     )
 
 
-def test_name_of_falls_back_to_sector_id():
+def test_name_of_falls_back_to_theme_id():
     """nameOf(key) had the identical bug as applyHorizonBadges()'s surplus
     lookup: a data-sector-key-only querySelector that silently fails on rows
     auth.js's renderLatestRows() rebuilt client-side (those rows carry
-    data-sector-id, not data-sector-key -- the signed-in path, the only path
+    data-theme-id, not data-sector-key -- the signed-in path, the only path
     where a book (and therefore Sell/Buy actions) exists at all). Its own
     fallback was to display the raw internal key string instead of the theme
     name. Both this and the surplus lookup now share one helper."""

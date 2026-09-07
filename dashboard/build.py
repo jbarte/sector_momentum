@@ -512,7 +512,7 @@ def main() -> None:
     for row in leaderboard_rows:
         key = f"{row['region']}|{row['sector']}"
         row["key"]       = key
-        row["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        row["theme_id"] = key.replace("|", "-").replace(" ", "_")
         traj = trajectories.get(key, {"label": "→", "state": "flat"})
         row["trajectory_label"] = traj["label"]
         row["trajectory_state"] = traj["state"]

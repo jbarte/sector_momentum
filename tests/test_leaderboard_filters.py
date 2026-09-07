@@ -28,7 +28,7 @@ def _jinja_env():
 def _row(**over):
     """A leaderboard row dict shaped like _build_leaderboard_rows output."""
     row = {
-        "key": "US|Technology", "sector_id": "US-Technology",
+        "key": "US|Technology", "theme_id": "US-Technology",
         "sector": "Technology", "region": "US", "rank": 1,
         "composite": "0.900", "level_score": "0.5", "change_score": "0.4",
         "data_score": "0.3", "sentiment_score": "—",
@@ -75,7 +75,7 @@ def _rows_for_cohort(cohort):
     rows = []
     for key in cohort.instruments:
         region, name = key.split("|", 1)
-        rows.append(_row(key=key, sector_id=f"{region}-{name}", sector=name, region=region))
+        rows.append(_row(key=key, theme_id=f"{region}-{name}", sector=name, region=region))
     return rows
 
 

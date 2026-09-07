@@ -51,7 +51,7 @@ def _render_with_sentiment_control(tmp_path):
     for r in lb_rows:
         key = f"{r['region']}|{r['sector']}"
         r["key"] = key
-        r["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        r["theme_id"] = key.replace("|", "-").replace(" ", "_")
         r["trajectory_label"] = "→"
         r["trajectory_state"] = "flat"
         r["trajectory_word"] = "flat"
