@@ -427,8 +427,8 @@
           <td>{% if s.scan_id == active_scan_id %}<span class="showing-badge">● Showing</span>{% endif %}</td>
           <td>#{{ s.scan_id }}</td>
           <td>{{ s.run_at_display }}</td>
-          <td>{{ s.sector_count }}</td>
-          <td>{{ s.top_sector }}</td>
+          <td>{{ s.theme_count }}</td>
+          <td>{{ s.top_theme }}</td>
           <td><a href="reports/report_{{ s.scan_id }}.md" data-i18n="si_download">download</a></td>
         </tr>
         {% else %}

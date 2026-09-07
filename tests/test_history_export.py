@@ -22,11 +22,11 @@ def _two_scans():
     return pd.DataFrame(rows)
 
 
-def test_scan_index_newest_first_with_top_sector():
+def test_scan_index_newest_first_with_top_theme():
     idx = build_scan_index(_two_scans())
     assert [r["scan_id"] for r in idx] == [2, 1]          # newest first
-    assert idx[0]["sector_count"] == 2
-    assert idx[0]["top_sector"] == "Technology"           # rank 1
+    assert idx[0]["theme_count"] == 2
+    assert idx[0]["top_theme"] == "Technology"           # rank 1
     assert "2026-06-02" in idx[0]["run_at_display"]
 
 
@@ -60,15 +60,15 @@ def test_scan_index_counts_only_sector_rows_from_mixed_cohort_frame():
     handed — so dashboard/build.py MUST filter all_scores_df down to
     sector regions (via cohorts(_universe), no themes_cfg) before calling
     it. This pins both halves of that contract: the unfiltered call leaks
-    THEME rows into sector_count, and the filtered call (mirroring what
+    THEME rows into theme_count, and the filtered call (mirroring what
     build.py now does) does not.
     """
     mixed = _mixed_cohort_scan()
 
     # Handing build_scan_index the raw mixed-cohort frame reproduces the
-    # PR5 bug: sector_count includes the 2 THEME rows (5, not 3).
+    # PR5 bug: theme_count includes the 2 THEME rows (5, not 3).
     leaked_idx = build_scan_index(mixed)
-    assert leaked_idx[0]["sector_count"] == 5
+    assert leaked_idx[0]["theme_count"] == 5
 
     # The fix: scope to the configured cohorts before calling. Readers default
     # to the THEME cohort now, but the retired US/EU rows are still in the table,
@@ -80,7 +80,7 @@ def test_scan_index_counts_only_sector_rows_from_mixed_cohort_frame():
     idx = build_scan_index(scoped)
     assert len(idx) == 1
     assert idx[0]["top_region"] == "THEME"
-    assert idx[0]["sector_count"] < leaked_idx[0]["sector_count"]
+    assert idx[0]["theme_count"] < leaked_idx[0]["theme_count"]
 
 
 def test_generate_reports_one_file_per_scan(tmp_path):

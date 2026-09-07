@@ -109,8 +109,8 @@ def _render_badge_suffix_html(tmp_path):
     scan_history = _build_scan_history_data(df)
     scan_index = [
         {"scan_id": 1, "run_at_display": "2026-08-24 06:00 UTC",
-         "run_at_raw": "2026-08-24T06:00:00", "sector_count": 2,
-         "top_sector": "Robotics", "top_region": "THEME"},
+         "run_at_raw": "2026-08-24T06:00:00", "theme_count": 2,
+         "top_theme": "Robotics", "top_region": "THEME"},
     ]
 
     out = tmp_path / "index.html"

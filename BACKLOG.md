@@ -470,26 +470,63 @@ isn't re-opened from scratch. The user-visible naming was already fixed when the
 leaderboard was ungrouped (column reads "Theme", copy says themes); what remains
 is internal.
 
+**`top_sector` → `top_theme` and `sector_count` → `theme_count` done**
+(2026-09-07, `refactor/theme-naming-cheap-subset`) — confirmed genuinely
+isolated to `dashboard/reports.py`'s scan-index dict, `index.html.j2`'s
+history table, and their test fixtures. No DB, no DOM, no JS. 1351 tests
+pass, `make build` clean.
+
+**The other three items in the original "cheap subset" turned out not to
+be cheap — corrected here so this doesn't get re-attempted the same way:**
+
+- **`sector_id` is NOT template/DOM-only.** It's `data-sector-id` /
+  `dataset.sectorId`, threaded through 30+ call sites in `index.html.j2`
+  alone (`auth.js`'s `renderLatestRows`, drill-down open/close/refocus,
+  `_leaderboardRowForKey`'s fallback lookup) and pinned by exact-string
+  assertions in five test files (`test_dashboard_js.py`,
+  `test_single_expand_accordion.py`, `test_review_panel.py`, others). A real
+  rename, not a quick one — scope it properly (its own item, or fold into a
+  future pass) rather than reusing this "cheap" label.
+- **`sector_key` is NOT ~27 isolated refs.** Attempted 2026-09-07, reverted
+  after discovering it's a shared DataFrame/dict key threaded through
+  `src/pipeline.py`, `dashboard/breakdown.py`, `dashboard/figures.py`, and
+  ~9 test files, not just the 3 backtest-adjacent files a narrower grep
+  (checking DB-column-ness, not actual usage breadth) suggested. Renaming it
+  in only some of those files silently breaks the data flow between them —
+  caught before commit, not after. Full scope needs a proper inventory
+  first, same as `sector_id`.
+- **`sectors_expected`/`sectors_produced` are real DB columns**
+  (`src/state.py`'s `init_db()`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+  on `scans`), confirmed 2026-09-07. The original table above mis-filed them
+  as schema-independent. Renaming them is exactly the migration-against-a-
+  live-database risk class the recommendation below says to leave `region`/
+  `gics_sector` alone for — group them with those two, not with the
+  genuinely cheap set.
+
 | identifier | refs | what it is |
 |---|---:|---|
 | `region` | ~265 | **DB column** on `signals`, `scores`, `sentiment_signals`, `positions`, and the `v_recent_scores` view |
 | `gics_sector` | ~123 | **DB column** on the same tables |
-| `sector_key` | ~27 | derived `"{region}\|{name}"` string |
-| `sectors_expected` / `sectors_produced` | 16 | `scans` health columns |
-| `sector_id`, `top_sector`, `sector_count` | ~9 | template/DOM ids and report fields |
+| `sectors_expected` / `sectors_produced` | 16 | **DB columns** on `scans` — corrected 2026-09-07, was mis-filed as schema-independent |
+| `sector_key` | ~40+ | shared DataFrame/dict key across `pipeline.py`/`breakdown.py`/`figures.py` and ~9 test files — corrected 2026-09-07, was mis-estimated at ~27 and isolated |
+| `sector_id` | 30+ | `data-sector-id` DOM attribute + `dataset.sectorId`, read in `auth.js` and `index.html.j2`, pinned by 5 test files — corrected 2026-09-07, was mis-filed as template-only |
 
-**Recommendation: leave the two DB columns alone.** Renaming them means a
+**Recommendation: leave the three DB columns alone** (`region`, `gics_sector`,
+and now `sectors_expected`/`sectors_produced`). Renaming them means a
 migration against a live database that also holds 41 scans of retired sector
-history, plus the Supabase view, its RLS/grants, the backup/restore path, and
-every reader — for zero functional gain. `region` in particular is load-bearing
-*as a name that no longer matches its meaning*: it is the filter that keeps the
-retired US/EU rows out of every read, so touching it is the riskiest cosmetic
-change available.
+history, plus (for `region`/`gics_sector`) the Supabase view, its RLS/grants,
+the backup/restore path, and every reader — for zero functional gain.
+`region` in particular is load-bearing *as a name that no longer matches its
+meaning*: it is the filter that keeps the retired US/EU rows out of every
+read, so touching it is the riskiest cosmetic change available.
 
-If it is ever done, `region` → `cohort` and `gics_sector` → `name` are the honest
-names, and the cheap subset (`sector_key`, `sector_id`, `top_sector`,
-`sector_count`, the two `scans` health columns) can be renamed independently of
-the schema at much lower risk.
+`sector_key` and `sector_id` are each their own properly-scoped task if ever
+done — inventory the full call graph first (this is the mistake made and
+caught 2026-09-07), don't assume "derived string" or "template id" means
+small.
+
+If the DB columns are ever renamed, `region` → `cohort` and `gics_sector` →
+`name` are the honest names.
 
 
 ## GDELT source alternatives — Web NGrams and BigQuery
