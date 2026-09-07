@@ -42,29 +42,40 @@ established disjoint validation windows (2019-2021, 2022-):
 | long | 2019-2021 | 31.0% → 97.7% | 1.07 → 2.24 | -25.4% → -1.9% |
 | long | 2022- | 20.6% → 36.4% | 0.91 → 1.86 | -23.6% → -14.5% |
 
-15% is close behind 10% on most cells and sometimes wins on Sharpe (`long`
-2019-2021: 2.41 vs 2.24) — the exact threshold needs its own decision, not
-just "10% won this table." The likely mechanism: `long`'s hysteresis band is
-wide by design (holds through rank 13 of 18) so it doesn't churn on noise,
-but that same width lets a crashing theme ride the ENTIRE fall until the
-next bi-monthly review even considers selling it — a rule checked between
-reviews closes exactly that gap.
+The likely mechanism: `long`'s hysteresis band is wide by design (holds
+through rank 13 of 18) so it doesn't churn on noise, but that same width
+lets a crashing theme ride the ENTIRE fall until the next bi-monthly review
+even considers selling it — a rule checked between reviews closes exactly
+that gap.
 
-**Why this isn't shipped yet — the real gap is infrastructure, not the
-number.** Today the strategy only ever looks at prices on review dates. A
-live stop needs prices checked BETWEEN scans (daily, probably): a mid-cycle
-trigger, a way to alert "sell X now" outside the normal monthly digest, and
-dashboard/badge logic that currently assumes setup only changes at a
-review. That's real design work — brainstorm it before building, per this
-file's own guidance on when to use the full spec/plan flow.
+**Threshold picked: 12%** (2026-09-07). Swept properly since the table
+above — nine thresholds x both presets x 70 AND 100 bps x both disjoint
+windows, matching what `horizon_sweep.py` did for the presets. Three
+results: cost level reorders nothing (70 vs 100 moves CAGR 1-3pp); the
+effect decays smoothly to baseline as the threshold widens; and **8% is
+where it turns negative** — `long` on 2022- earns 19.6% against a 20.6%
+no-stop baseline, the one cell in 72 where a stop loses to no stop. 10%
+wins marginally more cells, but 12% is within noise of it on three of four,
+fires ~15% less often, and sits a grid step further from that cliff — which
+matters because the live rule runs on star dates, not the model entry dates
+it was measured on. An earlier 15% suggestion is withdrawn: it gives up
+102.7% -> 87.3% CAGR on `medium` 2019-21 to halve the trigger rate.
 
-**Before shipping any threshold:** this needs the same warm-start rigor as
-every other backtest number in this repo (see `replay.DEFAULT_EVAL_START`
-and the warm-vs-cold sweep history above) — the two windows above already
-give real out-of-sample evidence, but the specific threshold hasn't been
-picked with a sweep run the way the horizon presets were (`horizon_sweep.py`
-picked `M/4/5` from a full grid at 70 AND 100 bps; this only compared six
-`stop_frac` values at one cost).
+**Design is specced, not built.** See
+`sector_momentum-notes/specs/2026-09-07-live-trailing-stop-loss-design.md`
+(approved 2026-09-07). Shape: entry = the star date and cost basis is
+ignored (the peak is recomputable from price history, so only the *latch*
+needs storing); latching not live, so it fires once and clears when you
+unstar; notify + a dashboard marker, never auto-unstar; a new
+`position_stops` table whose composite FK to `positions` cascades on
+delete, which makes "unstar to re-arm" free; and `alert_prefs
+.stop_loss_since`, a nullable timestamp that doubles as the on/off flag and
+as the guard against a burst of push notifications on day one.
+
+What remains is the implementation plan and the build — plus the two risks
+the spec records: the live trigger rate is unmeasured (star dates aren't
+model entry dates), and a per-position stop is not portfolio drawdown
+protection in a correlated selloff.
 
 ---
 

@@ -48,8 +48,12 @@ logging.basicConfig(level=logging.INFO,
                     datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger("stoploss_sweep")
 
-# None first so every report leads with the no-stop baseline it's judged against.
-STOP_FRACS: list[float | None] = [None, 0.10, 0.15, 0.20, 0.25, 0.30]
+# None first so every report leads with the no-stop baseline it's judged
+# against. The grid is finer below 20% because that is where the first pass
+# put the whole effect -- 25% and 30% barely fire (0.7-2.6 stops/yr) and are
+# kept only to show the effect decaying to the baseline, which is the shape
+# that says a real mechanism rather than a lucky cell.
+STOP_FRACS: list[float | None] = [None, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]
 
 BACKTEST_CACHE = "data/backtest_cache"
 
