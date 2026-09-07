@@ -69,10 +69,10 @@ Copy `.env.example` to `.env` and fill in:
 
 ```bash
 # Rebuild the dashboard from the existing DB (no network, no scan)
-python3 dashboard/build.py
+make build
 
 # Run the full scan (requires .env)
-python3 scan.py
+make scan
 
 # Replay the strategy over history and refresh backtests/
 python3 backtest.py

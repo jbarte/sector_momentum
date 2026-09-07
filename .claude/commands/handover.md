@@ -44,7 +44,7 @@ git branch
 Report anything unmerged **explicitly** — a handover that silently omits an open
 PR hands over a half-finished change. Delete local branches only after
 confirming `MERGED` per the `CLAUDE.md` rule. Confirm `pytest` passes and
-`python3 dashboard/build.py` completes.
+`make build` completes.
 
 ### 2. Mechanical sweep — do this before reading anything
 

@@ -394,7 +394,8 @@ difference when the reader has switched horizons.
 
 Before each scan, a full zip of all tables is uploaded to the private Supabase
 Storage bucket `db-backups`. Requires `SUPABASE_SERVICE_KEY`. Restore with
-`python restore.py` (latest) / `--list` / `--local <dir>`.
+`make restore` (latest); `op run --env-file=.env -- python3 restore.py --list` /
+`--local <dir>` for the other modes.
 
 A `trends-cache` bucket used to hold a durable Google Trends day-cache. **Google
 Trends is no longer in the pipeline**, so nothing reads or writes that bucket and

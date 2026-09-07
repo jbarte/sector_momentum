@@ -35,9 +35,14 @@ dashboard/assets/supabase.min.js
 # in the private sector_momentum-notes repo.
 /docs/
 
-# Claude Code internal files — except commands/, which are shared and versioned
+# Claude Code internal files — except commands/ and settings.json, which are
+# shared and versioned. settings.json carries the secret-handling deny list
+# (no direct `op`, `env`, `printenv` or .env reads); an uncommitted copy of
+# that would protect this checkout only, and nothing on a fresh clone.
+# settings.local.json stays ignored — it is for personal overrides.
 .claude/*
 !.claude/commands/
+!.claude/settings.json
 
 # DB backups now live in Supabase Storage, not git.
 backups/
