@@ -501,14 +501,47 @@ pass, `make build` clean.
 **The other three items in the original "cheap subset" turned out not to
 be cheap — corrected here so this doesn't get re-attempted the same way:**
 
-- **`sector_id` is NOT template/DOM-only.** It's `data-sector-id` /
-  `dataset.sectorId`, threaded through 30+ call sites in `index.html.j2`
-  alone (`auth.js`'s `renderLatestRows`, drill-down open/close/refocus,
-  `_leaderboardRowForKey`'s fallback lookup) and pinned by exact-string
-  assertions in five test files (`test_dashboard_js.py`,
-  `test_single_expand_accordion.py`, `test_review_panel.py`, others). A real
-  rename, not a quick one — scope it properly (its own item, or fold into a
-  future pass) rather than reusing this "cheap" label.
+- **`sector_id` — full inventory taken 2026-09-07 (read-only, no code
+  changed), so the next attempt doesn't need to redo this.** 71 occurrences,
+  11 files:
+  - **Two definition sites, must change together, one per language:**
+    `dashboard/build.py:515` (`row["sector_id"] = key.replace("|",
+    "-").replace(" ", "_")`, the baked path) and `auth.js:210`
+    (`tr.dataset.sectorId = region + "-" + r.gics_sector.replace(/ /g,
+    "_")`, the SAME formula independently duplicated for rows rebuilt
+    client-side after sign-in — a second place that would silently drift
+    if only one side were renamed).
+  - **~28 functional read/write sites, all in `index.html.j2` plus the
+    `auth.js` one above** — no other client asset touches it
+    (`positions.js`, `book-lock.js`, `theme.js`, `alert-prefs.js`,
+    `scan-history.js`, `scan-digest.js` are all clean). Covers: the
+    `_leaderboardRowForKey` fallback lookup, mobile-card expand/collapse
+    open-state tracking, focus restoration after a card rebuild, the
+    `bd-<id>` join between a leaderboard row and its breakdown panel, and
+    the mobile-card-to-table-row `.position-toggle` cross-reference.
+  - **Coupled to `sector_key` at exactly 2 sites**
+    (`index.html.j2:1180,1187`: `tr.dataset.sectorKey ||
+    tr.dataset.sectorId`) — `sector_id` is the explicit FALLBACK there
+    because rows rebuilt by `auth.js`'s `renderLatestRows()` carry
+    `data-sector-id` but never `data-sector-key`. Whoever renames either
+    one should plan both together, not as two independent items — a
+    rename of just one changes what that fallback expression means.
+  - **Heavy exact-string test coverage — this is a safety FEATURE, not
+    just cost.** ~30 refs across `test_dashboard_js.py` (source-as-text
+    assertions like `assert "dataset.sectorId" in js`) and
+    `test_single_expand_accordion.py` (executes the real rendered JS
+    against a live DOM — `document.querySelectorAll(...).map(el =>
+    el.dataset.sectorId)`), plus dict-key fixtures in 5 more files. Unlike
+    `sector_key` (a silent cross-module data-flow break, the kind that
+    reaches production before anyone notices), a `sector_id` rename
+    mistake gets caught LOUDLY by this suite. Larger in raw reference
+    count than `sector_key`, but arguably the safer of the two to actually
+    attempt, precisely because of this coverage.
+  - Honest name, if this is picked up: `theme_id` /
+    `data-theme-id` / `dataset.themeId`, matching `top_theme`/
+    `theme_count` above and the project's now-exclusive "theme"
+    vocabulary. Still its own properly-scoped task — this entry is the
+    map, not a green light to attempt it under a "small" label.
 - **`sector_key` is NOT ~27 isolated refs.** Attempted 2026-09-07, reverted
   after discovering it's a shared DataFrame/dict key threaded through
   `src/pipeline.py`, `dashboard/breakdown.py`, `dashboard/figures.py`, and
