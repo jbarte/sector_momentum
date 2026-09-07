@@ -29,14 +29,14 @@ _RESCORE_JS = _PROJECT_ROOT / "dashboard" / "assets" / "rescore.js"
 def _rows():
     """Two rows spanning both badge bands under the default horizon."""
     return [
-        {"key": "THEME|Uranium", "sector_id": "THEME-Uranium", "region": "THEME",
+        {"key": "THEME|Uranium", "theme_id": "THEME-Uranium", "region": "THEME",
          "sector": "Uranium", "ticker": "URA", "rank": 1, "setup": "entry",
          "composite": "1.2", "composite_bar": "", "level_change_bars": "",
          "delta_rank": "—", "arrow": "", "arrow_class": "",
          "trajectory_label": "→", "trajectory_state": "flat",
          "trajectory_word": "flat", "breakdown_html": "",
          "_raw_composite": 1.2, "_raw_change": 0.5, "_raw_level": 1.0},
-        {"key": "THEME|Shipping", "sector_id": "THEME-Shipping", "region": "THEME",
+        {"key": "THEME|Shipping", "theme_id": "THEME-Shipping", "region": "THEME",
          "sector": "Shipping", "ticker": "BOAT", "rank": 17, "setup": "exit",
          "composite": "-1.1", "composite_bar": "", "level_change_bars": "",
          "delta_rank": "—", "arrow": "", "arrow_class": "",

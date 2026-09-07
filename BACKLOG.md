@@ -492,82 +492,54 @@ isn't re-opened from scratch. The user-visible naming was already fixed when the
 leaderboard was ungrouped (column reads "Theme", copy says themes); what remains
 is internal.
 
-**`top_sector` → `top_theme` and `sector_count` → `theme_count` done**
-(2026-09-07, `refactor/theme-naming-cheap-subset`) — confirmed genuinely
-isolated to `dashboard/reports.py`'s scan-index dict, `index.html.j2`'s
-history table, and their test fixtures. No DB, no DOM, no JS. 1351 tests
-pass, `make build` clean.
+**Done: `top_sector`→`top_theme`, `sector_count`→`theme_count`
+(2026-09-07, `refactor/theme-naming-cheap-subset`) and `sector_id`→`theme_id`
+(2026-09-07, `refactor/sector-id-to-theme-id`).** The `sector_id` rename
+covered `data-sector-id`→`data-theme-id`, `dataset.sectorId`→
+`dataset.themeId`, and the local variables that carried the old name
+mid-word (`openSectorIds`→`openThemeIds`, `focusSectorId`→`focusThemeId`) —
+78 occurrences across 11 files (`dashboard/build.py`, `auth.js`,
+`index.html.j2`, and 8 test files), done as one literal-string sweep (4
+patterns: `sector_id`, `sector-id`, `SectorId`, `sectorId` — plain string
+replacement, not `\b`-bounded regex, since the test function names embed it
+between underscores with no word boundary, same lesson as `top_sector`).
+1351 tests pass unchanged, confirming the "heavy test coverage = safety
+feature" read from the scoping pass below actually held: nothing needed
+fixing after the rename, the suite would have caught it if it had.
+`grep -rni "sector.id\|sectorid"` across `.py`/`.js`/`.j2`/`.css`/`.md`
+returns zero hits outside `BACKLOG.md`'s own historical Done entries (left
+alone — they correctly describe what the code was called at the time).
 
-**The other three items in the original "cheap subset" turned out not to
-be cheap — corrected here so this doesn't get re-attempted the same way:**
+**`sector_key` remains open — genuinely not cheap, do not re-attempt without
+inventorying first.** Attempted 2026-09-07, reverted after discovering it's
+a shared DataFrame/dict key threaded through `src/pipeline.py`,
+`dashboard/breakdown.py`, `dashboard/figures.py`, and ~9 test files, not
+just the 3 backtest-adjacent files a narrower grep (checking DB-column-ness,
+not actual usage breadth) suggested. Renaming it in only some of those files
+silently breaks the data flow between them — caught before commit, not
+after. Unlike `sector_id`, this one's test coverage does NOT catch a partial
+rename (no exact-string assertions on the identifier itself), so a future
+attempt needs the full call-graph inventory done and written down here
+*before* touching any file, not discovered mid-edit.
 
-- **`sector_id` — full inventory taken 2026-09-07 (read-only, no code
-  changed), so the next attempt doesn't need to redo this.** 71 occurrences,
-  11 files:
-  - **Two definition sites, must change together, one per language:**
-    `dashboard/build.py:515` (`row["sector_id"] = key.replace("|",
-    "-").replace(" ", "_")`, the baked path) and `auth.js:210`
-    (`tr.dataset.sectorId = region + "-" + r.gics_sector.replace(/ /g,
-    "_")`, the SAME formula independently duplicated for rows rebuilt
-    client-side after sign-in — a second place that would silently drift
-    if only one side were renamed).
-  - **~28 functional read/write sites, all in `index.html.j2` plus the
-    `auth.js` one above** — no other client asset touches it
-    (`positions.js`, `book-lock.js`, `theme.js`, `alert-prefs.js`,
-    `scan-history.js`, `scan-digest.js` are all clean). Covers: the
-    `_leaderboardRowForKey` fallback lookup, mobile-card expand/collapse
-    open-state tracking, focus restoration after a card rebuild, the
-    `bd-<id>` join between a leaderboard row and its breakdown panel, and
-    the mobile-card-to-table-row `.position-toggle` cross-reference.
-  - **Coupled to `sector_key` at exactly 2 sites**
-    (`index.html.j2:1180,1187`: `tr.dataset.sectorKey ||
-    tr.dataset.sectorId`) — `sector_id` is the explicit FALLBACK there
-    because rows rebuilt by `auth.js`'s `renderLatestRows()` carry
-    `data-sector-id` but never `data-sector-key`. Whoever renames either
-    one should plan both together, not as two independent items — a
-    rename of just one changes what that fallback expression means.
-  - **Heavy exact-string test coverage — this is a safety FEATURE, not
-    just cost.** ~30 refs across `test_dashboard_js.py` (source-as-text
-    assertions like `assert "dataset.sectorId" in js`) and
-    `test_single_expand_accordion.py` (executes the real rendered JS
-    against a live DOM — `document.querySelectorAll(...).map(el =>
-    el.dataset.sectorId)`), plus dict-key fixtures in 5 more files. Unlike
-    `sector_key` (a silent cross-module data-flow break, the kind that
-    reaches production before anyone notices), a `sector_id` rename
-    mistake gets caught LOUDLY by this suite. Larger in raw reference
-    count than `sector_key`, but arguably the safer of the two to actually
-    attempt, precisely because of this coverage.
-  - Honest name, if this is picked up: `theme_id` /
-    `data-theme-id` / `dataset.themeId`, matching `top_theme`/
-    `theme_count` above and the project's now-exclusive "theme"
-    vocabulary. Still its own properly-scoped task — this entry is the
-    map, not a green light to attempt it under a "small" label.
-- **`sector_key` is NOT ~27 isolated refs.** Attempted 2026-09-07, reverted
-  after discovering it's a shared DataFrame/dict key threaded through
-  `src/pipeline.py`, `dashboard/breakdown.py`, `dashboard/figures.py`, and
-  ~9 test files, not just the 3 backtest-adjacent files a narrower grep
-  (checking DB-column-ness, not actual usage breadth) suggested. Renaming it
-  in only some of those files silently breaks the data flow between them —
-  caught before commit, not after. Full scope needs a proper inventory
-  first, same as `sector_id`.
-- **`sectors_expected`/`sectors_produced` are real DB columns**
-  (`src/state.py`'s `init_db()`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
-  on `scans`), confirmed 2026-09-07. The original table above mis-filed them
-  as schema-independent. Renaming them is exactly the migration-against-a-
-  live-database risk class the recommendation below says to leave `region`/
-  `gics_sector` alone for — group them with those two, not with the
-  genuinely cheap set.
+**`sectors_expected`/`sectors_produced` are real DB columns**
+(`src/state.py`'s `init_db()`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+on `scans`), confirmed 2026-09-07. The original table below mis-filed them
+as schema-independent. Renaming them is exactly the migration-against-a-
+live-database risk class the recommendation below says to leave `region`/
+`gics_sector` alone for — group them with those two, not with the
+genuinely cheap set.
 
 | identifier | refs | what it is |
 |---|---:|---|
 | `region` | ~265 | **DB column** on `signals`, `scores`, `sentiment_signals`, `positions`, and the `v_recent_scores` view |
 | `gics_sector` | ~123 | **DB column** on the same tables |
 | `sectors_expected` / `sectors_produced` | 16 | **DB columns** on `scans` — corrected 2026-09-07, was mis-filed as schema-independent |
-| `sector_key` | ~40+ | shared DataFrame/dict key across `pipeline.py`/`breakdown.py`/`figures.py` and ~9 test files — corrected 2026-09-07, was mis-estimated at ~27 and isolated |
-| `sector_id` | 30+ | `data-sector-id` DOM attribute + `dataset.sectorId`, read in `auth.js` and `index.html.j2`, pinned by 5 test files — corrected 2026-09-07, was mis-filed as template-only |
+| `sector_key` | ~40+ | shared DataFrame/dict key across `pipeline.py`/`breakdown.py`/`figures.py` and ~9 test files — corrected 2026-09-07, was mis-estimated at ~27 and isolated. **Still open.** |
+| ~~`sector_id`~~ | ~~30+~~ | **Done 2026-09-07** — see above |
 
 **Recommendation: leave the three DB columns alone** (`region`, `gics_sector`,
-and now `sectors_expected`/`sectors_produced`). Renaming them means a
+and `sectors_expected`/`sectors_produced`). Renaming them means a
 migration against a live database that also holds 41 scans of retired sector
 history, plus (for `region`/`gics_sector`) the Supabase view, its RLS/grants,
 the backup/restore path, and every reader — for zero functional gain.
@@ -575,10 +547,11 @@ the backup/restore path, and every reader — for zero functional gain.
 meaning*: it is the filter that keeps the retired US/EU rows out of every
 read, so touching it is the riskiest cosmetic change available.
 
-`sector_key` and `sector_id` are each their own properly-scoped task if ever
-done — inventory the full call graph first (this is the mistake made and
-caught 2026-09-07), don't assume "derived string" or "template id" means
-small.
+`sector_key` is the one piece left of the original "cheap subset," and it
+is its own properly-scoped task if ever done — inventory the full call
+graph first (this is the mistake made and caught 2026-09-07 on both
+`sector_key` and, initially, `sector_id`), don't assume "derived string"
+means small.
 
 If the DB columns are ever renamed, `region` → `cohort` and `gics_sector` →
 `name` are the honest names.

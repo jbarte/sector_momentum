@@ -99,7 +99,7 @@ def _render_badge_suffix_html(tmp_path):
     for r in lb_rows:
         key = f"{r['region']}|{r['sector']}"
         r["key"] = key
-        r["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        r["theme_id"] = key.replace("|", "-").replace(" ", "_")
         r["trajectory_label"] = "->"
         r["trajectory_state"] = "flat"
         r["setup"] = "entry" if r["rank"] == 1.0 else None

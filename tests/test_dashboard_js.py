@@ -385,7 +385,7 @@ def test_built_html_has_no_composite_toggle(tmp_path):
     lb_rows, scan_date = _build_leaderboard_rows(rows_df)
     for r in lb_rows:
         r["key"] = f"{r['region']}|{r['sector']}"
-        r["sector_id"] = r["key"].replace("|", "-").replace(" ", "_")
+        r["theme_id"] = r["key"].replace("|", "-").replace(" ", "_")
         r["trajectory_label"] = "→"; r["trajectory_state"] = "flat"
         r["breakdown_html"] = "<div>PANEL</div>"
 
@@ -435,7 +435,7 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
     for r in lb_rows:
         key = f"{r['region']}|{r['sector']}"
         r["key"] = key
-        r["sector_id"] = key.replace("|", "-").replace(" ", "_")
+        r["theme_id"] = key.replace("|", "-").replace(" ", "_")
         r["trajectory_label"] = "->"; r["trajectory_state"] = "flat"
         r["setup"] = None
         r["breakdown_html"] = _build_breakdown_html(
@@ -2118,8 +2118,8 @@ def test_render_mobile_cards_position_toggle_click_delegates_to_table_row():
     assert "querySelectorAll('.position-toggle')" in js
     assert "stopPropagation" in js
     assert "closest('.leaderboard-card')" in js
-    assert "dataset.sectorId" in js
-    assert ".leaderboard-row[data-sector-id=" in js
+    assert "dataset.themeId" in js
+    assert ".leaderboard-row[data-theme-id=" in js
     assert "tableBtn.click()" in js
 
 
@@ -2148,23 +2148,23 @@ def test_render_mobile_cards_preserves_open_state_across_rebuild():
     a star silently collapsed whatever breakdown the user had open,
     including on an unrelated card."""
     js = _render_mobile_cards_js()
-    capture_idx = js.index("var openSectorIds = {};")
+    capture_idx = js.index("var openThemeIds = {};")
     innerHTML_idx = js.index("container.innerHTML = html;")
-    restore_idx = js.index("if (Object.keys(openSectorIds).length)")
+    restore_idx = js.index("if (Object.keys(openThemeIds).length)")
     assert capture_idx < innerHTML_idx < restore_idx, (
         "open-state must be captured BEFORE the wipe and restored AFTER it"
     )
     capture_block = js[capture_idx:innerHTML_idx]
     assert "leaderboard-card.open" in capture_block
-    assert "dataset.sectorId" in capture_block
+    assert "dataset.themeId" in capture_block
     restore_block = js[restore_idx:]
     assert "classList.add('open')" in restore_block
     assert "setAttribute('aria-expanded', 'true')" in restore_block
 
 
-def test_render_mobile_cards_restores_focus_by_sector_id_not_position():
+def test_render_mobile_cards_restores_focus_by_theme_id_not_position():
     """Sort/filter can reorder cards between rebuilds -- restoring focus (or
-    open state) by DOM index instead of data-sector-id would land on
+    open state) by DOM index instead of data-theme-id would land on
     whichever card happens to occupy the old position, not the one the
     user was actually using. Also guards the keyboard-focus-loss half of
     the same review finding: a keyboard/AT user activating the star via
@@ -2173,13 +2173,13 @@ def test_render_mobile_cards_restores_focus_by_sector_id_not_position():
     js = _render_mobile_cards_js()
     capture_idx = js.index("var activeEl = document.activeElement;")
     innerHTML_idx = js.index("container.innerHTML = html;")
-    restore_idx = js.index("if (focusSectorId)")
+    restore_idx = js.index("if (focusThemeId)")
     assert capture_idx < innerHTML_idx < restore_idx
     capture_block = js[capture_idx:innerHTML_idx]
     assert "closest('.leaderboard-card')" in capture_block
     assert "classList.contains('position-toggle')" in capture_block
     restore_block = js[restore_idx:]
-    assert '.leaderboard-card[data-sector-id="' in restore_block
+    assert '.leaderboard-card[data-theme-id="' in restore_block
     assert ".focus()" in restore_block
 
 
@@ -2425,7 +2425,7 @@ def test_site_footer_stacks_on_mobile():
 def test_cards_are_only_disclosures_when_they_have_a_breakdown():
     """Found in review, verified live at 375px on scan #159: scan-history.js's
     past-scan rows are bare `<tr class="leaderboard-row">` with no
-    data-sector-id and no .breakdown-row sibling, so bdContent is '' for every
+    data-theme-id and no .breakdown-row sibling, so bdContent is '' for every
     card on that path — the one path this stage newly wired renderMobileCards()
     into. Emitting role="button"/tabindex/aria-expanded unconditionally made all
     18 cards announce themselves as expandable and then reveal a 0px-tall empty
@@ -2452,12 +2452,12 @@ def test_card_click_handler_is_scoped_to_expandable_cards():
     assert "querySelectorAll('.leaderboard-card[role=\"button\"]')" in fn_body
 
 
-def test_breakdown_lookup_skips_empty_sector_id():
-    """getElementById('bd-') on a row with no data-sector-id is a lookup that
+def test_breakdown_lookup_skips_empty_theme_id():
+    """getElementById('bd-') on a row with no data-theme-id is a lookup that
     can only ever miss; guard it so the intent reads as deliberate rather than
     as an accidental miss that happens to return null."""
     fn_body = _render_mobile_cards_js()
-    assert "sectorId ? document.getElementById('bd-' + sectorId) : null" in fn_body
+    assert "themeId ? document.getElementById('bd-' + themeId) : null" in fn_body
 
 
 # ---------------------------------------------------------------------------
@@ -3303,17 +3303,17 @@ def test_surplus_rows_are_marked_when_over_held():
     assert "surplus" in js
 
 
-def test_surplus_lookup_falls_back_to_sector_id():
+def test_surplus_lookup_falls_back_to_theme_id():
     """Rows rebuilt client-side by auth.js's renderLatestRows() -- the
     signed-in path, the only path where book-state exists at all -- carry
-    data-sector-id but not data-sector-key (see that function's own comment
+    data-theme-id but not data-sector-key (see that function's own comment
     at auth.js). A lookup that only tries data-sector-key silently fails to
     mark the surplus row for every signed-in reader, which is this feature's
-    entire audience. The fix is a shared helper with a data-sector-id
+    entire audience. The fix is a shared helper with a data-theme-id
     fallback, used here instead of a raw single-selector querySelector."""
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
     assert "function _leaderboardRowForKey(" in text, (
-        "no shared row-lookup helper -- the data-sector-id fallback must live "
+        "no shared row-lookup helper -- the data-theme-id fallback must live "
         "in one place so both the surplus mark and the review panel use it"
     )
     helper_start = text.index("function _leaderboardRowForKey(")
@@ -3329,8 +3329,8 @@ def test_surplus_lookup_falls_back_to_sector_id():
                 break
         i += 1
     helper_body = text[helper_start:i + 1]
-    assert "data-sector-key" in helper_body and "data-sector-id" in helper_body, (
-        "_leaderboardRowForKey does not fall back to data-sector-id"
+    assert "data-sector-key" in helper_body and "data-theme-id" in helper_body, (
+        "_leaderboardRowForKey does not fall back to data-theme-id"
     )
 
     js = _apply_horizon_badges_js()

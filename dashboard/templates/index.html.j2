@@ -319,7 +319,7 @@
       </thead>
       <tbody>
         {% for row in leaderboard_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-sector-id="{{ row.sector_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"{% if row.unbuyable %} data-unbuyable="1"{% endif %}
+        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-theme-id="{{ row.theme_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"{% if row.unbuyable %} data-unbuyable="1"{% endif %}
             data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
             data-level="{{ row._raw_level if row._raw_level is not none else '' }}"
@@ -349,7 +349,7 @@
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
         </tr>
-        <tr class="breakdown-row" id="bd-{{ row.sector_id }}">
+        <tr class="breakdown-row" id="bd-{{ row.theme_id }}">
           <td colspan="5">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% endfor %}
@@ -609,8 +609,8 @@ function currentReviewStatus() {
 
 // Row lookup shared by applyHorizonBadges() (the surplus mark) and
 // renderReviewPanel() (nameOf()). Server-baked rows carry both
-// data-sector-key and data-sector-id, but rows rebuilt client-side by
-// auth.js's renderLatestRows() carry only data-sector-id -- that function's
+// data-sector-key and data-theme-id, but rows rebuilt client-side by
+// auth.js's renderLatestRows() carry only data-theme-id -- that function's
 // own comment says so explicitly ("these rows don't carry [data-sector-key]").
 // renderLatestRows() is the signed-in path, and it's the ONLY path where
 // book-state exists at all, so a data-sector-key-only lookup silently misses
@@ -618,7 +618,7 @@ function currentReviewStatus() {
 // (the surplus mark and nameOf()) by task review; fixed once, here, for both.
 function _leaderboardRowForKey(key) {
   return document.querySelector('.leaderboard-row[data-sector-key="' + key + '"]')
-      || document.querySelector('.leaderboard-row[data-sector-id="' + key + '"]');
+      || document.querySelector('.leaderboard-row[data-theme-id="' + key + '"]');
 }
 
 // The single writer of every leaderboard badge — the horizon switch, the
@@ -682,17 +682,17 @@ function _renderMobileCardsNow() {
   // focused button is destroyed and replaced mid-click. Found in code
   // review, 2026-08-24 -- confirmed independently by four of the eight
   // review angles.
-  var openSectorIds = {};
+  var openThemeIds = {};
   Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card.open'), function (c) {
-    if (c.dataset.sectorId) { openSectorIds[c.dataset.sectorId] = true; }
+    if (c.dataset.themeId) { openThemeIds[c.dataset.themeId] = true; }
   });
   var activeEl = document.activeElement;
-  var focusSectorId = null;
+  var focusThemeId = null;
   var focusWasToggle = false;
   if (activeEl && container.contains(activeEl)) {
     var activeCard = activeEl.closest('.leaderboard-card');
-    if (activeCard && activeCard.dataset.sectorId) {
-      focusSectorId = activeCard.dataset.sectorId;
+    if (activeCard && activeCard.dataset.themeId) {
+      focusThemeId = activeCard.dataset.themeId;
       focusWasToggle = activeEl.classList.contains('position-toggle');
     }
   }
@@ -753,12 +753,12 @@ function _renderMobileCardsNow() {
     // (#leaderboard-table { display: none }), so a class toggle inside it
     // has no visible effect. A card-local copy, toggled by the card's own
     // class, sidesteps that — see the click handler below.
-    var sectorId = tr.dataset.sectorId || '';
-    var bdRow = sectorId ? document.getElementById('bd-' + sectorId) : null;
+    var themeId = tr.dataset.themeId || '';
+    var bdRow = themeId ? document.getElementById('bd-' + themeId) : null;
     var bdContent = bdRow ? bdRow.querySelector('td').innerHTML : '';
     // A card is a disclosure only when it has something to disclose.
     // scan-history.js's past-scan rows are built as a bare leaderboard-row
-    // <tr> carrying no data-sector-id, with no .breakdown-row sibling, so
+    // <tr> carrying no data-theme-id, with no .breakdown-row sibling, so
     // bdContent is always '' on that path — the one
     // path this stage newly wired renderMobileCards() into. Advertising those
     // cards as role="button"/aria-expanded made every card on a past scan
@@ -773,7 +773,7 @@ function _renderMobileCardsNow() {
       + (isSurplus ? ' position-surplus' : '')
       + '"'
       + (expandable ? ' role="button" tabindex="0" aria-expanded="false"' : '')
-      + ' data-sector-id="' + sectorId + '">'
+      + ' data-theme-id="' + themeId + '">'
       + '<div class="card-line1">'
       + (rankBadge ? '<span class="card-rank">' + rankBadge.outerHTML + '</span>' : '')
       {#- .outerHTML: the button carries its own attributes (aria-pressed,
@@ -822,19 +822,19 @@ function _renderMobileCardsNow() {
   container.setAttribute('aria-hidden', 'false');
 
   // Restore what the capture above saved, now that the new cards exist.
-  // Re-open by data-sector-id, not position: sort/filter can reorder cards
+  // Re-open by data-theme-id, not position: sort/filter can reorder cards
   // between rebuilds, so index-based restoration would reopen the wrong
   // card.
-  if (Object.keys(openSectorIds).length) {
+  if (Object.keys(openThemeIds).length) {
     Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card'), function (c) {
-      if (c.dataset.sectorId && openSectorIds[c.dataset.sectorId]) {
+      if (c.dataset.themeId && openThemeIds[c.dataset.themeId]) {
         c.classList.add('open');
         c.setAttribute('aria-expanded', 'true');
       }
     });
   }
-  if (focusSectorId) {
-    var refocusCard = container.querySelector('.leaderboard-card[data-sector-id="' + focusSectorId + '"]');
+  if (focusThemeId) {
+    var refocusCard = container.querySelector('.leaderboard-card[data-theme-id="' + focusThemeId + '"]');
     var refocusTarget = refocusCard
       && (focusWasToggle ? refocusCard.querySelector('.position-toggle') : refocusCard);
     if (refocusTarget && typeof refocusTarget.focus === 'function') { refocusTarget.focus(); }
@@ -885,9 +885,9 @@ function _renderMobileCardsNow() {
     btn.addEventListener('click', function (e) {
       e.stopPropagation();   // don't also trigger the card's own open/breakdown toggle
       var card = btn.closest('.leaderboard-card');
-      var sectorId = card && card.dataset.sectorId;
-      var tableBtn = sectorId
-        && document.querySelector('.leaderboard-row[data-sector-id="' + sectorId + '"] .position-toggle');
+      var themeId = card && card.dataset.themeId;
+      var tableBtn = themeId
+        && document.querySelector('.leaderboard-row[data-theme-id="' + themeId + '"] .position-toggle');
       if (tableBtn) { tableBtn.click(); }
     });
   });
@@ -1177,14 +1177,14 @@ function applyHorizonBadges() {
     // result is correct independent of DOM/sort order -- whole-branch
     // review finding.
     var _rankedRows = Array.prototype.filter.call(rows, function (tr) {
-      var k = tr.dataset.sectorKey || tr.dataset.sectorId;
+      var k = tr.dataset.sectorKey || tr.dataset.themeId;
       return !!k && tr.hasAttribute('data-rank');
     });
     _rankedRows.sort(function (a, b) {
       return parseFloat(a.dataset.rank) - parseFloat(b.dataset.rank);
     });
     _rankedRows.forEach(function (tr) {
-      var k = tr.dataset.sectorKey || tr.dataset.sectorId;
+      var k = tr.dataset.sectorKey || tr.dataset.themeId;
       _rankedKeys.push(k);
       if (pos.isHeld(tr)) { _heldKeys.push(k); }
       if (tr.dataset.unbuyable === '1') { _unbuyableKeys.push(k); }
@@ -1853,7 +1853,7 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
 // ----- Breakdown toggle -----
 function toggleBreakdown(id) {
   var bdRow = document.getElementById('bd-' + id);
-  var row   = document.querySelector('.leaderboard-row[data-sector-id="' + id + '"]');
+  var row   = document.querySelector('.leaderboard-row[data-theme-id="' + id + '"]');
   if (!bdRow) return;
   // Accordion: one open breakdown at a time. Without this a reader could
   // expand every theme and then had to collapse each one by hand -- asked
@@ -1926,16 +1926,16 @@ function _matchesThresholds(r) {
   return true;
 }
 
-function _collapseBreakdown(sectorId) {
+function _collapseBreakdown(themeId) {
   // Breakdown rows show via the `open` class, so remove the class instead of
   // setting an inline display (an inline style would override `.open` and keep
   // the row collapsed even after the filter is cleared).
-  if (!sectorId) return;
-  var bd = document.getElementById('bd-' + sectorId);
+  if (!themeId) return;
+  var bd = document.getElementById('bd-' + themeId);
   if (bd) bd.classList.remove('open');
   // Keep the row's disclosure state in step, exactly as toggleBreakdown() does
   // — a filter that collapses the panel must not leave aria-expanded="true".
-  var row = document.querySelector('.leaderboard-row[data-sector-id="' + sectorId + '"]');
+  var row = document.querySelector('.leaderboard-row[data-theme-id="' + themeId + '"]');
   if (row) row.setAttribute('aria-expanded', 'false');
 }
 
@@ -1956,7 +1956,7 @@ function applyFilters() {
   Array.prototype.forEach.call(rows, function (r) {
     var ok = _matchesSetup(r) && _matchesTrend(r) && _matchesThresholds(r);
     r.style.display = ok ? '' : 'none';
-    if (ok) { shown++; } else { _collapseBreakdown(r.dataset.sectorId); }
+    if (ok) { shown++; } else { _collapseBreakdown(r.dataset.themeId); }
   });
   // The cut lines anchor to the last VISIBLE row inside each band, so they have
   // to be redrawn whenever visibility changes or they stay on a hidden row.
@@ -2101,9 +2101,9 @@ function sortTable(col) {
   // Re-append sorted rows, each followed by its own breakdown panel.
   rows.forEach(function(r) {
     tbody.appendChild(r);
-    var sectorId = r.dataset.sectorId;
-    if (sectorId) {
-      var bd = document.getElementById('bd-' + sectorId);
+    var themeId = r.dataset.themeId;
+    if (themeId) {
+      var bd = document.getElementById('bd-' + themeId);
       if (bd) tbody.appendChild(bd);
     }
   });
@@ -2217,7 +2217,7 @@ document.getElementById('leaderboard-cards')?.addEventListener('keydown', functi
     });
     rows.forEach(function (tr) {
       tbody.appendChild(tr);
-      var sid = tr.getAttribute("data-sector-id");
+      var sid = tr.getAttribute("data-theme-id");
       var bd = sid ? document.getElementById("bd-" + sid) : null;
       if (bd) { tbody.appendChild(bd); }
     });
@@ -2268,7 +2268,7 @@ document.getElementById('leaderboard-cards')?.addEventListener('keydown', functi
 document.getElementById('leaderboard-table')?.addEventListener('click', function(e) {
   var row = e.target.closest('.leaderboard-row');
   if (row) {
-    var id = row.getAttribute('data-sector-id');
+    var id = row.getAttribute('data-theme-id');
     if (id) toggleBreakdown(id);
   }
 });

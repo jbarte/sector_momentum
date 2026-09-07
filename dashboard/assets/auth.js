@@ -177,7 +177,7 @@
     meta = meta || {};
     var byRegion = {};
     rows.forEach(function (r) { (byRegion[r.region] || (byRegion[r.region] = [])).push(r); });
-    // Preserve the static drill-down panels (keyed by sector_id) so signed-in
+    // Preserve the static drill-down panels (keyed by theme_id) so signed-in
     // rows stay expandable; re-appended under each rebuilt row below.
     var bdRows = {};
     Array.prototype.forEach.call(tbody.querySelectorAll(".breakdown-row"),
@@ -207,7 +207,7 @@
         tr.setAttribute("aria-expanded", "false");
         tr.dataset.region = r.region;
         tr.dataset.sector = r.gics_sector;
-        tr.dataset.sectorId = region + "-" + r.gics_sector.replace(/ /g, "_");
+        tr.dataset.themeId = region + "-" + r.gics_sector.replace(/ /g, "_");
         var rank = (r.rank === null || isNaN(r.rank)) ? "—" : Math.round(r.rank);
         var m = meta[r.region + "|" + r.gics_sector] || {};
         // The same filter attributes the static build emits, so the filter bar
@@ -261,7 +261,7 @@
             + Rescore.levelChangeBars(r.level_score, r.change_score) + "</td>" +
           '<td class="delta-cell">' + deltaInner + "</td>";
         tbody.appendChild(tr);
-        var bd = bdRows["bd-" + tr.dataset.sectorId];
+        var bd = bdRows["bd-" + tr.dataset.themeId];
         if (bd) tbody.appendChild(bd);
       });
     });
