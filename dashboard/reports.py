@@ -30,8 +30,8 @@ def build_scan_index(all_scores_df) -> list[dict]:
             "scan_id": int(sid),
             "run_at_display": disp,
             "run_at_raw": run_at_raw,
-            "sector_count": int(len(g)),
-            "top_sector": top["gics_sector"],
+            "theme_count": int(len(g)),
+            "top_theme": top["gics_sector"],
             "top_region": top["region"],
         })
     return out

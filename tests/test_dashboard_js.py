@@ -675,8 +675,8 @@ def test_scan_history_json_in_rendered_output(tmp_path):
         context=dict(
             scan_date="2026-07-12",
             scan_index=[{"scan_id": 2, "run_at_display": "2026-07-12 06:00 UTC",
-                         "run_at_raw": "2026-07-12T06:00:00", "sector_count": 22,
-                         "top_sector": "Technology", "top_region": "US"}],
+                         "run_at_raw": "2026-07-12T06:00:00", "theme_count": 22,
+                         "top_theme": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
@@ -718,8 +718,8 @@ def test_scan_digest_markup_in_rendered_output(tmp_path):
         context=dict(
             scan_date="2026-07-12",
             scan_index=[{"scan_id": 2, "run_at_display": "2026-07-12 06:00 UTC",
-                         "run_at_raw": "2026-07-12T06:00:00", "sector_count": 22,
-                         "top_sector": "Technology", "top_region": "US"}],
+                         "run_at_raw": "2026-07-12T06:00:00", "theme_count": 22,
+                         "top_theme": "Technology", "top_region": "US"}],
             active_scan_id=2,
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
