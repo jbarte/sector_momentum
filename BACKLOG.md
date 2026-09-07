@@ -510,17 +510,45 @@ fixing after the rename, the suite would have caught it if it had.
 returns zero hits outside `BACKLOG.md`'s own historical Done entries (left
 alone — they correctly describe what the code was called at the time).
 
-**`sector_key` remains open — genuinely not cheap, do not re-attempt without
-inventorying first.** Attempted 2026-09-07, reverted after discovering it's
-a shared DataFrame/dict key threaded through `src/pipeline.py`,
-`dashboard/breakdown.py`, `dashboard/figures.py`, and ~9 test files, not
-just the 3 backtest-adjacent files a narrower grep (checking DB-column-ness,
-not actual usage breadth) suggested. Renaming it in only some of those files
-silently breaks the data flow between them — caught before commit, not
-after. Unlike `sector_id`, this one's test coverage does NOT catch a partial
-rename (no exact-string assertions on the identifier itself), so a future
-attempt needs the full call-graph inventory done and written down here
-*before* touching any file, not discovered mid-edit.
+**`sector_key` remains open — full inventory taken 2026-09-07 (read-only,
+no code changed), and it's bigger than even the FIRST correction above
+found.** 103 occurrences (case-insensitive), 25 files — not ~40. It is
+genuinely **two separable concerns wearing one name**, which is itself the
+reason to scope it as two tasks rather than one if ever picked up:
+
+- **(A) An internal Python computation key** — a pandas index name / dict
+  key for the `"{region}|{name}"` composite string, used purely server-side
+  in `src/pipeline.py`, `dashboard/breakdown.py`, `dashboard/figures.py`,
+  `scan.py`, `scripts/signal_correlation.py`, `src/backtest/replay.py`,
+  `scripts/backfill_region_ranks.py`, plus ~9 test files. No DOM, no DB.
+  This is what the first attempt found and reverted.
+- **(B) `data-sector-key` / `dataset.sectorKey` in `index.html.j2`** (14
+  refs) — DOM/JS-layer, not previously inventoried. **This has TWO
+  independent producers that must already agree, not one:**
+  `index.html.j2:322` sets it from `row.key` on the baked leaderboard row;
+  `dashboard/breakdown.py:182` sets the SAME attribute name from its own
+  `sector_key` function parameter, on the breakdown/`.score-tree` panel.
+  `index.html.j2:2158` then joins across both by matching the attribute
+  value — meaning `row.key` and `breakdown.py`'s `sector_key` already have
+  to compute an identical string today for that join to work at all. A
+  rename here means keeping THREE independently-maintained producers in
+  sync (the two above, plus `auth.js`'s rebuilt-row path, which the
+  `_leaderboardRowForKey` fallback at `index.html.j2:1180,1187` already
+  treats as NOT reliably carrying this attribute) — a step up in
+  verification difficulty from `sector_id`'s single-producer-per-render-path
+  shape, where each render mode had exactly one place setting the value.
+
+Renaming (A) without (B), or vice versa, is coherent on its own — they are
+genuinely different code, not two halves of one refactor — but doing (B)
+needs the three-producer relationship above understood first, or a partial
+rename would leave `.score-tree` panels unable to find their leaderboard
+row. Unlike `sector_id`, (A) has no exact-string test coverage on the
+identifier itself, so a partial rename there fails SILENTLY (a live data-
+flow break between modules), not loudly in tests — confirmed by the first
+attempt reverting on a manual re-check, not a test failure. (B) does have
+some test coverage (via `test_dashboard_js.py`/`test_review_panel.py`,
+already counted above) but less than `sector_id` had, since fewer call
+sites read the attribute directly by string.
 
 **`sectors_expected`/`sectors_produced` are real DB columns**
 (`src/state.py`'s `init_db()`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
@@ -535,7 +563,7 @@ genuinely cheap set.
 | `region` | ~265 | **DB column** on `signals`, `scores`, `sentiment_signals`, `positions`, and the `v_recent_scores` view |
 | `gics_sector` | ~123 | **DB column** on the same tables |
 | `sectors_expected` / `sectors_produced` | 16 | **DB columns** on `scans` — corrected 2026-09-07, was mis-filed as schema-independent |
-| `sector_key` | ~40+ | shared DataFrame/dict key across `pipeline.py`/`breakdown.py`/`figures.py` and ~9 test files — corrected 2026-09-07, was mis-estimated at ~27 and isolated. **Still open.** |
+| `sector_key` | 103 | TWO concerns: (A) internal Python computation key across `pipeline.py`/`breakdown.py`/`figures.py`/`scan.py`/etc + ~9 tests, (B) `data-sector-key` DOM attr in `index.html.j2` with 3 producers that must agree — corrected 2026-09-07 twice (first ~27→~40+, now →103). **Still open.** |
 | ~~`sector_id`~~ | ~~30+~~ | **Done 2026-09-07** — see above |
 
 **Recommendation: leave the three DB columns alone** (`region`, `gics_sector`,
@@ -547,11 +575,11 @@ the backup/restore path, and every reader — for zero functional gain.
 meaning*: it is the filter that keeps the retired US/EU rows out of every
 read, so touching it is the riskiest cosmetic change available.
 
-`sector_key` is the one piece left of the original "cheap subset," and it
-is its own properly-scoped task if ever done — inventory the full call
-graph first (this is the mistake made and caught 2026-09-07 on both
-`sector_key` and, initially, `sector_id`), don't assume "derived string"
-means small.
+`sector_key` is the one piece left of the original "cheap subset," is
+larger than `sector_id` was, and is two tasks rather than one if ever
+done — the internal Python key (A) and the DOM attribute (B) above. Don't
+assume "derived string" means small; that assumption was made and corrected
+twice on this exact identifier in one day (2026-09-07).
 
 If the DB columns are ever renamed, `region` → `cohort` and `gics_sector` →
 `name` are the honest names.
