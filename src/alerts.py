@@ -12,7 +12,7 @@ import pandas as pd
 from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_float
 from src.universe import is_unbuyable
 from src.state import (
-    get_scan_history, get_theme_scan_history, get_all_positions, get_alert_prefs,
+    get_theme_scan_history, get_all_positions, get_alert_prefs,
 )
 from src.personal_alerts import build_personal_alerts
 
@@ -207,7 +207,17 @@ def send_alerts(conn, scan_date: str) -> None:
     if not topic and not prefs:
         return
 
-    sector_history = get_scan_history(conn, n_scans=TRAJECTORY_WINDOW)
+    # ONE cohort, ONE query. Until 2026-09-07 this also called
+    # `get_scan_history(conn, n_scans=TRAJECTORY_WINDOW)` into a variable
+    # named `sector_history` and ran detection over both -- a fossil from
+    # when US/EU sectors were a separate cohort. `get_theme_scan_history` IS
+    # `get_scan_history(regions=("THEME",))`, and DEFAULT_REGIONS became
+    # ("THEME",) when the sector cohorts were retired on 2026-08-05, so the
+    # two calls had silently become identical and every event was detected
+    # and appended TWICE. Every push notification went out double-length for
+    # a month; the tests missed it because they mock the two functions
+    # separately and gave the theme one an empty frame, which is a shape
+    # production never has. See test_events_are_not_duplicated_across_cohorts.
     theme_history = get_theme_scan_history(conn, n_scans=TRAJECTORY_WINDOW)
 
     # Read here rather than threaded in from the caller: send_alerts is
@@ -215,8 +225,7 @@ def send_alerts(conn, scan_date: str) -> None:
     # "no suppression", never to a crash mid-scan.
     themes_cfg = _load_themes_cfg()
 
-    events = detect_badge_events(sector_history, themes_cfg)
-    events.extend(detect_badge_events(theme_history, themes_cfg))
+    events = detect_badge_events(theme_history, themes_cfg)
 
     if topic:
         if events:
