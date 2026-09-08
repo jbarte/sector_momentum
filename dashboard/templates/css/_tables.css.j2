@@ -538,15 +538,17 @@ tbody td:nth-child(n+4) {
   background: color-mix(in srgb, var(--brand-strong) 7%, transparent);
 }
 /* Deliberately unlike .setup-badge: this is a claim about PRICE, not rank,
-   and must not read as another ranking badge. */
+   and must not read as another ranking badge. --err (not --warn): a stop
+   breach is a fired threshold, not a caution -- red reads as unmissable
+   the way amber didn't. */
 .stop-chip {
   margin-left: .4em;
   padding: 0 .35em;
   border-radius: 3px;
   font-size: .78em;
   font-weight: 600;
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  color: var(--err);
+  background: color-mix(in srgb, var(--err) 14%, transparent);
   white-space: nowrap;
 }
 .leaderboard-row.position-warn {
