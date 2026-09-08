@@ -36,6 +36,7 @@
   var enableBtn = document.getElementById("alert-prefs-enable");
   var regenBtn = document.getElementById("alert-prefs-regen");
   var enabledBox = document.getElementById("alert-prefs-enabled");
+  var stopBox = document.getElementById("alert-prefs-stop");
   var statusEl = document.getElementById("alert-prefs-status");
 
   /* Dynamic strings can't use the data-i18n pass, so they carry EN/SV pairs. */
@@ -79,10 +80,11 @@
     topicEl.textContent = pref.ntfy_topic;
     linkEl.href = "https://ntfy.sh/" + encodeURIComponent(pref.ntfy_topic);
     enabledBox.checked = !!pref.enabled;
+    if (stopBox) { stopBox.checked = !!pref.stop_loss_since; }
   }
 
   function load() {
-    return sb.from("alert_prefs").select("ntfy_topic, enabled").limit(1)
+    return sb.from("alert_prefs").select("ntfy_topic, enabled, stop_loss_since").limit(1)
       .then(function (res) {
         if (res.error) { setAvailable(false); return; }  // table missing -> stay hidden
         renderPref(res.data && res.data.length ? res.data[0] : null);
@@ -126,6 +128,26 @@
       .catch(function () { enabledBox.checked = !next; setStatus("error"); })
       .then(function () { enabledBox.disabled = false; });
   });
+
+  /* NULL = off, a timestamp = on AND when. One column, so there is no separate
+   * flag to desync — and the timestamp is what stops a fresh opt-in firing a
+   * burst of notifications about drawdowns from weeks ago (the scan only
+   * notifies for breaches at or after it). */
+  if (stopBox) {
+    stopBox.addEventListener("change", function () {
+      var next = stopBox.checked;
+      stopBox.disabled = true;
+      sb.from("alert_prefs")
+        .update({ stop_loss_since: next ? new Date().toISOString() : null })
+        .eq("user_id", userId)
+        .then(function (res) {
+          if (res.error) { stopBox.checked = !next; setStatus("error"); return; }
+          setStatus("saved");
+        })
+        .catch(function () { stopBox.checked = !next; setStatus("error"); })
+        .then(function () { stopBox.disabled = false; });
+    });
+  }
 
   copyBtn.addEventListener("click", function () {
     var text = topicEl.textContent;
