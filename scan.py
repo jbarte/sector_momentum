@@ -370,11 +370,11 @@ def _run_dashboard_build():
         logger.warning("Dashboard build failed (%s) — scan data saved", exc)
 
 
-def _send_threshold_alerts(conn, scan_date):
+def _send_threshold_alerts(conn, scan_date, prices=None):
     """Send post-scan threshold alerts. Non-fatal."""
     try:
         from src.alerts import send_alerts
-        send_alerts(conn, scan_date)
+        send_alerts(conn, scan_date, prices)
     except Exception as exc:
         logger.warning("Alert step failed: %s", exc)
 
@@ -599,7 +599,7 @@ def run(args: argparse.Namespace) -> int:
 
         # 17. Threshold alerts (non-fatal)
         if not args.dry_run and not args.no_alerts:
-            _send_threshold_alerts(conn, scan_date)
+            _send_threshold_alerts(conn, scan_date, prices)
     finally:
         conn.close()
 
