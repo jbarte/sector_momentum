@@ -258,3 +258,26 @@ horizons:
       top_n: 5
       buffer_frac: 0.444444  # = 8/18: reproduces exit_rank 13 at today's 18-theme
                              # universe exactly (round(0.444444*18) = 8).
+# ---------------------------------------------------------------------------
+# Trailing stop-loss on HELD positions (live rule, not part of the backtested
+# strategy's selection). A holding is flagged when its close falls
+# `trailing_frac` below its peak close SINCE THE USER STARRED IT — measured
+# from the peak, not from entry, and never from a purchase price the system
+# does not know.
+#
+# 0.12 picked 2026-09-07 by scripts/stoploss_sweep.py: nine thresholds x both
+# presets x 70 AND 100 bps x two disjoint windows (2019-2021, 2022-).
+#
+#   - Cost level reorders nothing (70 vs 100 bps moves CAGR 1-3pp).
+#   - The effect decays smoothly to baseline as the threshold widens, which is
+#     the shape of a real mechanism rather than one lucky cell.
+#   - 8% is where it turns NEGATIVE: `long` on 2022- earns 19.6% against a
+#     20.6% no-stop baseline — one cell in 72 where a stop loses to no stop.
+#
+# 10% wins marginally more cells. 12% is within noise of it on three of four,
+# fires ~15% less often, and sits a grid step further from that cliff — which
+# matters because the LIVE rule runs on star dates, not the model entry dates
+# the sweep measured. See
+# sector_momentum-notes/specs/2026-09-07-live-trailing-stop-loss-design.md.
+stops:
+  trailing_frac: 0.12

@@ -245,10 +245,19 @@ tripled churn, requiring a manual retune; that failure mode is gone.
 a legacy name, but it is **load-bearing**: retired US/EU sector rows are still
 in these tables, and `region` is the filter that keeps them out of every read.
 
-Two further tables — `positions` and `alert_prefs` — plus the `v_recent_scores`
-view are **managed Supabase-side**, not by this repo's DDL. They back the
-signed-in features (starred holdings, per-user alert preferences) and are read
-directly from the browser under RLS.
+Three further tables — `positions`, `alert_prefs` and `position_stops` — plus
+the `v_recent_scores` view are **managed Supabase-side**, not by this repo's
+DDL. They back the signed-in features (starred holdings, per-user alert
+preferences, trailing stop-loss latches) and are read directly from the
+browser under RLS.
+
+`position_stops` is the trailing stop-loss latch: one row per holding that has
+closed 12% below its peak since the user starred it, so the stop fires once
+rather than every day it stays breached. Its primary key is also a composite
+foreign key to `positions` with `ON DELETE CASCADE` — unstarring clears the
+latch with no application code, and a latch can never outlive the holding it
+describes. The scan (as `postgres`, bypassing RLS) is the sole writer; clients
+hold `SELECT` only.
 
 **Idempotency:** a same-UTC-day scan replaces the previous one rather than
 duplicating it.

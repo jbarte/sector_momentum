@@ -13,6 +13,7 @@ from dashboard.rows import _compute_rank_trajectories, _compute_setup, _safe_flo
 from src.universe import is_unbuyable
 from src.state import (
     get_theme_scan_history, get_all_positions, get_alert_prefs,
+    get_stop_loss_users, get_position_stops, insert_position_stop,
 )
 from src.personal_alerts import build_personal_alerts
 
@@ -134,7 +135,9 @@ def post_ntfy(topic: str, title: str, body: str) -> None:
         resp.read()
 
 
-def send_personal_alerts(conn, scan_date: str, events: list[dict], prefs: list[dict]) -> None:
+def send_personal_alerts(conn, scan_date: str, events: list[dict],
+                         prefs: list[dict],
+                         stops_by_user: dict[str, list[dict]] | None = None) -> None:
     """Fan out per-user alerts. Non-fatal, and isolated per user.
 
     `prefs` is fetched once by the caller (send_alerts) and passed in here —
@@ -145,7 +148,8 @@ def send_personal_alerts(conn, scan_date: str, events: list[dict], prefs: list[d
         return
     try:
         positions = get_all_positions(conn)
-        payloads = build_personal_alerts(events, positions, prefs, scan_date)
+        payloads = build_personal_alerts(events, positions, prefs, scan_date,
+                                         stops_by_user)
     except Exception as exc:
         logger.warning("Personal alerts skipped: %s", exc)
         # A failed query aborts the transaction; roll back so the
@@ -186,7 +190,94 @@ def _load_themes_cfg() -> dict:
         return {}
 
 
-def send_alerts(conn, scan_date: str) -> None:
+def collect_stop_events(conn, prices: dict, themes_cfg: dict) -> dict[str, list[dict]]:
+    """Evaluate trailing stops for opted-in users; return NEW events per user.
+
+    Returns only breaches that are both new (no latch row yet) and fresh
+    (`stopped_on >= stop_loss_since`). Every new breach gets a latch row
+    regardless — an older one with `notified = False`, so the dashboard shows
+    it while the phone stays quiet. See the day-one guard in
+    scripts/stop_loss_pref_migration.sql.
+
+    Fail-open in every direction: this runs inside the scan, and no stop is
+    worth taking a scan down for. A missing position_stops table (code merged
+    before the migration is applied) rolls back and returns nothing.
+    """
+    from src.horizons import trailing_stop_frac
+    from src.stops import evaluate_stop, ticker_for
+
+    try:
+        users = {u["user_id"]: u for u in get_stop_loss_users(conn)}
+        if not users:
+            return {}
+        positions = get_all_positions(conn)
+        latched = {(s["user_id"], s["item_type"], s.get("region") or "", s["name"])
+                   for s in get_position_stops(conn)}
+    except Exception as exc:
+        logger.warning("Stop evaluation skipped: %s", exc)
+        # A failed SELECT aborts the transaction; roll back so the connection
+        # stays usable for the alert queries that follow.
+        try:
+            conn.rollback()
+        except Exception:
+            logger.debug("Rollback after stop-query failure also failed", exc_info=True)
+        return {}
+
+    stop_frac = trailing_stop_frac()
+    out: dict[str, list[dict]] = {}
+
+    for pos in positions:
+        # Isolated per position, matching send_personal_alerts's per-user
+        # try/except: one position with missing/malformed data (or any other
+        # unexpected error, e.g. a tz mismatch evaluate_stop didn't already
+        # guard against) must not take down evaluation for every other
+        # position, nor the pre-existing Entry/Exit alerts that run after
+        # this in send_alerts.
+        try:
+            uid = pos.get("user_id")
+            user = users.get(uid)
+            if user is None:
+                continue
+            region = pos.get("region") or ""
+            key = (uid, pos.get("item_type"), region, pos.get("name"))
+            if key in latched:
+                continue
+
+            ticker = ticker_for(pos.get("item_type", ""), pos.get("name", ""), themes_cfg)
+            if not ticker:
+                continue
+            res = evaluate_stop(prices.get(ticker), pos.get("created_at"), stop_frac)
+            if res is None or not res["breached"]:
+                continue
+
+            since = user.get("stop_loss_since")
+            fresh = since is None or res["stopped_on"] >= pd.Timestamp(since).date()
+            try:
+                insert_position_stop(
+                    conn, user_id=uid, item_type=pos["item_type"], region=region,
+                    name=pos["name"], stopped_on=res["stopped_on"],
+                    peak_price=res["peak"], peak_on=res["peak_on"],
+                    drawdown=res["drawdown"], notified=bool(fresh))
+            except Exception as exc:
+                logger.warning("Stop latch write failed for %s: %s", uid, exc)
+                continue
+
+            if fresh:
+                out.setdefault(uid, []).append({
+                    "item_type": pos["item_type"], "region": region,
+                    "name": pos["name"], "drawdown": res["drawdown"],
+                    "peak": res["peak"], "peak_on": res["peak_on"],
+                })
+        except Exception as exc:
+            logger.warning(
+                "Stop evaluation failed for position %s/%s (user %s): %s",
+                pos.get("item_type"), pos.get("name"), pos.get("user_id"), exc)
+            continue
+
+    return out
+
+
+def send_alerts(conn, scan_date: str, prices: dict | None = None) -> None:
     """Send the ops broadcast and per-user personalized alerts."""
     topic = os.environ.get("NTFY_TOPIC")
 
@@ -238,4 +329,8 @@ def send_alerts(conn, scan_date: str) -> None:
         else:
             logger.info("No Entry/Exit badges — skipping alert.")
 
-    send_personal_alerts(conn, scan_date, events, prefs)
+    # Stops are evaluated only when the caller supplied prices — the scan
+    # always does. The optional parameter keeps every existing two-argument
+    # caller (and every existing test) working unchanged.
+    stops_by_user = collect_stop_events(conn, prices, themes_cfg) if prices else {}
+    send_personal_alerts(conn, scan_date, events, prefs, stops_by_user)

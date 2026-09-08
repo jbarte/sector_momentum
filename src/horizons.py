@@ -89,6 +89,9 @@ class Horizon:
 #: and a silently-absent config should not quietly restore that.
 _FALLBACK_ROUND_TRIP_BPS = 50.0
 
+# Mirrors config/weights.yaml's stops.trailing_frac. Update both together.
+_FALLBACK_TRAILING_STOP_FRAC = 0.12
+
 
 def _cfg(path: str | Path | None = None) -> dict:
     p = Path(path) if path else _DEFAULT_PATH
@@ -117,6 +120,24 @@ def round_trip_bps(path: str | Path | None = None) -> float:
     except (TypeError, ValueError):
         return _FALLBACK_ROUND_TRIP_BPS
     return val if val >= 0 else _FALLBACK_ROUND_TRIP_BPS
+
+
+def trailing_stop_frac(path: str | Path | None = None) -> float:
+    """Trailing stop threshold, as a POSITIVE fraction of the peak (0.12 = 12%).
+
+    Read by the scan's stop evaluation. Out-of-range values fall back rather
+    than raising, for the same reason round_trip_bps does — but the range
+    matters more here: 0 would breach every position on its first scan, and
+    >= 1 could never breach at all. A config typo must not silently ship
+    either of those.
+    """
+    raw = (_cfg(path).get("stops") or {}).get("trailing_frac",
+                                              _FALLBACK_TRAILING_STOP_FRAC)
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return _FALLBACK_TRAILING_STOP_FRAC
+    return val if 0 < val < 1 else _FALLBACK_TRAILING_STOP_FRAC
 
 
 def horizons(path: str | Path | None = None) -> list[Horizon]:

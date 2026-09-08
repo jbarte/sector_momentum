@@ -609,6 +609,9 @@ def main() -> None:
         positions_src = _ASSETS_DIR / "positions.js"
         if positions_src.exists():
             shutil.copy2(positions_src, docs_assets / "positions.js")
+        stops_src = _ASSETS_DIR / "stops.js"
+        if stops_src.exists():
+            shutil.copy2(stops_src, docs_assets / "stops.js")
         book_lock_src = _ASSETS_DIR / "book-lock.js"
         if book_lock_src.exists():
             shutil.copy2(book_lock_src, docs_assets / "book-lock.js")

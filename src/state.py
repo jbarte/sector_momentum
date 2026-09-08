@@ -630,12 +630,14 @@ def get_all_positions(conn: psycopg2.extensions.connection) -> list[dict]:
 
     The scan connects as the postgres role, which bypasses RLS — so this sees
     all users' holdings. Used by the personal-alert fan-out to decide which
-    Exit events matter to whom.
-    Columns: user_id (text), item_type, region, name.
+    Exit events matter to whom, and by the stop evaluation, which needs
+    `created_at` as the entry date its peak window starts from.
+    Columns: user_id (text), item_type, region, name, created_at.
     """
     df = _read_sql(
         conn,
-        "SELECT user_id::text AS user_id, item_type, region, name FROM positions",
+        "SELECT user_id::text AS user_id, item_type, region, name, created_at "
+        "FROM positions",
     )
     return df.to_dict("records") if not df.empty else []
 
@@ -651,6 +653,71 @@ def get_alert_prefs(conn: psycopg2.extensions.connection) -> list[dict]:
         "FROM alert_prefs WHERE enabled = true",
     )
     return df.to_dict("records") if not df.empty else []
+
+
+def get_stop_loss_users(conn: psycopg2.extensions.connection) -> list[dict]:
+    """Users who have alerts on AND trailing stops switched on.
+
+    `stop_loss_since` is both the on/off flag (NULL = off) and the day-one
+    guard: a breach older than this timestamp is recorded but not notified,
+    so switching the feature on never produces a burst of push notifications
+    about drawdowns from weeks ago.
+    Columns: user_id (text), ntfy_topic, stop_loss_since.
+    """
+    df = _read_sql(
+        conn,
+        "SELECT user_id::text AS user_id, ntfy_topic, stop_loss_since "
+        "FROM alert_prefs WHERE enabled = true AND stop_loss_since IS NOT NULL",
+    )
+    return df.to_dict("records") if not df.empty else []
+
+
+def get_position_stops(conn: psycopg2.extensions.connection) -> list[dict]:
+    """Every existing stop latch, across all users.
+
+    Read before evaluating so an already-latched position is skipped rather
+    than re-notified — the latch is what stops a still-breached holding
+    alerting every single day.
+    Columns: user_id (text), item_type, region, name, stopped_on, drawdown,
+    notified.
+    """
+    df = _read_sql(
+        conn,
+        "SELECT user_id::text AS user_id, item_type, region, name, "
+        "stopped_on, drawdown, notified FROM position_stops",
+    )
+    return df.to_dict("records") if not df.empty else []
+
+
+def insert_position_stop(
+    conn: psycopg2.extensions.connection,
+    *,
+    user_id: str,
+    item_type: str,
+    region: str,
+    name: str,
+    stopped_on,
+    peak_price: float,
+    peak_on,
+    drawdown: float,
+    notified: bool,
+) -> None:
+    """Record that a holding breached. Idempotent.
+
+    ON CONFLICT DO NOTHING is what makes the latch a latch: a second scan over
+    a still-breached position must leave the ORIGINAL breach date and drawdown
+    in place, not overwrite them with today's.
+    """
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO position_stops (user_id, item_type, region, name, "
+                "stopped_on, peak_price, peak_on, drawdown, notified) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (user_id, item_type, region, name) DO NOTHING",
+                (user_id, item_type, region, name, stopped_on,
+                 peak_price, peak_on, drawdown, notified),
+            )
 
 
 # ---------------------------------------------------------------------------

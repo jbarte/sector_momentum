@@ -438,3 +438,32 @@ def test_review_dates_skew_margin_does_not_shift_the_ordinary_case():
     calendar would be running a few days 'behind' for no reason."""
     h = Horizon(key="x", label="X", rebalance="M", top_n=3, buffer_frac=0.1)
     assert review_dates(h, since="2026-01-15", count=1) == ["2026-01-30"]
+
+
+# ---------------------------------------------------------------------------
+# trailing stop-loss threshold
+# ---------------------------------------------------------------------------
+
+def test_trailing_stop_frac_reads_config(tmp_path):
+    p = tmp_path / "w.yaml"
+    p.write_text("stops:\n  trailing_frac: 0.12\n")
+    from src.horizons import trailing_stop_frac
+    assert trailing_stop_frac(p) == 0.12
+
+
+def test_trailing_stop_frac_falls_back_when_missing(tmp_path):
+    """No stops block -> the shipped default, not a crash."""
+    p = tmp_path / "w.yaml"
+    p.write_text("costs:\n  round_trip_bps: 100\n")
+    from src.horizons import trailing_stop_frac
+    assert trailing_stop_frac(p) == 0.12
+
+
+@pytest.mark.parametrize("bad", ["0", "1", "1.5", "-0.1", "abc", ""])
+def test_trailing_stop_frac_rejects_out_of_range(tmp_path, bad):
+    """0 fires on every position instantly; >=1 can never fire. Both are typos,
+    and both must degrade to the shipped value rather than ship a broken rule."""
+    p = tmp_path / "w.yaml"
+    p.write_text(f"stops:\n  trailing_frac: {bad}\n")
+    from src.horizons import trailing_stop_frac
+    assert trailing_stop_frac(p) == 0.12
