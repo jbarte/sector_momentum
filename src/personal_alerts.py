@@ -36,10 +36,17 @@ def _format_stop(stop: dict) -> str:
 
     The percentage is rounded to whole points: the underlying number carries
     more digits than the rule justifies, and "14%" is what the reader acts on.
+
+    Uses a red-circle EMOJI (🔴), not the plain "■" glyph the dashboard chip
+    uses: ntfy notifications are plain text (markdown, but markdown has no
+    way to set a CSS color), so there is no styling lever here at all. An
+    emoji is pre-colored by the font/platform itself and renders red on
+    essentially every client regardless of the recipient's notification
+    theme; a plain shape glyph would just take on the theme's text color.
     """
     pct = abs(round(100 * stop["drawdown"]))
     peak_on = stop["peak_on"].strftime("%-d %b")
-    return (f"  ■ {stop['name']} — {pct}% off its peak of "
+    return (f"  🔴 {stop['name']} — {pct}% off its peak of "
             f"{stop['peak']:.2f} ({peak_on})")
 
 
