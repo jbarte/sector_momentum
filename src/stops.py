@@ -34,6 +34,14 @@ def evaluate_stop(prices_df: pd.DataFrame | None, entry_date,
         return None
 
     entry = pd.Timestamp(entry_date)
+    if entry.tzinfo is not None:
+        # Production entry_date comes from positions.created_at via
+        # psycopg2/pandas and is tz-aware (datetime64[us, UTC]); cached price
+        # frames are always tz-naive here. Comparing the two raises TypeError.
+        # .normalize() floors to midnight so a star made at any time of day
+        # (e.g. 14:30 UTC) still includes that same calendar day's
+        # midnight-stamped price bar in the peak window.
+        entry = entry.tz_localize(None).normalize()
     window = prices_df.loc[prices_df.index >= entry, "Close"].dropna()
     if window.empty:
         return None

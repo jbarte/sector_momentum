@@ -227,40 +227,52 @@ def collect_stop_events(conn, prices: dict, themes_cfg: dict) -> dict[str, list[
     out: dict[str, list[dict]] = {}
 
     for pos in positions:
-        uid = pos.get("user_id")
-        user = users.get(uid)
-        if user is None:
-            continue
-        region = pos.get("region") or ""
-        key = (uid, pos.get("item_type"), region, pos.get("name"))
-        if key in latched:
-            continue
-
-        ticker = ticker_for(pos.get("item_type", ""), pos.get("name", ""), themes_cfg)
-        if not ticker:
-            continue
-        res = evaluate_stop(prices.get(ticker), pos.get("created_at"), stop_frac)
-        if res is None or not res["breached"]:
-            continue
-
-        since = user.get("stop_loss_since")
-        fresh = since is None or res["stopped_on"] >= pd.Timestamp(since).date()
+        # Isolated per position, matching send_personal_alerts's per-user
+        # try/except: one position with missing/malformed data (or any other
+        # unexpected error, e.g. a tz mismatch evaluate_stop didn't already
+        # guard against) must not take down evaluation for every other
+        # position, nor the pre-existing Entry/Exit alerts that run after
+        # this in send_alerts.
         try:
-            insert_position_stop(
-                conn, user_id=uid, item_type=pos["item_type"], region=region,
-                name=pos["name"], stopped_on=res["stopped_on"],
-                peak_price=res["peak"], peak_on=res["peak_on"],
-                drawdown=res["drawdown"], notified=bool(fresh))
-        except Exception as exc:
-            logger.warning("Stop latch write failed for %s: %s", uid, exc)
-            continue
+            uid = pos.get("user_id")
+            user = users.get(uid)
+            if user is None:
+                continue
+            region = pos.get("region") or ""
+            key = (uid, pos.get("item_type"), region, pos.get("name"))
+            if key in latched:
+                continue
 
-        if fresh:
-            out.setdefault(uid, []).append({
-                "item_type": pos["item_type"], "region": region,
-                "name": pos["name"], "drawdown": res["drawdown"],
-                "peak": res["peak"], "peak_on": res["peak_on"],
-            })
+            ticker = ticker_for(pos.get("item_type", ""), pos.get("name", ""), themes_cfg)
+            if not ticker:
+                continue
+            res = evaluate_stop(prices.get(ticker), pos.get("created_at"), stop_frac)
+            if res is None or not res["breached"]:
+                continue
+
+            since = user.get("stop_loss_since")
+            fresh = since is None or res["stopped_on"] >= pd.Timestamp(since).date()
+            try:
+                insert_position_stop(
+                    conn, user_id=uid, item_type=pos["item_type"], region=region,
+                    name=pos["name"], stopped_on=res["stopped_on"],
+                    peak_price=res["peak"], peak_on=res["peak_on"],
+                    drawdown=res["drawdown"], notified=bool(fresh))
+            except Exception as exc:
+                logger.warning("Stop latch write failed for %s: %s", uid, exc)
+                continue
+
+            if fresh:
+                out.setdefault(uid, []).append({
+                    "item_type": pos["item_type"], "region": region,
+                    "name": pos["name"], "drawdown": res["drawdown"],
+                    "peak": res["peak"], "peak_on": res["peak_on"],
+                })
+        except Exception as exc:
+            logger.warning(
+                "Stop evaluation failed for position %s/%s (user %s): %s",
+                pos.get("item_type"), pos.get("name"), pos.get("user_id"), exc)
+            continue
 
     return out
 

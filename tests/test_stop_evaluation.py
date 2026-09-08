@@ -95,6 +95,48 @@ def test_position_with_no_prices_is_skipped_not_crashed():
     assert out == {}
 
 
+def test_one_bad_position_does_not_prevent_others_from_being_evaluated(monkeypatch):
+    """A single position raising an unexpected error during evaluation (e.g. a
+    tz mismatch, or any other malformed-data surprise) must not sink the whole
+    batch: send_personal_alerts's per-user try/except is the pattern this
+    mirrors. The function must still evaluate every other position and return
+    normally rather than propagating -- collect_stop_events runs before
+    send_personal_alerts, so an uncaught exception here would silently kill
+    ALL personal alerts for the scan, stops included."""
+    import src.stops as stops_mod
+    real_evaluate = stops_mod.evaluate_stop
+
+    idx = pd.date_range("2026-08-01", periods=3, freq="D")
+    ura_prices = pd.DataFrame({"Close": [100.0, 130.0, 105.0]}, index=idx)
+    cibr_prices = pd.DataFrame({"Close": [100.0, 130.0, 105.0]}, index=idx)
+    prices = {"URA": ura_prices, "CIBR": cibr_prices}
+
+    def _boom_for_ura(prices_df, entry_date, stop_frac):
+        if prices_df is ura_prices:
+            raise RuntimeError("boom")
+        return real_evaluate(prices_df, entry_date, stop_frac)
+
+    monkeypatch.setattr(stops_mod, "evaluate_stop", _boom_for_ura)
+
+    positions = [
+        {"user_id": "u1", "item_type": "theme", "region": "",
+         "name": "Uranium & Nuclear", "created_at": pd.Timestamp("2026-08-01")},
+        {"user_id": "u1", "item_type": "theme", "region": "",
+         "name": "Cybersecurity", "created_at": pd.Timestamp("2026-08-01")},
+    ]
+    cfg = {"themes": {"Uranium & Nuclear": {"ticker": "URA"},
+                      "Cybersecurity": {"ticker": "CIBR"}}}
+    insert = MagicMock()
+    with patch.object(alerts, "get_all_positions", return_value=positions), \
+         patch.object(alerts, "get_stop_loss_users", return_value=_user()), \
+         patch.object(alerts, "get_position_stops", return_value=[]), \
+         patch.object(alerts, "insert_position_stop", insert):
+        out = alerts.collect_stop_events(MagicMock(), prices, cfg)
+
+    assert [e["name"] for e in out["u1"]] == ["Cybersecurity"]
+    assert insert.call_count == 1
+
+
 def test_a_stop_never_removes_the_position():
     """A fired stop states that the threshold was breached; whether the user
     sold is their call. Auto-unstarring would destroy state on a rule they may

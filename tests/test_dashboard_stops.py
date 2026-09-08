@@ -27,3 +27,31 @@ def test_marker_reads_the_latch_table_and_never_writes_it():
     assert 'from("position_stops")' in js
     for forbidden in (".insert(", ".update(", ".upsert(", ".delete("):
         assert forbidden not in js
+
+
+def test_chip_is_appended_beside_theme_name_not_inside_it():
+    """.theme-name holds only a single text node (index.html.j2's documented
+    invariant) -- renderReviewPanel()'s nameOf(), the mobile card projection,
+    and the band-cut summary strip all read its textContent/innerHTML
+    directly and corrupt if a chip is nested inside it. Every other badge is
+    inserted as a sibling within the containing cell; this pins that the chip
+    follows the same convention, not `tr.querySelector(".theme-name")` as the
+    append target."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    assert 'nameSpan.parentNode' in js
+    assert 'tr.querySelector(".theme-name").appendChild' not in js
+    # The old bug's exact shape: appending directly to whatever
+    # tr.querySelector(".theme-name") returns.
+    assert 'querySelector(".theme-name") ||' not in js
+
+
+def test_chip_gets_a_scoped_translate_call_after_creation():
+    """Page-wide applyLang() already ran by the time this file's listeners
+    fire (auth.js runs it before dispatching the events stops.js listens
+    for), so a newly-created chip is never swept up by a later full pass.
+    Without a scoped call here, a Swedish-language reader sees the English
+    tooltip forever. positions.js's applyRowState() solves the identical
+    problem with window.applyLangToEl(el) -- this must call the same
+    function on the chip it just created."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    assert "applyLangToEl(chip)" in js

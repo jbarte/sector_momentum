@@ -131,6 +131,19 @@
          <strong>Trend</strong> column is what tells you it is deteriorating &mdash;
          the two are meant to be read together.</p>
 
+      <h3>The stop-loss marker (&#9632;) on a holding</h3>
+      <p>A theme you hold gets a small &#9632; marker when its price closes
+         12% below its <strong>highest close since you starred it</strong>
+         &mdash; not since you bought it, and not based on what you paid. The
+         scanner has no record of your purchase price, only the date you
+         marked the position, so the peak it measures from is that date
+         forward.</p>
+      <p>This is <strong>informational only</strong>. It does not mean the
+         position was sold, and nothing is sold automatically. It simply
+         flags that the theme has fallen a meaningful amount from its own
+         recent high while you have held it; what you do about that, if
+         anything, is your call at your next review.</p>
+
       <h3>News sentiment (and why it does not count)</h3>
       <p>Each day the scanner collects English news headlines about each theme and
          scores their tone with <strong>FinBERT</strong>, a language model trained on

@@ -83,10 +83,28 @@
     if (stopBox) { stopBox.checked = !!pref.stop_loss_since; }
   }
 
+  /* If stop_loss_since doesn't exist yet (code deployed before the migration
+   * is run by hand -- an expected window, see CLAUDE.md/the stop-loss spec),
+   * PostgREST errors on the WHOLE query, not just the new column. Retrying
+   * with the original two columns keeps the already-shipped alerts UI (on/off
+   * toggle, ntfy topic) working through that window; the stop-loss checkbox
+   * simply has nothing to check until the column exists (stopBox stays
+   * unchecked -- renderPref only sets it from pref.stop_loss_since, which is
+   * absent from the narrower row shape). Do not collapse this into a single
+   * widened select with a fallback value -- a missing COLUMN in an otherwise
+   * successful query is not this failure mode; a missing column errors the
+   * entire request under PostgREST. */
   function load() {
     return sb.from("alert_prefs").select("ntfy_topic, enabled, stop_loss_since").limit(1)
       .then(function (res) {
-        if (res.error) { setAvailable(false); return; }  // table missing -> stay hidden
+        if (res.error) {
+          return sb.from("alert_prefs").select("ntfy_topic, enabled").limit(1)
+            .then(function (fallback) {
+              if (fallback.error) { setAvailable(false); return; }  // table missing -> stay hidden
+              renderPref(fallback.data && fallback.data.length ? fallback.data[0] : null);
+            })
+            .catch(function () { setAvailable(false); });
+        }
         renderPref(res.data && res.data.length ? res.data[0] : null);
       })
       .catch(function () { setAvailable(false); });

@@ -65,6 +65,29 @@ def test_nan_closes_are_ignored_not_treated_as_zero():
     assert res["breached"] is False
 
 
+def test_tz_aware_entry_date_against_tz_naive_prices_does_not_raise():
+    """Production shape: positions.created_at arrives via psycopg2/pandas as a
+    tz-aware Timestamp (datetime64[us, UTC]); cached price frames are always
+    tz-naive. Comparing a tz-aware Timestamp against a tz-naive DatetimeIndex
+    raises TypeError -- this must be normalized away, not merely tolerated."""
+    entry = pd.Timestamp("2026-01-01", tz="UTC")
+    res = stops.evaluate_stop(_prices([100.0, 130.0, 105.0]), entry, 0.12)
+    assert res is not None
+    assert res["breached"] is True
+    assert res["peak"] == 130.0
+
+
+def test_tz_aware_entry_date_midday_still_includes_that_days_bar():
+    """A star made at 14:30 UTC must not exclude that same calendar day's
+    00:00-stamped price bar from the peak window -- the entry timestamp is
+    normalized to midnight, not left with a time-of-day component."""
+    entry = pd.Timestamp("2026-01-01 14:30:00", tz="UTC")
+    res = stops.evaluate_stop(_prices([100.0, 130.0, 105.0]), entry, 0.12)
+    assert res is not None
+    assert res["peak"] == 130.0
+    assert res["peak_on"] == dt.date(2026, 1, 2)
+
+
 def test_ticker_for_resolves_a_theme_name():
     cfg = {"themes": {"Uranium & Nuclear": {"ticker": "URA"}}}
     assert stops.ticker_for("theme", "Uranium & Nuclear", cfg) == "URA"

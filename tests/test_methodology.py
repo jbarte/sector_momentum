@@ -66,8 +66,22 @@ def test_methodology_covers_every_concept_a_reader_needs():
         ("sentiment",            "finbert"),
         ("backtest",             "backtest"),
         ("data sources",         "yfinance"),
+        ("stop-loss marker",     "stop-loss"),
     ]:
         assert needle in html, f"methodology no longer explains {topic}"
+
+
+def test_methodology_explains_the_stop_loss_marker_peak_and_intent():
+    """The design spec requires this explicitly: 'the guide dialog gains a
+    paragraph explaining what is measured -- peak since starring, not since
+    buying'. Without it the tooltip (untranslated per a separate finding, and
+    unreachable on touch devices with no hover) was the ONLY explanation a
+    reader had."""
+    low = _prose("_methodology.html.j2")
+    assert "since you starred it" in low
+    assert "not since you bought it" in low
+    assert "informational only" in low
+    assert "does not mean the position was sold" in low
 
 
 def test_methodology_keeps_its_factual_anchors():

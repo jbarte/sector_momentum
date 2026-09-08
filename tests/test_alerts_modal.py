@@ -129,6 +129,23 @@ def test_the_deep_link_waits_for_availability():
     assert 'location.hash === "#alerts"' not in _footer()
 
 
+def test_load_falls_back_to_the_narrow_select_when_stop_loss_since_is_missing():
+    """The widened select (`ntfy_topic, enabled, stop_loss_since`) errors its
+    WHOLE query under PostgREST if the column doesn't exist yet -- an expected
+    deployment window, since the migration is applied by hand. Without a
+    fallback, that error hides the entire alerts modal (on/off toggle, ntfy
+    topic included), breaking an already-shipped feature for everyone until
+    the migration runs. `load()` must retry with the original two-column
+    select rather than immediately calling setAvailable(false)."""
+    js = _JS.read_text()
+    assert 'select("ntfy_topic, enabled, stop_loss_since")' in js
+    assert 'select("ntfy_topic, enabled")' in js
+    # The retry must be reachable from inside the widened select's error
+    # branch, not just present anywhere in the file.
+    load_fn = js[js.index("function load()"):js.index("function load()") + 1200]
+    assert 'select("ntfy_topic, enabled")' in load_fn
+
+
 def test_stop_loss_checkbox_is_present_and_translated():
     """The checkbox is the only way to turn stops on, and every data-i18n key
     it carries must resolve in Swedish (tests/test_i18n_coverage.py enforces

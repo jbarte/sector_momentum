@@ -35,7 +35,16 @@
       var stop = stopsByKey[keyForRow(tr)];
       if (!stop) { tr.classList.remove("position-stopped"); return; }
 
-      var cell = tr.querySelector(".theme-name") || tr.cells[1];
+      // .theme-name holds only a single text node (index.html.j2's documented
+      // invariant, ~line 797) -- renderReviewPanel()'s nameOf(), the mobile
+      // card projection, and the band-cut summary strip all read its
+      // textContent/innerHTML directly and would pick up a nested chip. Every
+      // other badge (.unbuyable-badge, .setup-badge, .traj-badge,
+      // .theme-ticker, and positions.js's own star toggle) is inserted as a
+      // SIBLING within the containing cell, never inside .theme-name itself
+      // -- this appends to that same cell, matching the established pattern.
+      var nameSpan = tr.querySelector(".theme-name");
+      var cell = nameSpan ? nameSpan.parentNode : tr.cells[1];
       if (!cell) return;
 
       var pct = Math.abs(Math.round(100 * Number(stop.drawdown)));
@@ -46,6 +55,13 @@
       chip.title = "Closed " + pct + "% below its peak since you starred it, on "
                  + stop.stopped_on + ". It does not mean the position was sold.";
       cell.appendChild(chip);
+      // Page-wide applyLang() already ran (auth.js runs it before dispatching
+      // sm:leaderboard-upgraded/sm:auth-changed, which is what triggers this
+      // decorate() call) and will not run again for an element created after
+      // it. Without a scoped translate call here, a Swedish-language reader
+      // would see this English title forever. Same pattern positions.js uses
+      // for its own dynamically-created content (applyRowState()).
+      if (window.applyLangToEl) window.applyLangToEl(chip);
       tr.classList.add("position-stopped");
     });
   }
