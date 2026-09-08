@@ -156,3 +156,57 @@ class TestFormatting:
         body = format_personal_body([], [{"cohort": "US", "sector": "Energy",
                                           "event": "entry", "rank": None}])
         assert "rank" not in body
+
+
+import datetime as dt
+
+from src.personal_alerts import build_personal_alerts, format_personal_body
+
+
+def _stop(name="Uranium & Nuclear", drawdown=-0.143):
+    return {"item_type": "theme", "region": "", "name": name,
+            "drawdown": drawdown, "peak": 52.1, "peak_on": dt.date(2026, 8, 18)}
+
+
+def test_stopped_section_leads_the_body():
+    """The stop is the most actionable line in the message, so it goes first."""
+    body = format_personal_body(
+        held_exits=[{"cohort": "THEME", "sector": "Semis", "event": "exit", "rank": 12}],
+        entries=[{"cohort": "THEME", "sector": "Cyber", "event": "entry", "rank": 4}],
+        stops=[_stop()])
+    assert body.index("Stopped out") < body.index("Your holdings")
+    assert body.index("Your holdings") < body.index("New signals")
+
+
+def test_stop_line_names_the_peak_and_its_date():
+    """A bare percentage is unverifiable; naming what it is measured against
+    is what lets the reader check it."""
+    body = format_personal_body([], [], stops=[_stop()])
+    assert "Uranium & Nuclear" in body
+    assert "14%" in body          # 0.143 -> 14%, no false precision
+    assert "52.10" in body
+    assert "18 Aug" in body
+
+
+def test_body_without_stops_is_unchanged():
+    """The new parameter is optional and must not perturb existing output."""
+    exits = [{"cohort": "THEME", "sector": "Semis", "event": "exit", "rank": 12}]
+    assert format_personal_body(exits, []) == format_personal_body(exits, [], stops=[])
+
+
+def test_a_user_with_only_a_stop_still_gets_a_payload():
+    """Stops must not depend on there being an Entry or Exit that day --
+    otherwise the most urgent event is the one most likely to go unsent."""
+    prefs = [{"user_id": "u1", "ntfy_topic": "sm-" + "a" * 32, "enabled": True}]
+    out = build_personal_alerts([], [], prefs, "2026-09-07",
+                                stops_by_user={"u1": [_stop()]})
+    assert len(out) == 1
+    assert "Stopped out" in out[0]["body"]
+
+
+def test_stops_go_only_to_their_own_user():
+    prefs = [{"user_id": "u1", "ntfy_topic": "sm-" + "a" * 32, "enabled": True},
+             {"user_id": "u2", "ntfy_topic": "sm-" + "b" * 32, "enabled": True}]
+    out = build_personal_alerts([], [], prefs, "2026-09-07",
+                                stops_by_user={"u1": [_stop()]})
+    assert [p["user_id"] for p in out] == ["u1"]

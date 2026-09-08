@@ -31,14 +31,36 @@ def _format_event(event: dict, held: bool) -> str:
     return f"  {label}: {event['sector']}{region}{rank}{star}"
 
 
-def format_personal_body(held_exits: list[dict], entries: list[dict]) -> str:
-    """Group by held-vs-discovery.
+def _format_stop(stop: dict) -> str:
+    """One stopped holding, naming what the drawdown is measured against.
+
+    The percentage is rounded to whole points: the underlying number carries
+    more digits than the rule justifies, and "14%" is what the reader acts on.
+    """
+    pct = abs(round(100 * stop["drawdown"]))
+    peak_on = stop["peak_on"].strftime("%-d %b")
+    return (f"  ■ {stop['name']} — {pct}% off its peak of "
+            f"{stop['peak']:.2f} ({peak_on})")
+
+
+def format_personal_body(held_exits: list[dict], entries: list[dict],
+                         stops: list[dict] = ()) -> str:
+    """Group by what you do about it.
 
     Deliberately different from src.alerts.format_alert_body, which groups by
     cohort — here the useful split is "act on this" vs "consider this", so the
     region is rendered inline instead of as a group header.
+
+    Stopped holdings lead: a price-based breach is the most actionable line in
+    the message, and burying it under two rank-based sections would be reading
+    order arguing with urgency.
     """
     lines: list[str] = []
+    if stops:
+        lines.append("Stopped out")
+        for st in stops:
+            lines.append(_format_stop(st))
+        lines.append("")
     if held_exits:
         lines.append("Your holdings")
         for ev in held_exits:
@@ -57,6 +79,7 @@ def build_personal_alerts(
     positions: list[dict],
     prefs: list[dict],
     scan_date: str,
+    stops_by_user: dict[str, list[dict]] | None = None,
 ) -> list[dict]:
     """Return one payload per user to notify: {user_id, topic, title, body}.
 
@@ -89,13 +112,14 @@ def build_personal_alerts(
 
         held = held_by_user.get(uid, set())
         held_exits = [e for e in exits if _event_position_key(e) in held]
-        if not held_exits and not entries:
+        user_stops = (stops_by_user or {}).get(uid, [])
+        if not held_exits and not entries and not user_stops:
             continue
 
         out.append({
             "user_id": uid,
             "topic": topic,
             "title": f"ETF Momentum — {scan_date}",
-            "body": format_personal_body(held_exits, entries),
+            "body": format_personal_body(held_exits, entries, user_stops),
         })
     return out
