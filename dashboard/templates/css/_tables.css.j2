@@ -537,6 +537,18 @@ tbody td:nth-child(n+4) {
 .leaderboard-row.position-held {
   background: color-mix(in srgb, var(--brand-strong) 7%, transparent);
 }
+/* Deliberately unlike .setup-badge: this is a claim about PRICE, not rank,
+   and must not read as another ranking badge. */
+.stop-chip {
+  margin-left: .4em;
+  padding: 0 .35em;
+  border-radius: 3px;
+  font-size: .78em;
+  font-weight: 600;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  white-space: nowrap;
+}
 .leaderboard-row.position-warn {
   box-shadow: inset 3px 0 0 0 var(--down);
 }
