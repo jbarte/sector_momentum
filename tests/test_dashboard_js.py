@@ -3583,3 +3583,65 @@ def test_market_context_is_gone_from_every_template():
         for dead in ("macro_vix_", "macro_chip_spy", "guide_body_market_context",
                      "market_context_title", "strip_eyebrow_market"):
             assert dead not in tpl, f"{name} still references {dead}"
+
+
+_BEGINNER_DECK_JS = (Path(__file__).parent.parent / "dashboard" / "assets" / "beginner-deck.js").read_text()
+
+
+def _run_beginner_deck_js(js_call: str) -> str:
+    """Execute beginner-deck.js under node with a minimal DOM stub, then run
+    js_call and print its JSON-stringified result. Mirrors the harness other
+    _needs_node tests in this file already use for rescore.js."""
+    script = f"""
+    global.document = {{
+      getElementById: function(id) {{ return global.__els[id] || null; }},
+      querySelectorAll: function(sel) {{ return global.__querySelectorAll(sel); }},
+      addEventListener: function() {{}},
+    }};
+    global.window = {{ SMBeginnerDeckModal: {{ open: function(){{}}, close: function(){{}} }} }};
+    {_BEGINNER_DECK_JS}
+    console.log(JSON.stringify({js_call}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_beginner_deck_starts_on_step_1():
+    result = _run_beginner_deck_js("BeginnerDeck.currentStep()")
+    assert result == "1"
+
+
+@_needs_node
+def test_beginner_deck_next_advances_one_step():
+    result = _run_beginner_deck_js("(BeginnerDeck.next(), BeginnerDeck.currentStep())")
+    assert result == "2"
+
+
+@_needs_node
+def test_beginner_deck_next_stops_at_step_4():
+    result = _run_beginner_deck_js(
+        "(BeginnerDeck.next(), BeginnerDeck.next(), BeginnerDeck.next(), "
+        "BeginnerDeck.next(), BeginnerDeck.currentStep())"
+    )
+    assert result == "4", "four cards means step 4 is the last -- next() must not overrun"
+
+
+@_needs_node
+def test_beginner_deck_back_retreats_one_step():
+    result = _run_beginner_deck_js(
+        "(BeginnerDeck.next(), BeginnerDeck.next(), BeginnerDeck.back(), BeginnerDeck.currentStep())"
+    )
+    assert result == "2"
+
+
+@_needs_node
+def test_beginner_deck_back_stops_at_step_1():
+    result = _run_beginner_deck_js("(BeginnerDeck.back(), BeginnerDeck.currentStep())")
+    assert result == "1"
+
+
+@_needs_node
+def test_beginner_deck_go_to_step_jumps_directly():
+    result = _run_beginner_deck_js("(BeginnerDeck.goToStep(3), BeginnerDeck.currentStep())")
+    assert result == "3"
