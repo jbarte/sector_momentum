@@ -1,0 +1,110 @@
+"""Render tests for the beginner-deck partial, mirroring tests/test_methodology.py's
+pattern (same _jinja_env/_render/_prose helpers, duplicated here rather than
+imported -- test_methodology.py doesn't expose them as a shared module, and a
+one-file test suite is easier to read standalone)."""
+import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+_TPL_DIR = Path(__file__).parent.parent / "dashboard" / "templates"
+
+_CTX = {"default_horizon_top_n": 4, "trailing_stop_pct": 12}
+
+
+def _jinja_env():
+    from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
+    env = Environment(loader=FileSystemLoader(str(_TPL_DIR)), keep_trailing_newline=True)
+    register_asset_url(env)
+    return env
+
+
+def _render(name: str, **ctx) -> str:
+    merged = {**_CTX, **ctx}
+    return _jinja_env().get_template(name).render(**merged)
+
+
+def _prose(name: str, **ctx) -> str:
+    html = _render(name, **ctx)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html)).lower()
+
+
+def test_deck_modal_markup_and_a11y():
+    html = _render("_beginner_deck.html.j2")
+    assert 'id="beginner-deck-modal"' in html
+    assert 'role="dialog"' in html
+    assert 'aria-modal="true"' in html
+    assert 'hidden' in html  # closed by default
+
+
+def test_deck_has_all_four_steps():
+    html = _render("_beginner_deck.html.j2")
+    for n in (1, 2, 3, 4):
+        assert f'data-step="{n}"' in html
+
+
+def test_deck_nav_controls_exist():
+    html = _render("_beginner_deck.html.j2")
+    assert 'id="beginner-deck-back"' in html
+    assert 'id="beginner-deck-next"' in html
+    assert 'id="beginner-deck-dots"' in html
+
+
+def test_deck_uses_the_shared_modal_helper_not_hand_rolled():
+    html = _render("_beginner_deck.html.j2")
+    assert "window.SMModal.bind(" in html
+
+
+def test_deck_has_no_i18n_attributes():
+    """Deliberate carve-out matching _methodology.html.j2 -- English only for
+    now. A data-i18n attribute here would need a Swedish entry or
+    tests/test_i18n_coverage.py fails the whole build."""
+    html = _render("_beginner_deck.html.j2")
+    assert "data-i18n" not in html
+
+
+def test_deck_card_one_states_the_buy_band_size_live():
+    low = _prose("_beginner_deck.html.j2", default_horizon_top_n=4)
+    assert "top 4" in low
+    low7 = _prose("_beginner_deck.html.j2", default_horizon_top_n=7)
+    assert "top 7" in low7, "card 1 must read the live value, not a hardcoded 4"
+
+
+def test_deck_card_two_states_it_is_not_a_stop_loss():
+    low = _prose("_beginner_deck.html.j2")
+    assert "not a stop-loss" in low
+
+
+def test_deck_card_three_states_the_cadence():
+    """Cadence is stated as prose, not interpolated (a natural-language word
+    doesn't interpolate cleanly) -- protected instead by
+    test_deck_cadence_matches_the_live_default_horizon below."""
+    low = _prose("_beginner_deck.html.j2")
+    assert "monthly" in low
+
+
+def test_deck_cadence_matches_the_live_default_horizon():
+    """Factual anchor, mirroring test_methodology.py::
+    test_methodology_keeps_its_factual_anchors. If the default horizon's
+    cadence ever stops being monthly, this must fail and force the prose
+    to follow."""
+    from src.horizons import default_horizon
+    assert default_horizon().rebalance == "M", (
+        "default horizon cadence changed -- update card 3's prose in "
+        "_beginner_deck.html.j2 from 'monthly' to match, then update this assertion"
+    )
+
+
+def test_deck_card_four_states_the_stop_loss_pct_live():
+    low = _prose("_beginner_deck.html.j2", trailing_stop_pct=12)
+    assert "12%" in low
+    low20 = _prose("_beginner_deck.html.j2", trailing_stop_pct=20)
+    assert "20%" in low20, "card 4 must read the live value, not a hardcoded 12"
+
+
+def test_deck_card_four_states_it_measures_from_peak_since_starring():
+    low = _prose("_beginner_deck.html.j2")
+    assert "since you starred it" in low
+    assert "not what you paid" in low or "not since you bought" in low

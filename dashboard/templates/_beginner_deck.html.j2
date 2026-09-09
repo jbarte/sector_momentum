@@ -1,0 +1,90 @@
+{#- Beginner walkthrough deck: a four-card carousel teaching a first-time
+    reader when to buy, the buy/sell lines, the review period, and the
+    stop-loss -- one idea per card, in that order. Content derives from the
+    tab-guide prose (index.html.j2's guide_body_leaderboard), restructured
+    for sequential beginner pacing rather than copied verbatim. See
+    sector_momentum-notes/specs/2026-09-09-beginner-walkthrough-deck-design.md.
+
+    English only, deliberately -- no data-i18n/data-i18n-html anywhere in
+    this file. Matches _methodology.html.j2's existing carve-out, which is
+    what keeps tests/test_i18n_coverage.py from requiring a Swedish
+    translation for content that doesn't have one yet.
+
+    NOT inside {% if auth %} -- static public content, shown to guests and
+    signed-in readers alike, exactly like the methodology modal beside it.
+
+    Numbers here are LIVE, not typed out: default_horizon_top_n and
+    trailing_stop_pct come from dashboard/build.py (computed once from
+    src.horizons.default_horizon()/trailing_stop_frac(), same pattern as
+    the existing exit_rank_today value) -- see Global Constraints in the
+    implementation plan for why. Card 3's cadence word ("monthly") is the
+    one exception: a natural-language word doesn't interpolate cleanly, so
+    it's protected by a factual-anchor test instead
+    (tests/test_beginner_deck.py::test_deck_cadence_matches_the_live_default_horizon),
+    mirroring tests/test_methodology.py's own pattern for the same problem. -#}
+<div class="methodology-overlay" id="beginner-deck-modal" hidden>
+  <div class="methodology-modal beginner-deck" role="dialog" aria-modal="true" aria-labelledby="beginner-deck-title">
+    <button type="button" class="methodology-close" id="beginner-deck-close" aria-label="Close">&times;</button>
+    <h2 id="beginner-deck-title">How this works</h2>
+
+    <div class="beginner-deck-card" data-step="1">
+      <h3>When to buy in</h3>
+      <p>You buy from the top of the list. Themes are ranked strongest to
+         weakest today. The buy band is the top {{ default_horizon_top_n }}
+         &mdash; those are the only themes worth buying fresh right now.
+         Rank 1 only means &ldquo;best of the group today,&rdquo; not
+         &ldquo;guaranteed to go up.&rdquo;</p>
+    </div>
+
+    <div class="beginner-deck-card" data-step="2" hidden>
+      <h3>The buy/sell lines</h3>
+      <p>Two lines, not one. There&rsquo;s a line for buying and a
+         separate, looser line for selling &mdash; with quiet room between
+         them, on purpose. A theme drifting a rank or two doesn&rsquo;t get
+         sold; only one that clearly leaves the wider band does.
+         <strong>This is not a stop-loss</strong> &mdash; it only looks at
+         rank against other themes, never at price, and it only checks at
+         the next scheduled review, never in between.</p>
+    </div>
+
+    <div class="beginner-deck-card" data-step="3" hidden>
+      <h3>The review period</h3>
+      <p>You look on a schedule, not constantly. The dashboard tells you
+         when to look next &mdash; monthly for the default horizon.
+         Reviewing more often doesn&rsquo;t mean better decisions, it means
+         more trading, and every trade has a real cost. Between reviews,
+         just wait.</p>
+    </div>
+
+    <div class="beginner-deck-card" data-step="4" hidden>
+      <h3>The stop-loss</h3>
+      <p>A safety net, separate from the lines above. If a theme
+         you&rsquo;ve starred closes {{ trailing_stop_pct }}% below its
+         highest point since you starred it, you get a one-time alert and
+         a dashboard marker. It measures from the peak since you starred
+         it &mdash; not what you paid &mdash; and it never sells anything
+         automatically. It&rsquo;s the one thing here that reacts to price
+         between reviews, not just rank.</p>
+      <p><a href="#methodology" id="beginner-deck-methodology-link">Want more detail? Read the full Methodology.</a></p>
+    </div>
+
+    <div id="beginner-deck-dots" class="beginner-deck-dots" aria-hidden="true"></div>
+
+    <div class="beginner-deck-nav">
+      <button type="button" id="beginner-deck-back">Back</button>
+      <button type="button" id="beginner-deck-next">Next</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var overlay = document.getElementById("beginner-deck-modal");
+  if (!overlay) { return; }
+  var modal = window.SMModal.bind(overlay, {
+    closeBtn: document.getElementById("beginner-deck-close"),
+  });
+  if (!modal) { return; }
+  window.SMBeginnerDeckModal = modal;
+})();
+</script>

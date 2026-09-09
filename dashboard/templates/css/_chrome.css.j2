@@ -364,6 +364,35 @@
 }
 .methodology-modal h2 { margin: 0 0 14px; font-size: 1.3rem; color: var(--fg1); }
 .methodology-modal h3 { margin: 20px 0 6px; font-size: 1rem; color: var(--fg1); }
+.beginner-deck-card { margin-bottom: 8px; }
+.beginner-deck-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+.beginner-deck-nav button {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--fg1);
+  cursor: pointer;
+}
+.beginner-deck-nav button:hover { background: var(--bg-sunken); }
+#beginner-deck-back[hidden] { visibility: hidden; }
+.beginner-deck-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+.beginner-deck-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.beginner-deck-dot.active { background: var(--fg1); }
 .methodology-body p,
 .methodology-body li { color: var(--fg2); font-size: 0.9rem; line-height: 1.55; }
 /* Paragraphs need air. The methodology used to be one paragraph per section, so
