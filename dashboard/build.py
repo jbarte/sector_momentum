@@ -455,7 +455,7 @@ def main() -> None:
 
     cohort_list = cohorts(_themes_cfg)
 
-    from src.horizons import horizons, default_horizon, round_trip_bps, review_dates
+    from src.horizons import horizons, default_horizon, round_trip_bps, review_dates, trailing_stop_frac
     horizon_list = horizons()
     _default_horizon = default_horizon()
     _round_trip_bps = round_trip_bps()
@@ -710,6 +710,8 @@ def main() -> None:
         "horizon_list": horizon_list,
         "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
         "round_trip_bps": _round_trip_bps,
+        "default_horizon_top_n": _default_horizon.top_n,
+        "trailing_stop_pct": round(trailing_stop_frac() * 100),
         "horizons_json": _horizons_json,
         "horizon_default_json": _horizon_default_json,
         "cohorts_json": cohorts_json,
@@ -759,6 +761,8 @@ def main() -> None:
         # it interpolate the cost. Omit this and the sentiment page fails to
         # render on an Undefined, even though it shows no backtest itself.
         "round_trip_bps": _round_trip_bps,
+        "default_horizon_top_n": _default_horizon.top_n,
+        "trailing_stop_pct": round(trailing_stop_frac() * 100),
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
         # Was relying on an undefined Jinja variable being falsy here. Explicit
         # now — the CSS that hides the sentiment column reads it.
