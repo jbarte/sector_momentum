@@ -1772,6 +1772,216 @@ def test_modal_helper_include_precedes_footer_and_methodology():
 
 
 # ---------------------------------------------------------------------------
+# Gate modal auto-show-once — guestDismissed() / render()'s show-unless-
+# dismissed branch / the "only the explicit button sets the flag" contract.
+#
+# Runs the REAL dashboard/assets/auth.js and dashboard/templates/_modal.js.j2
+# under node, against a hand-rolled DOM subset (id lookup, per-element
+# addEventListener/dispatch, dataset, hidden, focus) rather than jsdom, which
+# this project's JS tests don't use (see the "Source-pinned rather than run
+# under Node" comment on test_render_mobile_cards_reflects_band_cut_rows_too
+# above). _modal.js.j2 is otherwise plain JS; only its two leading Jinja
+# `{# ... #}` comment blocks need stripping before it's valid to eval().
+# ---------------------------------------------------------------------------
+
+_AUTH_HARNESS_TEMPLATE = r"""
+var _store = {};
+var THROW_GET = false, THROW_SET = false;
+global.localStorage = {
+  getItem: function (k) {
+    if (THROW_GET) throw new Error("blocked (private browsing)");
+    return Object.prototype.hasOwnProperty.call(_store, k) ? _store[k] : null;
+  },
+  setItem: function (k, v) {
+    if (THROW_SET) throw new Error("blocked (private browsing)");
+    _store[k] = String(v);
+  },
+};
+
+function makeEl(id) {
+  var listeners = {};
+  return {
+    id: id,
+    hidden: false,
+    dataset: {},
+    textContent: "",
+    addEventListener: function (type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    removeEventListener: function (type, fn) {
+      var a = listeners[type] || []; var i = a.indexOf(fn); if (i !== -1) a.splice(i, 1);
+    },
+    dispatch: function (type, evt) { (listeners[type] || []).slice().forEach(function (fn) { fn(evt); }); },
+    focus: function () {},
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; },
+  };
+}
+
+var authRoot = makeEl("auth-root");
+var signinBtn = makeEl("auth-signin");
+var headerForm = makeEl("auth-form");
+var userBox = makeEl("auth-user");
+var emailLabel = makeEl("auth-email-label");
+var signoutBtn = makeEl("auth-signout");
+var modal = makeEl("gate-modal");
+// The real #gate-modal markup (index.html.j2) starts with the `hidden`
+// attribute present, i.e. hidden === true before any JS runs. makeEl()'s
+// generic default of false would make the "modal shows" assertions below
+// pass even if the showModal(true)/gate.open() call were deleted outright.
+modal.hidden = true;
+var continueBtn = makeEl("gate-continue");
+var elements = {
+  "auth-root": authRoot, "auth-signin": signinBtn, "auth-form": headerForm,
+  "auth-user": userBox, "auth-email-label": emailLabel, "auth-signout": signoutBtn,
+  "gate-modal": modal, "gate-continue": continueBtn,
+};
+
+var docListeners = {};
+global.document = {
+  getElementById: function (id) { return elements[id] || null; },
+  querySelectorAll: function () { return []; },
+  addEventListener: function (type, fn) { (docListeners[type] = docListeners[type] || []).push(fn); },
+  removeEventListener: function (type, fn) {
+    var a = docListeners[type] || []; var i = a.indexOf(fn); if (i !== -1) a.splice(i, 1);
+  },
+  dispatchEvent: function () {},
+  activeElement: null,
+};
+function fireKeydown(e) { (docListeners.keydown || []).slice().forEach(function (fn) { fn(e); }); }
+
+global.CustomEvent = function (type) { this.type = type; };
+
+var authCallback = null;
+var sb = {
+  auth: {
+    onAuthStateChange: function (cb) { authCallback = cb; },
+    signOut: function () { return { catch: function () {} }; },
+  },
+  from: function () {
+    return { select: function () { return this; }, order: function () { return this; }, then: function () {} };
+  },
+};
+
+global.window = {
+  SUPABASE_CONFIG: { url: "https://x.example", key: "anon-key" },
+  SMSupabase: sb,
+  location: { hash: "", pathname: "/", search: "" },
+};
+
+var modalSrc = require("fs").readFileSync(__MODAL_PATH__, "utf8")
+  .replace(/\{#[\s\S]*?#\}/g, "");
+eval(modalSrc);
+var authSrc = require("fs").readFileSync(__AUTH_PATH__, "utf8");
+eval(authSrc);
+"""
+
+
+# Shared tail for the three tests below that need both the dismissed-flag
+# state and the modal's open/closed state -- kept in one place so a future
+# added field (e.g. a focus-restoration check) is edited once, not per-test.
+_DUMP_DISMISS_STATE_JS = """
+        console.log(JSON.stringify({
+          stored: _store.hasOwnProperty("guest_dismissed") ? _store.guest_dismissed : null,
+          modalHidden: modal.hidden,
+        }));
+"""
+
+
+def _run_gate_modal_scenario(driver_js: str) -> dict:
+    """Runs the harness preamble (real auth.js + real _modal.js.j2, fake DOM)
+    followed by `driver_js`, which must end by printing one JSON object to
+    stdout. Returns that object."""
+    auth_path = Path(__file__).parent.parent / "dashboard/assets/auth.js"
+    modal_path = Path(__file__).parent.parent / "dashboard/templates/_modal.js.j2"
+    preamble = (_AUTH_HARNESS_TEMPLATE
+                .replace("__AUTH_PATH__", json.dumps(str(auth_path)))
+                .replace("__MODAL_PATH__", json.dumps(str(modal_path))))
+    res = subprocess.run(["node", "-e", preamble + driver_js],
+                          capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    return json.loads(res.stdout)
+
+
+@_needs_node
+def test_gate_modal_shows_for_a_first_time_guest():
+    """render()'s else-branch calls showModal(!guestDismissed()) for a
+    signed-out visitor. With guest_dismissed unset, the modal must show."""
+    out = _run_gate_modal_scenario("""
+        authCallback("INITIAL_SESSION", null);
+        console.log(JSON.stringify({modalHidden: modal.hidden}));
+    """)
+    assert out["modalHidden"] is False, (
+        "the gate modal did not show for a first-time signed-out visitor"
+    )
+
+
+@_needs_node
+def test_gate_modal_stays_hidden_once_guest_dismissed_flag_is_set():
+    """Mirror of the above: with localStorage.guest_dismissed already '1',
+    render() must not show the modal again on a return visit."""
+    out = _run_gate_modal_scenario("""
+        _store["guest_dismissed"] = "1";
+        authCallback("INITIAL_SESSION", null);
+        console.log(JSON.stringify({modalHidden: modal.hidden}));
+    """)
+    assert out["modalHidden"] is True, (
+        "the gate modal showed again despite guest_dismissed already being set"
+    )
+
+
+@_needs_node
+def test_continue_as_guest_click_sets_the_dismissed_flag():
+    """Only the explicit 'Continue as guest' click may set guest_dismissed."""
+    out = _run_gate_modal_scenario("""
+        authCallback("INITIAL_SESSION", null);
+        continueBtn.dispatch("click", {});
+    """ + _DUMP_DISMISS_STATE_JS)
+    assert out["stored"] == "1", (
+        "clicking 'Continue as guest' did not set localStorage.guest_dismissed"
+    )
+    assert out["modalHidden"] is True, "the modal did not close after the click"
+
+
+@_needs_node
+def test_escape_closes_the_modal_without_setting_the_dismissed_flag():
+    """Escape closes the modal (via SMModal's own keydown handler, not the
+    explicit continueBtn handler) for this visit only -- it must NOT set
+    guest_dismissed, or an accidental Escape would permanently hide sign-in."""
+    out = _run_gate_modal_scenario("""
+        authCallback("INITIAL_SESSION", null);
+        fireKeydown({key: "Escape"});
+    """ + _DUMP_DISMISS_STATE_JS)
+    assert out["stored"] is None, "Escape set guest_dismissed -- it must only close for this visit"
+    assert out["modalHidden"] is True, "Escape did not close the modal"
+
+
+@_needs_node
+def test_backdrop_click_closes_the_modal_without_setting_the_dismissed_flag():
+    """Same contract as Escape, for SMModal's backdrop-click close path."""
+    out = _run_gate_modal_scenario("""
+        authCallback("INITIAL_SESSION", null);
+        modal.dispatch("click", {target: modal});
+    """ + _DUMP_DISMISS_STATE_JS)
+    assert out["stored"] is None, "backdrop click set guest_dismissed -- it must only close for this visit"
+    assert out["modalHidden"] is True, "backdrop click did not close the modal"
+
+
+@_needs_node
+def test_guest_dismissed_fails_open_when_localstorage_throws():
+    """Private browsing can make localStorage.getItem throw. guestDismissed()
+    must degrade to "not dismissed" (fail-open, per its own try/catch) rather
+    than crash the auth flow -- so the modal must still show, and the node
+    process must exit cleanly rather than raising uncaught."""
+    out = _run_gate_modal_scenario("""
+        THROW_GET = true;
+        authCallback("INITIAL_SESSION", null);
+        console.log(JSON.stringify({modalHidden: modal.hidden}));
+    """)
+    assert out["modalHidden"] is False, (
+        "guestDismissed() did not fail open when localStorage.getItem threw"
+    )
+
+
+# ---------------------------------------------------------------------------
 # One shared Supabase client — auth.js / positions.js / alert-prefs.js
 # ---------------------------------------------------------------------------
 
