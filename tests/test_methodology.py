@@ -150,3 +150,49 @@ def test_modals_include_rotation_illo():
     for page in ["index.html.j2", "_methodology.html.j2"]:
         src = (_TPL_DIR / page).read_text(encoding="utf-8")
         assert '_rotation_illo.html.j2' in src, page
+
+
+def test_guide_illo_bands_match_the_shipped_medium_preset():
+    """_guide_illo.html.j2's header comment claims specific top_n/exit_rank
+    numbers for the shipped Medium preset, and its 12 hardcoded bars are split
+    hi/mid/lo to depict exactly those numbers. Unlike the prose partials
+    rendered elsewhere in this file, the SVG has no live-rendering path to
+    interpolate config values into -- both the comment and the bar split are
+    hand-maintained, so this is the drift check that stands in for one. It
+    caught the header comment and bar split silently going stale after
+    medium's top_n moved 5 -> 4 while exit_rank (a function of top_n, buffer,
+    and the theme count) happened to stay at 9."""
+    import re
+
+    import yaml
+
+    from src.horizons import horizons
+
+    src = (_TPL_DIR / "_guide_illo.html.j2").read_text(encoding="utf-8")
+
+    medium = next(h for h in horizons() if h.key == "medium")
+    themes_cfg = yaml.safe_load(
+        (Path(__file__).resolve().parent.parent / "config/themes.yaml").read_text())
+    universe_size = len(themes_cfg["themes"])
+    exit_rank = medium.exit_rank(universe_size)
+
+    # The header comment states both numbers in prose -- pin them literally so
+    # a future preset change that forgets to update the comment fails loudly.
+    comment = src[: src.index("#}")]
+    assert f"top_n {medium.top_n}" in comment, (
+        f"comment claims a stale top_n; shipped medium.top_n is {medium.top_n}")
+    assert f"exit_rank {exit_rank}" in comment, (
+        f"comment claims a stale exit_rank; shipped medium.exit_rank({universe_size}) "
+        f"is {exit_rank}")
+
+    # The bar split must depict the same numbers: hi bars = top_n, hi+mid
+    # bars = exit_rank, and every bar accounted for (12 total, none orphaned).
+    hi_count = len(re.findall(r'class="bar b\d+ bar-hi"', src))
+    mid_count = len(re.findall(r'class="bar b\d+ bar-mid"', src))
+    lo_count = len(re.findall(r'class="bar b\d+ bar-lo"', src))
+    assert hi_count == medium.top_n, (
+        f"SVG draws {hi_count} buy-band bars, but shipped top_n is {medium.top_n}")
+    assert hi_count + mid_count == exit_rank, (
+        f"SVG's buy+hold bars ({hi_count + mid_count}) no longer sum to "
+        f"exit_rank ({exit_rank})")
+    assert hi_count + mid_count + lo_count == 12, "a bar lost its band class"
