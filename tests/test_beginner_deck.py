@@ -18,6 +18,9 @@ def _jinja_env():
     from dashboard.build import register_asset_url
     env = Environment(loader=FileSystemLoader(str(_TPL_DIR)), keep_trailing_newline=True)
     register_asset_url(env)
+    env.filters["js_json"] = (
+        lambda v: v.replace("</", r"<\/") if isinstance(v, str) else v
+    )
     return env
 
 
@@ -108,3 +111,43 @@ def test_deck_card_four_states_it_measures_from_peak_since_starring():
     low = _prose("_beginner_deck.html.j2")
     assert "since you starred it" in low
     assert "not what you paid" in low or "not since you bought" in low
+
+
+def test_footer_has_the_new_here_link():
+    html = _render("_footer.html.j2")
+    assert 'id="beginner-deck-link"' in html
+    assert "New here?" in html
+
+
+def test_footer_link_sits_beside_methodology_link():
+    """Same visual treatment as the existing link -- .footer-link class,
+    not a bespoke style."""
+    html = _render("_footer.html.j2")
+    idx_methodology = html.index('id="methodology-link"')
+    idx_deck = html.index('id="beginner-deck-link"')
+    between = html[min(idx_methodology, idx_deck):max(idx_methodology, idx_deck)]
+    assert "footer-link" in between
+
+
+def test_index_page_includes_the_deck_partial():
+    html = _render("index.html.j2", leaderboard_rows=[], scan_date="2026-01-01",
+                    active_scan_id=1, todays_read="", cohort_list=[], horizon_list=[],
+                    sentiment_ranking_enabled=False, round_trip_bps=100,
+                    horizons_json="[]", horizon_default_json="{}", cohorts_json="{}",
+                    unbuyable_json="{}", theme_tickers_json="{}", chart_dark_json="{}",
+                    has_any_rows=False, badges_gated=False, asset_versions={},
+                    lag_banner_date=None, auth=False)
+    assert 'id="beginner-deck-modal"' in html
+
+
+def test_sentiment_page_includes_the_deck_partial():
+    html = _render("sentiment.html.j2", scan_date="2026-01-01", active_scan_id=1,
+                    asset_versions={}, round_trip_bps=100, chart_dark_json="{}",
+                    sentiment_ranking_enabled=False, lag_days=7,
+                    horizons_json="[]", horizon_default_json="{}", auth=False)
+    assert 'id="beginner-deck-modal"' in html
+
+
+def test_deck_script_binds_the_footer_trigger():
+    html = _render("_beginner_deck.html.j2")
+    assert 'getElementById("beginner-deck-link")' in html

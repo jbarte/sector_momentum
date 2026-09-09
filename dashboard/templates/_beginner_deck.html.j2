@@ -86,5 +86,13 @@
   });
   if (!modal) { return; }
   window.SMBeginnerDeckModal = modal;
+
+  var link = document.getElementById("beginner-deck-link");
+  if (link) {
+    link.addEventListener("click", function (e) {
+      e.preventDefault();
+      modal.open();
+    });
+  }
 })();
 </script>
