@@ -56,17 +56,19 @@ already exists before writing new copy:**
   band section already; needs simplifying into deck form, and needs to state
   plainly what the sell line is NOT: it is not a stop-loss (relative rank,
   not price; only fires on review dates). That confusion is the exact
-  question that started the trailing stop-loss item above — a beginner deck
-  is the right place to make the distinction explicit and early, not bury it
-  in an aside.
+  question that led to the trailing stop-loss shipping (see Done) — a
+  beginner deck is the right place to make the distinction explicit and
+  early, not bury it in an aside.
 - The review period — cadence (`medium` monthly / `long` bi-monthly) and
   what "review" actually means (re-rank, not "check your positions") is in
   the methodology modal; needs a beginner-paced explanation of WHY it isn't
   continuous (churn/cost, not laziness).
-- The stop-loss — **does not exist yet.** Depends on the trailing stop-loss
-  item above shipping first; this deck cannot fully cover "everything" until
-  that lands. Sequence: ship the stop-loss, then write this, or write this
-  with the stop-loss section stubbed and revisit.
+- The stop-loss — **shipped 2026-09-08** (see Done: "Trailing stop-loss on
+  held positions"), so the sequencing blocker below is gone. The
+  methodology modal already has its own explanation section
+  (`_methodology.html.j2`, added with that PR); this deck's job is
+  translating that into the same beginner-paced, one-idea-per-card form as
+  the other three topics, not writing new content from scratch.
 
 **Open questions for whoever picks this up (design decisions, not
 judgment calls — brainstorm first per this file's own guidance):**
