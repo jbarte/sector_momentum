@@ -121,12 +121,16 @@ def test_footer_has_the_new_here_link():
 
 def test_footer_link_sits_beside_methodology_link():
     """Same visual treatment as the existing link -- .footer-link class,
-    not a bespoke style."""
+    not a bespoke style. Must check the NEW button's own opening tag, not a
+    slice between the two ids -- since methodology-link renders first, such
+    a slice would actually contain methodology-link's own class attribute
+    and pass even if the deck button had no class (or a different one)."""
     html = _render("_footer.html.j2")
-    idx_methodology = html.index('id="methodology-link"')
     idx_deck = html.index('id="beginner-deck-link"')
-    between = html[min(idx_methodology, idx_deck):max(idx_methodology, idx_deck)]
-    assert "footer-link" in between
+    tag_start = html.rindex("<button", 0, idx_deck)
+    tag_end = html.index(">", idx_deck)
+    deck_tag = html[tag_start:tag_end + 1]
+    assert 'class="footer-link"' in deck_tag
 
 
 def test_index_page_includes_the_deck_partial():
