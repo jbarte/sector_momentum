@@ -150,3 +150,14 @@ def test_modals_include_rotation_illo():
     for page in ["index.html.j2", "_methodology.html.j2"]:
         src = (_TPL_DIR / page).read_text(encoding="utf-8")
         assert '_rotation_illo.html.j2' in src, page
+
+
+def test_methodology_links_back_to_the_beginner_deck():
+    """The spec requires cross-linking both directions -- Card 4 already
+    links to Methodology (tests/test_beginner_deck.py); this is the other
+    direction. Checks for methodology-to-deck-link specifically, NOT the
+    footer's beginner-deck-link id -- reusing that id here would be an
+    HTML id-uniqueness violation, since both _footer.html.j2 and
+    _methodology.html.j2 are included on the same real page."""
+    html = _render("_methodology.html.j2")
+    assert 'id="methodology-to-deck-link"' in html
