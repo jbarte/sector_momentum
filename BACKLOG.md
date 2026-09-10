@@ -20,76 +20,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
-## Beginner-level "how this works" deck — buy/sell lines, review period, stop-loss
-
-2026-09-07. Jonas: "We need to improve the methodology. I really want some
-kind of slide with pages (deck with cards?) We need to explain on a beginner
-level, very educational the whole idea. About when to buyin and what sell and
-buy line mean, and the stop loss and the review period. Everything."
-
-**This is not starting from zero.** `_methodology.html.j2` (shipped
-2026-07-22, rewritten "for a novice reader" 2026-07-something — see Done)
-already opens with a one-sentence summary, defines "theme"/"ETF" before
-using them, explains momentum as a tendency not a law, explains z-scores in
-plain terms ("0 = average, +1 = better than about 5 of 6"), and has a
-section each for horizon presets and the hold band. It also states plainly
-that Entry/Exit describe *position, not health*, and the three ways the
-backtest flatters the strategy.
-
-**What's actually being asked for is a different FORMAT, not different
-content that doesn't exist.** The methodology modal is reference-style: one
-long scrollable explainer, opened from a footer link, read on demand by
-someone who already wants the detail. A "deck with cards" is a guided,
-sequential, one-idea-per-screen walkthrough — the kind of thing a genuinely
-new reader goes through once, in order, before ever touching the
-leaderboard. Same underlying facts, different job: teaching a beginner step
-by step vs. answering "what does X mean" for someone already using the
-tool.
-
-**Content it needs to cover, per Jonas's list — check each against what
-already exists before writing new copy:**
-- When to buy in — the buy band (`rank <= top_n`), probably NEW as a
-  standalone "here's the moment to act" framing; today this is implicit in
-  the horizon section, not stated as its own step.
-- What the buy line and sell line mean — the hysteresis band
-  (`exit_rank = top_n + buffer`) is covered in the methodology modal's hold-
-  band section already; needs simplifying into deck form, and needs to state
-  plainly what the sell line is NOT: it is not a stop-loss (relative rank,
-  not price; only fires on review dates). That confusion is the exact
-  question that led to the trailing stop-loss shipping (see Done) — a
-  beginner deck is the right place to make the distinction explicit and
-  early, not bury it in an aside.
-- The review period — cadence (`medium` monthly / `long` bi-monthly) and
-  what "review" actually means (re-rank, not "check your positions") is in
-  the methodology modal; needs a beginner-paced explanation of WHY it isn't
-  continuous (churn/cost, not laziness).
-- The stop-loss — **shipped 2026-09-08** (see Done: "Trailing stop-loss on
-  held positions"), so the sequencing blocker below is gone. The
-  methodology modal already has its own explanation section
-  (`_methodology.html.j2`, added with that PR); this deck's job is
-  translating that into the same beginner-paced, one-idea-per-card form as
-  the other three topics, not writing new content from scratch.
-
-**Open questions for whoever picks this up (design decisions, not
-judgment calls — brainstorm first per this file's own guidance):**
-- Format: an actual slide/carousel component (new JS, new nav — swipe or
-  arrow-key through cards), or a series of sections within the existing
-  modal with a progress indicator? The former is more "deck-like" but is
-  real new UI; the latter reuses `_methodology.html.j2`'s existing
-  accessible-modal plumbing.
-- When does a reader see it: forced on first visit (onboarding), a
-  discoverable "New here? Start here" link beside the existing Methodology
-  link, or both?
-- Does it replace the existing methodology modal, sit beside it as a
-  "beginner" alternative to the existing "reference" one, or feed content
-  into both from one source so they can't drift apart the way the pre-2.0
-  methodology text drifted from the actual badge rule?
-- Swedish: the existing modal is **English only** (per its Done entry) —
-  a beginner-focused onboarding flow is arguably where translation matters
-  *most*, which is a bigger scope decision than it looks.
-
----
-
 ## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
 
 Decided 2026-09-02. **Supersedes "Guest sign-in status isn't clearly
@@ -744,6 +674,23 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **Beginner "how this works" walkthrough deck** — a four-card carousel
+  (when to buy in, the buy/sell lines, the review period, the stop-loss)
+  teaching a first-time reader the essentials before they touch the
+  leaderboard. Auto-shows once on first visit, sequenced after the
+  existing sign-in gate modal so the two never collide; reachable
+  afterward via a permanent "New here? Start here" footer link, and
+  cross-linked with the full Methodology modal in both directions.
+  Content derives from the tab-guide prose rather than duplicating it
+  fresh; the buy-band size and stop-loss percentage are read from a live
+  build-time context value (mirroring the existing `exit_rank_today`
+  pattern) rather than typed as literals, so they can't silently drift
+  from the shipped config the way an earlier illustration already had
+  (see the two related findings below). English only for now — Swedish
+  deliberately deferred, same reasoning as the methodology modal's own
+  existing carve-out. Spec:
+  `sector_momentum-notes/specs/2026-09-09-beginner-walkthrough-deck-design.md`.
 
 - **Trailing stop-loss on held positions** — a theme you hold that closes 12%
   below its peak since you starred it now notifies you once and is marked on

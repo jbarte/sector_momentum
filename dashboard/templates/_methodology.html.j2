@@ -9,6 +9,7 @@
     {% include "_rotation_illo.html.j2" %}
     <h2 id="methodology-title">How the scanner works</h2>
     <div class="methodology-body">
+      <p class="methodology-deck-pointer">New to this? <a href="#" id="methodology-to-deck-link">Start with the four-card walkthrough</a> first — it covers the essentials in a couple of minutes.</p>
       <p><strong>In one sentence:</strong> this tool ranks 18 investment themes by
          how strongly they have been outperforming the world stock market lately,
          and refreshes that ranking every day.</p>
@@ -204,11 +205,26 @@
     closeBtn: document.getElementById("methodology-close"),
   });
   if (!modal) { return; }
+  // Exposed the same way _beginner_deck.html.j2 and _footer.html.j2 expose
+  // their own modal handles, so the deck's card-4 cross-link has an API to
+  // call rather than only being able to mutate location.hash.
+  window.SMMethodologyModal = modal;
 
   function bindTrigger() {
     var link = document.getElementById("methodology-link");
     if (link) {
       link.addEventListener("click", function (e) { e.preventDefault(); modal.open(); });
+    }
+    var toDeckLink = document.getElementById("methodology-to-deck-link");
+    if (toDeckLink) {
+      toDeckLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        modal.close();
+        if (window.SMBeginnerDeckModal) {
+          if (window.BeginnerDeck) { window.BeginnerDeck.goToStep(1); }
+          window.SMBeginnerDeckModal.open();
+        }
+      });
     }
     if (location.hash === "#methodology") { modal.open(); }
   }
