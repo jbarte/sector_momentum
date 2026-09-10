@@ -131,7 +131,16 @@ if (typeof document !== "undefined" && document.addEventListener
   // Shared by every branch below: reads #gate-modal's CURRENT (already
   // real, post-render()) hidden state and either shows the deck now or
   // arranges to show it once the gate actually closes.
+  //
+  // Guarded against a double call: the sm:auth-changed branch below can, in
+  // principle, have both its listener fire AND its timeout fallback fire (a
+  // late but real dispatch racing the fallback) -- without this flag, a
+  // second call after the first already attached a MutationObserver would
+  // attach a second one.
+  var decided = false;
   function decideAgainstGate() {
+    if (decided) { return; }
+    decided = true;
     var gate = document.getElementById("gate-modal");
     if (!gate || gate.hidden) {
       window.BeginnerDeck.maybeAutoShow();
@@ -176,8 +185,18 @@ if (typeof document !== "undefined" && document.addEventListener
     // already reflects the real decision and can be read immediately.
     decideAgainstGate();
   } else {
+    // Fail-open fallback: #gate-modal exists (auth is configured) but
+    // auth.js's own top-level guard may have returned early (missing
+    // #auth-root, SMSupabase not loaded, a CDN failure) -- render() then
+    // never runs, SM_SIGNED_IN stays undefined, and sm:auth-changed never
+    // dispatches. Without this, the listener below waits forever for an
+    // event that will never fire and the deck silently never auto-shows.
+    // Cleared the moment the real event fires, so this only ever takes
+    // effect when it doesn't.
+    var authChangeFallback = window.setTimeout(decideAgainstGate, 2000);
     document.addEventListener("sm:auth-changed", function onFirstAuthChange() {
       document.removeEventListener("sm:auth-changed", onFirstAuthChange);
+      window.clearTimeout(authChangeFallback);
       // auth.js's render() dispatches sm:auth-changed BEFORE it calls
       // showModal() (see dashboard/assets/auth.js: the dispatchEvent call is
       // several lines above the showModal()/showModal(false) branch at the

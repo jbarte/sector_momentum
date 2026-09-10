@@ -3739,6 +3739,10 @@ def _run_beginner_deck_race_js():
     global.window = {{
       SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }},
       setTimeout: setTimeout,
+      // Fix 4 (whole-branch review): the sm:auth-changed handler now clears
+      // its timeout fallback the moment the real event fires -- must be
+      // stubbed or that call throws and this test's dispatchEvent() blows up.
+      clearTimeout: clearTimeout,
     }};
     {_BEGINNER_DECK_JS}
 
@@ -3895,3 +3899,277 @@ def test_autoshow_wiring_watches_gate_when_auth_already_resolved_and_gate_visibl
     result = _run_beginner_deck_late_load_js(gate_hidden=False)
     assert result["openedImmediately"] is False, "deck opened while the gate modal was still visible"
     assert result["openedAfterFlip"] is True, "deck never opened once the gate modal closed"
+
+
+# ---------------------------------------------------------------------------
+# Whole-branch review, Fix 1: SMModal's onOpen hook must reset the deck to
+# Card 1 on every open() -- footer link, methodology cross-link, or a repeat
+# maybeAutoShow -- not just on a fresh page load's static markup.
+# ---------------------------------------------------------------------------
+
+def _modal_js() -> str:
+    """_modal.js.j2 rendered through Jinja, not read raw -- it's a template
+    (Jinja `{# ... #}` comments throughout, even though it has no variables
+    to substitute), and node chokes on those comment markers as a syntax
+    error if the file is passed through verbatim."""
+    from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
+
+    tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)), keep_trailing_newline=True)
+    register_asset_url(env)
+    return env.get_template("_modal.js.j2").render()
+
+
+_MODAL_JS = _modal_js()
+
+
+def _beginner_deck_inline_script() -> str:
+    """The literal inline <script>...</script> block rendered by
+    _beginner_deck.html.j2 -- the home of the SMModal.bind(...) call with
+    onOpen (Fix 1) and the Card 4 methodology cross-link handler (Fix 2).
+    Not beginner-deck.js (that's the separate src= script, _BEGINNER_DECK_JS
+    above)."""
+    from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
+
+    tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)), keep_trailing_newline=True)
+    register_asset_url(env)
+    html = env.get_template("_beginner_deck.html.j2").render(
+        default_horizon_top_n=4, trailing_stop_pct=12
+    )
+    m = re.search(r"<script>(.*?)</script>", html, re.S)
+    assert m, "no inline <script> block found in the rendered beginner-deck partial"
+    return m.group(1)
+
+
+def _run_beginner_deck_onopen_reset_js():
+    """Runs the REAL _modal.js.j2 helper plus the REAL rendered inline
+    script against a minimal but structurally complete element stub (each
+    element carries hidden/dataset/textContent/etc, not just a bare
+    getElementById lookup) -- SMModal.bind()'s open()/onOpen plumbing needs
+    more surface than the plain-decision-function stubs used elsewhere in
+    this file."""
+    inline_script = _beginner_deck_inline_script()
+    script = f"""
+    function makeEl(overrides) {{
+      return Object.assign({{
+        hidden: false,
+        dataset: {{}},
+        className: "",
+        textContent: "",
+        innerHTML: "",
+        children: [],
+        addEventListener: function () {{}},
+        removeEventListener: function () {{}},
+        focus: function () {{}},
+        querySelector: function () {{ return null; }},
+        querySelectorAll: function () {{ return []; }},
+        appendChild: function (child) {{ this.children.push(child); }},
+        setAttribute: function () {{}},
+        getAttribute: function () {{ return null; }},
+        scrollTop: 0,
+      }}, overrides || {{}});
+    }}
+
+    var overlay = makeEl({{ hidden: true }});
+    var closeBtn = makeEl({{}});
+    var backBtn = makeEl({{}});
+    var nextBtn = makeEl({{}});
+    var dots = makeEl({{}});
+    var methodologyLink = makeEl({{}});
+    var cards = [1, 2, 3, 4].map(function (n) {{
+      return makeEl({{ getAttribute: function (name) {{ return name === "data-step" ? String(n) : null; }} }});
+    }});
+
+    var els = {{
+      "beginner-deck-modal": overlay,
+      "beginner-deck-close": closeBtn,
+      "beginner-deck-back": backBtn,
+      "beginner-deck-next": nextBtn,
+      "beginner-deck-dots": dots,
+      "beginner-deck-methodology-link": methodologyLink,
+    }};
+
+    global.document = {{
+      body: {{}},
+      getElementById: function (id) {{ return els[id] || null; }},
+      querySelectorAll: function (sel) {{ return sel === ".beginner-deck-card" ? cards : []; }},
+      addEventListener: function () {{}},
+      removeEventListener: function () {{}},
+      createElement: function () {{ return makeEl({{}}); }},
+      activeElement: null,
+    }};
+    global.window = {{}};
+
+    {_MODAL_JS}
+    {_BEGINNER_DECK_JS}
+    {inline_script}
+
+    // Leave the stepper on Card 3 -- exactly what a returning reader who
+    // dismissed the deck mid-walkthrough on a prior visit would see, since
+    // nothing has called render() since the fresh page load's static markup.
+    BeginnerDeck.goToStep(3);
+    window.SMBeginnerDeckModal.open();
+    console.log(JSON.stringify({{
+      step: BeginnerDeck.currentStep(),
+      backHidden: backBtn.hidden,
+    }}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_beginner_deck_open_resets_to_step_1_via_onopen():
+    """Fix 1 (whole-branch review): opening the deck any way other than a
+    fresh page load -- footer link, methodology cross-link, or a repeat
+    maybeAutoShow() -- must reset to Card 1, via SMModal's onOpen hook bound
+    in _beginner_deck.html.j2's inline script."""
+    result = _run_beginner_deck_onopen_reset_js()
+    assert result["step"] == 1, "open() did not reset the stepper to Card 1"
+    assert result["backHidden"] is True, (
+        "Back button still visible after open() -- the stepper was not "
+        "actually reset to step 1's rendered state"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Whole-branch review, Fix 3: nothing previously exercised the WRITE side of
+# deck_dismissed -- only the READ side (maybeAutoShow's behavior once
+# dismissed). These drive the real click-wiring (stepper handler +
+# dismissal-marking handler, the latter gated behind DOMContentLoaded) so the
+# actual production code paths run, not a re-implementation of them.
+# ---------------------------------------------------------------------------
+
+def _run_beginner_deck_dismiss_js(final_step):
+    script = f"""
+    var storage = {{}};
+    global.localStorage = {{
+      getItem: function (k) {{ return storage[k] || null; }},
+      setItem: function (k, v) {{ storage[k] = v; }},
+    }};
+
+    function makeButton() {{
+      var listeners = [];
+      return {{
+        textContent: "",
+        hidden: false,
+        addEventListener: function (type, fn) {{ if (type === "click") {{ listeners.push(fn); }} }},
+        click: function () {{ listeners.slice().forEach(function (fn) {{ fn(); }}); }},
+      }};
+    }}
+    var nextBtn = makeButton();
+    var backBtn = makeButton();
+
+    var domListeners = {{}};
+    global.document = {{
+      body: {{}},
+      getElementById: function (id) {{
+        if (id === "beginner-deck-next") {{ return nextBtn; }}
+        if (id === "beginner-deck-back") {{ return backBtn; }}
+        return null;
+      }},
+      querySelectorAll: function () {{ return []; }},
+      addEventListener: function (type, fn) {{ (domListeners[type] = domListeners[type] || []).push(fn); }},
+      removeEventListener: function () {{}},
+    }};
+    function MutationObserver(cb) {{ this.observe = function () {{}}; this.disconnect = function () {{}}; }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{ SMBeginnerDeckModal: {{ open: function () {{}}, close: function () {{}} }} }};
+    {_BEGINNER_DECK_JS}
+
+    // Fire DOMContentLoaded so the dismissal-marking listener (registered
+    // inside that handler in beginner-deck.js) actually gets attached.
+    (domListeners["DOMContentLoaded"] || []).forEach(function (fn) {{ fn(); }});
+
+    BeginnerDeck.goToStep({final_step});
+    nextBtn.click();
+
+    console.log(JSON.stringify({{ deckDismissed: storage.deck_dismissed || null }}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_next_click_on_last_step_marks_deck_dismissed():
+    """The WRITE side of deck_dismissed, previously untested: clicking Next
+    ("Got it") on the last card must actually persist the flag, via the
+    click-wiring beginner-deck.js registers on #beginner-deck-next."""
+    result = _run_beginner_deck_dismiss_js(final_step=4)
+    assert result["deckDismissed"] == "1"
+
+
+@_needs_node
+def test_next_click_on_a_non_last_step_does_not_mark_deck_dismissed():
+    """Clicking through Cards 1-3 (or presumably dismissing via Escape/
+    backdrop, which never touches #beginner-deck-next at all) must never set
+    deck_dismissed -- only reaching and leaving the last card should."""
+    result = _run_beginner_deck_dismiss_js(final_step=1)
+    assert result["deckDismissed"] is None
+
+
+# ---------------------------------------------------------------------------
+# Whole-branch review, Fix 4: the spec's fail-open branch -- if #gate-modal
+# exists (auth configured) but auth.js's OWN JS failed (missing #auth-root,
+# SMSupabase not loaded, a CDN failure) so render() never runs, SM_SIGNED_IN
+# stays undefined and sm:auth-changed never dispatches. Without a timeout
+# fallback the deck would wait forever for an event that will never fire.
+# ---------------------------------------------------------------------------
+
+def _run_beginner_deck_timeout_fallback_js():
+    """Uses node's REAL setTimeout/clearTimeout (not a simulated/advanced
+    clock -- there is no precedent for that in this file) and the real
+    2000ms fallback constant from beginner-deck.js, waiting a bit past it.
+    This is the one test in this suite allowed to cost real wall-clock time,
+    per the review finding -- it is specifically proving a timer fires."""
+    script = f"""
+    // #gate-modal present but stuck at its baked initial value (hidden) --
+    // exactly what a build with auth configured but a failed auth.js leaves
+    // behind: the template bakes it hidden, and nothing ever calls render()
+    // to change that.
+    var gate = {{ hidden: true }};
+    var domListeners = {{}};
+    global.localStorage = {{ getItem: function () {{ return null; }}, setItem: function () {{}} }};
+    global.document = {{
+      getElementById: function (id) {{ return id === "gate-modal" ? gate : null; }},
+      querySelectorAll: function () {{ return []; }},
+      addEventListener: function (type, fn) {{ (domListeners[type] = domListeners[type] || []).push(fn); }},
+      removeEventListener: function (type, fn) {{
+        domListeners[type] = (domListeners[type] || []).filter(function (f) {{ return f !== fn; }});
+      }},
+    }};
+    function MutationObserver(cb) {{ this.observe = function () {{}}; this.disconnect = function () {{}}; }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{
+      // SM_SIGNED_IN deliberately absent -- stays undefined, as it would if
+      // auth.js's render() never ran.
+      SMBeginnerDeckModal: {{ open: function () {{ global.__opened = true; }}, close: function () {{}} }},
+      setTimeout: setTimeout,
+      clearTimeout: clearTimeout,
+    }};
+    // sm:auth-changed is never dispatched anywhere in this script.
+    {_BEGINNER_DECK_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{ opened: !!global.__opened }}));
+    }}, 2200);
+    """
+    res = subprocess.run(
+        ["node", "-e", script], capture_output=True, text=True, check=True, timeout=10
+    )
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_autoshow_wiring_fails_open_when_sm_auth_changed_never_fires():
+    """Fix 4 (whole-branch review): when #gate-modal exists but auth.js's own
+    JS failed -- so sm:auth-changed never dispatches -- the deck must still
+    auto-show eventually via the timeout fallback, not wait forever."""
+    result = _run_beginner_deck_timeout_fallback_js()
+    assert result["opened"] is True, (
+        "deck never auto-showed -- the timeout fallback did not fire (or "
+        "did not fail open) when sm:auth-changed never dispatched"
+    )

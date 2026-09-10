@@ -205,6 +205,10 @@
     closeBtn: document.getElementById("methodology-close"),
   });
   if (!modal) { return; }
+  // Exposed the same way _beginner_deck.html.j2 and _footer.html.j2 expose
+  // their own modal handles, so the deck's card-4 cross-link has an API to
+  // call rather than only being able to mutate location.hash.
+  window.SMMethodologyModal = modal;
 
   function bindTrigger() {
     var link = document.getElementById("methodology-link");

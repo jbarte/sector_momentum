@@ -155,3 +155,15 @@ def test_sentiment_page_includes_the_deck_partial():
 def test_deck_script_binds_the_footer_trigger():
     html = _render("_beginner_deck.html.j2")
     assert 'getElementById("beginner-deck-link")' in html
+
+
+def test_deck_links_to_the_full_methodology():
+    """Reverse direction of test_methodology.py's
+    test_methodology_links_back_to_the_beginner_deck. Card 4's "Read the
+    full Methodology" link must actually open window.SMMethodologyModal, not
+    just mutate the URL hash -- so the click handler must be wired to the
+    link's id and reference the methodology modal's exposed handle."""
+    html = _render("_beginner_deck.html.j2")
+    assert 'id="beginner-deck-methodology-link"' in html
+    assert 'getElementById("beginner-deck-methodology-link")' in html
+    assert "window.SMMethodologyModal" in html

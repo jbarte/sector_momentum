@@ -83,6 +83,13 @@
   if (!overlay) { return; }
   var modal = window.SMModal.bind(overlay, {
     closeBtn: document.getElementById("beginner-deck-close"),
+    // Every open() call -- footer link, methodology cross-link, and
+    // maybeAutoShow() -- resets to Card 1 in this one place, so a returning
+    // reader who dismissed the deck on Card 4 last time never sees a stray
+    // "Back" button or missing progress dots on reopen. Runs before
+    // overlay.hidden flips to false (see _modal.js.j2's open()), so there is
+    // no flash of the wrong card first.
+    onOpen: function () { if (window.BeginnerDeck) { window.BeginnerDeck.goToStep(1); } },
   });
   if (!modal) { return; }
   window.SMBeginnerDeckModal = modal;
@@ -92,6 +99,19 @@
     link.addEventListener("click", function (e) {
       e.preventDefault();
       modal.open();
+    });
+  }
+
+  // Card 4's "Read the full Methodology" link -- mirrors the reverse
+  // direction's handler in _methodology.html.j2 (methodology-to-deck-link).
+  var methodologyLink = document.getElementById("beginner-deck-methodology-link");
+  if (methodologyLink) {
+    methodologyLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      modal.close();
+      if (window.SMMethodologyModal) {
+        window.SMMethodologyModal.open();
+      }
     });
   }
 })();
