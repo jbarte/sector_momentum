@@ -3645,3 +3645,253 @@ def test_beginner_deck_back_stops_at_step_1():
 def test_beginner_deck_go_to_step_jumps_directly():
     result = _run_beginner_deck_js("(BeginnerDeck.goToStep(3), BeginnerDeck.currentStep())")
     assert result == "3"
+
+
+def _run_beginner_deck_autoshow_js(dismissed, gate_present, gate_hidden):
+    """Exercises maybeAutoShow() directly (a plain decision function) rather
+    than the full document/MutationObserver wiring, which needs a real DOM
+    -- that wiring is exercised by hand in the browser, per Task 5 Step 5."""
+    script = f"""
+    var storage = {{ deck_dismissed: {"'1'" if dismissed else 'null'} }};
+    global.localStorage = {{
+      getItem: function(k) {{ return storage[k] || null; }},
+      setItem: function(k, v) {{ storage[k] = v; }},
+    }};
+    var gate = {"null" if not gate_present else "{ hidden: " + str(gate_hidden).lower() + " }"};
+    global.document = {{
+      getElementById: function(id) {{ return id === "gate-modal" ? gate : null; }},
+      querySelectorAll: function() {{ return []; }},
+      addEventListener: function() {{}},
+    }};
+    global.window = {{ SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }} }};
+    {_BEGINNER_DECK_JS}
+    BeginnerDeck.maybeAutoShow();
+    console.log(JSON.stringify(!!global.__opened));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_autoshow_fires_when_never_dismissed_and_no_gate_modal():
+    assert _run_beginner_deck_autoshow_js(dismissed=False, gate_present=False, gate_hidden=True) == "true"
+
+
+@_needs_node
+def test_autoshow_does_not_fire_when_already_dismissed():
+    assert _run_beginner_deck_autoshow_js(dismissed=True, gate_present=False, gate_hidden=True) == "false"
+
+
+@_needs_node
+def test_autoshow_fires_when_gate_modal_present_but_already_hidden():
+    """Signed-in reader, or a guest whose guest_dismissed was already set --
+    nothing is blocking, so the deck shows immediately."""
+    assert _run_beginner_deck_autoshow_js(dismissed=False, gate_present=True, gate_hidden=True) == "true"
+
+
+@_needs_node
+def test_autoshow_does_not_fire_immediately_when_gate_modal_is_visible():
+    """The collision this whole mechanism exists to prevent: if the gate
+    modal is currently showing, the deck must NOT open at the same time."""
+    assert _run_beginner_deck_autoshow_js(dismissed=False, gate_present=True, gate_hidden=False) == "false"
+
+
+def _run_beginner_deck_race_js():
+    """Exercises the real sm:auth-changed wiring (not maybeAutoShow()
+    directly) against the ACTUAL event order in auth.js's render():
+    `document.dispatchEvent(new CustomEvent("sm:auth-changed"))` runs
+    (and fully resolves) BEFORE render()'s own showModal() call flips
+    #gate-modal's `hidden` attribute -- see dashboard/assets/auth.js,
+    where the dispatchEvent line sits several lines above the
+    showModal()/showModal(false) branch at the end of render().
+
+    A naive listener that reads gate.hidden synchronously inside the
+    sm:auth-changed handler would see the PRE-render() value (the
+    template bakes #gate-modal `hidden` initially) for a first-time
+    guest, and open the deck before render() has opened the gate modal
+    -- the exact simultaneous-open this task exists to prevent. This
+    stubs a real (synchronous) EventTarget-style document so the actual
+    listener registered by beginner-deck.js runs, and simulates
+    render()'s ordering by flipping gate.hidden to false immediately
+    after the dispatchEvent call returns, exactly as auth.js does."""
+    script = f"""
+    var gate = {{ hidden: true }};
+    var listeners = {{}};
+    global.localStorage = {{ getItem: function(k) {{ return null; }}, setItem: function() {{}} }};
+    global.document = {{
+      getElementById: function(id) {{ return id === "gate-modal" ? gate : null; }},
+      querySelectorAll: function() {{ return []; }},
+      addEventListener: function(type, fn) {{ (listeners[type] = listeners[type] || []).push(fn); }},
+      removeEventListener: function(type, fn) {{
+        listeners[type] = (listeners[type] || []).filter(function (f) {{ return f !== fn; }});
+      }},
+      dispatchEvent: function(evt) {{
+        (listeners[evt.type] || []).slice().forEach(function (fn) {{ fn(evt); }});
+      }},
+    }};
+    var moCallback = null;
+    function MutationObserver(cb) {{
+      moCallback = cb;
+      this.observe = function() {{}};
+      this.disconnect = function() {{ global.__disconnected = true; }};
+    }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{
+      SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }},
+      setTimeout: setTimeout,
+    }};
+    {_BEGINNER_DECK_JS}
+
+    // Simulate auth.js's render() for a first-time guest: dispatchEvent
+    // fires first, and only afterward does render() call showModal(true),
+    // which flips gate.hidden -- both still synchronous within render().
+    document.dispatchEvent({{type: "sm:auth-changed"}});
+    gate.hidden = false;
+
+    setTimeout(function () {{
+      var openedBeforeClose = !!global.__opened;
+      // Guest now closes the gate modal (button/Escape/backdrop). SMModal's
+      // close() just sets hidden = true and fires no event of its own --
+      // the MutationObserver is what beginner-deck.js relies on instead.
+      gate.hidden = true;
+      moCallback();
+      console.log(JSON.stringify({{
+        openedBeforeClose: openedBeforeClose,
+        openedAfterClose: !!global.__opened,
+        disconnectedObserver: !!global.__disconnected,
+      }}));
+    }}, 5);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_autoshow_does_not_race_ahead_of_gate_modal_render():
+    """Regression test for a timing bug found while implementing this task:
+    auth.js dispatches sm:auth-changed BEFORE it applies its own show/hide
+    decision to #gate-modal, so a listener that reads gate.hidden
+    synchronously (rather than deferring past render()'s showModal() call)
+    would open the deck at the same instant the gate modal opens for a
+    first-time guest. See beginner-deck.js's sm:auth-changed handler."""
+    result = _run_beginner_deck_race_js()
+    assert result["openedBeforeClose"] is False, (
+        "deck opened before the gate modal actually closed -- the exact "
+        "simultaneous-open collision this task must prevent"
+    )
+    assert result["openedAfterClose"] is True, "deck never opened once the gate modal closed"
+    assert result["disconnectedObserver"] is True, "MutationObserver was not disconnected after firing"
+
+
+def _run_beginner_deck_no_gate_wiring_js():
+    """Exercises the real-DOM wiring's entry point (not maybeAutoShow()
+    directly) for a build with no #gate-modal element at all -- i.e. auth
+    isn't configured. auth.js's own top-level guard (missing
+    SUPABASE_CONFIG/#auth-root/SMSupabase) returns before ever calling
+    render() in that case, so sm:auth-changed is never dispatched. A wiring
+    that only ever calls maybeAutoShow() from inside that event's listener
+    would leave the deck permanently stuck: never shown, on any build
+    without auth. This never dispatches sm:auth-changed at all, and asserts
+    the deck opens anyway."""
+    script = f"""
+    global.localStorage = {{ getItem: function(k) {{ return null; }}, setItem: function() {{}} }};
+    global.document = {{
+      getElementById: function(id) {{ return null; }},
+      querySelectorAll: function() {{ return []; }},
+      addEventListener: function() {{}},
+      removeEventListener: function() {{}},
+    }};
+    function MutationObserver(cb) {{ this.observe = function() {{}}; this.disconnect = function() {{}}; }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{ SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }} }};
+    {_BEGINNER_DECK_JS}
+    console.log(JSON.stringify(!!global.__opened));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_autoshow_wiring_fires_immediately_with_no_gate_modal_in_dom():
+    """Regression test for a second bug found in review: when #gate-modal
+    doesn't exist in the DOM at all (a build with no auth configured),
+    auth.js never calls render(), so sm:auth-changed never fires -- a
+    wiring that waits exclusively for that event would never show the deck
+    on such a build. beginner-deck.js must check for #gate-modal's absence
+    up front and call maybeAutoShow() immediately in that case, without
+    waiting for any event."""
+    assert _run_beginner_deck_no_gate_wiring_js() == "true"
+
+
+def _run_beginner_deck_late_load_js(gate_hidden):
+    """Exercises the real-DOM wiring for a THIRD bug found in browser
+    verification (Task 5 Step 5): auth.js's initial onAuthStateChange
+    callback can resolve -- running render() to full completion, including
+    its sm:auth-changed dispatch and its showModal() call -- before this
+    script even loads, several script tags later in the page. Measured
+    empirically: under 50ms, comfortably faster than script-tag load order
+    can guarantee. A wiring that only ever calls maybeAutoShow() from
+    inside an sm:auth-changed listener registered by THIS script would
+    miss that already-past dispatch and never show the deck at all.
+
+    This never dispatches sm:auth-changed. Instead it sets
+    global.window.SM_SIGNED_IN to a defined value up front, mirroring
+    auth.js's render() (auth.js:100-101: SM_SIGNED_IN is set immediately
+    before the dispatch) having already fully run by the time
+    beginner-deck.js loads -- the same signal stops.js already relies on
+    for this identical race (stops.js:82-84's `if (window.SM_SIGNED_IN)
+    load()`)."""
+    script = f"""
+    var gate = {{ hidden: {str(gate_hidden).lower()} }};
+    global.localStorage = {{ getItem: function(k) {{ return null; }}, setItem: function() {{}} }};
+    global.document = {{
+      getElementById: function(id) {{ return id === "gate-modal" ? gate : null; }},
+      querySelectorAll: function() {{ return []; }},
+      addEventListener: function() {{}},
+      removeEventListener: function() {{}},
+    }};
+    var moCallback = null;
+    function MutationObserver(cb) {{
+      moCallback = cb;
+      this.observe = function() {{}};
+      this.disconnect = function() {{ global.__disconnected = true; }};
+    }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{
+      SM_SIGNED_IN: false,
+      SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }},
+    }};
+    {_BEGINNER_DECK_JS}
+    var openedImmediately = !!global.__opened;
+    var openedAfterFlip = null;
+    if (!openedImmediately && moCallback) {{
+      gate.hidden = true;
+      moCallback();
+      openedAfterFlip = !!global.__opened;
+    }}
+    console.log(JSON.stringify({{openedImmediately: openedImmediately, openedAfterFlip: openedAfterFlip}}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_autoshow_wiring_decides_immediately_when_auth_already_resolved_and_gate_hidden():
+    """Regression test for the third bug (see _run_beginner_deck_late_load_js's
+    docstring): render() already ran and left #gate-modal hidden (signed-in
+    reader, or guest_dismissed already set) by the time this script loaded --
+    the deck must open right away rather than waiting on an event that has
+    already fired and will not fire again."""
+    result = _run_beginner_deck_late_load_js(gate_hidden=True)
+    assert result["openedImmediately"] is True
+
+
+@_needs_node
+def test_autoshow_wiring_watches_gate_when_auth_already_resolved_and_gate_visible():
+    """Companion case: render() already ran and left #gate-modal VISIBLE
+    (first-time guest) by the time this script loaded. The deck must not
+    open immediately (that would collide with the still-open gate modal),
+    but must still open once the gate later closes."""
+    result = _run_beginner_deck_late_load_js(gate_hidden=False)
+    assert result["openedImmediately"] is False, "deck opened while the gate modal was still visible"
+    assert result["openedAfterFlip"] is True, "deck never opened once the gate modal closed"
