@@ -551,6 +551,41 @@ tbody td:nth-child(n+4) {
   background: color-mix(in srgb, var(--err) 14%, transparent);
   white-space: nowrap;
 }
+/* Stop-distance bar: shown INSTEAD OF .stop-chip until a position actually
+   breaches (stops.js's decorate() decides which one applies, never both).
+   The fill's colour is set INLINE via color-mix() with the live proximity
+   value (computed in JS, since only JS knows today's reading) -- this rule
+   only supplies a plain fallback colour for the rare case color-mix() fails
+   to parse: an invalid inline background-color declaration is dropped
+   entirely by the browser, letting this class rule's own colour show
+   through untouched. Sized to fit inline in the same cramped cell the chip
+   already lives in, not the wider column shown during brainstorming. */
+.stop-distance {
+  display: inline-flex;
+  align-items: center;
+  gap: .35em;
+  margin-left: .4em;
+}
+.stop-distance-track {
+  display: inline-block;
+  width: 40px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+.stop-distance-fill {
+  display: block;
+  height: 100%;
+  background: var(--fg4);   /* fallback if color-mix() is unsupported */
+  border-radius: 3px 0 0 3px;
+}
+.stop-distance-pct {
+  font-size: .78em;
+  font-weight: 600;
+  color: var(--fg3);
+  white-space: nowrap;
+}
 .leaderboard-row.position-warn {
   box-shadow: inset 3px 0 0 0 var(--down);
 }

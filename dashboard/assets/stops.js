@@ -57,6 +57,7 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
   if (!cfg || !cfg.url || !cfg.key || !window.SMSupabase) return;
 
   var sb = window.SMSupabase;
+  var stopFrac = window.SM_TRAILING_STOP_FRAC;
 
   function rowKey(itemType, region, name) {
     return itemType + "|" + region + "|" + name;
@@ -69,14 +70,59 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
     return rowKey("sector", tr.dataset.region || "", tr.dataset.sector);
   }
 
-  function decorate(stopsByKey) {
+  // Builds the bar shown INSTEAD OF the chip, for a starred, opted-in
+  // position that has not yet breached. The FILL width is proportional
+  // (SMStopDistance.computeProximity); the NUMBER beside it is the real
+  // drawdown, in the same unit the breach chip already uses -- deliberately
+  // NOT the proximity percentage, so the displayed number never drops at
+  // the exact instant a position breaches (see the design spec's "The
+  // number is the actual drawdown" section).
+  function buildDistanceEl(row) {
+    var pct = Math.abs(Math.round(100 * Number(row.drawdown)));
+    var p = SMStopDistance.computeProximity(Number(row.drawdown), stopFrac);
+
+    var wrap = document.createElement("span");
+    wrap.className = "stop-distance";
+
+    var track = document.createElement("span");
+    track.className = "stop-distance-track";
+    var fill = document.createElement("span");
+    fill.className = "stop-distance-fill";
+    fill.style.width = Math.round(p * 100) + "%";
+    // An inline background-color the browser can't parse (color-mix()
+    // unsupported) is dropped ENTIRELY, leaving the class rule's own
+    // fallback colour (var(--fg4)) in place -- see _tables.css.j2's
+    // .stop-distance-fill comment.
+    fill.style.backgroundColor = SMStopDistance.proximityColor(p);
+    track.appendChild(fill);
+
+    var label = document.createElement("span");
+    label.className = "stop-distance-pct";
+    label.textContent = "-" + pct + "%";
+
+    wrap.appendChild(track);
+    wrap.appendChild(label);
+
+    var stopPct = Math.round(100 * stopFrac);
+    wrap.setAttribute("data-i18n-title", "stop_distance_tip");
+    wrap.title = "Currently " + pct + "% below its peak since you starred it, as of "
+               + row.as_of + ". An alert fires if it closes " + stopPct + "% below peak.";
+    return wrap;
+  }
+
+  function decorate(stopsByKey, distanceByKey) {
     var rows = document.querySelectorAll("tr.leaderboard-row");
     Array.prototype.forEach.call(rows, function (tr) {
-      var existing = tr.querySelector(".stop-chip");
-      if (existing) existing.remove();
+      var existingChip = tr.querySelector(".stop-chip");
+      if (existingChip) existingChip.remove();
+      var existingBar = tr.querySelector(".stop-distance");
+      if (existingBar) existingBar.remove();
 
-      var stop = stopsByKey[keyForRow(tr)];
-      if (!stop) { tr.classList.remove("position-stopped"); return; }
+      var key = keyForRow(tr);
+      var stop = stopsByKey[key];
+      var distance = distanceByKey[key];
+
+      if (!stop && !distance) { tr.classList.remove("position-stopped"); return; }
 
       // .theme-name holds only a single text node (index.html.j2's documented
       // invariant, ~line 797) -- renderReviewPanel()'s nameOf(), the mobile
@@ -90,36 +136,68 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
       var cell = nameSpan ? nameSpan.parentNode : tr.cells[1];
       if (!cell) return;
 
-      var pct = Math.abs(Math.round(100 * Number(stop.drawdown)));
-      var chip = document.createElement("span");
-      chip.className = "stop-chip";
-      chip.textContent = "■ " + pct + "%";
-      chip.setAttribute("data-i18n-title", "stop_chip_tip");
-      chip.title = "Closed " + pct + "% below its peak since you starred it, on "
-                 + stop.stopped_on + ". It does not mean the position was sold.";
-      cell.appendChild(chip);
-      // Page-wide applyLang() already ran (auth.js runs it before dispatching
-      // sm:leaderboard-upgraded/sm:auth-changed, which is what triggers this
-      // decorate() call) and will not run again for an element created after
-      // it. Without a scoped translate call here, a Swedish-language reader
-      // would see this English title forever. Same pattern positions.js uses
-      // for its own dynamically-created content (applyRowState()).
-      if (window.applyLangToEl) window.applyLangToEl(chip);
-      tr.classList.add("position-stopped");
+      // The chip always wins when both exist -- a row transitions from bar
+      // to chip the scan it breaches, never showing both.
+      if (stop) {
+        var pct = Math.abs(Math.round(100 * Number(stop.drawdown)));
+        var chip = document.createElement("span");
+        chip.className = "stop-chip";
+        chip.textContent = "■ " + pct + "%";
+        chip.setAttribute("data-i18n-title", "stop_chip_tip");
+        chip.title = "Closed " + pct + "% below its peak since you starred it, on "
+                   + stop.stopped_on + ". It does not mean the position was sold.";
+        cell.appendChild(chip);
+        // Page-wide applyLang() already ran (auth.js runs it before dispatching
+        // sm:leaderboard-upgraded/sm:auth-changed, which is what triggers this
+        // decorate() call) and will not run again for an element created after
+        // it. Without a scoped translate call here, a Swedish-language reader
+        // would see this English title forever. Same pattern positions.js uses
+        // for its own dynamically-created content (applyRowState()).
+        if (window.applyLangToEl) window.applyLangToEl(chip);
+        tr.classList.add("position-stopped");
+        return;
+      }
+
+      tr.classList.remove("position-stopped");
+      var bar = buildDistanceEl(distance);
+      cell.appendChild(bar);
+      if (window.applyLangToEl) window.applyLangToEl(bar);
     });
   }
 
+  // Each query is caught and normalized to a safe {data: null} shape BEFORE
+  // Promise.all sees it -- Promise.all itself rejects (skipping BOTH
+  // results) the instant either promise rejects, which would otherwise mean
+  // a missing position_stop_distance table (mid-deploy, before the
+  // migration is applied) could silently kill the EXISTING breach chip too.
+  function safeQuery(promise) {
+    return promise.catch(function (err) { return {data: null, error: err}; });
+  }
+
   function load() {
-    return sb.from("position_stops").select("item_type, region, name, stopped_on, drawdown")
-      .then(function (res) {
-        if (res.error || !res.data) return;      // fail-open: leave the page alone
-        var byKey = {};
-        res.data.forEach(function (r) {
-          byKey[rowKey(r.item_type, r.region || "", r.name)] = r;
+    return Promise.all([
+      safeQuery(sb.from("position_stops")
+        .select("item_type, region, name, stopped_on, drawdown")),
+      safeQuery(sb.from("position_stop_distance")
+        .select("item_type, region, name, as_of, drawdown")),
+    ]).then(function (results) {
+      var stopsRes = results[0], distRes = results[1];
+      var stopsByKey = {};
+      if (!stopsRes.error && stopsRes.data) {
+        stopsRes.data.forEach(function (r) {
+          stopsByKey[rowKey(r.item_type, r.region || "", r.name)] = r;
         });
-        decorate(byKey);
-      })
-      .catch(function () { /* fail-open */ });
+      }
+      var distanceByKey = {};
+      if (!distRes.error && distRes.data) {
+        distRes.data.forEach(function (r) {
+          distanceByKey[rowKey(r.item_type, r.region || "", r.name)] = r;
+        });
+      }
+      decorate(stopsByKey, distanceByKey);
+    }).catch(function () { /* fail-open: both queries already normalized
+                             above, so this only guards decorate() itself
+                             throwing on something unexpected. */ });
   }
 
   /* auth.js sets window.SM_SIGNED_IN then dispatches sm:auth-changed

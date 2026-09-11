@@ -4252,3 +4252,17 @@ def test_proximity_color_at_one_is_pure_down():
 def test_proximity_color_just_past_the_midpoint_uses_the_down_segment():
     result = _run_stops_js("SMStopDistance.proximityColor(0.75)")
     assert result == '"color-mix(in srgb, var(--down) 50%, var(--fg1))"'
+
+
+@_needs_node
+def test_proximity_color_on_a_realistic_non_round_value():
+    """Task 4's own colour tests only checked p = 0, 0.5, 0.75, 1 -- every one
+    of those happens to land on a round color-mix() percentage, so none would
+    catch a rounding bug on a genuinely fractional proximity. drawdown=-0.04,
+    stopFrac=0.12 gives p = 1/3 (0.3333...), a realistic in-between reading:
+    Math.round(1/3 * 200) = Math.round(66.66...) = 67, pinning the actual
+    rounding behaviour on a non-round input for the first time."""
+    p = float(_run_stops_js("SMStopDistance.computeProximity(-0.04, 0.12)"))
+    assert abs(p - (1.0 / 3.0)) < 1e-9
+    result = _run_stops_js("SMStopDistance.proximityColor(SMStopDistance.computeProximity(-0.04, 0.12))")
+    assert result == '"color-mix(in srgb, var(--fg1) 67%, var(--up))"'
