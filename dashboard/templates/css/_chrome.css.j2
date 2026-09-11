@@ -379,7 +379,17 @@
   cursor: pointer;
 }
 .beginner-deck-nav button:hover { background: var(--bg-sunken); }
-#beginner-deck-back[hidden] { visibility: hidden; }
+/* The bare [hidden] attribute selector still loses to the UA stylesheet's
+   own `[hidden] { display: none }` for the `display` property specifically
+   -- CSS cascades per property, and this rule never declared `display` at
+   all, so it only ever won the `visibility` property. Back therefore kept
+   `display: none` regardless, occupied no flex space, and Next (the only
+   remaining flex child) sat at flex-start instead of flex-end on Card 1.
+   `display: block` re-enters the flex layout as a normal flex item (any
+   non-none display value is blockified there); `visibility: hidden` then
+   keeps it invisible while still reserving its width, which is what keeps
+   Next pinned to the right whether or not Back is showing. */
+#beginner-deck-back[hidden] { display: block; visibility: hidden; }
 .beginner-deck-dots {
   display: flex;
   justify-content: center;
@@ -393,6 +403,32 @@
   background: var(--border);
 }
 .beginner-deck-dot.active { background: var(--fg1); }
+/* Per-card illustration banners (_beginner_deck_illos.html.j2). Deliberately
+   NOT reusing .modal-illo-band's class name even though the visual family is
+   the same: that selector is scoped as `.methodology-modal .modal-illo-band`
+   with a full-bleed negative margin assuming it is the panel's very first
+   child, and this deck's panel (.methodology-modal.beginner-deck) already
+   has a permanent <h2> ahead of it -- reusing the class would pull each
+   banner up to overlap that title instead of sitting inside its own card. */
+.beginner-deck-illo-band {
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--bg-raised) 0%, var(--bg-sunken) 100%);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.beginner-deck-illo {
+  display: block;
+  width: 100%;
+  height: 92px;
+  opacity: 0;
+  transform: translateY(4px);
+  animation: beginner-deck-illo-in .45s var(--illo-soft) forwards;
+}
+@keyframes beginner-deck-illo-in { to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .beginner-deck-illo { opacity: 1; transform: none; animation: none; }
+}
 .methodology-body p,
 .methodology-body li { color: var(--fg2); font-size: 0.9rem; line-height: 1.55; }
 /* Paragraphs need air. The methodology used to be one paragraph per section, so

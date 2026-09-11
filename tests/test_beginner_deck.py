@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 _TPL_DIR = Path(__file__).parent.parent / "dashboard" / "templates"
+_CSS_DIR = _TPL_DIR / "css"
 
 _CTX = {"default_horizon_top_n": 4, "trailing_stop_pct": 12}
 
@@ -167,3 +168,47 @@ def test_deck_links_to_the_full_methodology():
     assert 'id="beginner-deck-methodology-link"' in html
     assert 'getElementById("beginner-deck-methodology-link")' in html
     assert "window.SMMethodologyModal" in html
+
+
+def test_next_button_stays_right_aligned_with_no_back_button():
+    """Regression test for a real bug, confirmed live in a browser (not just
+    reasoned about): #beginner-deck-back[hidden] used to declare only
+    `visibility: hidden`, never `display`. CSS cascades per property, so the
+    UA stylesheet's own `[hidden] { display: none }` still won for `display`
+    specifically -- Back kept display:none, took no space in the
+    .beginner-deck-nav flex row, and Next (the only remaining flex child)
+    sat at flex-start on Card 1 instead of flex-end. Pin both declarations
+    so a future edit can't drop the display override and reintroduce this."""
+    css = (_CSS_DIR / "_chrome.css.j2").read_text()
+    m = re.search(r"#beginner-deck-back\[hidden\]\s*\{([^}]*)\}", css)
+    assert m, "expected a #beginner-deck-back[hidden] rule in _chrome.css.j2"
+    body = m.group(1)
+    assert re.search(r"display\s*:\s*(?!none\b)\S+", body), (
+        "must override `display` to something other than none -- the bare "
+        "UA [hidden] { display: none } rule otherwise still wins that "
+        "property and the button takes no space in the flex row"
+    )
+    assert re.search(r"visibility\s*:\s*hidden\b", body), (
+        "must also stay invisible via `visibility: hidden`, not just take space"
+    )
+
+
+def test_each_card_has_its_own_illustration():
+    html = _render("_beginner_deck.html.j2")
+    for cls in ("illo-buy-band", "illo-lines", "illo-cadence", "illo-stop-loss"):
+        assert f'class="beginner-deck-illo {cls}"' in html
+    # decorative but labelled, matching _rotation_illo.html.j2/_guide_illo.html.j2
+    assert html.count('role="img"') == 4
+    assert html.count("aria-label=") >= 4
+
+
+def test_buy_band_illustration_highlights_the_live_top_n_not_a_fixed_count():
+    """The card-1 illustration must never repeat _guide_illo.html.j2's own
+    drift bug (a hardcoded "top_n 5" comment left stale against the live
+    Medium preset's actual 4) -- the highlighted-bar count has to move with
+    whatever default_horizon_top_n actually is, not a number baked into the
+    template."""
+    for n in (3, 4, 6):
+        html = _render("_beginner_deck.html.j2", default_horizon_top_n=n)
+        assert html.count('class="bar bar-buy"') == n
+        assert html.count('class="bar bar-rest"') == 10 - n
