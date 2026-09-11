@@ -671,6 +671,22 @@ their own rate limits, so it is its own integration + test surface, not a
 same-day fix. Reopen this if yfinance actually fails a scan, rather than
 speculatively — the caching layer already absorbs most single-day hiccups.
 
+## Investigate whether the "SELL LINE" divider row has any real function
+
+Flagged 2026-09-11: Jonas found the exit-band cut row (`band-cut-row.exit`,
+inserted by `insertCutRow()` in `index.html.j2` — text "SELL LINE, a holding
+that falls past rank N is sold") confusing rather than clarifying, and asked
+whether it does anything beyond being symbolic.
+
+Not investigated yet. Worth checking: does anything downstream (alerts,
+scan logic, the leaderboard's own badge/rescore code) actually key off this
+line's position, or is it purely a static label recomputed from
+`Rescore.exitRank(h, universeSize)` with no other consumer? If the latter,
+consider whether it's pulling its weight next to the "BUY BAND ENDS" row
+right above it, or whether it should be reworked/removed — the beginner
+deck's Card 2 already covers the same "buy line vs. looser sell line"
+concept in prose.
+
 ---
 
 # Done
