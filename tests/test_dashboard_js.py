@@ -4266,3 +4266,107 @@ def test_proximity_color_on_a_realistic_non_round_value():
     assert abs(p - (1.0 / 3.0)) < 1e-9
     result = _run_stops_js("SMStopDistance.proximityColor(SMStopDistance.computeProximity(-0.04, 0.12))")
     assert result == '"color-mix(in srgb, var(--fg1) 67%, var(--up))"'
+
+
+# ---------------------------------------------------------------------------
+# stops.js — safeQuery() must survive a catch-less thenable, not just a real
+# Promise (Task 5, fix round 1: Critical review finding).
+#
+# The REAL Supabase query builder returned by sb.from(...).select(...)
+# (dashboard/assets/supabase.min.js) is a bare thenable: it implements
+# .then() but has NO .catch()/.finally() and is not `instanceof Promise`.
+# The original safeQuery called `.catch(...)` directly on that builder,
+# which threw a SYNCHRONOUS TypeError -- before Promise.all was ever
+# entered -- disabling every caller of load() and, with it, both the new
+# stop-distance bar AND the pre-existing breach chip.
+#
+# This drives the REAL load() path (via window.SM_SIGNED_IN, exactly as a
+# real page load does), not a reimplementation of safeQuery, against a stub
+# builder that mimics the catch-less shape for one query while the other
+# succeeds -- and asserts the successful query's row still reaches
+# decorate() (gets appended to the cell) despite the other one rejecting.
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_safe_query_lets_the_other_query_succeed_when_one_rejects():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_TRAILING_STOP_FRAC: 0.12,
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    var nameSpan = {{ parentNode: cell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    // A catch-less thenable -- mimics the real Supabase query builder shape.
+    // Deliberately no .catch/.finally: calling .catch on this throws.
+    function catchlessThenable(ok, value) {{
+      return {{
+        then: function (onFulfilled, onRejected) {{
+          if (ok) return Promise.resolve(onFulfilled(value));
+          return Promise.resolve(onRejected(value));
+        }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              // This query's builder REJECTS.
+              return catchlessThenable(false, new Error("position_stops boom"));
+            }}
+            // position_stop_distance's builder FULFILLS.
+            return catchlessThenable(true, {{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.04}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{appendedCount: appended.length}}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw instead of degrading -- a rejecting query builder "
+        "with no .catch() must not kill the other query's result:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["appendedCount"] == 1, (
+        "the position_stop_distance query's successful result never reached "
+        "decorate() -- the rejecting position_stops query took it down too"
+    )

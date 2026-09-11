@@ -103,10 +103,18 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
     wrap.appendChild(track);
     wrap.appendChild(label);
 
+    // window.SM_TRAILING_STOP_FRAC can be absent on a broken deploy (Task 3's
+    // contract, not this module's own guarantee) -- computeProximity() above
+    // already guards that defensively (returns 0), but stopPct is built
+    // straight from stopFrac with no such guard, so an absent config would
+    // render "...closes NaN% below peak." Degrade by omitting that sentence
+    // instead of ever showing "NaN".
     var stopPct = Math.round(100 * stopFrac);
+    var hasStopPct = isFinite(stopPct);
     wrap.setAttribute("data-i18n-title", "stop_distance_tip");
     wrap.title = "Currently " + pct + "% below its peak since you starred it, as of "
-               + row.as_of + ". An alert fires if it closes " + stopPct + "% below peak.";
+               + row.as_of + "."
+               + (hasStopPct ? " An alert fires if it closes " + stopPct + "% below peak." : "");
     return wrap;
   }
 
@@ -170,8 +178,22 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
   // results) the instant either promise rejects, which would otherwise mean
   // a missing position_stop_distance table (mid-deploy, before the
   // migration is applied) could silently kill the EXISTING breach chip too.
+  //
+  // Deliberately `.then(onFulfilled, onRejected)`, NOT `.catch(...)`: the
+  // real supabase-js query builder returned by `sb.from(...).select(...)`
+  // (dashboard/assets/supabase.min.js) is a bare thenable -- it implements
+  // `.then()` but has no `.catch()`/`.finally()` and is not `instanceof
+  // Promise`. Calling `.catch` directly on it throws a SYNCHRONOUS
+  // TypeError before Promise.all is ever entered, which silently disabled
+  // this module entirely (both the bar AND the pre-existing breach chip).
+  // `.then(ok, err)` works identically whether the input is a real Promise
+  // or a catch-less thenable -- see
+  // tests/test_dashboard_js.py::test_safe_query_lets_the_other_query_succeed_when_one_rejects.
   function safeQuery(promise) {
-    return promise.catch(function (err) { return {data: null, error: err}; });
+    return promise.then(
+      function (res) { return res; },
+      function (err) { return {data: null, error: err}; }
+    );
   }
 
   function load() {

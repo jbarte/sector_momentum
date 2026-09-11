@@ -86,14 +86,43 @@ def test_a_single_query_failure_does_not_reject_the_other():
     would mean a missing position_stop_distance table (e.g. mid-deploy,
     before the migration runs) could silently kill the EXISTING breach chip
     too. Each query's own promise must be caught and normalized (via
-    safeQuery, itself defined with its own .catch) BEFORE reaching
-    Promise.all -- checked by confirming both array entries are wrapped in
-    a safeQuery(...) call, not a bare sb.from(...).select(...)."""
+    safeQuery) BEFORE reaching Promise.all -- checked here by confirming both
+    array entries are wrapped in a safeQuery(...) call, not a bare
+    sb.from(...).select(...).
+
+    This only pins the STRUCTURE (safeQuery wraps both queries); it does NOT
+    prove safeQuery actually survives a rejection. A prior version of this
+    test additionally asserted the literal substring "promise.catch(" was
+    present -- which passed even though `.catch` does not exist on the real
+    Supabase query builder (a bare thenable, not a Promise) and calling it
+    there threw SYNCHRONOUSLY, disabling both queries (and the pre-existing
+    breach chip with them) on every page load. The behavioral proof that
+    safeQuery survives a real rejecting, catch-less thenable lives in
+    tests/test_dashboard_js.py::test_safe_query_lets_the_other_query_succeed_when_one_rejects,
+    which drives the real load() path under node against a stub builder that
+    mimics the catch-less shape."""
     js = Path("dashboard/assets/stops.js").read_text()
     assert "function safeQuery(promise)" in js
-    assert "promise.catch(" in js
     all_call = js[js.index("Promise.all(["):js.index("]).then(")]
     assert all_call.count("safeQuery(") == 2
+
+
+def test_tooltip_never_shows_nan_when_the_stop_frac_config_is_missing():
+    """window.SM_TRAILING_STOP_FRAC can be absent on a broken deploy (Task 3's
+    contract, not this file's own guarantee). computeProximity() already
+    guards this defensively (returns 0 when stopFrac is falsy), but the
+    tooltip text built directly from `Math.round(100 * stopFrac)` did not --
+    an absent config would render "...closes NaN% below peak." Pinned as a
+    source check: an isFinite-style guard must exist so the sentence naming
+    the stop threshold is OMITTED rather than ever showing "NaN"."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    build_fn = js[js.index("function buildDistanceEl"):js.index("function decorate(")]
+    assert "isFinite(stopPct)" in build_fn
+    # The sentence naming the stop threshold must be built inside a guard
+    # keyed on that isFinite check, not concatenated unconditionally --
+    # otherwise the guard variable exists but nothing actually uses it.
+    assert "hasStopPct ?" in build_fn
+    assert 'wrap.title = "Currently "' in build_fn
 
 
 def test_bar_is_appended_beside_theme_name_not_inside_it():
