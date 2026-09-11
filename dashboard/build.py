@@ -715,6 +715,7 @@ def main() -> None:
         "round_trip_bps": _round_trip_bps,
         "default_horizon_top_n": _default_horizon.top_n,
         "trailing_stop_pct": round(trailing_stop_frac() * 100),
+        "trailing_stop_frac": trailing_stop_frac(),
         "horizons_json": _horizons_json,
         "horizon_default_json": _horizon_default_json,
         "cohorts_json": cohorts_json,
@@ -766,6 +767,7 @@ def main() -> None:
         "round_trip_bps": _round_trip_bps,
         "default_horizon_top_n": _default_horizon.top_n,
         "trailing_stop_pct": round(trailing_stop_frac() * 100),
+        "trailing_stop_frac": trailing_stop_frac(),
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
         # Was relying on an undefined Jinja variable being falsy here. Explicit
         # now — the CSS that hides the sentiment column reads it.
