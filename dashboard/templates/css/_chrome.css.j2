@@ -431,6 +431,15 @@
 }
 .methodology-body p,
 .methodology-body li { color: var(--fg2); font-size: 0.9rem; line-height: 1.55; }
+/* Both cross-links (beginner-deck-methodology-link in the deck's Card 4,
+   methodology-to-deck-link in .methodology-body) are plain in-text <a>
+   tags with no class of their own -- without this they render in the
+   browser's default link blue, which clashes with the rest of the theme.
+   Scoped to .methodology-modal so it reaches both the real methodology
+   panel and the deck's (.methodology-modal.beginner-deck), without
+   touching links elsewhere on the page. */
+.methodology-modal a { color: var(--brand-strong); text-decoration: underline; }
+.methodology-modal a:hover { color: var(--fg1); }
 /* Paragraphs need air. The methodology used to be one paragraph per section, so
    zero margin read fine; it is now several per section and ran together into a
    wall of text without this. */

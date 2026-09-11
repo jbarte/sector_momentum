@@ -212,3 +212,14 @@ def test_buy_band_illustration_highlights_the_live_top_n_not_a_fixed_count():
         html = _render("_beginner_deck.html.j2", default_horizon_top_n=n)
         assert html.count('class="bar bar-buy"') == n
         assert html.count('class="bar bar-rest"') == 10 - n
+
+
+def test_card_four_link_is_not_the_browser_default_blue():
+    """beginner-deck-methodology-link is a plain in-text <a> with no class
+    of its own -- static regex check over the CSS source, this codebase's
+    established convention for pinning a computed style without a real
+    browser (see tests/test_typography_floor.py). Scoped broadly to
+    `.methodology-modal a` since that's what both this link and
+    methodology-to-deck-link (tests/test_methodology.py) actually rely on."""
+    css = (_CSS_DIR / "_chrome.css.j2").read_text()
+    assert re.search(r"\.methodology-modal\s+a\s*\{[^}]*color\s*:\s*var\(--brand-strong\)", css)
