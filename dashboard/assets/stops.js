@@ -1,3 +1,46 @@
+/* Pure stop-distance math: no DOM, no Supabase, no window.SUPABASE_CONFIG --
+ * deliberately kept OUTSIDE the config-gated IIFE below, as its own
+ * top-level `var`, so it is reachable under node for testing (see
+ * tests/test_dashboard_js.py) even when no Supabase config exists at all.
+ * Declared with `var` (not just assigned onto `window`) for the same
+ * reason beginner-deck.js's module is: a bare `SMStopDistance` identifier
+ * must resolve both in a classic browser <script> tag and under this
+ * file's own node test harness, which stubs `window` as a disconnected
+ * plain object rather than aliasing it to the real global. */
+var SMStopDistance = (function () {
+  // drawdown is <= 0 (e.g. -0.07); stopFrac is > 0 (e.g. 0.12). Clamped to
+  // [0, 1]: a position that fell hard between two scans can already be
+  // well past its stop by the time this reading was taken (a scan's own
+  // breaching reading is written to this same table before the latch
+  // takes over -- see src/alerts.py's collect_stop_events), so an
+  // unclamped value could exceed 100% and overflow the bar. Guarded
+  // against stopFrac <= 0 defensively, even though
+  // src.horizons.trailing_stop_frac() guarantees 0 < val < 1 in production.
+  function computeProximity(drawdown, stopFrac) {
+    if (!stopFrac || stopFrac <= 0) { return 0; }
+    var p = drawdown / -stopFrac;
+    return Math.max(0, Math.min(1, p));
+  }
+
+  // Two segments, so the midpoint (p = 0.5) is a dark, theme-aware neutral
+  // (var(--fg1)) rather than the muddy brown a direct var(--up)->var(--down)
+  // mix produces in this palette -- see the design spec's colour table
+  // (sector_momentum-notes/specs/2026-09-11-stop-distance-indicator-design.md).
+  // Colour is redundant encoding, never the sole signal: the number beside
+  // the bar (stops.js's decorate()) carries the same information in
+  // greyscale or for a colour-blind reader.
+  function proximityColor(p) {
+    if (p <= 0.5) {
+      return "color-mix(in srgb, var(--fg1) " + Math.round(p * 200) + "%, var(--up))";
+    }
+    return "color-mix(in srgb, var(--down) " + Math.round((p - 0.5) * 200) + "%, var(--fg1))";
+  }
+
+  return {computeProximity: computeProximity, proximityColor: proximityColor};
+})();
+
+if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
+
 /* Trailing stop-loss markers on held rows.
  *
  * Reads public.position_stops (SELECT-only under RLS; the scan is the sole

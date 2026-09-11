@@ -4173,3 +4173,82 @@ def test_autoshow_wiring_fails_open_when_sm_auth_changed_never_fires():
         "deck never auto-showed -- the timeout fallback did not fire (or "
         "did not fail open) when sm:auth-changed never dispatched"
     )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — SMStopDistance pure math (Task 4)
+# ---------------------------------------------------------------------------
+
+_STOPS_JS = (Path(__file__).parent.parent / "dashboard" / "assets" / "stops.js").read_text()
+
+
+def _run_stops_js(js_call: str) -> str:
+    """Execute stops.js under node with a minimal `window` stub (just an
+    empty object -- enough for the config-gated IIFE's `window.SUPABASE_CONFIG`
+    read to resolve to undefined and no-op, without needing a real DOM), then
+    run js_call and print its JSON-stringified result. Mirrors
+    _run_beginner_deck_js's harness."""
+    script = f"""
+    global.window = {{}};
+    {_STOPS_JS}
+    console.log(JSON.stringify({js_call}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_compute_proximity_at_zero_drawdown_is_zero():
+    assert _run_stops_js("SMStopDistance.computeProximity(0, 0.12)") == "0"
+
+
+@_needs_node
+def test_compute_proximity_at_half_the_threshold_is_half():
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.06, 0.12)"))
+    assert abs(result - 0.5) < 1e-9
+
+
+@_needs_node
+def test_compute_proximity_at_the_threshold_is_one():
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.12, 0.12)"))
+    assert abs(result - 1.0) < 1e-9
+
+
+@_needs_node
+def test_compute_proximity_clamps_past_the_threshold():
+    """A position can fall well past its stop between two scans -- the bar
+    must not overflow past 100%."""
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.30, 0.12)"))
+    assert result == 1.0
+
+
+@_needs_node
+def test_compute_proximity_guards_a_zero_stop_frac():
+    """Defensive: stop_frac is always > 0 in production
+    (trailing_stop_frac()'s own docstring guarantees 0 < val < 1), but a
+    div-by-zero here must not throw and break the whole leaderboard render."""
+    assert _run_stops_js("SMStopDistance.computeProximity(-0.05, 0)") == "0"
+
+
+@_needs_node
+def test_proximity_color_at_zero_is_pure_up():
+    result = _run_stops_js("SMStopDistance.proximityColor(0)")
+    assert result == '"color-mix(in srgb, var(--fg1) 0%, var(--up))"'
+
+
+@_needs_node
+def test_proximity_color_at_the_midpoint_is_pure_neutral():
+    result = _run_stops_js("SMStopDistance.proximityColor(0.5)")
+    assert result == '"color-mix(in srgb, var(--fg1) 100%, var(--up))"'
+
+
+@_needs_node
+def test_proximity_color_at_one_is_pure_down():
+    result = _run_stops_js("SMStopDistance.proximityColor(1)")
+    assert result == '"color-mix(in srgb, var(--down) 100%, var(--fg1))"'
+
+
+@_needs_node
+def test_proximity_color_just_past_the_midpoint_uses_the_down_segment():
+    result = _run_stops_js("SMStopDistance.proximityColor(0.75)")
+    assert result == '"color-mix(in srgb, var(--down) 50%, var(--fg1))"'
