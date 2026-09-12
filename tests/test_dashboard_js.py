@@ -705,47 +705,6 @@ def test_scan_history_json_in_rendered_output(tmp_path):
     assert parsed["scans"][0]["id"] == 2
 
 
-def test_scan_digest_markup_in_rendered_output(tmp_path):
-    """Rendered index.html contains the scan-digest banner, script tag, and i18n keys."""
-    scan_history = {
-        "scans": [{"id": 2, "date": "2026-07-12 06:00 UTC", "sectors": 22, "top": "Technology (US)"}],
-        "scores": {"2": {"US|Technology": {"rank": 1, "composite": 0.8, "level": 0.7, "change": 0.4, "data": 0.55, "sentiment": 0.2}}},
-    }
-    out = tmp_path / "index.html"
-    _render(
-        template_path=_TEMPLATE,
-        out_path=out,
-        context=dict(
-            scan_date="2026-07-12",
-            scan_index=[{"scan_id": 2, "run_at_display": "2026-07-12 06:00 UTC",
-                         "run_at_raw": "2026-07-12T06:00:00", "theme_count": 22,
-                         "top_theme": "Technology", "top_region": "US"}],
-            active_scan_id=2,
-            leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
-            sentiment_scatter_json=_make_mock_plotly_json(),
-            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
-            scan_history_json=json.dumps(scan_history),
-            signals_list=[],
-            plotly_bundle="assets/plotly.min.js",
-            backtest_json=json.dumps({}),
-            backtest_metrics=[],
-            has_backtest=False,
-            rotation_json=json.dumps([]),
-            has_rotations=False,
-        ),
-    )
-    html = out.read_text()
-    assert 'id="scan-digest-banner"' in html
-    assert "assets/scan-digest.js" in html
-    assert 'data-i18n="digest_new_top5"' in html
-    assert 'data-i18n="digest_gains"' in html
-    assert 'data-i18n="digest_drops"' in html
-    assert 'id="digest-chips-entries"' in html
-    assert 'id="digest-chips-up"' in html
-    assert 'id="digest-chips-down"' in html
-
-
 # ---------------------------------------------------------------------------
 # Per-cohort chart context (Task 3 — chart tabs get a cohort selector)
 # ---------------------------------------------------------------------------
@@ -2805,7 +2764,10 @@ def test_horizon_row_and_utility_row_are_merged():
     the actual test."""
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
     horizon_row_start = text.index('class="horizon-row"')
-    horizon_row_end = text.index('id="scan-digest-banner"')
+    # End anchor moved from the scan-digest banner to the scan-history one
+    # when the digest was removed (2026-09-12) -- scan-history-banner is now
+    # the first element after the horizon row.
+    horizon_row_end = text.index('id="scan-history-banner"')
     row = text[horizon_row_start:horizon_row_end]
     assert 'class="utility-row"' not in row, (
         "the leaderboard tab's own .utility-row must be gone — merged into .horizon-row"
@@ -3081,14 +3043,17 @@ def test_control_chip_and_more_filters_get_touch_targets():
 
 
 # ---------------------------------------------------------------------------
-# escapeHtml — auth.js / scan-digest.js / scan-history.js interpolation hardening
+# escapeHtml — auth.js / scan-history.js interpolation hardening
 # ---------------------------------------------------------------------------
 #
 # Found in the 2026-08-23 sweep: renderLatestRows() (auth.js) and fmtChip()
-# (scan-digest.js) both build row/chip HTML by string concatenation,
-# interpolating theme/sector names unescaped. Not exploitable today — the
-# names come from config/themes.yaml via the pipeline, never from a reader —
-# but hardening against the day any row field stops being repo-controlled.
+# (scan-digest.js, since removed) both built row/chip HTML by string
+# concatenation, interpolating theme/sector names unescaped. Not exploitable
+# today — the names come from config/themes.yaml via the pipeline, never from
+# a reader — but hardening against the day any row field stops being
+# repo-controlled. The scan-digest arm went away with the digest banner
+# itself (2026-09-12); the same hardening still applies to the two files
+# below, which build HTML the same way.
 #
 # scan-history.js's renderScanLeaderboard() has the identical pattern (its
 # own comment even cites auth.js's r.gics_sector by name) but was missed by
@@ -3103,7 +3068,7 @@ def _extract_escape_html_js(filename: str) -> str:
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
-@pytest.mark.parametrize("filename", ["auth.js", "scan-digest.js", "scan-history.js"])
+@pytest.mark.parametrize("filename", ["auth.js", "scan-history.js"])
 def test_escape_html_neutralizes_markup(filename):
     """Executes the real production function, not a re-implementation —
     same discipline as test_item_for_row_classifies_by_region_not_dataset_shape
@@ -3148,18 +3113,6 @@ def test_auth_js_row_builder_escapes_the_ticker_too():
         "renderLatestRows no longer escapes ticker before interpolating it "
         "into tickerHtml"
     )
-
-
-def test_scan_digest_js_chip_builder_escapes_sector_and_region():
-    """Pins the CALL SITE — same shape as the auth.js test above."""
-    src = (Path(__file__).parent.parent / "dashboard/assets/scan-digest.js").read_text()
-    assert "escapeHtml(item.sector)" in src, (
-        "fmtChip no longer escapes item.sector before interpolating it into innerHTML"
-    )
-    assert "escapeHtml(item.region)" in src, (
-        "fmtChip no longer escapes item.region before interpolating it into innerHTML"
-    )
-    assert "function escapeHtml(" in src
 
 
 def test_scan_history_js_row_builder_escapes_the_theme_name():

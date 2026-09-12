@@ -40,7 +40,7 @@ _ASSETS_DIR = Path(__file__).parent.parent / "dashboard" / "assets"
 # Assets the template references unconditionally (no `auth` context passed
 # below, so the {% if auth %} block -- and auth.js/supabase.min.js -- never
 # render; nothing needs them).
-_REQUIRED_ASSETS = ["rescore.js", "theme.js", "scan-history.js", "scan-digest.js"]
+_REQUIRED_ASSETS = ["rescore.js", "theme.js", "scan-history.js"]
 
 
 def _render_leaderboard_html(tmp_path):
