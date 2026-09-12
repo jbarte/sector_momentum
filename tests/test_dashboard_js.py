@@ -4370,3 +4370,204 @@ def test_safe_query_lets_the_other_query_succeed_when_one_rejects():
         "the position_stop_distance query's successful result never reached "
         "decorate() -- the rejecting position_stops query took it down too"
     )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — chip-vs-bar precedence is a BEHAVIORAL invariant, not just a
+# source-order string check (whole-branch review finding 1).
+#
+# tests/test_dashboard_stops.py's
+# test_breach_chip_takes_precedence_over_the_distance_bar_in_source_order only
+# checks that `if (stop) {` appears before the `buildDistanceEl(distance)`
+# call site in the file's TEXT -- it would still pass if the `if (stop)`
+# branch forgot its `return` statement and decorate() went on to append BOTH
+# the chip and the bar to the same row. This drives the real load()/decorate()
+# path (same harness as
+# test_safe_query_lets_the_other_query_succeed_when_one_rejects above) with
+# BOTH position_stops and position_stop_distance fulfilling a row for the
+# SAME position key, and asserts exactly one element was appended to that
+# row's cell, with className "stop-chip" -- not just a count, since in the
+# both-rows case either branch appends exactly one element, so a bare count
+# would not catch a precedence inversion (chip and bar swapped).
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_chip_wins_and_only_one_element_appended_when_both_rows_exist_for_same_key():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_TRAILING_STOP_FRAC: 0.12,
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    var nameSpan = {{ parentNode: cell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    // Both queries fulfill, both with a row for the SAME key
+    // (theme|""|Space) -- the both-rows-exist case Finding 1 is about.
+    function fulfilledThenable(value) {{
+      return {{
+        then: function (onFulfilled) {{ return Promise.resolve(onFulfilled(value)); }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              return fulfilledThenable({{
+                data: [{{item_type: "theme", region: "", name: "Space",
+                         stopped_on: "2026-09-10", drawdown: -0.13}}],
+                error: null
+              }});
+            }}
+            return fulfilledThenable({{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.04}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{
+        appendedCount: appended.length,
+        classNames: appended.map(function (el) {{ return el.className; }})
+      }}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw when both tables had a row for the same key:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["appendedCount"] == 1, (
+        "expected exactly one element appended to the row's cell when it has "
+        f"BOTH a position_stops row and a position_stop_distance row -- got "
+        f"{out['appendedCount']}: {out['classNames']}"
+    )
+    assert out["classNames"] == ["stop-chip"], (
+        "the breach chip must win when both rows exist for the same key -- "
+        f"got {out['classNames']} instead of ['stop-chip']"
+    )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — the bar must not render at all when the stop-threshold config is
+# missing/invalid (whole-branch review finding 3).
+#
+# SMStopDistance.computeProximity(drawdown, stopFrac) returns 0 when stopFrac
+# is falsy/zero, so with window.SM_TRAILING_STOP_FRAC absent a row that would
+# otherwise get a bar renders one at 0% fill in pure var(--up) (green) --
+# actively signalling "nowhere near its stop" while the real drawdown could be
+# anything. decorate() must skip rendering the bar entirely in that case,
+# leaving the cell exactly as it already is.
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_bar_is_suppressed_entirely_when_the_stop_frac_config_is_missing():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+    // window.SM_TRAILING_STOP_FRAC deliberately absent.
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    var nameSpan = {{ parentNode: cell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    function fulfilledThenable(value) {{
+      return {{
+        then: function (onFulfilled) {{ return Promise.resolve(onFulfilled(value)); }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              return fulfilledThenable({{data: [], error: null}});
+            }}
+            return fulfilledThenable({{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.10}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{appendedCount: appended.length}}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw when SM_TRAILING_STOP_FRAC was missing:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["appendedCount"] == 0, (
+        "a bar was appended even though window.SM_TRAILING_STOP_FRAC was "
+        "absent/invalid -- it would render at 0% fill in green, falsely "
+        "signalling 'far from its stop' for a position whose real proximity "
+        "is unknown"
+    )

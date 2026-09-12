@@ -1,9 +1,15 @@
 -- scripts/position_stop_distance_migration.sql
 -- Live "how close to the stop" reading: one row per (user, item) currently
--- starred by a stop-loss opted-in user and NOT YET breached. Idempotent.
+-- starred by a stop-loss opted-in user, live-updated every scan. Idempotent.
 -- Run once against the production DB via the Supabase SQL editor (same
 -- operating model as position_stops_migration.sql).
 -- Prereq: public.positions exists (scripts/positions_migration.sql).
+--
+-- Not restricted to not-yet-breached positions: a scan that CROSSES into
+-- breach writes one final reading here (before the latch in position_stops
+-- takes over on the next scan). That row is never cleared -- it simply stops
+-- being read, since the client always prefers position_stops once both
+-- exist for the same (user, item).
 
 -- Unlike public.position_stops (a latch: written once on breach, never
 -- updated again), this table is UPSERTED every scan -- it is a live

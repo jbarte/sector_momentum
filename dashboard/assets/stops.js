@@ -44,9 +44,14 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
 /* Trailing stop-loss markers on held rows.
  *
  * Reads public.position_stops (SELECT-only under RLS; the scan is the sole
- * writer) and marks each latched row. Fail-open in every direction: any
- * missing piece leaves the page exactly as rendered — a stop marker is worth
- * nothing if its absence can break the leaderboard.
+ * writer) and marks each latched row with a "breached" chip. Also reads
+ * public.position_stop_distance (same SELECT-only/scan-writes shape) and
+ * renders a fill bar for a starred, opted-in position that has NOT yet
+ * breached, showing how close it is to its stop. A row shows the chip OR the
+ * bar, never both -- the chip always wins the scan a position breaches (see
+ * decorate()). Fail-open in every direction: any missing piece (config,
+ * table, or a rejecting query) leaves the page exactly as rendered — a stop
+ * marker is worth nothing if its absence can break the leaderboard.
  *
  * The drawdown shown is measured from the peak SINCE THE ROW WAS STARRED, not
  * from a purchase price. positions carries no cost basis, so the number would
@@ -58,6 +63,14 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
 
   var sb = window.SMSupabase;
   var stopFrac = window.SM_TRAILING_STOP_FRAC;
+  // computeProximity() already returns 0 for a falsy/zero/invalid stopFrac
+  // (defensive on ITS side), but a 0-proximity bar still RENDERS -- at 0%
+  // fill in pure var(--up) (green), asserting "nowhere near its stop" for a
+  // position whose real proximity is simply unknown. Checked once here
+  // (stopFrac is a module-wide constant, not per-row) and used by decorate()
+  // to skip the bar entirely rather than render a fill that asserts
+  // something false.
+  var hasValidStopFrac = typeof stopFrac === "number" && isFinite(stopFrac) && stopFrac > 0;
 
   function rowKey(itemType, region, name) {
     return itemType + "|" + region + "|" + name;
@@ -167,6 +180,12 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
       }
 
       tr.classList.remove("position-stopped");
+      // window.SM_TRAILING_STOP_FRAC missing/invalid on a broken deploy
+      // (Task 3's contract, not this module's own guarantee) must leave the
+      // cell exactly as it already is -- matching this module's own
+      // fail-open contract -- rather than render a bar that reads as
+      // "nowhere near its stop" when that isn't actually known.
+      if (!hasValidStopFrac) return;
       var bar = buildDistanceEl(distance);
       cell.appendChild(bar);
       if (window.applyLangToEl) window.applyLangToEl(bar);
