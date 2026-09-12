@@ -1113,10 +1113,18 @@ function applyBandBoundaries() {
       existingBuy.remove();
     }
     var exitRankVal = Rescore.exitRank(h, universeSize);
-    insertCutRow(tr, 'exit', 'band_sell_line', 'SELL LINE', [
-      {key: 'band_sell_note_prefix', en: 'a holding that falls past rank'},
+    // "HOLD BAND ENDS", not "SELL LINE": naming the zone above it is what
+    // stops ranks top_n+1..exitRank reading as a weaker BUY tier. They are
+    // not — selectBook() keeps a holding anywhere inside the band and buys
+    // nothing while the book is full (rescore.js, `free = top_n -
+    // keepCount`), so the middle zone is "hold if owned, don't buy if not".
+    // "at the next review", not a bare "is sold": nothing here sells
+    // anything, and the rule only evaluates on the review calendar — the
+    // beginner deck's Card 2 makes the same distinction in prose.
+    insertCutRow(tr, 'exit', 'band_hold_ends', 'HOLD BAND ENDS', [
+      {key: 'band_sell_note_prefix', en: 'a holding past rank'},
       {text: String(exitRankVal)},
-      {key: 'band_sell_note_suffix', en: 'is sold'}
+      {key: 'band_sell_note_suffix', en: 'is sold at the next review'}
     ]);
   });
 

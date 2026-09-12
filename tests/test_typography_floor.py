@@ -317,7 +317,7 @@ def test_level_change_label_is_deliberately_exempt_from_the_floor():
 
 
 def test_band_cut_eyebrow_is_deliberately_exempt_from_the_floor():
-    """BUY BAND ENDS / SELL LINE — an uppercase, wide-tracked eyebrow label,
+    """BUY BAND ENDS / HOLD BAND ENDS — an uppercase, wide-tracked eyebrow label,
     same treatment as the table header and other quiet secondary labels this
     redesign introduced. Below the floor on purpose, pinned here rather than
     silently skipped. Design spec:

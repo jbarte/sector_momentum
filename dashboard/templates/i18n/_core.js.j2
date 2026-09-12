@@ -67,9 +67,13 @@ Object.assign(SV, {
   badge_no_slot: "ingen plats",
   band_buy_ends: "köpband slutar",
   band_buy_note: "under denna linje: inte ett nytt köp",
-  band_sell_line: "säljlinje",
-  band_sell_note_prefix: "ett innehav som faller under rank",
-  band_sell_note_suffix: "säljs",
+  // band_hold_ends (was band_sell_line, "säljlinje"): renamed 2026-09-12 with
+  // the English label, so the key does not outlive the wording it described.
+  // "hållband" parallels "köpband" above; "granskning" is this file's
+  // established word for a review (see rp_next_review).
+  band_hold_ends: "hållband slutar",
+  band_sell_note_prefix: "ett innehav under rank",
+  band_sell_note_suffix: "säljs vid nästa granskning",
   badge_experimental: "experimentell",
   chip_live: "Live",
   chip_live_tip: "Visar den senaste skanningen",

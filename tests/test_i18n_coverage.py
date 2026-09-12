@@ -56,7 +56,7 @@ _DYNAMIC_ATTRS = {
     # Band-cut rows, built by buildBandCutRowHtml() as a JS string at runtime
     # rather than by Jinja -- so a scan for "{{" misses them too. Keys come
     # from the two insertCutRow() call sites (index.html.j2:1085,1101).
-    "' + eyebrowKey + '": {"band_buy_ends", "band_sell_line"},
+    "' + eyebrowKey + '": {"band_buy_ends", "band_hold_ends"},
     "' + p.key + '": {
         "band_buy_note", "band_sell_note_prefix", "band_sell_note_suffix",
     },

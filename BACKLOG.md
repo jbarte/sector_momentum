@@ -671,25 +671,39 @@ their own rate limits, so it is its own integration + test surface, not a
 same-day fix. Reopen this if yfinance actually fails a scan, rather than
 speculatively — the caching layer already absorbs most single-day hiccups.
 
-## Investigate whether the "SELL LINE" divider row has any real function
-
-Flagged 2026-09-11: Jonas found the exit-band cut row (`band-cut-row.exit`,
-inserted by `insertCutRow()` in `index.html.j2` — text "SELL LINE, a holding
-that falls past rank N is sold") confusing rather than clarifying, and asked
-whether it does anything beyond being symbolic.
-
-Not investigated yet. Worth checking: does anything downstream (alerts,
-scan logic, the leaderboard's own badge/rescore code) actually key off this
-line's position, or is it purely a static label recomputed from
-`Rescore.exitRank(h, universeSize)` with no other consumer? If the latter,
-consider whether it's pulling its weight next to the "BUY BAND ENDS" row
-right above it, or whether it should be reworked/removed — the beginner
-deck's Card 2 already covers the same "buy line vs. looser sell line"
-concept in prose.
-
 ---
 
 # Done
+
+- **"SELL LINE" divider row renamed to "HOLD BAND ENDS"** — investigated
+  2026-09-12 (the flagged item asked whether the row did anything at all).
+  Findings: the row itself is inert — nothing keys off its existence, and
+  the only code reading it back is `renderMobileCards()`, projecting it into
+  the mobile card list. But its *position* is live (`Rescore.exitRank(h,
+  universeSize)`, so it moves with the horizon preset), and the exit-rank
+  concept behind it is load-bearing (drives `setupForRank`'s Exit badge and
+  `selectBook`, with Python/JS parity tests). Kept rather than removed for a
+  reason the investigation surfaced: on the deployed page the per-row Exit
+  badge reaches neither audience most at risk of misreading the table. A
+  guest gets no badge at all (`badgesVisible()` is false while
+  `BADGES_GATED`, which `build.py` sets from `lag_active`), and a signed-in
+  reader holding nothing gets none either (`badgeForRank` returns null when
+  `!isHeld` outside the entry band). For both, this line is the only place
+  the hysteresis band appears in the table, so deleting it would make "two
+  lines, not one" invisible in the product to exactly the readers the
+  beginner deck's Card 2 is written for. (Note the two gates are distinct:
+  on an *ungated* local build a guest does see plain-band Exit badges via
+  `setupForRank`, so the holdings gate alone is not what makes this line
+  load-bearing — `BADGES_GATED` is.) Fixed the
+  copy instead: "SELL LINE / a holding that falls past rank N is sold" became
+  "HOLD BAND ENDS / a holding past rank N is sold at the next review". Naming
+  the zone stops ranks `top_n+1..exitRank` reading as a weaker *buy* tier
+  (they are hold-if-owned, buy-nothing — `selectBook` buys only while
+  `free = top_n - keepCount > 0`), and "at the next review" removes an
+  overclaim: nothing here sells anything, and the rule only evaluates on the
+  review calendar. i18n key `band_sell_line` renamed to `band_hold_ends` so
+  it doesn't outlive the wording it described; Swedish updated to match
+  ("hållband slutar", using this file's established "granskning" for review).
 
 - **Stop-distance indicator** — a fill bar beside a starred, stop-loss
   opted-in position showing how close it is to its trailing stop, shown
