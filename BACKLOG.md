@@ -20,6 +20,53 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
+## Remove all localization support — English only
+
+Requested 2026-09-12, no design done yet. The ask is to drop Swedish and the
+translation layer entirely rather than maintain it going forward — this is a
+removal, not a "fix the gaps" item (compare the several closed Done items
+above about filling in missing Swedish strings, which this would make moot).
+
+**What's actually in scope, so whoever picks this up doesn't scope it too
+narrowly:**
+
+- **The engine itself**: `dashboard/templates/_i18n.html.j2` —
+  `currentLang()`/`apply()`/`toggleLang()`/`applyLangToEl()`, the `#lang-toggle`
+  button and its `localStorage` persistence, the `SV`/`SV_HTML` globals.
+- **The translation tables**: `dashboard/templates/i18n/` — `_core.js.j2`
+  (147 keys alone) plus `_backtest.js.j2`, `_badges.js.j2`, `_guides.js.j2`,
+  `_sentiment.js.j2`, `_validation.js.j2`, `_auth.js.j2`.
+- **Every consumer**: `data-i18n`/`data-i18n-title`/`data-i18n-html`
+  attributes across ~19 template/JS files, plus scattered runtime calls
+  (`window.applyLangToEl(el)` after dynamically building an element — see
+  `stops.js`, `positions.js`).
+- **The `.lang-toggle` CSS class is a false friend here** — it's reused as a
+  generic pill-button style on buttons that have nothing to do with language
+  (`#auth-signin`, `#auth-send`, `#alert-prefs-enable`, `#alert-prefs-copy`,
+  `#alert-prefs-regen`, the auth-modal submit). Deleting the class along with
+  the language feature would silently unstyle all of those — the styling and
+  the language toggle need to be separated, not deleted together.
+- **The dedicated test suite**: `tests/test_i18n_coverage.py` (the coverage
+  guard itself) plus i18n-touching assertions inside ~18 other test files
+  (`test_dashboard_js.py`, `test_dashboard_stops.py`, `test_badge_i18n_playwright.py`,
+  `test_beginner_deck.py`, and others) — these need to be edited down to their
+  non-i18n assertions, not just deleted wholesale, since several also pin
+  unrelated behavior in the same test.
+
+**Open questions for the spec:**
+
+- Does the `#lang-toggle` UI element disappear entirely, or does the header
+  lose only the *language* function while any other chrome around it stays?
+- English strings today live as literal `textContent` in the templates (the
+  `data-i18n` attribute's value is the *key*, the element's own text is the
+  English fallback) — confirm nothing currently relies on `SV`-only content
+  (`data-i18n-html` entries in particular) that has no English equivalent to
+  fall back to.
+- Given the size (19+ template/JS files, 18+ test files), this likely wants
+  the full brainstorm → spec → plan pipeline rather than being treated as a
+  bounded fix — the blast radius crosses the "meaningful blast radius" bar in
+  CLAUDE.md's guidance on when to use the full flow.
+
 ## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
 
 Decided 2026-09-02. **Supersedes "Guest sign-in status isn't clearly
