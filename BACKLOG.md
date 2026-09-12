@@ -353,37 +353,6 @@ test the validation still owes comes back positive.
 **The desktop-scan-date bullet shipped separately (2026-08-23)** — see Done.
 Only the signed-in fetch remains, above.
 
-## `init_db()`'s DDL has a first-run TOCTOU race, systemic, not worth fixing narrowly
-
-Code review, 2026-08-23 (on the `CREATE INDEX IF NOT EXISTS` statements added
-that day): `CREATE INDEX IF NOT EXISTS` is not atomic across concurrent
-sessions in Postgres. Two overlapping `init_db()` calls, both racing to create
-the same not-yet-existing index, can both pass the existence check and
-collide — one succeeds, the other raises a duplicate-relation error that
-aborts that call's `init_db()` transaction (rolling back its column adds too,
-since everything runs inside one `with conn:` block).
-
-**Not unique to the index statements.** The identical TOCTOU exists for every
-`CREATE TABLE IF NOT EXISTS` and `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in
-this same function — 19 statements total, none hardened, some shipped over a
-month ago. Guarding only the 3 newest ones would be inconsistent, not a real
-fix.
-
-**Narrower in practice than it sounds.** CI's four `init_db()` callers
-(`scan.py`, `dashboard/build.py`, `restore.py`,
-`scripts/backfill_region_ranks.py`) only collide across `scan.yml` and
-`build-docs.yml`, and those two share the `pages-deploy` concurrency group
-specifically to serialize them. The real exposure is a human running one of
-those scripts locally against production at the exact moment CI is creating a
-given object *for the first time* — a window that closes for good the moment
-that object exists, typically within one scan of merging.
-
-**Recommendation: leave as-is.** A real fix (retry-on-duplicate-object-error
-around every `IF NOT EXISTS` DDL statement, or serializing `init_db()` with an
-advisory lock) is systemic hardening, not a three-line addition, and the
-window it closes is a same-day, self-healing one. Worth doing in one pass if
-`init_db()` is ever revisited for another reason — not on its own.
-
 ## Composite structure — 4.2 effective signals of 8
 
 Same measurement run. Worth recording so the question is not re-opened from
@@ -721,6 +690,28 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **`init_db()`'s DDL TOCTOU race closed with an advisory lock (2026-09-12).**
+  Closes the item recorded 2026-08-23. That item's own recommendation was to
+  leave the race unfixed unless `init_db()` was ever revisited for another
+  reason — picked up on its own this time, a deliberate override rather than
+  new information changing the cost/benefit case recorded there.
+  `SELECT pg_advisory_xact_lock(hashtext('sector_momentum.init_db'))` now runs
+  as the first statement inside `init_db()`'s existing transaction
+  (`src/state.py`), before any of the 22 `IF NOT EXISTS` DDL statements.
+  Transaction-scoped, so it releases automatically at commit/rollback — no
+  matching unlock call needed. Chosen over the other option on record
+  (retry-on-duplicate-object-error around every statement) because a
+  duplicate-object error aborts the whole surrounding transaction in
+  Postgres, so that path would have needed a `SAVEPOINT` around each of the
+  22 statements individually; one lock closes the race for every current and
+  future `IF NOT EXISTS` statement in the function at once. Pinned with
+  source-order tests (`tests/test_state_init_db_lock.py`) rather than a live
+  concurrency reproduction — driving two real overlapping sessions into the
+  actual collision needs a second process/thread plus timing control that
+  would dwarf the fix it's proving, and this repo already has behavioral
+  init_db() coverage against a real database
+  (`test_state_smoke.py`, `TEST_DATABASE_URL`-gated).
 
 - **Stop-distance bar moved into its own "To stop" column** — the bar (and
   the breach chip with it) moved out of the theme cell into a dedicated
