@@ -1491,8 +1491,8 @@ def test_removes_existing_cut_rows_before_reinserting():
 
 
 def test_band_cut_rank_text_is_not_hardcoded():
-    """The exit note ('a holding that falls past rank N is sold') must read N
-    from the active horizon preset via the one shared Rescore.exitRank()
+    """The exit note ('a holding past rank N is sold at the next review')
+    must read N from the active horizon preset via the shared Rescore.exitRank()
     function, never a literal number and never a second, independently
     inlined h.top_n + h.buffer formula."""
     js = _apply_band_boundaries_js()
@@ -1523,7 +1523,13 @@ def test_band_cut_i18n_keys_updated():
     i18n = (Path(__file__).parent.parent / "dashboard/templates/i18n/_core.js.j2").read_text()
     assert "band_buy:" not in i18n
     assert "band_exit:" not in i18n
-    for key in ("band_buy_ends", "band_buy_note", "band_sell_line",
+    # band_sell_line was renamed to band_hold_ends 2026-09-12 when the label
+    # became "HOLD BAND ENDS"; pinned as absent so the dead key cannot drift
+    # back in alongside its replacement (this repo has lost live keys to a
+    # dead-code sweep that could not tell the two apart -- see
+    # tests/test_i18n_coverage.py's docstring).
+    assert "band_sell_line:" not in i18n
+    for key in ("band_buy_ends", "band_buy_note", "band_hold_ends",
                 "band_sell_note_prefix", "band_sell_note_suffix"):
         assert f"{key}:" in i18n, f"missing SV translation for new key {key}"
 

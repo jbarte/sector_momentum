@@ -160,10 +160,13 @@
               [{key: 'band_buy_note', en: 'below this line: not a new buy'}]);
           }
           if (isHoldCut) {
-            html += window.buildBandCutRowHtml('exit', 'band_sell_line', 'SELL LINE', [
-              {key: 'band_sell_note_prefix', en: 'a holding that falls past rank'},
+            // Copy kept in lockstep with applyBandBoundaries()'s own call
+            // site (index.html.j2) -- see the reasoning for "HOLD BAND ENDS"
+            // over "SELL LINE" there.
+            html += window.buildBandCutRowHtml('exit', 'band_hold_ends', 'HOLD BAND ENDS', [
+              {key: 'band_sell_note_prefix', en: 'a holding past rank'},
               {text: String(exitRankVal)},
-              {key: 'band_sell_note_suffix', en: 'is sold'}
+              {key: 'band_sell_note_suffix', en: 'is sold at the next review'}
             ]);
           }
         }
