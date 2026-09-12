@@ -22,7 +22,8 @@
   // unescaped. Not exploitable today — both come from config/themes.yaml via
   // the pipeline, never from a reader — but hardening against the day any
   // row field stops being repo-controlled, same as auth.js's
-  // renderLatestRows() and scan-digest.js's fmtChip(). `sector` was missed in
+  // renderLatestRows() (and, until it was removed, scan-digest.js's
+  // fmtChip()). `sector` was missed in
   // the 2026-08-23 sweep that hardened those two despite this file's own
   // comment (below) citing auth.js's identical pattern by name; the ticker
   // call site was then missed in the first fix too. Both caught in code
@@ -229,7 +230,6 @@
     // Past-scan rows are rebuilt without filter data attributes.
     if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(false);
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
-    if (typeof window.renderScanDigest === "function") window.renderScanDigest(scanId);
   };
 
   window.restoreLatest = function () {
@@ -250,7 +250,6 @@
     }
     if (sentimentControl) sentimentControl.style.opacity = "";
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
-    if (typeof window.renderScanDigest === "function") window.renderScanDigest(latestScanId);
     // The original tbody (with filter data attributes) is back, so show the bar
     // and re-apply whatever filter state was active before.
     if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(true);

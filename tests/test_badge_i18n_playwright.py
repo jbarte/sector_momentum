@@ -41,7 +41,7 @@ from src.horizons import (horizons as _horizons, default_horizon as _default_hor
 from tests.test_dashboard_js import _grouped_rows_for, _make_mock_plotly_json, _TEMPLATE
 
 _ASSETS_DIR = Path(__file__).parent.parent / "dashboard" / "assets"
-_REQUIRED_ASSETS = ["rescore.js", "theme.js", "scan-history.js", "scan-digest.js"]
+_REQUIRED_ASSETS = ["rescore.js", "theme.js", "scan-history.js"]
 
 
 def _horizon_ctx_far_future(dumps=json.dumps):

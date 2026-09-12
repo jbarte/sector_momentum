@@ -675,6 +675,21 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **Scan-digest banner removed** — the "New in Top 5 / Biggest gains /
+  Biggest drops" strip above the leaderboard (`#scan-digest-banner`,
+  `dashboard/assets/scan-digest.js`), collapsed by default behind a
+  more/less toggle. Removed 2026-09-12 as not pulling its weight: the two
+  hidden clusters duplicated the dedicated **Movers** tab, which charts the
+  same rank movement properly, and "New in Top 5" partly overlapped the
+  summary strip's own **In the buy band** cell. Being collapsed by default
+  meant the one cluster it did show was the least differentiated of the
+  three. Deleted whole rather than trimmed: the 126-line module, its
+  markup, script tag, CSS (`_tables.css.j2`, `_responsive.css.j2`), the
+  `build.py` asset copy, three Swedish keys (`digest_new_top5`,
+  `digest_gains`, `digest_drops`) and its tests. `dashboard/digest.py` is a
+  DIFFERENT thing and stays — it supplies `todays_read`, the summary
+  strip's "X leads the board" line.
+
 - **"SELL LINE" divider row renamed to "HOLD BAND ENDS"** — investigated
   2026-09-12 (the flagged item asked whether the row did anything at all).
   Findings: the row itself is inert — nothing keys off its existence, and

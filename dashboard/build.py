@@ -596,9 +596,6 @@ def main() -> None:
     scan_hist_src = _ASSETS_DIR / "scan-history.js"
     if scan_hist_src.exists():
         shutil.copy2(scan_hist_src, docs_assets / "scan-history.js")
-    scan_digest_src = _ASSETS_DIR / "scan-digest.js"
-    if scan_digest_src.exists():
-        shutil.copy2(scan_digest_src, docs_assets / "scan-digest.js")
     beginner_deck_src = _ASSETS_DIR / "beginner-deck.js"
     if beginner_deck_src.exists():
         shutil.copy2(beginner_deck_src, docs_assets / "beginner-deck.js")
