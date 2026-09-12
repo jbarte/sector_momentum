@@ -145,16 +145,23 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
 
       if (!stop && !distance) { tr.classList.remove("position-stopped"); return; }
 
-      // .theme-name holds only a single text node (index.html.j2's documented
-      // invariant, ~line 797) -- renderReviewPanel()'s nameOf(), the mobile
-      // card projection, and the band-cut summary strip all read its
-      // textContent/innerHTML directly and would pick up a nested chip. Every
-      // other badge (.unbuyable-badge, .setup-badge, .traj-badge,
-      // .theme-ticker, and positions.js's own star toggle) is inserted as a
-      // SIBLING within the containing cell, never inside .theme-name itself
-      // -- this appends to that same cell, matching the established pattern.
-      var nameSpan = tr.querySelector(".theme-name");
-      var cell = nameSpan ? nameSpan.parentNode : tr.cells[1];
+      // Both the bar and the chip live in the dedicated .stop-cell (the
+      // trailing "To stop" column), not in the name cell they used to share
+      // with the badges. Aligning them in one column is the whole point of
+      // that column: inline, each bar started after a variable-length theme
+      // name, so no two were comparable at a glance.
+      //
+      // The chip moves WITH the bar rather than staying behind: the two are
+      // one mutually-exclusive status slot (a row shows exactly one), and
+      // leaving the chip in the name cell would blank this column on
+      // breached rows -- the rows it matters most for.
+      //
+      // Rows built before this column existed, or by a path that omits the
+      // cell, simply get nothing: no fallback into cells[1], because a bar
+      // appearing in the name cell on some rows and the column on others is
+      // worse than it being absent. Every current builder emits the cell
+      // (index.html.j2, auth.js, scan-history.js).
+      var cell = tr.querySelector(".stop-cell");
       if (!cell) return;
 
       // The chip always wins when both exist -- a row transitions from bar

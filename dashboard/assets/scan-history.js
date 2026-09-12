@@ -136,6 +136,12 @@
           + '<td data-sort-value="' + (sc.level === null || sc.level === undefined ? "" : sc.level) + '">'
             + Rescore.levelChangeBars(sc.level, sc.change) + "</td>"
           + '<td class="delta-cell">' + arrowHtml + fmtDelta(e.delta) + "</td>"
+          // Stop-status cell, kept empty and never filled on this path: a
+          // past scan is a historical snapshot, while the reader's stop
+          // readings are about their holdings TODAY -- painting today's bar
+          // onto a week-old row would date-mismatch the two. Emitted anyway
+          // so these rows keep the header's column count.
+          + '<td class="stop-cell"></td>'
           + "</tr>";
 
         // Band cut rows — same rule as applyBandBoundaries() (index.html.j2),

@@ -945,9 +945,14 @@ def test_leaderboard_row_builders_emit_the_same_cell_classes():
     def head(vals):
         return [v.split("{")[0].strip() for v in vals]
 
-    # Five cells since the Trend column was removed and its badge moved into
-    # the theme cell; the trailing "" is the unclassed Level/Change cell.
-    expected = ["rank-cell", "theme-cell", "composite-cell", "", "delta-cell"]
+    # Six cells: five since the Trend column was removed and its badge moved
+    # into the theme cell (the "" is the unclassed Level/Change cell), plus the
+    # trailing .stop-cell added 2026-09-12 when the stop-distance bar moved out
+    # of the theme cell into its own column. All three builders must emit it --
+    # a row one cell short of the header collapses the column for exactly the
+    # readers who have stop data to show.
+    expected = ["rank-cell", "theme-cell", "composite-cell", "", "delta-cell",
+                "stop-cell"]
     for name, vals in got.items():
         assert head(vals) == expected, f"{name} cell classes drifted: {head(vals)}"
 
@@ -4258,12 +4263,22 @@ def test_safe_query_lets_the_other_query_succeed_when_one_rejects():
 
     var appended = [];
     var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
-    var nameSpan = {{ parentNode: cell }};
+    // Deliberately a DIFFERENT object from `cell`: if stops.js ever went
+    // back to targeting the theme cell (nameSpan.parentNode), appends would
+    // land here instead and the assertions below would catch it. Pointing
+    // both at one object would make this stub pass either way.
+    var themeAppended = [];
+    var themeCell = {{ appendChild: function (el) {{ themeAppended.push(el); }} }};
+    var nameSpan = {{ parentNode: themeCell }};
     var row = {{
       dataset: {{ region: "THEME", sector: "Space" }},
       classList: {{ add: function () {{}}, remove: function () {{}} }},
       cells: [],
       querySelector: function (sel) {{
+        // .stop-cell is where both the bar and the chip now go (the "To
+        // stop" column). .theme-name is still answered so the stub keeps
+        // matching a real row's shape, but stops.js no longer reads it.
+        if (sel === ".stop-cell") return cell;
         if (sel === ".theme-name") return nameSpan;
         return null;
       }}
@@ -4316,7 +4331,8 @@ def test_safe_query_lets_the_other_query_succeed_when_one_rejects():
     {_STOPS_JS}
 
     setTimeout(function () {{
-      console.log(JSON.stringify({{appendedCount: appended.length}}));
+      console.log(JSON.stringify({{appendedCount: appended.length,
+                                  themeCellAppendedCount: themeAppended.length}}));
     }}, 20);
     """
     res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
@@ -4325,6 +4341,10 @@ def test_safe_query_lets_the_other_query_succeed_when_one_rejects():
         "with no .catch() must not kill the other query's result:\n" + res.stderr
     )
     out = json.loads(res.stdout.strip())
+    assert out["themeCellAppendedCount"] == 0, (
+        "the surviving query's marker must land in the .stop-cell column, "
+        "not back in the theme cell"
+    )
     assert out["appendedCount"] == 1, (
         "the position_stop_distance query's successful result never reached "
         "decorate() -- the rejecting position_stops query took it down too"
@@ -4362,12 +4382,22 @@ def test_chip_wins_and_only_one_element_appended_when_both_rows_exist_for_same_k
 
     var appended = [];
     var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
-    var nameSpan = {{ parentNode: cell }};
+    // Deliberately a DIFFERENT object from `cell`: if stops.js ever went
+    // back to targeting the theme cell (nameSpan.parentNode), appends would
+    // land here instead and the assertions below would catch it. Pointing
+    // both at one object would make this stub pass either way.
+    var themeAppended = [];
+    var themeCell = {{ appendChild: function (el) {{ themeAppended.push(el); }} }};
+    var nameSpan = {{ parentNode: themeCell }};
     var row = {{
       dataset: {{ region: "THEME", sector: "Space" }},
       classList: {{ add: function () {{}}, remove: function () {{}} }},
       cells: [],
       querySelector: function (sel) {{
+        // .stop-cell is where both the bar and the chip now go (the "To
+        // stop" column). .theme-name is still answered so the stub keeps
+        // matching a real row's shape, but stops.js no longer reads it.
+        if (sel === ".stop-cell") return cell;
         if (sel === ".theme-name") return nameSpan;
         return null;
       }}
@@ -4421,6 +4451,7 @@ def test_chip_wins_and_only_one_element_appended_when_both_rows_exist_for_same_k
     setTimeout(function () {{
       console.log(JSON.stringify({{
         appendedCount: appended.length,
+        themeCellAppendedCount: themeAppended.length,
         classNames: appended.map(function (el) {{ return el.className; }})
       }}));
     }}, 20);
@@ -4434,6 +4465,10 @@ def test_chip_wins_and_only_one_element_appended_when_both_rows_exist_for_same_k
         "expected exactly one element appended to the row's cell when it has "
         f"BOTH a position_stops row and a position_stop_distance row -- got "
         f"{out['appendedCount']}: {out['classNames']}"
+    )
+    assert out["themeCellAppendedCount"] == 0, (
+        "the chip/bar must go in the .stop-cell column, never back into the "
+        "theme cell -- something was appended to the theme cell instead"
     )
     assert out["classNames"] == ["stop-chip"], (
         "the breach chip must win when both rows exist for the same key -- "
@@ -4465,12 +4500,22 @@ def test_bar_is_suppressed_entirely_when_the_stop_frac_config_is_missing():
 
     var appended = [];
     var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
-    var nameSpan = {{ parentNode: cell }};
+    // Deliberately a DIFFERENT object from `cell`: if stops.js ever went
+    // back to targeting the theme cell (nameSpan.parentNode), appends would
+    // land here instead and the assertions below would catch it. Pointing
+    // both at one object would make this stub pass either way.
+    var themeAppended = [];
+    var themeCell = {{ appendChild: function (el) {{ themeAppended.push(el); }} }};
+    var nameSpan = {{ parentNode: themeCell }};
     var row = {{
       dataset: {{ region: "THEME", sector: "Space" }},
       classList: {{ add: function () {{}}, remove: function () {{}} }},
       cells: [],
       querySelector: function (sel) {{
+        // .stop-cell is where both the bar and the chip now go (the "To
+        // stop" column). .theme-name is still answered so the stub keeps
+        // matching a real row's shape, but stops.js no longer reads it.
+        if (sel === ".stop-cell") return cell;
         if (sel === ".theme-name") return nameSpan;
         return null;
       }}
@@ -4516,7 +4561,8 @@ def test_bar_is_suppressed_entirely_when_the_stop_frac_config_is_missing():
     {_STOPS_JS}
 
     setTimeout(function () {{
-      console.log(JSON.stringify({{appendedCount: appended.length}}));
+      console.log(JSON.stringify({{appendedCount: appended.length,
+                                  themeCellAppendedCount: themeAppended.length}}));
     }}, 20);
     """
     res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
@@ -4524,6 +4570,10 @@ def test_bar_is_suppressed_entirely_when_the_stop_frac_config_is_missing():
         "stops.js threw when SM_TRAILING_STOP_FRAC was missing:\n" + res.stderr
     )
     out = json.loads(res.stdout.strip())
+    assert out["themeCellAppendedCount"] == 0, (
+        "nothing should be appended anywhere when the stop-frac config is "
+        "missing -- least of all into the theme cell"
+    )
     assert out["appendedCount"] == 0, (
         "a bar was appended even though window.SM_TRAILING_STOP_FRAC was "
         "absent/invalid -- it would render at 0% fill in green, falsely "
