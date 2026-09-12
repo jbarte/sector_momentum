@@ -245,11 +245,12 @@ tripled churn, requiring a manual retune; that failure mode is gone.
 a legacy name, but it is **load-bearing**: retired US/EU sector rows are still
 in these tables, and `region` is the filter that keeps them out of every read.
 
-Three further tables — `positions`, `alert_prefs` and `position_stops` — plus
-the `v_recent_scores` view are **managed Supabase-side**, not by this repo's
-DDL. They back the signed-in features (starred holdings, per-user alert
-preferences, trailing stop-loss latches) and are read directly from the
-browser under RLS.
+Four further tables — `positions`, `alert_prefs`, `position_stops` and
+`position_stop_distance` — plus the `v_recent_scores` view are **managed
+Supabase-side**, not by this repo's DDL. They back the signed-in features
+(starred holdings, per-user alert preferences, trailing stop-loss latches and
+live stop-distance readings) and are read directly from the browser under
+RLS.
 
 `position_stops` is the trailing stop-loss latch: one row per holding that has
 closed 12% below its peak since the user starred it, so the stop fires once
@@ -258,6 +259,21 @@ foreign key to `positions` with `ON DELETE CASCADE` — unstarring clears the
 latch with no application code, and a latch can never outlive the holding it
 describes. The scan (as `postgres`, bypassing RLS) is the sole writer; clients
 hold `SELECT` only.
+
+`position_stop_distance` is the live counterpart: one row per (user, item)
+currently starred by a stop-loss opted-in user, holding how close that
+holding is to its stop today. Unlike the latch, it is **UPSERTED every
+scan**, not written once — it is a live reading, not a permanent record of an
+event. It shares `position_stops`' shape (composite PK, the same
+`ON DELETE CASCADE` FK to `positions`, `SELECT`-only RLS for clients). A scan
+that crosses into breach writes one final reading here before the latch takes
+over on the next scan — the row is never cleared, it simply stops being read:
+the dashboard (`dashboard/assets/stops.js`) always prefers `position_stops`
+once both exist, rendering a stop-distance bar in its place otherwise.
+**`scripts/position_stop_distance_migration.sql` must be run by hand in the
+Supabase SQL editor before this feature does anything in production** — the
+same manual, one-time step every other Supabase-managed table in this section
+(`positions`, `alert_prefs`, `position_stops`) already required.
 
 **Idempotency:** a same-UTC-day scan replaces the previous one rather than
 duplicating it.

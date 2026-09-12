@@ -27,11 +27,12 @@ def _user(since="2026-08-01"):
              "stop_loss_since": pd.Timestamp(since)}]
 
 
-def _run(prices, positions, users, existing, insert=None):
+def _run(prices, positions, users, existing, insert=None, distance=None):
     with patch.object(alerts, "get_all_positions", return_value=positions), \
          patch.object(alerts, "get_stop_loss_users", return_value=users), \
          patch.object(alerts, "get_position_stops", return_value=existing), \
-         patch.object(alerts, "insert_position_stop", insert or MagicMock()):
+         patch.object(alerts, "insert_position_stop", insert or MagicMock()), \
+         patch.object(alerts, "upsert_position_stop_distance", distance or MagicMock()):
         return alerts.collect_stop_events(MagicMock(), prices, _CFG)
 
 
@@ -65,11 +66,66 @@ def test_breach_older_than_opt_in_is_recorded_but_not_notified():
     assert insert.call_args.kwargs["notified"] is False
 
 
-def test_unbreached_position_writes_nothing():
+def test_unbreached_position_writes_only_the_distance_reading():
     insert = MagicMock()
-    out = _run(_prices([100.0, 130.0, 125.0]), _position(), _user(), [], insert)
+    distance = MagicMock()
+    out = _run(_prices([100.0, 130.0, 125.0]), _position(), _user(), [],
+              insert, distance)
     assert out == {}
     insert.assert_not_called()
+    assert distance.call_count == 1
+    kwargs = distance.call_args.kwargs
+    assert kwargs["user_id"] == "u1"
+    assert kwargs["name"] == "Uranium & Nuclear"
+    assert round(kwargs["drawdown"], 4) == round(125.0 / 130.0 - 1.0, 4)
+
+
+def test_already_latched_position_gets_no_distance_upsert():
+    """Once breached, the chip owns this row -- a stale distance reading for
+    it is never rendered client-side, so there is no point writing one."""
+    existing = [{"user_id": "u1", "item_type": "theme", "region": "",
+                "name": "Uranium & Nuclear", "stopped_on": dt.date(2026, 8, 3),
+                "drawdown": -0.19, "notified": True}]
+    distance = MagicMock()
+    _run(_prices([100.0, 130.0, 105.0]), _position(), _user(), existing,
+        MagicMock(), distance)
+    distance.assert_not_called()
+
+
+def test_new_breach_still_writes_a_distance_reading_before_latching():
+    """The scan that crosses the line writes BOTH the final distance reading
+    and the latch -- only the NEXT scan skips the distance table, once
+    key-in-latched short-circuits before evaluate_stop ever runs."""
+    insert = MagicMock()
+    distance = MagicMock()
+    _run(_prices([100.0, 130.0, 105.0]), _position(), _user(), [],
+        insert, distance)
+    assert insert.call_count == 1
+    assert distance.call_count == 1
+    assert distance.call_args.kwargs["drawdown"] < -0.12
+
+
+def test_distance_write_failure_does_not_block_that_position_s_breach_alert():
+    """Isolated the same way insert_position_stop's own try/except is: a
+    failure writing the LIVE reading must not silently swallow the breach
+    alert for a position that is ALSO breaching this same scan."""
+    def _boom(**kwargs):
+        raise RuntimeError("boom")
+    out = _run(_prices([100.0, 130.0, 105.0]), _position(), _user(), [],
+              MagicMock(), _boom)
+    assert [e["name"] for e in out["u1"]] == ["Uranium & Nuclear"]
+
+
+def test_missing_price_data_leaves_any_prior_distance_reading_untouched():
+    """evaluate_stop returning None means 'no opinion', not 'safe' -- the
+    error-handling spec is explicit that a transient price gap must not
+    erase yesterday's still-roughly-accurate reading, which is exactly what
+    NOT calling the upsert achieves (the previous row, if any, is simply
+    left in place in the DB)."""
+    distance = MagicMock()
+    out = _run({}, _position(), _user(), [], MagicMock(), distance)
+    assert out == {}
+    distance.assert_not_called()
 
 
 def test_peak_window_starts_at_the_star_date():

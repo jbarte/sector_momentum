@@ -14,6 +14,7 @@ from src.universe import is_unbuyable
 from src.state import (
     get_theme_scan_history, get_all_positions, get_alert_prefs,
     get_stop_loss_users, get_position_stops, insert_position_stop,
+    upsert_position_stop_distance,
 )
 from src.personal_alerts import build_personal_alerts
 
@@ -202,6 +203,12 @@ def collect_stop_events(conn, prices: dict, themes_cfg: dict) -> dict[str, list[
     Fail-open in every direction: this runs inside the scan, and no stop is
     worth taking a scan down for. A missing position_stops table (code merged
     before the migration is applied) rolls back and returns nothing.
+
+    Also upserts a LIVE reading (position_stop_distance) for every
+    evaluated, not-yet-breached position -- see
+    sector_momentum-notes/specs/2026-09-11-stop-distance-indicator-design.md.
+    Skipped for an already-latched position (the `if key in latched`
+    guard above runs before this), since the chip owns that row from here on.
     """
     from src.horizons import trailing_stop_frac
     from src.stops import evaluate_stop, ticker_for
@@ -247,7 +254,24 @@ def collect_stop_events(conn, prices: dict, themes_cfg: dict) -> dict[str, list[
             if not ticker:
                 continue
             res = evaluate_stop(prices.get(ticker), pos.get("created_at"), stop_frac)
-            if res is None or not res["breached"]:
+            if res is None:
+                continue
+
+            # Written regardless of breach -- this is the live reading the
+            # stop-distance indicator reads. Its own try/except, isolated
+            # from the breach-alert path below: a write failure here must
+            # not swallow this position's own breach alert if it is ALSO
+            # breaching this scan.
+            try:
+                upsert_position_stop_distance(
+                    conn, user_id=uid, item_type=pos["item_type"], region=region,
+                    name=pos["name"], as_of=res["stopped_on"], peak_price=res["peak"],
+                    peak_on=res["peak_on"], latest_price=res["latest"],
+                    drawdown=res["drawdown"])
+            except Exception as exc:
+                logger.warning("Stop-distance write failed for %s: %s", uid, exc)
+
+            if not res["breached"]:
                 continue
 
             since = user.get("stop_loss_since")

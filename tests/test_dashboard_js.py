@@ -4173,3 +4173,401 @@ def test_autoshow_wiring_fails_open_when_sm_auth_changed_never_fires():
         "deck never auto-showed -- the timeout fallback did not fire (or "
         "did not fail open) when sm:auth-changed never dispatched"
     )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — SMStopDistance pure math (Task 4)
+# ---------------------------------------------------------------------------
+
+_STOPS_JS = (Path(__file__).parent.parent / "dashboard" / "assets" / "stops.js").read_text()
+
+
+def _run_stops_js(js_call: str) -> str:
+    """Execute stops.js under node with a minimal `window` stub (just an
+    empty object -- enough for the config-gated IIFE's `window.SUPABASE_CONFIG`
+    read to resolve to undefined and no-op, without needing a real DOM), then
+    run js_call and print its JSON-stringified result. Mirrors
+    _run_beginner_deck_js's harness."""
+    script = f"""
+    global.window = {{}};
+    {_STOPS_JS}
+    console.log(JSON.stringify({js_call}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_compute_proximity_at_zero_drawdown_is_zero():
+    assert _run_stops_js("SMStopDistance.computeProximity(0, 0.12)") == "0"
+
+
+@_needs_node
+def test_compute_proximity_at_half_the_threshold_is_half():
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.06, 0.12)"))
+    assert abs(result - 0.5) < 1e-9
+
+
+@_needs_node
+def test_compute_proximity_at_the_threshold_is_one():
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.12, 0.12)"))
+    assert abs(result - 1.0) < 1e-9
+
+
+@_needs_node
+def test_compute_proximity_clamps_past_the_threshold():
+    """A position can fall well past its stop between two scans -- the bar
+    must not overflow past 100%."""
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.30, 0.12)"))
+    assert result == 1.0
+
+
+@_needs_node
+def test_compute_proximity_guards_a_zero_stop_frac():
+    """Defensive: stop_frac is always > 0 in production
+    (trailing_stop_frac()'s own docstring guarantees 0 < val < 1), but a
+    div-by-zero here must not throw and break the whole leaderboard render."""
+    assert _run_stops_js("SMStopDistance.computeProximity(-0.05, 0)") == "0"
+
+
+@_needs_node
+def test_proximity_color_at_zero_is_pure_up():
+    result = _run_stops_js("SMStopDistance.proximityColor(0)")
+    assert result == '"color-mix(in srgb, var(--fg1) 0%, var(--up))"'
+
+
+@_needs_node
+def test_proximity_color_at_the_midpoint_is_pure_neutral():
+    result = _run_stops_js("SMStopDistance.proximityColor(0.5)")
+    assert result == '"color-mix(in srgb, var(--fg1) 100%, var(--up))"'
+
+
+@_needs_node
+def test_proximity_color_at_one_is_pure_down():
+    result = _run_stops_js("SMStopDistance.proximityColor(1)")
+    assert result == '"color-mix(in srgb, var(--down) 100%, var(--fg1))"'
+
+
+@_needs_node
+def test_proximity_color_just_past_the_midpoint_uses_the_down_segment():
+    result = _run_stops_js("SMStopDistance.proximityColor(0.75)")
+    assert result == '"color-mix(in srgb, var(--down) 50%, var(--fg1))"'
+
+
+@_needs_node
+def test_proximity_color_on_a_realistic_non_round_value():
+    """Task 4's own colour tests only checked p = 0, 0.5, 0.75, 1 -- every one
+    of those happens to land on a round color-mix() percentage, so none would
+    catch a rounding bug on a genuinely fractional proximity. drawdown=-0.04,
+    stopFrac=0.12 gives p = 1/3 (0.3333...), a realistic in-between reading:
+    Math.round(1/3 * 200) = Math.round(66.66...) = 67, pinning the actual
+    rounding behaviour on a non-round input for the first time."""
+    p = float(_run_stops_js("SMStopDistance.computeProximity(-0.04, 0.12)"))
+    assert abs(p - (1.0 / 3.0)) < 1e-9
+    result = _run_stops_js("SMStopDistance.proximityColor(SMStopDistance.computeProximity(-0.04, 0.12))")
+    assert result == '"color-mix(in srgb, var(--fg1) 67%, var(--up))"'
+
+
+# ---------------------------------------------------------------------------
+# stops.js — safeQuery() must survive a catch-less thenable, not just a real
+# Promise (Task 5, fix round 1: Critical review finding).
+#
+# The REAL Supabase query builder returned by sb.from(...).select(...)
+# (dashboard/assets/supabase.min.js) is a bare thenable: it implements
+# .then() but has NO .catch()/.finally() and is not `instanceof Promise`.
+# The original safeQuery called `.catch(...)` directly on that builder,
+# which threw a SYNCHRONOUS TypeError -- before Promise.all was ever
+# entered -- disabling every caller of load() and, with it, both the new
+# stop-distance bar AND the pre-existing breach chip.
+#
+# This drives the REAL load() path (via window.SM_SIGNED_IN, exactly as a
+# real page load does), not a reimplementation of safeQuery, against a stub
+# builder that mimics the catch-less shape for one query while the other
+# succeeds -- and asserts the successful query's row still reaches
+# decorate() (gets appended to the cell) despite the other one rejecting.
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_safe_query_lets_the_other_query_succeed_when_one_rejects():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_TRAILING_STOP_FRAC: 0.12,
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    var nameSpan = {{ parentNode: cell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    // A catch-less thenable -- mimics the real Supabase query builder shape.
+    // Deliberately no .catch/.finally: calling .catch on this throws.
+    function catchlessThenable(ok, value) {{
+      return {{
+        then: function (onFulfilled, onRejected) {{
+          if (ok) return Promise.resolve(onFulfilled(value));
+          return Promise.resolve(onRejected(value));
+        }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              // This query's builder REJECTS.
+              return catchlessThenable(false, new Error("position_stops boom"));
+            }}
+            // position_stop_distance's builder FULFILLS.
+            return catchlessThenable(true, {{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.04}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{appendedCount: appended.length}}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw instead of degrading -- a rejecting query builder "
+        "with no .catch() must not kill the other query's result:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["appendedCount"] == 1, (
+        "the position_stop_distance query's successful result never reached "
+        "decorate() -- the rejecting position_stops query took it down too"
+    )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — chip-vs-bar precedence is a BEHAVIORAL invariant, not just a
+# source-order string check (whole-branch review finding 1).
+#
+# tests/test_dashboard_stops.py's
+# test_breach_chip_takes_precedence_over_the_distance_bar_in_source_order only
+# checks that `if (stop) {` appears before the `buildDistanceEl(distance)`
+# call site in the file's TEXT -- it would still pass if the `if (stop)`
+# branch forgot its `return` statement and decorate() went on to append BOTH
+# the chip and the bar to the same row. This drives the real load()/decorate()
+# path (same harness as
+# test_safe_query_lets_the_other_query_succeed_when_one_rejects above) with
+# BOTH position_stops and position_stop_distance fulfilling a row for the
+# SAME position key, and asserts exactly one element was appended to that
+# row's cell, with className "stop-chip" -- not just a count, since in the
+# both-rows case either branch appends exactly one element, so a bare count
+# would not catch a precedence inversion (chip and bar swapped).
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_chip_wins_and_only_one_element_appended_when_both_rows_exist_for_same_key():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_TRAILING_STOP_FRAC: 0.12,
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    var nameSpan = {{ parentNode: cell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    // Both queries fulfill, both with a row for the SAME key
+    // (theme|""|Space) -- the both-rows-exist case Finding 1 is about.
+    function fulfilledThenable(value) {{
+      return {{
+        then: function (onFulfilled) {{ return Promise.resolve(onFulfilled(value)); }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              return fulfilledThenable({{
+                data: [{{item_type: "theme", region: "", name: "Space",
+                         stopped_on: "2026-09-10", drawdown: -0.13}}],
+                error: null
+              }});
+            }}
+            return fulfilledThenable({{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.04}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{
+        appendedCount: appended.length,
+        classNames: appended.map(function (el) {{ return el.className; }})
+      }}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw when both tables had a row for the same key:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["appendedCount"] == 1, (
+        "expected exactly one element appended to the row's cell when it has "
+        f"BOTH a position_stops row and a position_stop_distance row -- got "
+        f"{out['appendedCount']}: {out['classNames']}"
+    )
+    assert out["classNames"] == ["stop-chip"], (
+        "the breach chip must win when both rows exist for the same key -- "
+        f"got {out['classNames']} instead of ['stop-chip']"
+    )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — the bar must not render at all when the stop-threshold config is
+# missing/invalid (whole-branch review finding 3).
+#
+# SMStopDistance.computeProximity(drawdown, stopFrac) returns 0 when stopFrac
+# is falsy/zero, so with window.SM_TRAILING_STOP_FRAC absent a row that would
+# otherwise get a bar renders one at 0% fill in pure var(--up) (green) --
+# actively signalling "nowhere near its stop" while the real drawdown could be
+# anything. decorate() must skip rendering the bar entirely in that case,
+# leaving the cell exactly as it already is.
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_bar_is_suppressed_entirely_when_the_stop_frac_config_is_missing():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+    // window.SM_TRAILING_STOP_FRAC deliberately absent.
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    var nameSpan = {{ parentNode: cell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    function fulfilledThenable(value) {{
+      return {{
+        then: function (onFulfilled) {{ return Promise.resolve(onFulfilled(value)); }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              return fulfilledThenable({{data: [], error: null}});
+            }}
+            return fulfilledThenable({{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.10}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{appendedCount: appended.length}}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw when SM_TRAILING_STOP_FRAC was missing:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["appendedCount"] == 0, (
+        "a bar was appended even though window.SM_TRAILING_STOP_FRAC was "
+        "absent/invalid -- it would render at 0% fill in green, falsely "
+        "signalling 'far from its stop' for a position whose real proximity "
+        "is unknown"
+    )

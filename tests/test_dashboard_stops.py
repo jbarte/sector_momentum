@@ -55,3 +55,106 @@ def test_chip_gets_a_scoped_translate_call_after_creation():
     function on the chip it just created."""
     js = Path("dashboard/assets/stops.js").read_text()
     assert "applyLangToEl(chip)" in js
+
+
+def test_marker_reads_the_distance_table_too_and_never_writes_it():
+    js = Path("dashboard/assets/stops.js").read_text()
+    assert 'from("position_stop_distance")' in js
+    for forbidden in (".insert(", ".update(", ".upsert(", ".delete("):
+        assert forbidden not in js
+
+
+def test_breach_chip_takes_precedence_over_the_distance_bar_in_source_order():
+    """decorate() must check for an existing breach (`stop`) BEFORE it ever
+    calls into the bar-build path, and return before reaching it -- the chip
+    always wins when a row has both. Anchored on the CALL site
+    (`buildDistanceEl(distance)`), not the function's own definition (which
+    is declared earlier in the file, before decorate() -- a plain substring
+    search for "buildDistanceEl(" would match that definition first and
+    give a false pass here). A source-order check rather than a live-DOM
+    run, matching this file's existing convention for stops.js's
+    higher-level behaviour (see the other tests in this file)."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    chip_idx = js.index("if (stop) {")
+    bar_call_idx = js.index("buildDistanceEl(distance)")
+    assert chip_idx < bar_call_idx
+
+
+def test_a_single_query_failure_does_not_reject_the_other():
+    """Promise.all rejects (and skips BOTH results) the moment either input
+    promise rejects -- a bare Promise.all over the two raw Supabase calls
+    would mean a missing position_stop_distance table (e.g. mid-deploy,
+    before the migration runs) could silently kill the EXISTING breach chip
+    too. Each query's own promise must be caught and normalized (via
+    safeQuery) BEFORE reaching Promise.all -- checked here by confirming both
+    array entries are wrapped in a safeQuery(...) call, not a bare
+    sb.from(...).select(...).
+
+    This only pins the STRUCTURE (safeQuery wraps both queries); it does NOT
+    prove safeQuery actually survives a rejection. A prior version of this
+    test additionally asserted the literal substring "promise.catch(" was
+    present -- which passed even though `.catch` does not exist on the real
+    Supabase query builder (a bare thenable, not a Promise) and calling it
+    there threw SYNCHRONOUSLY, disabling both queries (and the pre-existing
+    breach chip with them) on every page load. The behavioral proof that
+    safeQuery survives a real rejecting, catch-less thenable lives in
+    tests/test_dashboard_js.py::test_safe_query_lets_the_other_query_succeed_when_one_rejects,
+    which drives the real load() path under node against a stub builder that
+    mimics the catch-less shape."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    assert "function safeQuery(promise)" in js
+    all_call = js[js.index("Promise.all(["):js.index("]).then(")]
+    assert all_call.count("safeQuery(") == 2
+
+
+def test_tooltip_never_shows_nan_when_the_stop_frac_config_is_missing():
+    """window.SM_TRAILING_STOP_FRAC can be absent on a broken deploy (Task 3's
+    contract, not this file's own guarantee). computeProximity() already
+    guards this defensively (returns 0 when stopFrac is falsy), but the
+    tooltip text built directly from `Math.round(100 * stopFrac)` did not --
+    an absent config would render "...closes NaN% below peak." Pinned as a
+    source check: an isFinite-style guard must exist so the sentence naming
+    the stop threshold is OMITTED rather than ever showing "NaN"."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    build_fn = js[js.index("function buildDistanceEl"):js.index("function decorate(")]
+    assert "isFinite(stopPct)" in build_fn
+    # The sentence naming the stop threshold must be built inside a guard
+    # keyed on that isFinite check, not concatenated unconditionally --
+    # otherwise the guard variable exists but nothing actually uses it.
+    assert "hasStopPct ?" in build_fn
+    assert 'wrap.title = "Currently "' in build_fn
+
+
+def test_bar_is_appended_beside_theme_name_not_inside_it():
+    """Same invariant test_chip_is_appended_beside_theme_name_not_inside_it
+    pins for the chip -- .theme-name must keep holding a single text node."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    assert "cell.appendChild(bar)" in js
+
+
+def test_distance_row_gets_a_scoped_translate_call_after_creation():
+    js = Path("dashboard/assets/stops.js").read_text()
+    assert "applyLangToEl(bar)" in js
+
+
+def test_the_displayed_label_is_drawdown_not_proximity():
+    """Load-bearing per the design spec: showing the PROPORTION as the
+    number would make it visibly DROP (e.g. 78% -> 12%) at the exact instant
+    a position breaches -- the number must stay in the same unit
+    (drawdown-from-peak) the breach chip already uses, throughout. Pinned by
+    checking `pct` (drawdown-derived) feeds the label's textContent, while
+    `p` (proximity-derived, from computeProximity) feeds only the fill's
+    width -- never the other way around."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    build_fn = js[js.index("function buildDistanceEl"):js.index("function decorate(")]
+    assert 'label.textContent = "-" + pct + "%";' in build_fn
+    assert "fill.style.width = Math.round(p * 100)" in build_fn
+
+
+def test_tooltip_names_the_as_of_date():
+    """A daily reading, not a live gauge -- the tooltip must say which day
+    it's from, the way the breach chip's own tooltip already names
+    stopped_on, or a stale bar after a failed scan reads as current."""
+    js = Path("dashboard/assets/stops.js").read_text()
+    build_fn = js[js.index("function buildDistanceEl"):js.index("function decorate(")]
+    assert "row.as_of" in build_fn

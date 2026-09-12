@@ -691,6 +691,19 @@ concept in prose.
 
 # Done
 
+- **Stop-distance indicator** — a fill bar beside a starred, stop-loss
+  opted-in position showing how close it is to its trailing stop, shown
+  wherever the position hasn't breached yet (the existing red chip still
+  wins once it has — never both). The bar's proportional fill and the
+  number beside it are deliberately decoupled: the number is always the
+  real drawdown from peak, in the same unit the breach chip already uses,
+  so it never drops at the exact instant a position actually breaches. Live
+  every scan via a new `position_stop_distance` table (upserted, unlike the
+  existing breach latch), reusing the exact drawdown `evaluate_stop` was
+  already computing and discarding for every not-yet-breached position.
+  Fill colour follows the theme via `color-mix()`, never hardcoded hex.
+  Spec: `sector_momentum-notes/specs/2026-09-11-stop-distance-indicator-design.md`.
+
 - **Beginner "how this works" walkthrough deck** — a four-card carousel
   (when to buy in, the buy/sell lines, the review period, the stop-loss)
   teaching a first-time reader the essentials before they touch the

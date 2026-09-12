@@ -720,6 +720,40 @@ def insert_position_stop(
             )
 
 
+def upsert_position_stop_distance(
+    conn: psycopg2.extensions.connection,
+    *,
+    user_id: str,
+    item_type: str,
+    region: str,
+    name: str,
+    as_of,
+    peak_price: float,
+    peak_on,
+    latest_price: float,
+    drawdown: float,
+) -> None:
+    """Record the current (not-yet-breached) distance to the stop.
+
+    Unlike insert_position_stop's latch (ON CONFLICT DO NOTHING), this is a
+    live reading and must always reflect today's peak/drawdown, not the
+    first one ever seen -- hence DO UPDATE, not DO NOTHING.
+    """
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO position_stop_distance (user_id, item_type, region, "
+                "name, as_of, peak_price, peak_on, latest_price, drawdown, "
+                "updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now()) "
+                "ON CONFLICT (user_id, item_type, region, name) DO UPDATE SET "
+                "as_of = EXCLUDED.as_of, peak_price = EXCLUDED.peak_price, "
+                "peak_on = EXCLUDED.peak_on, latest_price = EXCLUDED.latest_price, "
+                "drawdown = EXCLUDED.drawdown, updated_at = now()",
+                (user_id, item_type, region, name, as_of,
+                 peak_price, peak_on, latest_price, drawdown),
+            )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
