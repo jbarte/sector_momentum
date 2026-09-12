@@ -675,6 +675,25 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **Stop-distance bar moved into its own "To stop" column** — the bar (and
+  the breach chip with it) moved out of the theme cell into a dedicated
+  trailing column, 2026-09-12. The original spec chose inline placement
+  explicitly, citing ripple into `colspan`, `renderMobileCards()` and
+  sorting; re-checked before doing this and that reasoning was partly
+  overstated — **every `cells[N]` read in the codebase indexes 0 or 1**
+  (rank/name, at the row's start), so a column appended last shifts no
+  consumer. Real cost was six files of append-at-end edits. The gain is the
+  point of the feature: inline, each bar started after a variable-length
+  theme name, so no two were comparable; aligned in a column, "which holding
+  is closest to stopping out" is answerable at a glance. The chip moved with
+  the bar because the two are one mutually-exclusive status slot — leaving
+  it behind would blank the column on breached rows, the rows it matters
+  most for. Deliberately NOT sortable: the values are written client-side
+  after render, only for the reader's own holdings, so no bake-time sort key
+  exists. Accepted cost: the column is empty for guests, for readers without
+  stop-loss alerts on, and for any theme they do not hold — judged
+  acceptable since `Rank Δ` is already mostly empty in the same table.
+
 - **Scan-digest banner removed** — the "New in Top 5 / Biggest gains /
   Biggest drops" strip above the leaderboard (`#scan-digest-banner`,
   `dashboard/assets/scan-digest.js`), collapsed by default behind a

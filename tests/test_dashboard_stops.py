@@ -29,19 +29,26 @@ def test_marker_reads_the_latch_table_and_never_writes_it():
         assert forbidden not in js
 
 
-def test_chip_is_appended_beside_theme_name_not_inside_it():
-    """.theme-name holds only a single text node (index.html.j2's documented
-    invariant) -- renderReviewPanel()'s nameOf(), the mobile card projection,
-    and the band-cut summary strip all read its textContent/innerHTML
-    directly and corrupt if a chip is nested inside it. Every other badge is
-    inserted as a sibling within the containing cell; this pins that the chip
-    follows the same convention, not `tr.querySelector(".theme-name")` as the
-    append target."""
+def test_chip_and_bar_go_in_the_stop_cell_never_the_theme_cell():
+    """Both markers moved out of the theme cell into the dedicated .stop-cell
+    column (2026-09-12) so the bars align and become comparable across rows.
+
+    This still pins the older invariant it replaces: .theme-name holds only a
+    single text node -- renderReviewPanel()'s nameOf(), the mobile card
+    projection and the band-cut summary strip all read its
+    textContent/innerHTML directly and corrupt if anything is nested inside
+    it. Targeting a different cell entirely satisfies that trivially, so the
+    assertions below pin the NEW target plus the absence of the two old
+    append shapes, rather than dropping the guard with the code that needed
+    it."""
     js = Path("dashboard/assets/stops.js").read_text()
-    assert 'nameSpan.parentNode' in js
+    assert 'tr.querySelector(".stop-cell")' in js
+    # No fallback into the name cell: a bar in the name cell on some rows and
+    # in the column on others is worse than it being absent.
+    assert "tr.cells[1]" not in js
+    assert 'nameSpan.parentNode' not in js
     assert 'tr.querySelector(".theme-name").appendChild' not in js
-    # The old bug's exact shape: appending directly to whatever
-    # tr.querySelector(".theme-name") returns.
+    # The original bug's exact shape, kept pinned.
     assert 'querySelector(".theme-name") ||' not in js
 
 

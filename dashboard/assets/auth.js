@@ -259,7 +259,13 @@
           '<td class="composite-cell">' + Rescore.compositeBar(r.composite) + "</td>" +
           '<td data-sort-value="' + (r.level_score === null || r.level_score === undefined ? "" : r.level_score) + '">'
             + Rescore.levelChangeBars(r.level_score, r.change_score) + "</td>" +
-          '<td class="delta-cell">' + deltaInner + "</td>";
+          '<td class="delta-cell">' + deltaInner + "</td>" +
+          // Empty stop-status cell, same as the baked template's. stops.js
+          // fills it after this rebuild dispatches sm:leaderboard-upgraded,
+          // which it listens for. Omitting it would leave these rows one
+          // cell short of the header and collapse the column on exactly the
+          // readers who have stop data to show.
+          '<td class="stop-cell"></td>';
         tbody.appendChild(tr);
         var bd = bdRows["bd-" + tr.dataset.themeId];
         if (bd) tbody.appendChild(bd);
