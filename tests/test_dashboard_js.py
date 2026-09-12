@@ -2014,6 +2014,55 @@ def test_card_position_toggle_touch_target_scoped_to_cards_only():
     )
 
 
+def test_card_expand_hit_fills_the_card_and_stays_invisible():
+    """The nested-interactive-content fix (BACKLOG.md, 2026-09-12) depends
+    on .card-expand-hit being an absolutely-positioned overlay the size of
+    the whole card, with no visible chrome of its own (a real <button>
+    carries default UA background/border that would otherwise paint a grey
+    box over every card). `.leaderboard-card` needs `position: relative` as
+    the containing block this overlay's `inset: 0` resolves against --
+    without it the button sizes itself against the nearest positioned
+    ANCESTOR (most likely the whole page), not the card.
+
+    Verified live (not just by these source rules) via
+    document.elementFromPoint() in a standalone reproduction using this
+    exact CSS file: a tap at the star's own coordinates hits the star, and a
+    tap anywhere else on the card hits this button -- CSS2.1 Appendix E's
+    paint order promotes a positioned z-index:auto element (this button)
+    above ordinary non-positioned siblings regardless of DOM order, which is
+    what makes "tap anywhere expands" work without JS having to compute
+    hit-testing itself."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    card_m = re.search(r"\.leaderboard-card\s*\{[^}]*\}", css)
+    assert card_m, ".leaderboard-card rule not found"
+    assert "position: relative" in card_m.group(0)
+
+    hit_m = re.search(r"\.card-expand-hit\s*\{[^}]*\}", css)
+    assert hit_m, ".card-expand-hit rule not found"
+    hit_rule = hit_m.group(0)
+    assert "position: absolute" in hit_rule
+    assert "inset: 0" in hit_rule
+    assert "background: none" in hit_rule, (
+        "a visible background here would paint over the whole card"
+    )
+
+
+def test_card_position_toggle_escapes_the_expand_hit_overlay():
+    """Companion to test_card_expand_hit_fills_the_card_and_stays_invisible:
+    without `position: relative` here, the star is an ordinary inline-flex
+    box (CSS2.1 Appendix E step 5), painted BELOW .card-expand-hit (step 6)
+    despite appearing later in the DOM -- every tap on the star would
+    silently expand the card instead of toggling it. `position: relative`
+    promotes the star into the same positioned layer as the overlay, where
+    later-in-DOM-order wins."""
+    css = (Path(__file__).parent.parent / "dashboard/templates/css"
+           / "_responsive.css.j2").read_text()
+    m = re.search(r"\.leaderboard-card \.position-toggle\s*\{[^}]*\}", css)
+    assert m, ".leaderboard-card .position-toggle rule not found"
+    assert "position: relative" in m.group(0)
+
+
 def test_card_breakdown_scrolls_instead_of_clipping():
     """Found live: the embedded breakdown content is intrinsically wider
     than a mobile card even in .breakdown-grid's single-column mode (~130px
@@ -2086,25 +2135,35 @@ def test_render_mobile_cards_position_toggle_click_delegates_to_table_row():
     test_render_mobile_cards_reads_the_table_not_a_fourth_data_source)."""
     js = _render_mobile_cards_js()
     assert "querySelectorAll('.position-toggle')" in js
-    assert "stopPropagation" in js
     assert "closest('.leaderboard-card')" in js
     assert "dataset.themeId" in js
     assert ".leaderboard-row[data-theme-id=" in js
     assert "tableBtn.click()" in js
 
 
-def test_render_mobile_cards_position_toggle_click_does_not_bubble_to_card():
-    """Sabotage-guarding note for the reviewer, not a runtime assertion:
-    stopPropagation() must sit INSIDE the position-toggle click handler,
-    not the card's own — a tap on the star would otherwise also toggle the
-    card's breakdown-disclosure open/closed, since that listener sits on an
-    ancestor of the button. Verified live in the browser (2026-08-24): a
-    tap on the star with a fake table-row listener attached fired exactly
-    once and left the card's aria-expanded unchanged."""
+def test_render_mobile_cards_position_toggle_no_longer_needs_stoppropagation():
+    """Was test_render_mobile_cards_position_toggle_click_does_not_bubble_to_
+    card, pinning e.stopPropagation() as load-bearing inside the
+    position-toggle click handler -- true only while the card's own
+    expand/collapse listener sat on .leaderboard-card itself, an ANCESTOR of
+    the star, so a tap on the star would otherwise have bubbled straight
+    into it (verified live in the browser, 2026-08-24).
+
+    2026-09-12: the card's role="button" div (an interactive <button> nested
+    inside a role="button" container -- an ARIA anti-pattern some AT/switch-
+    control configurations flatten to one activation target, BACKLOG.md)
+    was replaced with a real <button class="card-expand-hit">, a SIBLING of
+    the star rather than an ancestor. A click on the star was never going to
+    bubble into a sibling's listener, stopPropagation or not, so the call
+    became true only by accident of the old structure. Verified live via
+    document.elementFromPoint() at the star's actual screen coordinates
+    (position: relative promotes it above the invisible expand-hit button in
+    CSS2.1's paint order) -- confirms this by construction, not just by the
+    call's absence."""
     js = _render_mobile_cards_js()
     toggle_start = js.index("container.querySelectorAll('.position-toggle')")
-    toggle_block = js[toggle_start:]
-    assert "stopPropagation" in toggle_block.split("});", 1)[0]
+    toggle_block = js[toggle_start:].split("});", 1)[0]
+    assert "stopPropagation" not in toggle_block
 
 
 def test_render_mobile_cards_preserves_open_state_across_rebuild():
@@ -2154,17 +2213,25 @@ def test_render_mobile_cards_restores_focus_by_theme_id_not_position():
 
 
 def test_leaderboard_cards_have_keyboard_activation():
-    """Found by whole-branch review: cards get role="button"/tabindex="0"
-    (renderMobileCards()) but only a click listener, so Enter/Space did
-    nothing for keyboard/AT users — unlike #leaderboard-table's own
-    delegated keydown handler for the identical role="button" pattern on
-    .leaderboard-row, which this mirrors on #leaderboard-cards."""
+    """Found by whole-branch review (2026-08-24): cards got
+    role="button"/tabindex="0" (renderMobileCards()) but only a click
+    listener, so Enter/Space did nothing for keyboard/AT users -- fixed at
+    the time with a delegated keydown handler mirroring #leaderboard-
+    table's own, for the identical role="button" gap on .leaderboard-row.
+
+    2026-09-12: the card's role="button" div was replaced with a real
+    <button class="card-expand-hit"> (BACKLOG.md nested-interactive-content
+    fix) -- a native button fires 'click' on Enter/Space with no JS at all,
+    so the keydown-forwarding handler this test used to pin became dead
+    code and was removed along with it. What actually guarantees keyboard
+    activation now is that the expand affordance is a genuine <button>, not
+    a div with a role -- pinned below, plus the handler's absence so the
+    old workaround does not quietly reappear next to a now-redundant
+    purpose."""
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    idx = text.index("getElementById('leaderboard-cards')?.addEventListener('keydown'")
-    block_end = text.index("});", idx)
-    block = text[idx:block_end]
-    assert "'.leaderboard-card'" in block
-    assert "t.click()" in block
+    assert "getElementById('leaderboard-cards')?.addEventListener('keydown'" not in text
+    fn_body = _render_mobile_cards_js()
+    assert "'<button type=\"button\" class=\"card-expand-hit\"" in fn_body
 
 
 def test_mobile_scan_meta_markup_exists():
@@ -2397,29 +2464,71 @@ def test_cards_are_only_disclosures_when_they_have_a_breakdown():
     past-scan rows are bare `<tr class="leaderboard-row">` with no
     data-theme-id and no .breakdown-row sibling, so bdContent is '' for every
     card on that path — the one path this stage newly wired renderMobileCards()
-    into. Emitting role="button"/tabindex/aria-expanded unconditionally made all
-    18 cards announce themselves as expandable and then reveal a 0px-tall empty
-    panel. role, tabindex, aria-expanded and .card-breakdown must all hang off
-    the same `expandable` condition, or they drift apart again."""
+    into. Emitting the expand affordance unconditionally made all 18 cards
+    announce themselves as expandable and then reveal a 0px-tall empty panel.
+    The .card-expand-hit button and .card-breakdown must both hang off the
+    same `expandable` condition, or they drift apart again. (Was gated on
+    role="button"/tabindex/aria-expanded on the card div itself before
+    2026-09-12's nested-interactive-content fix moved those to a dedicated
+    button — the underlying invariant this test pins is unchanged.)"""
     fn_body = _render_mobile_cards_js()
     assert "var expandable = bdContent !== ''" in fn_body, (
         "renderMobileCards() must decide expandability from bdContent"
     )
     # The disclosure affordances are gated, not unconditional.
-    assert "expandable ? ' role=\"button\" tabindex=\"0\" aria-expanded=\"false\"'" in fn_body
+    assert "expandable\n          ? '<button type=\"button\" class=\"card-expand-hit\"" in fn_body
     assert "expandable ? '<div class=\"card-breakdown\">'" in fn_body
     # ...and nothing emits them unconditionally any more.
-    assert "+ ' role=\"button\" tabindex=\"0\" aria-expanded=\"false\"'" not in fn_body
+    assert "+ '<button type=\"button\" class=\"card-expand-hit\"" not in fn_body
     assert "+ '<div class=\"card-breakdown\">'" not in fn_body
 
 
 def test_card_click_handler_is_scoped_to_expandable_cards():
-    """A non-expandable card has no breakdown to toggle, so a click handler on
-    it would only set an 'open' class nothing reads — and would still feel like
-    a dead tap target. Pairs with
+    """A non-expandable card has no breakdown to toggle and (since
+    2026-09-12) never gets a .card-expand-hit button rendered at all -- so
+    the click-delegation loop below simply finds nothing for it. No handler,
+    no dead tap target. Pairs with
     test_cards_are_only_disclosures_when_they_have_a_breakdown."""
     fn_body = _render_mobile_cards_js()
-    assert "querySelectorAll('.leaderboard-card[role=\"button\"]')" in fn_body
+    assert "querySelectorAll('.card-expand-hit')" in fn_body
+
+
+def test_leaderboard_card_itself_never_carries_role_button_again():
+    """BACKLOG.md, code review 2026-08-24: a real <button class=
+    "position-toggle"> nested inside a <div role="button"> is the exact
+    pattern some AT/switch-control configurations (Android TalkBack/Switch
+    Control specifically) flatten to ONE activation target, making the star
+    unreachable or ambiguously announced. Fixed 2026-09-12 by moving the
+    disclosure role onto a real, sibling <button class="card-expand-hit">
+    instead of the card div. Pinned as an explicit negative so a future edit
+    that re-adds role="button" to the card (e.g. "for CSS cursor styling")
+    does not quietly reintroduce the exact bug this fixed.
+
+    Checks the exact glued attribute pair the old code emitted
+    (`role="button" tabindex="0"`), not a bare `role="button"` substring --
+    this function's own comments narrate the historical bug using that
+    phrase (with a `/` or a line break after it, never a literal
+    `tabindex="0"` right behind it), and a bare substring check would fail
+    against its own docstring-in-code the moment someone next edits nearby
+    prose."""
+    fn_body = _render_mobile_cards_js()
+    assert 'role="button" tabindex="0"' not in fn_body
+    assert "tabindex=\"0\"" not in fn_body
+
+
+def test_card_expand_hit_is_labelled_by_the_theme_name():
+    """The button is visually invisible (see _responsive.css.j2) and has no
+    text content of its own, so without an accessible name it would
+    announce to AT as a bare, unlabelled "button" -- worse than the old
+    role="button" div, which at least computed its name from the whole
+    card's text content. aria-labelledby references the existing
+    .card-theme text node rather than re-deriving and re-escaping the theme
+    name into an aria-label attribute value a second time -- and the
+    referenced id must actually exist, or the labelledby silently resolves
+    to nothing."""
+    fn_body = _render_mobile_cards_js()
+    assert "aria-labelledby=\"card-theme-' + themeId + '\"" in fn_body
+    assert "'<span class=\"card-theme\"' + (expandable ? ' id=\"card-theme-' + themeId + '\"' : '')" in fn_body
 
 
 def test_breakdown_lookup_skips_empty_theme_id():

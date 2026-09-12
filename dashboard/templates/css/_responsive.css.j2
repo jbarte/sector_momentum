@@ -116,6 +116,10 @@
   }
 
   .leaderboard-card {
+    /* Containing block for .card-expand-hit's `inset: 0` below -- without
+       this the button would size itself against the nearest ANCESTOR that
+       has positioning (the whole page, most likely), not the card. */
+    position: relative;
     border: 1px solid var(--border-hair);
     border-radius: 12px;
     padding: 12px 14px;
@@ -124,6 +128,26 @@
   .leaderboard-card.in-band {
     border-left: 3px solid color-mix(in srgb, var(--up) 55%, transparent);
     background: color-mix(in srgb, var(--up) 4%, transparent);
+  }
+
+  /* renderMobileCards() (index.html.j2): the card's expand affordance, a
+     real <button> rather than the role="button" the whole card div used to
+     carry -- see that function's comment for the accessibility bug this
+     replaced (a real <button> nested inside a role="button" div is flattened
+     to one activation target by some AT/switch-control configurations).
+     Invisible and stretched to fill the card (CSS2.1 Appendix E: a
+     positioned z-index:auto element paints ABOVE ordinary non-positioned
+     siblings regardless of DOM order), so a tap anywhere on the card's
+     ordinary content still reaches this button and expands it -- except the
+     star, which escapes it via its own `position: relative` below. */
+  .card-expand-hit {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
   }
 
   .card-line1 {
@@ -264,8 +288,17 @@
      just navigating, so a missed tap here is a silently-failed mark/
      unmark, not just an inconvenience. Padding, not min-width: the glyph
      stays inline with the theme name; a fixed min-width would misalign it
-     from every star-less line next to it. */
+     from every star-less line next to it.
+
+     `position: relative` is a second, unrelated reason to touch this rule
+     (2026-09-12): it promotes the star into the same positioned-element
+     paint layer as .card-expand-hit above, where later-in-DOM-order wins --
+     without it the star would be an ordinary inline-flex box, painted
+     BELOW that button in CSS2.1's stacking order despite appearing later in
+     the markup, and every tap on it would silently expand the card instead
+     of toggling the star. */
   .leaderboard-card .position-toggle {
+    position: relative;
     min-height: 44px;
     padding: 0 10px;
     display: inline-flex;
