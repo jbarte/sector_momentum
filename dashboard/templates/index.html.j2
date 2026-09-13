@@ -14,7 +14,7 @@
 </head>
 <body>
 
-<a href="#main-content" class="skip-link" data-i18n="skip_to_content">Skip to content</a>
+<a href="#main-content" class="skip-link">Skip to content</a>
 
 <!-- Header -->
 {% set active_segment = "sectors" %}
@@ -23,10 +23,10 @@
 {% if auth and lag_banner_date %}
 <div class="lag-banner" id="lag-banner" role="status">
   <span class="lag-banner-text">
-    <span data-i18n="gate_banner_prefix">You're viewing data from</span>
-    <strong>{{ lag_banner_date }}</strong><span data-i18n="gate_banner_suffix">. Sign in for the latest data and all features.</span>
+    <span>You're viewing data from</span>
+    <strong>{{ lag_banner_date }}</strong><span>. Sign in for the latest data and all features.</span>
   </span>
-  <button type="button" class="lag-banner-btn" onclick="document.getElementById('auth-signin').click()" data-i18n="gate_banner_signin">Sign in</button>
+  <button type="button" class="lag-banner-btn" onclick="document.getElementById('auth-signin').click()">Sign in</button>
 </div>
 {% endif %}
 
@@ -34,15 +34,15 @@
 <div class="gate-modal-overlay" id="gate-modal" hidden>
   <div class="gate-modal" role="dialog" aria-modal="true" aria-labelledby="gate-modal-title">
     {% include "_rotation_illo.html.j2" %}
-    <h2 id="gate-modal-title" data-i18n="gate_modal_title">ETF Momentum</h2>
-    <p data-i18n="gate_modal_body">Sign in for the latest data, or continue browsing with data from last week.</p>
+    <h2 id="gate-modal-title">ETF Momentum</h2>
+    <p>Sign in for the latest data, or continue browsing with data from last week.</p>
     <form class="auth-form gate-modal-form">
       <input type="email" class="auth-email" required autocomplete="email"
              placeholder="you@example.com" aria-label="Email">
-      <button type="submit" class="lang-toggle auth-send" data-i18n="auth_send_link">Send link</button>
+      <button type="submit" class="lang-toggle auth-send">Send link</button>
       <span class="auth-status" aria-live="polite"></span>
     </form>
-    <button type="button" class="gate-modal-continue" id="gate-continue" data-i18n="gate_modal_continue">Continue as guest</button>
+    <button type="button" class="gate-modal-continue" id="gate-continue">Continue as guest</button>
   </div>
 </div>
 {% endif %}
@@ -56,20 +56,20 @@
 <section class="summary-strip" aria-label="Scan summary">
   {% if todays_read %}
   <div class="strip-cell" id="cell-todays-read">
-    <p class="strip-eyebrow" data-i18n="strip_eyebrow_read">Today's read</p>
+    <p class="strip-eyebrow">Today's read</p>
     <p class="strip-headline">
-      {{ todays_read.lead_theme }} <span data-i18n="read_leads">leads the board.</span>
+      {{ todays_read.lead_theme }} <span>leads the board.</span>
       {% if todays_read.drift == "rising" %}
-      <span data-i18n="read_bottom_rising">The bottom half is picking up.</span>
+      <span>The bottom half is picking up.</span>
       {% elif todays_read.drift == "falling" %}
-      <span data-i18n="read_bottom_falling">The bottom half keeps sliding.</span>
+      <span>The bottom half keeps sliding.</span>
       {% else %}
-      <span data-i18n="read_bottom_flat">The bottom half is holding flat.</span>
+      <span>The bottom half is holding flat.</span>
       {% endif %}
     </p>
     {% if scan_date %}
     <p class="strip-subline">
-      <span data-i18n="scan_prefix">Scan</span> #{{ active_scan_id }}
+      <span>Scan</span> #{{ active_scan_id }}
       <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
     </p>
     {% endif %}
@@ -77,14 +77,14 @@
   {% endif %}
 
   <div class="strip-cell" id="cell-buy-band">
-    <p class="strip-eyebrow" data-i18n="strip_eyebrow_band">In the buy band</p>
+    <p class="strip-eyebrow">In the buy band</p>
     <div class="band-pills" id="band-pills"></div>
     {#- Baked, not injected by renderBuyBand(). Injecting it meant calling
         applyLang() at runtime to translate it, and applyLang() re-enters
         applyFilters() -> applyBandBoundaries() -> renderBuyBand(): infinite
         recursion, reachable only when a filter empties the band. Baking it
         lets the normal i18n pass translate it once, with no runtime call. -#}
-    <p class="band-note" id="band-empty" data-i18n="band_empty" hidden>No themes in the band on this view.</p>
+    <p class="band-note" id="band-empty" hidden>No themes in the band on this view.</p>
   </div>
 
   {#- Guard mirrors the old `macro or auth`: render when there is a real
@@ -101,15 +101,14 @@
     {% if has_backtest %}
     <button type="button" class="strip-eyebrow tab-guide-btn"
             data-guide="guide_body_track_record"
-            aria-label="Performance vs benchmark — what this compares"
-            data-i18n-aria="track_record_aria">
+            aria-label="Performance vs benchmark — what this compares">
       {#- No .cc-info glyph span here: .tab-guide-btn::before (_guides.css.j2)
           already supplies the ⓘ, and .tab-guide-btn:hover colours it. The
           SPY/VIX button this replaced carried both and rendered the glyph
           TWICE ("ⓘ Market context ⓘ") -- a pre-existing bug inherited when
           this cell was built, caught 2026-09-05 by looking at the rendered
           page rather than the markup. -#}
-      <span class="cc-label" data-i18n="strip_eyebrow_vs_bench">vs ACWI</span>
+      <span class="cc-label">vs ACWI</span>
     </button>
     {% endif %}
     {#- Same id the SPY/VIX chips used, so markLive() is untouched. Values
@@ -126,10 +125,10 @@
           guide -- "pp" is jargon, and the gap-between-two-percentages point
           is the part a reader actually needs. Same pattern the trend badge
           and the unbuyable badge already use. -#}
-      <span class="chip" id="tr-m1-chip" data-i18n-title="track_record_unit_tip"
-            title="Percentage points ahead of (or behind) ACWI over this window"><span data-i18n="track_record_1m">1M</span> <b id="tr-m1">—</b></span>
-      <span class="chip" id="tr-m12-chip" data-i18n-title="track_record_unit_tip"
-            title="Percentage points ahead of (or behind) ACWI over this window"><span data-i18n="track_record_12m">12M</span> <b id="tr-m12">—</b></span>
+      <span class="chip" id="tr-m1-chip"
+            title="Percentage points ahead of (or behind) ACWI over this window"><span>1M</span> <b id="tr-m1">—</b></span>
+      <span class="chip" id="tr-m12-chip"
+            title="Percentage points ahead of (or behind) ACWI over this window"><span>12M</span> <b id="tr-m12">—</b></span>
       <span class="chip-word" id="tr-stale" hidden></span>
       {% endif %}
     </div>
@@ -145,13 +144,13 @@
      conflict. A tablist isn't page navigation in the landmark sense anyway;
      ARIA's own authoring practices don't nest it in <nav>. -->
 <div class="tabs" role="tablist">
-  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" aria-selected="true" aria-controls="tab-leaderboard" data-i18n="tab_leaderboard">Leaderboard</button>
-  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab" aria-selected="false" aria-controls="tab-rrg" data-i18n="tab_rrg">RRG</button>
-  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab" aria-selected="false" aria-controls="tab-drilldown" data-i18n="tab_drilldown">Drill-down</button>
-  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers" data-i18n="tab_movers">Movers</button>
-  <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history" data-i18n="tab_history">History</button>
-  <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest" data-i18n="tab_backtest">Backtest</button>
-  <button class="tab-btn" onclick="switchTab('correlation', this)" role="tab" aria-selected="false" aria-controls="tab-correlation" data-i18n="tab_correlation">Correlation</button>
+  <button class="tab-btn active" onclick="switchTab('leaderboard', this)" role="tab" aria-selected="true" aria-controls="tab-leaderboard">Leaderboard</button>
+  <button class="tab-btn" onclick="switchTab('rrg', this)" role="tab" aria-selected="false" aria-controls="tab-rrg">RRG</button>
+  <button class="tab-btn" onclick="switchTab('drilldown', this)" role="tab" aria-selected="false" aria-controls="tab-drilldown">Drill-down</button>
+  <button class="tab-btn" onclick="switchTab('movers', this)" role="tab" aria-selected="false" aria-controls="tab-movers">Movers</button>
+  <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history">History</button>
+  <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest">Backtest</button>
+  <button class="tab-btn" onclick="switchTab('correlation', this)" role="tab" aria-selected="false" aria-controls="tab-correlation">Correlation</button>
 </div>
 
 <!-- Cohort selector — drives RRG / Drill-down / Movers / History / Backtest.
@@ -165,7 +164,7 @@
      brings it back with no template change. -->
 {% if cohort_list | length > 1 %}
 <div class="cohort-select-row">
-  <label for="cohort-select" data-i18n="cohort_label">Cohort:</label>
+  <label for="cohort-select">Cohort:</label>
   <select id="cohort-select" onchange="switchCohort(this.value)">
     {% for cohort in cohort_list %}
     <option value="{{ cohort.region }}">{{ cohort.label }}</option>
@@ -179,7 +178,7 @@
      ============================================================ -->
 <section id="tab-leaderboard" class="tab-panel active" role="tabpanel">
   <div class="horizon-row">
-    <span class="horizon-eyebrow" data-i18n="horizon_label">Horizon</span>
+    <span class="horizon-eyebrow">Horizon</span>
     {#- The segmented buttons are the real control now — keyboard, screen
         reader, everything. The <select> beneath stays in the DOM purely as
         switchHorizon()'s internal source of truth (it reads
@@ -203,12 +202,12 @@
         The full three-way comparison lives in the Backtest tab, which already
         tabulates every preset and highlights the active row. -#}
     <span class="horizon-stats" id="horizon-stats">
-      <span class="hz-stat"><b id="hz-held">—</b> <span data-i18n="hz_held">held</span></span>
-      <span class="hz-stat"><span data-i18n="hz_exit_prefix">sell past rank</span> <b id="hz-exit">—</b></span>
-      <span class="hz-stat"><b id="hz-trades">—</b> <span data-i18n="hz_trades">trades/yr</span></span>
-      <span class="hz-stat"><b id="hz-hold">—</b> <span data-i18n="hz_hold">median hold</span></span>
+      <span class="hz-stat"><b id="hz-held">—</b> <span>held</span></span>
+      <span class="hz-stat"><span>sell past rank</span> <b id="hz-exit">—</b></span>
+      <span class="hz-stat"><b id="hz-trades">—</b> <span>trades/yr</span></span>
+      <span class="hz-stat"><b id="hz-hold">—</b> <span>median hold</span></span>
     </span>
-    <span class="horizon-note" data-i18n="horizon_note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
+    <span class="horizon-note">Sets the Enter/Exit band. Backtested figures, not predictions.</span>
     {#- Right-aligned controls (spec: "Controls row", Screen 1 item 5).
         These three carry the SAME data-filter-group/data-filter-value as
         their counterparts inside the disclosed full set below — clicking
@@ -219,41 +218,41 @@
         Trend group showing only Flat/Falling and the Threshold group
         showing only Positive change once disclosed — reads as broken. -#}
     <div class="control-chips">
-      <button type="button" class="control-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false" data-i18n="filter_top5">Top 5</button>
-      <button type="button" class="control-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false" data-i18n="filter_rising">↑ Rising</button>
-      <button type="button" class="control-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false" data-i18n="filter_composite_pos">Composite &gt; 0</button>
+      <button type="button" class="control-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false">Top 5</button>
+      <button type="button" class="control-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false">↑ Rising</button>
+      <button type="button" class="control-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false">Composite &gt; 0</button>
       {#- filter-clear/filter-count live here, not inside the disclosure
           below: a reader who picks a full-set-only chip (e.g. Enter) then
           collapses More filters must still see that a filter is active
           and have a way to clear it. Their ids are unchanged, so
           _updateFilterCount()/_wireFilterChips()'s getElementById lookups
           need no changes — only their position moved. -#}
-      <button type="button" class="filter-clear" id="filter-clear" hidden data-i18n="filter_clear">Clear</button>
+      <button type="button" class="filter-clear" id="filter-clear" hidden>Clear</button>
       <span class="filter-count" id="filter-count"></span>
       {#- Native <details>, matching .rank-settings right beside it — same
           popover positioning (_sentiment.css.j2), same mobile full-width
           override (_responsive.css.j2), no new toggle JS needed. -#}
       <details class="more-filters">
-        <summary data-i18n="more_filters">More filters</summary>
+        <summary>More filters</summary>
         <div class="filter-bar" id="leaderboard-filter-bar">
           {#- Hidden for guests when the badge is gated: these chips filter on
               data-setup, which is empty on every guest row, so leaving them up
               would offer a control that can only ever empty the table.
               applyHorizonBadges() owns the toggle. -#}
           <div class="filter-group" role="group" aria-label="Setup" id="filter-group-setup">
-            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false" data-i18n="filter_entry">▲ Enter</button>
-            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="hold" aria-pressed="false" data-i18n="filter_hold">● Hold</button>
-            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false" data-i18n="filter_exit">▼ Exit</button>
+            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="entry" aria-pressed="false">▲ Enter</button>
+            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="hold" aria-pressed="false">● Hold</button>
+            <button type="button" class="filter-chip" data-filter-group="setup" data-filter-value="exit" aria-pressed="false">▼ Exit</button>
           </div>
           <div class="filter-group" role="group" aria-label="Trend">
-            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false" data-i18n="filter_rising">↑ Rising</button>
-            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="flat" aria-pressed="false" data-i18n="filter_flat">→ Flat</button>
-            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="falling" aria-pressed="false" data-i18n="filter_falling">↓ Falling</button>
+            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="rising" aria-pressed="false">↑ Rising</button>
+            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="flat" aria-pressed="false">→ Flat</button>
+            <button type="button" class="filter-chip" data-filter-group="trend" data-filter-value="falling" aria-pressed="false">↓ Falling</button>
           </div>
           <div class="filter-group" role="group" aria-label="Threshold">
-            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false" data-i18n="filter_composite_pos">Composite &gt; 0</button>
-            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false" data-i18n="filter_top5">Top 5</button>
-            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="change_pos" aria-pressed="false" data-i18n="filter_change_pos">Positive change</button>
+            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="composite_pos" aria-pressed="false">Composite &gt; 0</button>
+            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="top5" aria-pressed="false">Top 5</button>
+            <button type="button" class="filter-chip" data-filter-group="thresholds" data-filter-value="change_pos" aria-pressed="false">Positive change</button>
           </div>
         </div>
       </details>
@@ -268,22 +267,22 @@
         from localStorage. A `display:none` would leave that path live. -#}
     {% if sentiment_ranking_enabled %}
     <details class="rank-settings">
-      <summary><span class="rs-glyph" aria-hidden="true">⚙</span><span data-i18n="rank_settings">Ranking</span></summary>
+      <summary><span class="rs-glyph" aria-hidden="true">⚙</span><span>Ranking</span></summary>
       <div id="sentiment-control" class="sentiment-control">
         <label>
-          <input type="checkbox" id="sentiment-toggle"> <span data-i18n="includeSentiment">Include sentiment in ranking</span>
+          <input type="checkbox" id="sentiment-toggle"> <span>Include sentiment in ranking</span>
         </label>
         <span class="sw-weight">
-          <span data-i18n="weight">Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
+          <span>Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
         </span>
       </div>
     </details>
     {% endif %}
-    <button type="button" class="tab-guide-btn" data-guide="guide_body_leaderboard" data-i18n="guide_summary">How to read this tab</button>
+    <button type="button" class="tab-guide-btn" data-guide="guide_body_leaderboard">How to read this tab</button>
   </div>
   <div id="scan-history-banner" style="display:none">
-    <span class="scan-history-text" data-i18n="scan_viewing" data-en-prefix="Viewing scan #">Viewing scan #</span>
-    <a href="javascript:void(0)" onclick="restoreLatest()" data-i18n="scan_back_to_latest">Back to latest</a>
+    <span class="scan-history-text">Viewing scan #</span>
+    <a href="javascript:void(0)" onclick="restoreLatest()">Back to latest</a>
   </div>
   {% include "_review_panel.html.j2" %}
   <div class="table-wrap">
@@ -295,11 +294,11 @@
               with the 6-column restructure — sentiment is experimental and excluded from
               the ranking, so the column was "—" in every row. Level and Change
               merged into one stacked-bar cell in the same change. -#}
-          <th scope="col" onclick="sortTable(0)" data-col="0" tabindex="0" data-i18n="col_rank">#</th>
-          <th scope="col" onclick="sortTable(1)" data-col="1" tabindex="0" data-i18n="col_sector">Theme</th>
-          <th scope="col" onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_composite">Composite</th>
-          <th scope="col" onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_levelchange">Level / Change</th>
-          <th scope="col" onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
+          <th scope="col" onclick="sortTable(0)" data-col="0" tabindex="0">#</th>
+          <th scope="col" onclick="sortTable(1)" data-col="1" tabindex="0">Theme</th>
+          <th scope="col" onclick="sortTable(2)" data-col="2" tabindex="0">Composite</th>
+          <th scope="col" onclick="sortTable(3)" data-col="3" tabindex="0">Level / Change</th>
+          <th scope="col" onclick="sortTable(4)" data-col="4" tabindex="0">Rank Δ</th>
           {#- Stop-status column. Deliberately NOT sortable (no sortTable/data-col):
               its content is written client-side by stops.js after the table is
               already rendered, and only for a signed-in reader's own starred,
@@ -307,7 +306,7 @@
               time and would be empty for most rows and every guest. Appended
               LAST on purpose: every cells[N] read in this codebase indexes 0
               or 1 (rank/name), so a trailing column shifts nothing. -#}
-          <th scope="col" data-i18n="col_stop">To stop</th>
+          <th scope="col" class="col-stop">To stop</th>
         </tr>
       </thead>
       <tbody>
@@ -332,9 +331,9 @@
           <td class="theme-cell"
             >{#- -#}<span class="theme-name">{{ row.sector }}</span>{#-
             -#}{% if row.ticker %}<span class="theme-ticker">{{ row.ticker }}</span>{% endif %}{#-
-            -#}{% if row.unbuyable %}<span class="unbuyable-badge" data-i18n="badge_unbuyable" data-i18n-title="unbuyable_tip" title="No UCITS equivalent exists, so this cannot be bought from an EU account. It is still scored because it shapes how every other theme ranks.">⊘ not buyable in EU</span>{% endif %}{#-
-            -#}{% if row.setup == "entry" %}<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>{% endif %}{#-
-            -#}<span class="traj-badge traj-{{ row.trajectory_state }}" data-i18n-title="trend_tip" title="Rank slope over last 3–5 scans"><span class="traj-glyph">{{ row.trajectory_label }}</span> <span class="traj-word" data-i18n="trend_word_{{ row.trajectory_state }}">{{ row.trajectory_word }}</span></span>{#-
+            -#}{% if row.unbuyable %}<span class="unbuyable-badge" title="No UCITS equivalent exists, so this cannot be bought from an EU account. It is still scored because it shapes how every other theme ranks.">⊘ not buyable in EU</span>{% endif %}{#-
+            -#}{% if row.setup == "entry" %}<span class="setup-badge entry">▲ Enter</span>{% elif row.setup == "exit" %}<span class="setup-badge exit">▼ Exit</span>{% endif %}{#-
+            -#}<span class="traj-badge traj-{{ row.trajectory_state }}" title="Rank slope over last 3–5 scans"><span class="traj-glyph">{{ row.trajectory_label }}</span> <span class="traj-word">{{ row.trajectory_word }}</span></span>{#-
           -#}</td>
           <td class="composite-cell">{{ row.composite_bar | safe }}</td>
           <td data-sort-value="{{ row._raw_level if row._raw_level is not none else '' }}">{{ row.level_change_bars | safe }}</td>
@@ -353,10 +352,10 @@
         </tr>
         {% endfor %}
         {% if not has_any_rows %}
-        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
+        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
-          <td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
+          <td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)">No themes match the filters.</td>
         </tr>
       </tbody>
     </table>
@@ -375,7 +374,7 @@
      ============================================================ -->
 <section id="tab-rrg" class="tab-panel" role="tabpanel">
   <div class="utility-row">
-    <button type="button" class="tab-guide-btn" data-guide="guide_body_rrg" data-i18n="guide_summary">How to read this tab</button>
+    <button type="button" class="tab-guide-btn" data-guide="guide_body_rrg">How to read this tab</button>
   </div>
   <div class="chart-container" id="rrg-chart" style="height:520px"></div>
 </section>
@@ -385,7 +384,7 @@
      ============================================================ -->
 <section id="tab-drilldown" class="tab-panel" role="tabpanel">
   <div class="utility-row">
-    <button type="button" class="tab-guide-btn" data-guide="guide_body_drilldown" data-i18n="guide_summary">How to read this tab</button>
+    <button type="button" class="tab-guide-btn" data-guide="guide_body_drilldown">How to read this tab</button>
   </div>
   <div class="drilldown-controls">
     <label for="sector-select">Theme:</label>
@@ -403,7 +402,7 @@
      ============================================================ -->
 <section id="tab-movers" class="tab-panel" role="tabpanel">
   <div class="utility-row">
-    <button type="button" class="tab-guide-btn" data-guide="guide_body_movers" data-i18n="guide_summary">How to read this tab</button>
+    <button type="button" class="tab-guide-btn" data-guide="guide_body_movers">How to read this tab</button>
   </div>
   <div class="chart-container" id="movers-chart"></div>
 </section>
@@ -413,12 +412,12 @@
      ============================================================ -->
 <section id="tab-history" class="tab-panel" role="tabpanel">
   <div class="utility-row">
-    <button type="button" class="tab-guide-btn" data-guide="guide_body_history" data-i18n="guide_summary">How to read this tab</button>
+    <button type="button" class="tab-guide-btn" data-guide="guide_body_history">How to read this tab</button>
   </div>
   <div class="table-wrap scan-index">
     <table>
       <thead>
-        <tr><th scope="col"></th><th scope="col" data-i18n="si_scan">Scan</th><th scope="col" data-i18n="si_run">Run (UTC)</th><th scope="col" data-i18n="si_sectors">Themes</th><th scope="col" data-i18n="si_top">Top theme</th><th scope="col" data-i18n="si_report">Report</th></tr>
+        <tr><th scope="col"></th><th scope="col">Scan</th><th scope="col">Run (UTC)</th><th scope="col">Themes</th><th scope="col">Top theme</th><th scope="col">Report</th></tr>
       </thead>
       <tbody>
         {% for s in scan_index %}
@@ -428,10 +427,10 @@
           <td>{{ s.run_at_display }}</td>
           <td>{{ s.theme_count }}</td>
           <td>{{ s.top_theme }}</td>
-          <td><a href="reports/report_{{ s.scan_id }}.md" data-i18n="si_download">download</a></td>
+          <td><a href="reports/report_{{ s.scan_id }}.md">download</a></td>
         </tr>
         {% else %}
-        <tr><td colspan="6" style="text-align:center;padding:16px;color:var(--fg4)" data-i18n="scans_empty">No scans yet.</td></tr>
+        <tr><td colspan="6" style="text-align:center;padding:16px;color:var(--fg4)">No scans yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -443,12 +442,12 @@
      Tab: Backtest
      ============================================================ -->
 <section id="tab-backtest" class="tab-panel" role="tabpanel">
-  <p class="tab-note" data-i18n-html="note_backtest">Equal-weight, long-only, <strong>net of {{ round_trip_bps | round | int }} bps round-trip trading costs</strong> (bps = basis points; 100 bps = 1%). Price-based signals only (breadth &amp; sentiment excluded). Each horizon is a rebalance cadence plus a hysteresis band: a holding is kept while its rank stays within top-N + buffer, so a one-rank wobble is not a trade.</p>
-  <p class="tab-note" data-i18n-html="note_backtest_caveat"><strong>These are precomputed operating points from one sweep over one market history (2008–2026), not a live optimiser.</strong> The universe is replayed as it stands today, so themes that launched later are simply absent from the early years. Read the trades/year column next to the return, not instead of it.</p>
+  <p class="tab-note">Equal-weight, long-only, <strong>net of {{ round_trip_bps | round | int }} bps round-trip trading costs</strong> (bps = basis points; 100 bps = 1%). Price-based signals only (breadth &amp; sentiment excluded). Each horizon is a rebalance cadence plus a hysteresis band: a holding is kept while its rank stays within top-N + buffer, so a one-rank wobble is not a trade.</p>
+  <p class="tab-note"><strong>These are precomputed operating points from one sweep over one market history (2008–2026), not a live optimiser.</strong> The universe is replayed as it stands today, so themes that launched later are simply absent from the early years. Read the trades/year column next to the return, not instead of it.</p>
   {% if has_backtest %}
   <div class="table-wrap">
     <table>
-      <thead><tr><th scope="col" data-i18n="bt_horizon">Horizon</th><th scope="col" data-i18n="bt_policy">Policy</th><th scope="col" data-i18n="bt_window">Window</th><th scope="col" data-i18n="bt_stratcagr">Strategy CAGR</th><th scope="col" data-i18n="bt_benchcagr">Bench CAGR</th><th scope="col" data-i18n="bt_sharpe">Sharpe (rf=0)</th><th scope="col" data-i18n="bt_maxdd">Max DD</th><th scope="col" data-i18n="bt_trades">Trades/yr</th><th scope="col" data-i18n="bt_hold">Median hold</th></tr></thead>
+      <thead><tr><th scope="col">Horizon</th><th scope="col">Policy</th><th scope="col">Window</th><th scope="col">Strategy CAGR</th><th scope="col">Bench CAGR</th><th scope="col">Sharpe (rf=0)</th><th scope="col">Max DD</th><th scope="col">Trades/yr</th><th scope="col">Median hold</th></tr></thead>
       <tbody>
         {% for r in backtest_metrics %}
         <tr class="bt-row" data-horizon="{{ r.region }}">
@@ -464,25 +463,25 @@
     </table>
   </div>
   <div class="chart-container" id="backtest-chart" style="height:420px"></div>
-  <button type="button" class="tab-guide-btn" data-guide="guide_body_backtest" data-i18n="guide_summary">How to read this tab</button>
+  <button type="button" class="tab-guide-btn" data-guide="guide_body_backtest">How to read this tab</button>
   {% if badge_scorecard %}
-  <h2 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)" data-i18n="badge_scorecard_title">Badge scorecard</h2>
-  <p class="tab-note" data-i18n="badge_scorecard_desc">5-day forward return after each badge appeared.</p>
+  <h2 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">Badge scorecard</h2>
+  <p class="tab-note">5-day forward return after each badge appeared.</p>
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th scope="col" data-i18n="badge_sc_badge">Badge</th>
-          <th scope="col" data-i18n="badge_sc_count">Count</th>
-          <th scope="col" data-i18n="badge_sc_hit_rate">Hit rate</th>
-          <th scope="col" data-i18n="badge_sc_mean">Mean</th>
-          <th scope="col" data-i18n="badge_sc_median">Median</th>
+          <th scope="col">Badge</th>
+          <th scope="col">Count</th>
+          <th scope="col">Hit rate</th>
+          <th scope="col">Mean</th>
+          <th scope="col">Median</th>
         </tr>
       </thead>
       <tbody>
         {% for row in badge_scorecard %}
         <tr>
-          <td><span data-i18n="badge_{{ row.badge_key }}">{{ row.badge }}</span></td>
+          <td><span>{{ row.badge }}</span></td>
           <td>{{ row.count }}</td>
           {% if row.hit_rate is not none %}
           <td>{{ "%.0f%%"|format(row.hit_rate * 100) }}</td>
@@ -508,12 +507,12 @@
      ============================================================ -->
 <section id="tab-correlation" class="tab-panel" role="tabpanel">
   {% if correlation_fig_json %}
-  <p class="tab-note" data-i18n="note_correlation">60-trading-day rolling pairwise return correlations. Top-5 themes in bold. Red = moving together; blue = moving independently.</p>
+  <p class="tab-note">60-trading-day rolling pairwise return correlations. Top-5 themes in bold. Red = moving together; blue = moving independently.</p>
   <div class="chart-container" id="correlation-chart" style="min-height:500px"></div>
   {% else %}
-  <p class="leaderboard-empty" data-i18n="correlation_no_data">Not enough price history for a 60-day correlation matrix.</p>
+  <p class="leaderboard-empty">Not enough price history for a 60-day correlation matrix.</p>
   {% endif %}
-  <button type="button" class="tab-guide-btn" data-guide="guide_body_correlation" data-i18n="guide_summary">How to read this tab</button>
+  <button type="button" class="tab-guide-btn" data-guide="guide_body_correlation">How to read this tab</button>
 </section>
 </div>
 </main>
@@ -2250,9 +2249,9 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
   <div class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
     <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
     {% include "_guide_illo.html.j2" %}
-    <h2 id="guide-modal-title" data-i18n="guide_summary">How to read this tab</h2>
+    <h2 id="guide-modal-title">How to read this tab</h2>
     {% include "_guide_track_record.html.j2" %}
-    <div class="tab-guide-body" data-guide-body="guide_body_leaderboard" hidden data-i18n-html="guide_body_leaderboard">
+    <div class="tab-guide-body" data-guide-body="guide_body_leaderboard" hidden>
             <p>Themes are ranked strongest to weakest. Everything is measured
                <strong>against the other themes today</strong>, not against zero — so
                rank 1 means &ldquo;best of these {{ leaderboard_rows | length }} right now&rdquo;, which in a bad week
@@ -2327,7 +2326,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             <p>Click any row to expand it — you get every underlying signal, and the
                European (UCITS) fund that corresponds to the US ETF being scored.</p>
           </div>
-    <div class="tab-guide-body" data-guide-body="guide_body_rrg" hidden data-i18n-html="guide_body_rrg">
+    <div class="tab-guide-body" data-guide-body="guide_body_rrg" hidden>
             <p><strong>RRG</strong> stands for <strong>Relative Rotation Graph</strong> &mdash; a standard way of showing how a set of holdings is rotating around its benchmark over time.</p>
             <p>Themes are plotted by <strong>relative strength vs benchmark</strong> (x-axis) and whether that relative strength is <strong>accelerating or decelerating</strong> (y-axis). Both axes are centred at 100.</p>
             <h3>Four quadrants</h3>
@@ -2341,7 +2340,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             <p>Themes rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show the last 3 scan positions — the direction of the tail matters more than the current position.</p>
             <p><em>Note: current axes are composite-based proxies. True JdK RS-Ratio/Momentum requires daily price data relative to a benchmark.</em></p>
           </div>
-    <div class="tab-guide-body" data-guide-body="guide_body_drilldown" hidden data-i18n-html="guide_body_drilldown">
+    <div class="tab-guide-body" data-guide-body="guide_body_drilldown" hidden>
             <p>Select a theme to see its score component history across all stored scans.</p>
             <h3>Key patterns</h3>
             <ul>
@@ -2353,7 +2352,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             <h3>How to use</h3>
             <p>Pair with the leaderboard Trend badge. A theme showing <span class="signal-hi">↑</span> on the leaderboard that also has rising composite and change_score in the drill-down is the highest-conviction setup. A theme with a high rank but flat or falling change_score is likely to slip in the next scan.</p>
           </div>
-    <div class="tab-guide-body" data-guide-body="guide_body_movers" hidden data-i18n-html="guide_body_movers">
+    <div class="tab-guide-body" data-guide-body="guide_body_movers" hidden>
             <p>Rank change between the two most recent scans. <span class="signal-hi">Green bars</span> = themes that climbed the leaderboard; <span class="signal-lo">terracotta bars</span> = themes that slipped.</p>
             <h3>How to use</h3>
             <ul>
@@ -2362,7 +2361,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
               <li><span class="signal-lo">Red flag:</span> a top-ranked theme with a large negative bar here is an early topping signal. Check the leaderboard Trend badge — if it shows <span class="signal-lo">↓</span> or <span class="signal-lo">↓↓</span>, the reversal is likely real.</li>
             </ul>
           </div>
-    <div class="tab-guide-body" data-guide-body="guide_body_history" hidden data-i18n-html="guide_body_history">
+    <div class="tab-guide-body" data-guide-body="guide_body_history" hidden>
             <p>Composite score trend across all stored scans for every theme. The composite is a cross-sectional z-score — 0 = cohort-average for that scan.</p>
             <h3>Key patterns</h3>
             <ul>
@@ -2374,7 +2373,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             <h3>How to use</h3>
             <p>Use as context for current rank. A theme ranked #1 after steadily rising for 10 scans is a different risk profile from one that jumped from #8 last scan. Long, smooth uptrends are the entries worth holding; V-shaped reversals are the ones to trade quickly or skip.</p>
           </div>
-    <div class="tab-guide-body" data-guide-body="guide_body_backtest" hidden data-i18n-html="guide_body_backtest">
+    <div class="tab-guide-body" data-guide-body="guide_body_backtest" hidden>
           <p>This asks a &ldquo;what if&rdquo; question: <em>had you followed these rules
              since 2008, what would have happened?</em> At each rebalance date the
              simulation buys the top-ranked themes, holds them under the band rule, and
@@ -2432,7 +2431,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
              other</strong> &mdash; that comparison is fair, because both ran on the
              same data with the same biases. Treat the absolute returns as optimistic.</p>
         </div>
-    <div class="tab-guide-body" data-guide-body="guide_body_correlation" hidden data-i18n-html="guide_body_correlation">
+    <div class="tab-guide-body" data-guide-body="guide_body_correlation" hidden>
           <p>This grid answers one question: <strong>when one theme moves, do the others
              move with it?</strong> Every theme is compared against every other over the
              last 60 trading days.</p>

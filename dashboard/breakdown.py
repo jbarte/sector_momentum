@@ -62,8 +62,8 @@ def _build_instruments_html(
     if is_unbuyable(region, sector_name, themes_cfg):
         return (
             '<div class="bd-instruments">'
-            '<div class="sig-title" data-i18n="ucits_title">UCITS Alternative</div>'
-            '<p class="bd-unbuyable" data-i18n="unbuyable_note">'
+            '<div class="sig-title">UCITS Alternative</div>'
+            '<p class="bd-unbuyable">'
             "None exists — this theme cannot be bought from an EU account. It is "
             "still scored, because it shapes how every other theme ranks, but it "
             "is never held: no entry is prompted here and the backtest excludes it."

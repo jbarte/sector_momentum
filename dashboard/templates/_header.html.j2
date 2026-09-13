@@ -1,18 +1,18 @@
 <header class="command-bar">
-  <h1 data-i18n="title">ETF Momentum</h1>
+  <h1>ETF Momentum</h1>
   <div class="segment-toggle" role="tablist" aria-label="Dashboard segment">
     {% if active_segment == "sectors" %}
-    <span class="segment-btn active" aria-current="page" data-i18n="segment_sectors">Themes</span>
+    <span class="segment-btn active" aria-current="page">Themes</span>
     {% else %}
-    <a class="segment-btn" href="index.html" data-i18n="segment_sectors">Themes</a>
+    <a class="segment-btn" href="index.html">Themes</a>
     {% endif %}
     {#- The experimental badge sits OUTSIDE the [data-i18n] span on purpose: applyLang()
         rewrites that node's textContent, so a badge nested inside it would be
         wiped on the first language switch. -#}
     {% if active_segment == "sentiment" %}
-    <span class="segment-btn active" aria-current="page"><span data-i18n="segment_sentiment">Sentiment</span><span class="experimental-badge" data-i18n="badge_experimental">experimental</span></span>
+    <span class="segment-btn active" aria-current="page"><span>Sentiment</span><span class="experimental-badge">experimental</span></span>
     {% else %}
-    <a class="segment-btn" href="sentiment.html"><span data-i18n="segment_sentiment">Sentiment</span><span class="experimental-badge" data-i18n="badge_experimental">experimental</span></a>
+    <a class="segment-btn" href="sentiment.html"><span>Sentiment</span><span class="experimental-badge">experimental</span></a>
     {% endif %}
   </div>
   <div class="meta-cluster">
@@ -34,30 +34,30 @@
         _responsive.css.j2's paired boundary). -#}
     {% if scan_date %}
     <span class="desktop-scan-meta">
-      <span data-i18n="scan_prefix">Scan</span> #{{ active_scan_id }}
+      <span>Scan</span> #{{ active_scan_id }}
       <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
     </span>
     {% endif %}
     {% endif %}
     {% if auth %}
     <span class="auth-root" id="auth-root">
-      <button id="auth-signin" class="lang-toggle" type="button" data-i18n="auth_sign_in">Sign in</button>
+      <button id="auth-signin" class="lang-toggle" type="button">Sign in</button>
       <form id="auth-form" class="auth-form" hidden>
         <input id="auth-email" class="auth-email" type="email" required autocomplete="email"
                placeholder="you@example.com" aria-label="Email">
-        <button id="auth-send" class="lang-toggle auth-send" type="submit" data-i18n="auth_send_link">Send link</button>
+        <button id="auth-send" class="lang-toggle auth-send" type="submit">Send link</button>
         <span id="auth-status" class="auth-status" aria-live="polite"></span>
       </form>
       <span id="auth-user" hidden>
         <span id="auth-email-label" class="scan-meta"></span>
-        <button id="auth-signout" class="lang-toggle" type="button" data-i18n="auth_sign_out">Sign out</button>
+        <button id="auth-signout" class="lang-toggle" type="button">Sign out</button>
       </span>
     </span>
     {% endif %}
     <div class="theme-toggle" role="group" aria-label="Colour theme">
-      <button type="button" class="theme-btn" data-theme-choice="auto" aria-pressed="true" aria-label="Auto" data-i18n="theme_auto">Auto</button>
-      <button type="button" class="theme-btn" data-theme-choice="light" aria-pressed="false" aria-label="Light" data-i18n="theme_light">☀</button>
-      <button type="button" class="theme-btn" data-theme-choice="dark" aria-pressed="false" aria-label="Dark" data-i18n="theme_dark">☾</button>
+      <button type="button" class="theme-btn" data-theme-choice="auto" aria-pressed="true" aria-label="Auto">Auto</button>
+      <button type="button" class="theme-btn" data-theme-choice="light" aria-pressed="false" aria-label="Light">☀</button>
+      <button type="button" class="theme-btn" data-theme-choice="dark" aria-pressed="false" aria-label="Dark">☾</button>
     </div>
   </div>
   {#- Mobile-only second row: the meta-cluster's scan context condenses to
@@ -78,7 +78,7 @@
       passes no scan_date at all. -#}
   {% if scan_date %}
   <div class="mobile-scan-meta">
-    <span data-i18n="scan_prefix">Scan</span> #{{ active_scan_id }}
+    <span>Scan</span> #{{ active_scan_id }}
     <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
   </div>
   {% endif %}

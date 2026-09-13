@@ -608,10 +608,10 @@ tbody td:nth-child(n+4) {
    cursor/hover, and after sign-in makeLeaderboardReadOnly() strips those
    from the real sortable headers via th[onclick] -- leaving this the only
    header still rendering as clickable, which is precisely backwards. */
-#leaderboard-table thead th[data-i18n="col_stop"] {
+#leaderboard-table thead th.col-stop {
   cursor: default;
 }
-#leaderboard-table thead th[data-i18n="col_stop"]:hover {
+#leaderboard-table thead th.col-stop:hover {
   color: var(--fg4);
 }
 .leaderboard-row.position-warn {
