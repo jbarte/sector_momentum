@@ -9,7 +9,6 @@ ROOT = Path(__file__).parent.parent
 INDEX = (ROOT / "dashboard/templates/index.html.j2").read_text()
 HEADER = (ROOT / "dashboard/templates/_header.html.j2").read_text()
 AUTH = (ROOT / "dashboard/assets/auth.js").read_text()
-SV = (ROOT / "dashboard/templates/i18n/_core.js.j2").read_text()
 
 
 def _track_record_cell() -> str:
@@ -37,16 +36,20 @@ def test_todays_read_cell_is_guarded_on_the_derived_facts():
     assert "{% if todays_read %}" in INDEX
 
 
-def test_todays_read_renders_the_theme_then_a_translatable_phrase():
-    """Theme name first: it is never translated, and theme-first reads
-    correctly in both EN and SV."""
+def test_todays_read_renders_the_theme_then_the_lead_phrase():
+    """Theme name first, then the fixed phrase that follows it."""
     assert "{{ todays_read.lead_theme }}" in INDEX
-    assert 'data-i18n="read_leads"' in INDEX
+    assert "leads the board." in INDEX
 
 
-def test_all_three_drift_phrases_are_present_and_keyed():
-    for drift in ("rising", "falling", "flat"):
-        assert f'data-i18n="read_bottom_{drift}"' in INDEX, drift
+def test_all_three_drift_phrases_are_present():
+    phrases = {
+        "rising": "The bottom half is picking up.",
+        "falling": "The bottom half keeps sliding.",
+        "flat": "The bottom half is holding flat.",
+    }
+    for drift, phrase in phrases.items():
+        assert phrase in INDEX, drift
 
 
 def _render_header(active_segment, auth=False):
@@ -128,29 +131,26 @@ def test_track_record_cell_has_an_outer_guard():
 
 
 def test_vs_acwi_label_matches_the_configured_benchmark():
-    """index.html.j2's Cell C eyebrow hardcodes "vs ACWI" (EN) / "mot ACWI"
-    (SV) as the track-record chips' label, while dashboard/figures.py's
-    `_window_excess` computes the excess return generically against whatever
-    `track["benchmark"]` the equity curve carries -- correct today only
-    because config/themes.yaml's `benchmark:` happens to be ACWI. Nothing
-    else pins that agreement, so a future change to the config would
-    silently make the label lie about what the chips actually measure.
-    Pinned here rather than threaded through the template: `benchmark` is a
-    single global config value (themes.yaml's own comment), so a config
-    change is the only way this could ever drift, and this test forces
-    whoever makes that change to also update the hardcoded label (both
-    languages) in the same commit."""
+    """index.html.j2's Cell C eyebrow hardcodes "vs ACWI" as the track-record
+    chips' label, while dashboard/figures.py's `_window_excess` computes the
+    excess return generically against whatever `track["benchmark"]` the
+    equity curve carries -- correct today only because config/themes.yaml's
+    `benchmark:` happens to be ACWI. Nothing else pins that agreement, so a
+    future change to the config would silently make the label lie about what
+    the chips actually measure. Pinned here rather than threaded through the
+    template: `benchmark` is a single global config value (themes.yaml's own
+    comment), so a config change is the only way this could ever drift, and
+    this test forces whoever makes that change to also update the hardcoded
+    label in the same commit."""
     import yaml
     themes_cfg = yaml.safe_load((ROOT / "config/themes.yaml").read_text())
     benchmark = (themes_cfg or {}).get("benchmark") or "ACWI"
     assert benchmark == "ACWI", (
         f"config/themes.yaml's benchmark is now {benchmark!r}, but "
-        f"index.html.j2's Cell C eyebrow and dashboard/templates/i18n/"
-        f"_core.js.j2's Swedish translation still hardcode 'vs ACWI' / "
-        f"'mot ACWI' -- update strip_eyebrow_vs_bench in both places"
+        f"index.html.j2's Cell C eyebrow still hardcodes 'vs ACWI' -- "
+        f"update strip_eyebrow_vs_bench"
     )
     assert "vs ACWI" in INDEX, "the hardcoded EN label this test pins is gone"
-    assert 'mot ACWI' in SV, "the hardcoded SV label this test pins is gone"
 
 
 def test_mark_live_targets_the_new_cell():
@@ -160,16 +160,9 @@ def test_mark_live_targets_the_new_cell():
     assert 'getElementById("market-context-chips")' in AUTH
 
 
-def test_every_new_key_has_a_swedish_entry():
-    keys = set(re.findall(r'data-i18n="(read_[a-z_]+|strip_[a-z_]+)"', INDEX))
-    assert keys, "no new strip keys found — did the markup land?"
-    for key in sorted(keys):
-        assert re.search(rf"\b{key}:", SV), f"{key} has no SV entry"
-
-
 def test_eyebrow_labels_exist_for_all_three_cells():
-    for key in ("strip_eyebrow_read", "strip_eyebrow_band", "strip_eyebrow_vs_bench"):
-        assert f'data-i18n="{key}"' in INDEX
+    for phrase in ("Today's read", "In the buy band", "vs ACWI"):
+        assert phrase in INDEX
 
 
 def test_mobile_hides_the_subline_that_the_scan_meta_row_repeats():

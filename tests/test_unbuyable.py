@@ -204,13 +204,12 @@ def test_drilldown_explains_the_absence_instead_of_rendering_nothing():
     may be sitting at rank 1 needs to know there is nothing to buy."""
     html = _build_instruments_html("THEME|Shipping", {}, _THEMES)
     assert html, "unbuyable theme rendered an empty instruments panel"
-    assert 'data-i18n="unbuyable_note"' in html
     assert "cannot be bought" in html
 
 
 def test_a_buyable_theme_still_lists_its_ucits_row():
     html = _build_instruments_html("THEME|Semiconductors", {}, _THEMES)
-    assert "unbuyable_note" not in html
+    assert "bd-unbuyable" not in html
     assert "etf-table" in html
 
 
@@ -235,12 +234,6 @@ def test_built_page_carries_the_unbuyable_list():
         pytest.skip("docs/ not built in this environment")
     html = built.read_text()
     assert 'var UNBUYABLE = ["Shipping"];' in html
-
-
-def test_swedish_copy_exists_for_every_new_string():
-    sv = (_PROJECT_ROOT / "dashboard/templates/i18n/_badges.js.j2").read_text()
-    for key in ("badge_unbuyable", "unbuyable_tip", "unbuyable_note", "ucits_title"):
-        assert f"{key}:" in sv, f"{key} has no Swedish translation"
 
 
 # ---------------------------------------------------------------------------

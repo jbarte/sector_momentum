@@ -20,7 +20,6 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 _RESCORE_JS = _PROJECT_ROOT / "dashboard" / "assets" / "rescore.js"
 _TPL = _PROJECT_ROOT / "dashboard" / "templates"
 _INDEX = _TPL / "index.html.j2"
-_CORE_JS = _TPL / "i18n" / "_core.js.j2"
 
 pytestmark_node = pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
 
@@ -138,9 +137,7 @@ def test_local_iso_date_pads_single_digit_month_and_day():
 
 
 # ---------------------------------------------------------------------------
-# Markup + i18n — the two ways this class of bug already shipped once
-# (horizon_label/horizon_note carried data-i18n with no Swedish entry, and
-# silently fell back to English; see _core.js.j2's comment on that fix)
+# Markup
 # ---------------------------------------------------------------------------
 
 def test_review_panel_markup_has_all_regions_and_starts_hidden():
@@ -157,16 +154,6 @@ def test_review_panel_markup_has_all_regions_and_starts_hidden():
     assert "hidden" in panel_tag, "#review-panel must start hidden"
     btn_tag = re.search(r'<button[^>]*id="review-done-btn"[^>]*>', html).group(0)
     assert "hidden" in btn_tag, "#review-done-btn must start hidden"
-
-
-@pytest.mark.parametrize("key", ["review_done", "rp_review_due", "rp_next_review"])
-def test_swedish_has_the_new_review_strings(key):
-    """review_due/review_next_label were dropped 2026-09-03: the review panel
-    was rebuilt around the rp_* keys and those two carried no data-i18n any
-    more, so this test was pinning strings nothing rendered. Assert the keys
-    the panel actually reads."""
-    sv = _CORE_JS.read_text()
-    assert f"{key}:" in sv, f"{key} carries data-i18n but has no Swedish entry"
 
 
 def test_current_review_status_guards_against_missing_rescore():

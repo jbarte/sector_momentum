@@ -61,10 +61,10 @@ def _render(**overrides) -> str:
 
 
 def _empty_state(html: str) -> str:
-    """The empty-state block only. Bounded by its own title key so the scan
+    """The empty-state block only. Bounded by its own title text so the scan
     can't drift into the chart branch or the page chrome."""
-    assert 'data-i18n="sentiment_empty_title"' in html, "empty state did not render"
-    return html.split('data-i18n="sentiment_empty_title"', 1)[1].split("</div>", 1)[0]
+    assert "No news sentiment for this snapshot" in html, "empty state did not render"
+    return html.split("No news sentiment for this snapshot", 1)[1].split("</div>", 1)[0]
 
 
 def test_gated_empty_state_names_the_snapshot_it_is_showing():
@@ -97,7 +97,7 @@ def test_gated_empty_state_states_the_lag_from_the_real_constant():
     assert str(LAG_DAYS) in block, "the empty state does not state the lag"
 
     # And it must be interpolated, not written into the template as a literal.
-    body = SENTIMENT_TPL.split('data-i18n="sentiment_empty_title"', 1)[1]
+    body = SENTIMENT_TPL.split("No news sentiment for this snapshot", 1)[1]
     assert "lag_days" in body, (
         "the lag is not interpolated from context — a literal here drifts "
         "from dashboard/gating.py the moment LAG_DAYS changes"
@@ -168,19 +168,3 @@ def test_empty_state_points_at_the_non_lagging_indicator():
         "the empty state does not point at the health panel — the only "
         "surface that shows a sentiment outage on the day it happens"
     )
-
-
-@pytest.mark.parametrize("key", [
-    "sentiment_empty_title",
-    "sentiment_empty_showing",
-    "sentiment_empty_lag_pre",
-    "sentiment_empty_lag",
-    "sentiment_empty_health",
-    # Still rendered by the ungated branch, so it must keep its translation.
-    "sentiment_empty_body",
-])
-def test_new_empty_state_strings_are_translated(key):
-    """Every data-i18n key must have a Swedish entry or it silently falls back
-    to English for SV readers."""
-    sv = (TPL_DIR / "i18n" / "_core.js.j2").read_text()
-    assert re.search(rf'{key}:\s*"[^"]+"', sv), f"{key} missing from the SV table"
