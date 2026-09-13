@@ -1,11 +1,9 @@
 """Derived facts for the leaderboard summary strip's "Today's Read" cell.
 
 Returns FACTS, never prose. Every user-visible word lives in
-templates/index.html.j2 behind a data-i18n key, because the i18n pass has no
-variable-interpolation mechanism — a sentence assembled here could not be
-translated at all without inventing a data-i18n-* attribute that the pass does
-not read, which would be silently inert (see the warning comment in
-_header.html.j2).
+templates/index.html.j2 as literal template text — this module hands back
+only the values a sentence there interpolates (the lead theme, the drift
+direction), not assembled sentences of its own.
 
 The rule (decided 2026-08-21): the lead clause names the rank-1 theme; the
 second clause is the direction of the mean change score across the bottom half.

@@ -122,11 +122,6 @@
         renderLatestRows(tbody, latest, meta);
         markLive();
         makeLeaderboardReadOnly();
-        if (window.applyLang) {
-          var lang = "en";
-          try { lang = localStorage.getItem("lang") || "en"; } catch (e) {}
-          window.applyLang(lang);
-        }
         document.dispatchEvent(new CustomEvent("sm:leaderboard-upgraded"));
       });
   }
