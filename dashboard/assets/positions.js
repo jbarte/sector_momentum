@@ -133,25 +133,8 @@
       btn.textContent = isHeld ? "★" : "☆";   // ★ / ☆
       btn.setAttribute("aria-pressed", isHeld ? "true" : "false");
       var label = isHeld ? "Held — click to remove" : "Mark as held";
-      var key = isHeld ? "position_held_tip" : "position_mark_held_tip";
       btn.title = label;
       btn.setAttribute("aria-label", label);   // glyph alone isn't a usable SR name
-      btn.setAttribute("data-i18n-title", key);
-      btn.setAttribute("data-i18n-aria", key);
-      // Reset the cached English fallback so applyLangToEl() below doesn't
-      // translate stale pre-toggle text into the new label — same rule
-      // apply() itself follows, just owned by this call site because this
-      // button (unlike auth.js's insert-once UNBUYABLE_BADGE) is re-labeled
-      // to a DIFFERENT value on every state change.
-      btn.removeAttribute("data-en-title");
-      btn.removeAttribute("data-en-aria");
-      // Scoped translate, not a full-page applyLang() rescan: this button is
-      // the only thing that just changed, and a page-wide rescan would also
-      // needlessly re-run applyFilters() (applyLang()'s own side effect) on
-      // every star click. Also covers sentiment.html.j2, which loads
-      // positions.js but has no sm:positions-changed listener to catch this
-      // any other way.
-      if (window.applyLangToEl) window.applyLangToEl(btn);
     }
   }
 
@@ -178,9 +161,8 @@
       // action rather than a confirm dialog here, so clearing the lock is a
       // decision rather than a reflex.
       if (window.SMBookLock && window.SMBookLock.isLocked()) {
-        var t = window.translate || function (k, en) { return en; };
         var until = window.SMBookLock.lockedUntil();
-        var msg = t("lock_blocked", "Book locked until") + " " + (until || "");
+        var msg = "Book locked until" + " " + (until || "");
         if (typeof announceLive === "function") { announceLive(msg); }
         btn.setAttribute("title", msg);
         showBlockNote(msg);

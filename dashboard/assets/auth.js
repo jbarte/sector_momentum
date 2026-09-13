@@ -34,38 +34,16 @@
   var modal = document.getElementById("gate-modal");
   var continueBtn = document.getElementById("gate-continue");
 
-  /* Dynamic strings can't use the data-i18n pass (it runs once per toggle
-   * over static nodes), so they carry their own EN/SV pairs. */
   var MSG = {
-    sent: {
-      en: "Link sent — check your inbox.",
-      sv: "Länk skickad — kolla din inkorg.",
-    },
-    notInvited: {
-      en: "No account for this email — access is invite-only.",
-      sv: "Inget konto för den här e-postadressen — endast inbjudna.",
-    },
-    rateLimited: {
-      en: "Please wait a minute and try again.",
-      sv: "Vänta en minut och försök igen.",
-    },
-    expired: {
-      en: "Link expired — request a new one.",
-      sv: "Länken har gått ut — begär en ny.",
-    },
-    error: {
-      en: "Sign-in failed. Try again.",
-      sv: "Inloggningen misslyckades. Försök igen.",
-    },
+    sent: "Link sent — check your inbox.",
+    notInvited: "No account for this email — access is invite-only.",
+    rateLimited: "Please wait a minute and try again.",
+    expired: "Link expired — request a new one.",
+    error: "Sign-in failed. Try again.",
   };
 
-  function lang() {
-    try { return localStorage.getItem("lang") === "sv" ? "sv" : "en"; }
-    catch (e) { return "en"; }
-  }
-
   function setStatus(statusEl, key) {
-    if (statusEl) statusEl.textContent = key ? MSG[key][lang()] : "";
+    if (statusEl) statusEl.textContent = key ? MSG[key] : "";
   }
 
   function guestDismissed() {
@@ -113,12 +91,10 @@
     }
   }
 
-  /* Mirrors the static build's markup in index.html.j2 (same classes, same
-   * i18n keys) so the two render paths look identical. applyLang() runs right
-   * after the rebuild, which is what translates it. */
+  /* Mirrors the static build's markup in index.html.j2 (same classes) so the
+   * two render paths look identical. */
   var UNBUYABLE_BADGE =
-    '<span class="unbuyable-badge" data-i18n="badge_unbuyable"'
-    + ' data-i18n-title="unbuyable_tip"'
+    '<span class="unbuyable-badge"'
     + ' title="No UCITS equivalent exists, so this cannot be bought from an EU'
     + ' account. It is still scored because it shapes how every other theme'
     + ' ranks.">⊘ not buyable in EU</span>';
@@ -294,11 +270,6 @@
     chip.id = "live-chip";
     chip.className = "chip chip-up";
     chip.textContent = "Live";
-    // data-i18n so a Swedish reader is not left with an English word; applyLang()
-    // captures data-en from textContent on its first pass, and this function runs
-    // before the applyLang() call in the upgrade path below.
-    chip.setAttribute("data-i18n", "chip_live");
-    chip.setAttribute("data-i18n-title", "chip_live_tip");
     chip.setAttribute("title", "Showing the latest scan");
     host.insertBefore(chip, host.firstChild);
   }

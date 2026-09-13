@@ -224,11 +224,11 @@
     updateShowingBadge(scanId);
     var meta = findScanMeta(scanId);
     if (headerDate && meta) {
-      headerDate.innerHTML = '<span data-i18n="lastScan">Last scan:</span> #' + scanId + " · " + meta.date;
+      headerDate.innerHTML = '<span>Last scan:</span> #' + scanId + " · " + meta.date;
     }
     if (banner) banner.style.display = "";
     if (bannerText) {
-      var prefix = bannerText.getAttribute("data-en-prefix") || "Viewing scan #";
+      var prefix = "Viewing scan #";
       bannerText.textContent = prefix + scanId;
     }
     if (sentimentToggle) sentimentToggle.disabled = true;
