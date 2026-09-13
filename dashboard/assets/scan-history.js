@@ -163,14 +163,14 @@
           // buffer leaves no gap between them (both land on this row), only
           // the exit cut shows — same tie-break as applyBandBoundaries().
           if (isBuyCut && !isHoldCut) {
-            html += window.buildBandCutRowHtml('buy', 'band_buy_ends', 'BUY BAND ENDS',
+            html += window.buildBandCutRowHtml('buy', 'BUY BAND ENDS',
               [{key: 'band_buy_note', en: 'below this line: not a new buy'}]);
           }
           if (isHoldCut) {
             // Copy kept in lockstep with applyBandBoundaries()'s own call
             // site (index.html.j2) -- see the reasoning for "HOLD BAND ENDS"
             // over "SELL LINE" there.
-            html += window.buildBandCutRowHtml('exit', 'band_hold_ends', 'HOLD BAND ENDS', [
+            html += window.buildBandCutRowHtml('exit', 'HOLD BAND ENDS', [
               {key: 'band_sell_note_prefix', en: 'a holding past rank'},
               {text: String(exitRankVal)},
               {key: 'band_sell_note_suffix', en: 'is sold at the next review'}
