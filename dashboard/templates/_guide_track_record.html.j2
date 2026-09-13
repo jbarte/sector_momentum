@@ -21,11 +21,10 @@
   <p>Returns are net of the round-trip trading cost assumption, the same
   caveat the Backtest tab carries.</p>
 </div>
-{#- Sibling, not a child of the div above: that div's innerHTML is fully
-    replaced on every language toggle (data-i18n-html), which would wipe any
-    dates injected into it by JS. Sharing its data-guide-body value means the
-    guide script's existing show()/hide() toggle (index.html.j2, keyed only
-    on that attribute) needs no change to show or hide this alongside it.
+{#- Sibling, not a child of the div above. Sharing its data-guide-body value
+    means the guide script's existing show()/hide() toggle (index.html.j2,
+    keyed only on that attribute) needs no change to show or hide this
+    alongside it.
 
     Curve points land on rebalance boundaries, so the measured span is the
     nearest rebalance at or before the target, not exactly 30/365 days --

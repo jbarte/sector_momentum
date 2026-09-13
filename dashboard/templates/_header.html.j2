@@ -6,9 +6,6 @@
     {% else %}
     <a class="segment-btn" href="index.html">Themes</a>
     {% endif %}
-    {#- The experimental badge sits OUTSIDE the [data-i18n] span on purpose: applyLang()
-        rewrites that node's textContent, so a badge nested inside it would be
-        wiped on the first language switch. -#}
     {% if active_segment == "sentiment" %}
     <span class="segment-btn active" aria-current="page"><span>Sentiment</span><span class="experimental-badge">experimental</span></span>
     {% else %}

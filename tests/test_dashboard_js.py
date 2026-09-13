@@ -2178,8 +2178,8 @@ def test_render_mobile_cards_position_toggle_uses_outerHTML():
     """positionBtn must be read via outerHTML, matching the read-projection
     pattern the rest of this function already uses for rankBadge/trendBadge/
     unbuyableBadge/setupBadge -- .innerHTML/.textContent would drop the
-    button's own tag (and its aria-pressed/title/data-i18n-* attributes)
-    entirely, not just mis-escape it."""
+    button's own tag (and its aria-pressed/title attributes) entirely, not
+    just mis-escape it."""
     js = _render_mobile_cards_js()
     assert "positionBtn.outerHTML" in js
 

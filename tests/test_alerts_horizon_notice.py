@@ -109,10 +109,9 @@ def test_the_notice_has_both_states():
 
 
 def test_numbers_live_in_their_own_nodes():
-    """Interpolating a whole sentence would be wiped on the first language
-    switch — applyLang() rewrites textContent from the SV bundle. The words
-    carry data-i18n; the figures get their own elements, the same shape
-    renderHorizonStats() uses."""
+    """The figures get their own elements, the same shape renderHorizonStats()
+    uses, so JS can update just the number via textContent on a horizon
+    switch without re-writing the surrounding static words each time."""
     text = _FOOTER.read_text()
     for node in ("alerts-hz-alert-exit", "alerts-hz-sel-exit",
                  "alerts-hz-alert-top", "alerts-hz-sel-top"):

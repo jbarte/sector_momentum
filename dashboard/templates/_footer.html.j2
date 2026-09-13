@@ -125,9 +125,9 @@
       switching horizon silently changes the board without changing the inbox.
 
       Numbers are written by script into their own nodes, with the surrounding
-      words carrying data-i18n. Interpolating a whole sentence would have it
-      wiped on the first language switch — applyLang() rewrites textContent from
-      the SV bundle, which is why renderHorizonStats() is built the same way. -#}
+      words left as static text -- the same shape renderHorizonStats() uses,
+      so a horizon switch can update just the figure without re-writing the
+      surrounding words each time. -#}
   <p class="alerts-hz-note" id="alerts-hz-agree" hidden>
     <span>Alerts use the</span>
     <b id="alerts-hz-name"></b>
