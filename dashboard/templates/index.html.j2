@@ -2338,11 +2338,6 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
   }
 });
 
-{#- MUST come after window.applyFilters = applyFilters; above (see that
-    line's own comment) -- _i18n.html.j2's apply() reads window.applyFilters
-    at call time, and applyHorizonBadges()'s exactly-once
-    applyBandBoundaries() guarantee depends on it already being assigned. -#}
-{% include "_i18n.html.j2" %}
 </script>
 <script src="{{ asset_url('scan-history.js') }}"></script>
 
