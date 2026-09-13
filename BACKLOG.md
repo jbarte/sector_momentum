@@ -67,85 +67,6 @@ narrowly:**
   bounded fix — the blast radius crosses the "meaningful blast radius" bar in
   CLAUDE.md's guidance on when to use the full flow.
 
-## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
-
-Decided 2026-09-02. **Supersedes "Guest sign-in status isn't clearly
-signaled"** (recorded 2026-08-31), which asked for colour-coding to signal
-guest vs signed-in state. The demo framing answers that question differently
-and better — the label *is* the signal — so that item is absorbed here rather
-than left running alongside.
-
-**The direction.** The signed-out view is a **demo**: every feature works and
-explores real data, but the data is pinned to a fixed historical scan that
-never advances, and is labelled as demo data. Signing in is what makes it
-live.
-
-**Why this rather than hiding features.** The first framing was "guest should
-only see the gated list, no other features". The intent behind it turned out
-to be demo mode, and the two pull opposite ways — a demo shows the machinery
-and withholds the *value*, not the reverse. For a momentum scanner the value
-is specifically *which themes to buy right now*; that it ranks, how it scores,
-and what the backtest says are the sales pitch and cost nothing to show. Of
-the options weighed (frozen snapshot, locked per-tab previews, masked theme
-identities, and list-only), the frozen snapshot is the only one where guests
-keep the full product **and** nothing current leaks — it resolves the tension
-instead of trading one side against the other.
-
-**Today's design is already a weak demo mode** — full features on 7-day-lagged
-data (`dashboard/gating.py`, `LAG_DAYS = 7`, `apply_leaderboard_lag()`). Two
-problems with the dial where it currently sits:
-
-- **It doesn't read as a demo.** The signal is one banner ("You're viewing
-  data from `<date>`", `index.html.j2:24-30`, i18n key `gate_banner_prefix`)
-  plus a `#auth-signin` button carrying the generic `.lang-toggle` class —
-  `_chrome.css.j2:48-49` adds only `white-space: nowrap`, so it has no
-  distinct colour, weight or treatment of its own (re-verified 2026-09-02).
-  It reads as the real product with an apologetic note attached.
-- **7-day-old momentum rankings are still largely actionable**, and the
-  summary strip's **In the Buy Band** cell names the current top-4 picks
-  outright to anyone who loads the page. That is the sharpest value leak on
-  the site — sharper than any of the analysis tabs.
-
-**Distinction that decides the cost, for whoever specs this:** the existing
-content gate is real for *freshness* — RLS returns 401 to `anon` on every
-table and view (verified live 2026-08-23, see the audit item below). But
-whatever the build bakes is public by construction, so hiding anything from
-guests in CSS/JS would be cosmetic only. A frozen snapshot works precisely
-because it changes *what gets baked*, which is the honest version and also the
-larger change.
-
-**Open questions, all for the spec:**
-
-- **Which scan gets frozen, and who picks it** — a hand-pinned scan id in
-  config, or a rolling "N months back" rule? A hand-pinned one eventually goes
-  stale *as a demo* (its themes drift out of relevance); a rolling one
-  re-introduces a moving window, just a slower one.
-- **How stale is stale enough** to leak nothing while still demonstrating
-  something a reader reads as representative.
-- **What replaces the lag banner** — the demo label's wording, placement, and
-  whether it stays dismissible (today's is).
-- **Does the Sentiment page freeze with it**, and does `build.py`'s existing
-  deliberate cap on `sentiment_signals_df` collapse into the same mechanism.
-- **What happens to the parts that are inherently "now"** — Market Context's
-  SPY/VIX chips and `markLive()` read live regardless of scan, so either they
-  freeze too (and say so) or the page mixes frozen and live data in one view.
-  Decide this alongside *Consider dropping the Market Context chips* below,
-  not separately: if the chips go, most of this question goes with them.
-- **Whether the Backtest / Correlation / RRG tabs freeze at all** — they are
-  historical or universe-wide rather than pick-revealing, so they may not need
-  to move.
-- **Cost side:** CI rebuilds and redeploys daily; a frozen guest build changes
-  what that daily run is *for*, and the signed-in path (`upgradeLeaderboard()`,
-  `renderLatestRows()`, `markLive()` in `auth.js`) becomes the only consumer
-  of fresh data in the published artifact.
-
-**Needs the full brainstorm → spec → plan flow** per CLAUDE.md — the blast
-radius spans `gating.py`, `build.py`, the templates, CI's daily rebuild and
-the sign-in value proposition, and a wrong early call is expensive to unwind.
-The 2026-09-02 discussion got as far as choosing the frozen-snapshot shape;
-the questions above are what it did not settle.
-
-
 ## UCITS monitor: an automated label-disagreement flag
 
 Split off 2026-08-30 from the FX/metric fix (see Done) as the one part of it
@@ -602,6 +523,85 @@ HTML.
 ---
 
 # Parked
+
+## Guest mode as a frozen demo snapshot — measured and declined
+
+**Declined 2026-09-13 on measurement, replacing the 2026-09-02 plan to build
+it.** That entry proposed replacing the rolling 7-day guest lag with a frozen,
+labelled demo snapshot, on the premise that guests currently get today's
+actionable picks for free. The premise is right; the fix does not work. Two
+measurements, both cheap to redo — recorded here so this is not re-derived
+from scratch.
+
+**1. The picks cannot be aged away.** `backtests/holdings_medium.csv` /
+`holdings_long.csv` (committed) hold the strategy's own book at every review
+from 2008-03-31 to 2026-08-31 — 222 monthly reviews, 111 bi-monthly. For each
+review, how much of that day's book an older board already named:
+
+| lookback | medium (~4 names) | long (~5 names) |
+|---|---|---|
+| ~7d | ~100% — the book only turns at review | ~100% |
+| 30d | **79%** | — |
+| 60d | 65% | 90% |
+| 90d | 55% | — |
+| 180d | 45% | 74% |
+| 365d | 37% | 62% |
+| **any two dates at random** | **32%** | **41%** |
+
+The last row is the finding. A board drawn at random from anywhere in 18 years
+still names ~a third of today's medium book, because the strategy has durable
+preferences over a 16-name pool (Biotech, Gold & Precious Metals Miners and
+Cybersecurity recur throughout). At 730 days measured overlap is 1.25 names
+against a 1.28 floor — fully bottomed out. Pure chance for the same shapes
+would be 25% / 29%, so even the floor carries real signal. **~32% is not
+leakage a lag can remove; it is the strategy's character.**
+
+Method, to redo it: for each review date, find the review nearest `T − N`
+days (±20d), intersect the two name sets, average over all pairs. ~40 lines
+against the committed CSVs, no DB and no secrets. Holdings rather than raw
+top-N ranks deliberately — holdings are what the board effectively tells you
+to own, post-buffer; raw rank overlap would read *higher*, since the buffer
+only ever holds names on past their rank.
+
+**2. The lag cannot go deep anyway — the universe moves faster than the
+data ages.** Read off the live gated page's baked `SCAN_HISTORY` (2026-09-13):
+the theme count changed four times in 59 days — 10 themes at scan 126
+(2026-07-09), 13 at 135 (07-19), 20 at 152 (08-05), 18 at 157 (08-10). More
+than ~34 days back is not stale data, it is **a different, smaller product**:
+a 10- or 13-theme board for a tool that ships 18.
+
+**Together: the achievable range is ~7–34 days, moving the leak from ~100% to
+~79%.** That is the entire prize, and pushing past a month buys further
+protection only by misrepresenting the universe.
+
+**So the item is declined, not deferred.** The picks were never the moat.
+What sign-in actually gates — alerts, stop-loss tracking, the review calendar,
+holdings, the live board — is the product; four theme names that a third of
+any historical board would have named anyway are not. No code changed;
+`LAG_DAYS = 7` stands.
+
+**Two of the original item's four open questions had already answered
+themselves** before this was picked up, both worth keeping:
+
+- *"What happens to the parts that are inherently now"* — moot. The
+  Market Context SPY/VIX chips were deleted 2026-09-05, three days after that
+  entry was written, and the sibling item it pointed at shipped with them.
+  `markLive()` survives but runs only inside the signed-in upgrade path
+  (`auth.js`), so **nothing on the guest page reads live data**.
+- *"Does the Sentiment page freeze with it"* — yes, already, by construction.
+  `dashboard/build.py`'s gating block is a single choke point: `all_scores_df`,
+  `history_df`, `rrg_df`, `signals_df`, `sentiment_signals_df` and `health_row`
+  are all capped at `lb_scan_id` there (each added after its own leak was
+  caught in review). Anything that changes how that scan is chosen is followed
+  by every surface automatically — which is also why this would have been a
+  far smaller change than that entry's "blast radius" paragraph claimed.
+
+**Reopen only if** the leak stops being hypothetical — someone is demonstrably
+following the free board — and then not with a deeper lag: the options that
+actually bite are changing what gets *baked* for guests (the summary strip's
+"In the buy band" cell names the top 4 outright) or demoing on a synthetic
+universe. Both were rejected in the 2026-09-02 discussion as gutting the demo,
+and neither is cheaper now.
 
 ## Signed-in drill-down gap after a universe change
 
