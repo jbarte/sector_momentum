@@ -16,19 +16,28 @@ def test_no_i18n_engine_or_tables_in_the_repo():
 
 
 def test_no_i18n_source_references_anywhere():
+    """Scoped to dashboard/ and tests/, not the repo root: an unscoped
+    rglob() from _ROOT also walks any nested git worktree living under
+    .claude/worktrees/ (a sibling Claude Code session on an older branch),
+    which can still carry the pre-removal i18n files legitimately --
+    flagging them there is a false alarm, not a regression in this repo's
+    own tracked source. Caught live: this test passed in the isolated PR
+    worktree (which had no nested worktrees of its own) and only failed
+    once run from the primary checkout, which did."""
     hits = []
-    for pattern in ("*.py", "*.j2", "*.js"):
-        for path in _ROOT.rglob(pattern):
-            if "node_modules" in path.parts or path.name in (
-                "plotly.min.js", "supabase.min.js",
-                # This file's own detection logic names the artifacts it
-                # guards against -- excluded so it doesn't flag itself.
-                "test_i18n_removed.py",
-            ):
-                continue
-            text = path.read_text(encoding="utf-8", errors="ignore")
-            if "data-i18n" in text or "applyLangToEl" in text or "toggleLang" in text:
-                hits.append(str(path.relative_to(_ROOT)))
+    for root in (_ROOT / "dashboard", _ROOT / "tests"):
+        for pattern in ("*.py", "*.j2", "*.js"):
+            for path in root.rglob(pattern):
+                if path.name in (
+                    "plotly.min.js", "supabase.min.js",
+                    # This file's own detection logic names the artifacts it
+                    # guards against -- excluded so it doesn't flag itself.
+                    "test_i18n_removed.py",
+                ):
+                    continue
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                if "data-i18n" in text or "applyLangToEl" in text or "toggleLang" in text:
+                    hits.append(str(path.relative_to(_ROOT)))
     assert not hits, f"i18n artifacts found in source: {hits}"
 
 
