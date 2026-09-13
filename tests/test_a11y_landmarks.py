@@ -197,13 +197,10 @@ def test_no_heading_level_skips_within_each_page():
             )
 
 
-def test_guide_body_headings_are_h3_everywhere_including_the_swedish_copy():
+def test_guide_body_headings_are_h3_everywhere():
     """`.tab-guide-body`'s subsection headings must be h3 (the modal's own
-    title is h2), and this must hold in the Swedish translation too —
-    `_guides.js.j2` is swapped in wholesale via `data-i18n-html` on language
-    switch, so an h4 left behind there would reintroduce the skip only in
-    Swedish."""
-    for name in ("index.html.j2", "sentiment.html.j2", "i18n/_guides.js.j2"):
+    title is h2)."""
+    for name in ("index.html.j2", "sentiment.html.j2"):
         text = _text(name)
         assert "<h4>" not in text and "</h4>" not in text, (
             f"{name} still has an h4 inside a tab-guide-body block"
@@ -223,13 +220,13 @@ def test_promoted_standalone_headings_kept_their_styling():
     index = _text("index.html.j2")
     assert re.search(
         r'<h2 style="margin:22px 0 6px;font-family:var\(--font-display\);'
-        r'font-size:15px;color:var\(--fg1\)" data-i18n="badge_scorecard_title">',
+        r'font-size:15px;color:var\(--fg1\)">Badge scorecard</h2>',
         index,
     ), "badge_scorecard_title must be an h2 with its original inline style"
 
     sentiment = _text("sentiment.html.j2")
     assert re.search(
-        r'<h2 style="margin:24px 0 8px 4px" data-i18n="sent_news_heading">',
+        r'<h2 style="margin:24px 0 8px 4px">News sentiment</h2>',
         sentiment,
     ), "sent_news_heading must be an h2 with its original inline style"
 

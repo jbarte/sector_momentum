@@ -20,65 +20,6 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
-## Remove all localization support — English only (test suite cleanup remains)
-
-Design done 2026-09-13:
-`sector_momentum-notes/specs/2026-09-13-remove-i18n-support-design.md` and
-`sector_momentum-notes/plans/2026-09-13-remove-i18n-support.md`. Shipped as
-3 ordered PRs; **PR1 is done** (this branch/PR) — the i18n engine
-(`_i18n.html.j2`), all 7 translation-table partials
-(`dashboard/templates/i18n/`), the `#lang-toggle` button, and every
-`data-i18n*`/`data-en*` attribute and `translate()`/`applyLangToEl()`/
-`window.applyLang` call site are gone. Zero visible change to English-mode
-output (every English string was already the literal template/JS content;
-removing the tagging attribute changes nothing a reader sees).
-
-Found and fixed along the way, beyond the design doc's own inventory
-(confirms the value of the "confirm during implementation" caveats already
-in the plan): `rescore.js`'s `trajBadgeInner()`/`trajBadgeHTML()` (a second,
-independent Trend-badge markup producer alongside `index.html.j2`'s static
-Jinja loop) carried its own dynamic `data-i18n`/`data-i18n-title` site;
-`auth.js`'s `upgradeLeaderboard()` still called `window.applyLang(lang)`
-behind an `if (window.applyLang)` guard — harmless (the guard prevented a
-crash once the engine was deleted) but dead, and already redundant with the
-`sm:leaderboard-upgraded` → `applyHorizonBadges()` chain; the leaderboard
-filter-count message (`_FILTER_MSG`/`_filterLang()` in `index.html.j2`)
-carried its own EN/SV pair, a third instance of the `MSG`/`lang()` pattern
-already known from `auth.js`/`alert-prefs.js`, in a file the audit hadn't
-flagged for it.
-
-**What remains — PR2 and PR3, per the plan:**
-
-- **PR2**: rename `.lang-toggle` → `.pill-button` (7 buttons unrelated to
-  language borrow the class purely for its style) and fix
-  `tests/test_typography_floor.py`'s one selector reference.
-- **PR3**: delete `tests/test_i18n_coverage.py`; trim ~20 other test files
-  down to their non-i18n assertions (`test_dashboard_js.py` alone has 17
-  sites); add one new sabotage-verified regression guard
-  (`tests/test_i18n_removed.py`) asserting no i18n artifact can quietly
-  return. **The plan's own test-file audit had gaps, found while running
-  PR1's `make test` against the expected-failure list** — worth recording so
-  PR3 doesn't reopen the question: `tests/test_review_panel.py` needs 4
-  fixes beyond the 1 the plan found (`test_panel_states_the_consequence_
-  not_only_the_date`, `test_panel_explains_an_unbuyable_blocked_slot`,
-  `test_panel_names_the_no_changes_state_explicitly`,
-  `test_panel_handles_an_exhausted_review_calendar` all assert a bare i18n
-  key string — `t('rp_no_action'`, `rp_slot_empty`, `rp_no_changes`,
-  `rp_calendar_stale` — rather than the resulting English text); a bare
-  `"lock_blocked"` string check in `tests/test_book_lock.py::test_blocked_
-  click_explains_itself` needs the same fix. Both are the identical pattern
-  already planned for `test_dashboard_js.py::test_badge_carries_no_slot_
-  when_the_book_is_full` — check the literal fallback text, not the key
-  name that used to wrap it.
-
-**PR1's `make build` before/after diff was not run** — this worktree has no
-`.env` mount (1Password `authenticate` was denied) and setting one up was
-declined for this pass. Substituted: Jinja templates parse cleanly, every
-touched Python module imports cleanly, and the full test suite's 1400+
-passing tests (many of which render these exact templates against synthetic
-data) are unchanged in count and identity from before PR1. Worth actually
-running the DB-backed diff before merging, if `.env` becomes available.
-
 ## UCITS monitor: an automated label-disagreement flag
 
 Split off 2026-08-30 from the FX/metric fix (see Done) as the one part of it
@@ -678,11 +619,11 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
-- **i18n removal, PR1 of 3: the engine, tables, and every call site are gone
-  (2026-09-13).** Partial — see the Queued entry above for what remains
-  (PR2's CSS rename, PR3's test cleanup). Design:
-  `sector_momentum-notes/specs/2026-09-13-remove-i18n-support-design.md`.
-  Deleted `dashboard/templates/_i18n.html.j2` and all 7
+- **i18n removal — English only, all 3 PRs shipped (2026-09-13).** Design:
+  `sector_momentum-notes/specs/2026-09-13-remove-i18n-support-design.md` and
+  `sector_momentum-notes/plans/2026-09-13-remove-i18n-support.md`.
+
+  **PR1** (#303) deleted `dashboard/templates/_i18n.html.j2` and all 7
   `dashboard/templates/i18n/*.j2` partials, the `#lang-toggle` button, and
   every `data-i18n*`/`data-en*` attribute and `translate()`/
   `applyLangToEl()`/`window.applyLang` call site across templates, 3 Python
@@ -693,13 +634,43 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   non-i18n bug the removal would otherwise have silently broken:
   `_tables.css.j2` keyed a styling selector (the non-sortable "To stop"
   header's cursor/hover) off `data-i18n="col_stop"`; it now uses a dedicated
-  `.col-stop` class. Zero visible change to English-mode output. Verified
-  via Jinja parse checks, Python import checks, and the full test suite (67
-  failures, all in files already scheduled for PR3's cleanup, cross-checked
-  against a full audit of every known i18n key string, not just the
-  patterns the original design audit searched for) — not via a `make build`
-  before/after diff, which needs `DATABASE_URL` this worktree doesn't have;
-  worth running before merge if `.env` becomes available.
+  `.col-stop` class.
+
+  **PR2** (#304) renamed `.lang-toggle` → `.pill-button` — 7 buttons
+  unrelated to language borrowed the class purely for its style — and fixed
+  `tests/test_typography_floor.py`'s one selector reference. Pure rename, no
+  visual change.
+
+  **PR3** deleted `tests/test_i18n_coverage.py`, trimmed ~20 other test
+  files down to their non-i18n assertions, and added one new
+  sabotage-verified regression guard (`tests/test_i18n_removed.py`)
+  asserting no i18n artifact can quietly return. Found 4 more gaps in the
+  design doc's own test audit while doing it, beyond the ones already
+  recorded here after PR1 — all the identical pattern (a test asserting a
+  bare i18n key string, e.g. `t('rp_no_action'`, `"lock_blocked"`, rather
+  than the resulting English text): `tests/test_review_panel.py` needed 4
+  fixes instead of the 1 originally found, and
+  `tests/test_book_lock.py::test_blocked_click_explains_itself` needed one.
+  Also found one test that was a false "pure i18n" classification on a
+  closer read — `test_badge_gating.py`'s `test_badge_pass_rewrites_data_en_
+  when_it_reuses_a_span` was 3/4 real assertions about the still-current
+  `data-suffix` mechanism (deliberately kept, per the design doc) — trimmed
+  and renamed rather than deleted. Cleaned up 8 files' worth of stale
+  comments still describing the removed mechanism in past tense, surfaced by
+  getting the new guard test's zero-references check to pass cleanly.
+
+  Zero visible change to English-mode output across all 3 PRs — every
+  English string was always the literal template/JS content; removing the
+  tagging attribute changed nothing a reader sees. Full test suite green
+  (1444 passed, 22 skipped, 0 failed) after PR3. **No `make build`
+  before/after diff was run at any point** — this worktree had no `.env`/
+  `DATABASE_URL` available (1Password `authenticate` was denied) and setting
+  one up was declined. Substituted throughout: Jinja parse checks, Python
+  import checks, and the full test suite (which renders these exact
+  templates against synthetic data in many places). Worth running the real
+  diff once, post-merge, if `.env` becomes available — nothing in the
+  substitute verification would have caught a genuine rendering regression
+  invisible to both Jinja's parser and the test suite's synthetic contexts.
 - **Mobile card's expand button is no longer nested inside role="button"
   (2026-09-12).** Closes the item recorded 2026-08-24. The card's whole-card
   `<div class="leaderboard-card" role="button" tabindex="0">` — wrapping a

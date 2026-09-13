@@ -810,59 +810,6 @@ def test_item_for_row_classifies_by_region_not_dataset_shape():
 
 
 # ---------------------------------------------------------------------------
-# positions.js — ★/☆ toggle's title/aria-label must be translatable
-# ---------------------------------------------------------------------------
-
-def test_position_toggle_tooltips_are_i18n_keyed_not_hardcoded_english():
-    """applyRowState() used to set btn.title / aria-label to a literal English
-    string with no i18n hookup, so the toggle stayed "Held — click to remove"
-    for Swedish readers even after a language switch, unlike every other
-    control on the page. It must carry the same data-i18n-title/-aria pattern
-    auth.js uses for its own dynamically-inserted markup (UNBUYABLE_BADGE)."""
-    src = (Path(__file__).parent.parent / "dashboard/assets/positions.js").read_text()
-    assert 'setAttribute("data-i18n-title", key)' in src
-    assert 'setAttribute("data-i18n-aria", key)' in src
-    assert '"position_held_tip"' in src
-    assert '"position_mark_held_tip"' in src
-
-
-def test_position_toggle_calls_applylangtoel_after_state_changes():
-    """The translation only takes effect once something calls
-    window.applyLangToEl (positions.js has no access to the SV dict itself —
-    it lives in the per-page inline i18n IIFE). Guards against the fix
-    landing half-done: keys set on the element but nothing ever re-running
-    the i18n pass to apply them.
-
-    Scoped, not the page-wide window.applyLang: a full rescan on every star
-    click would also re-run applyLang()'s own applyFilters() side effect for
-    no reason, and this button is the only thing that changed."""
-    src = (Path(__file__).parent.parent / "dashboard/assets/positions.js").read_text()
-    assert "window.applyLangToEl" in src
-    assert "window.applyLang(" not in src, (
-        "positions.js should use the scoped applyLangToEl(), not a "
-        "page-wide applyLang() rescan, for a single button's retranslation"
-    )
-
-
-def test_i18n_pass_exposes_the_scoped_element_translator():
-    """applyLangToEl must exist (positions.js depends on it) and must read
-    data-i18n-title/-aria the same way apply()'s own document-wide passes do,
-    so a key translated by one path is translated identically by the other."""
-    js = (Path(__file__).parent.parent
-          / "dashboard/templates/_i18n.html.j2").read_text()
-    assert "window.applyLangToEl" in js
-    assert 'el.hasAttribute("data-i18n-title")' in js
-    assert 'el.hasAttribute("data-i18n-aria")' in js
-
-
-@pytest.mark.parametrize("key", ["position_held_tip", "position_mark_held_tip"])
-def test_swedish_has_the_position_toggle_strings(key):
-    sv = (Path(__file__).parent.parent
-          / "dashboard/templates/i18n/_core.js.j2").read_text()
-    assert f"{key}:" in sv
-
-
-# ---------------------------------------------------------------------------
 # Leaderboard column structure — three builders must agree
 # ---------------------------------------------------------------------------
 
@@ -1089,7 +1036,7 @@ def test_trend_badge_keeps_its_explanation_in_every_builder():
     """The removed `<th>` carried the only on-page explanation of what Trend
     measures (`title="Rank slope over last 3-5 scans"`). Dropping the column
     without rehoming that tooltip would delete the explanation outright, so it
-    moves onto the badge itself -- translated, like every other tooltip.
+    moves onto the badge itself.
 
     Checked in BOTH builders that render a real badge. Checking only the
     template would leave signed-in readers -- the only readers who ever see a
@@ -1105,13 +1052,8 @@ def test_trend_badge_keeps_its_explanation_in_every_builder():
     auth_badge = _auth_trend_badge_source()
 
     for name, frag in (("index.html.j2", tpl_cell), ("auth.js", auth_badge)):
-        assert 'data-i18n-title=' in frag.replace("\\", ""), (
-            f"{name}: the Trend badge carries no translated tooltip -- the "
-            f"explanation the column header used to provide is gone"
-        )
-        assert "trend_tip" in frag, f"{name}: tooltip does not use the trend_tip key"
         assert "title=" in frag.replace("\\", ""), (
-            f"{name}: the Trend badge carries no English title fallback"
+            f"{name}: the Trend badge carries no title fallback"
         )
 
 
@@ -1167,14 +1109,6 @@ def test_horizon_badge_pass_inserts_the_setup_badge_before_the_trend_badge():
         "applyHorizonBadges positions the badge without reference to the Trend "
         "badge, so the ordering is incidental rather than pinned"
     )
-
-
-def test_trend_tip_i18n_key_exists():
-    """data-i18n-title resolves against the Swedish table; a missing key leaves
-    the tooltip silently English."""
-    sv = (Path(__file__).parent.parent
-          / "dashboard/templates/i18n/_core.js.j2").read_text()
-    assert re.search(r'trend_tip:\s*"[^"]+"', sv), "trend_tip missing from the SV table"
 
 
 def test_mobile_cards_find_both_badges_by_class_not_by_cell_index():
@@ -1483,54 +1417,6 @@ def test_band_legend_css_is_gone():
     assert ".band-legend" not in css
 
 
-def test_band_cut_i18n_keys_updated():
-    i18n = (Path(__file__).parent.parent / "dashboard/templates/i18n/_core.js.j2").read_text()
-    assert "band_buy:" not in i18n
-    assert "band_exit:" not in i18n
-    # band_sell_line was renamed to band_hold_ends 2026-09-12 when the label
-    # became "HOLD BAND ENDS"; pinned as absent so the dead key cannot drift
-    # back in alongside its replacement (this repo has lost live keys to a
-    # dead-code sweep that could not tell the two apart -- see
-    # tests/test_i18n_coverage.py's docstring).
-    assert "band_sell_line:" not in i18n
-    for key in ("band_buy_ends", "band_buy_note", "band_hold_ends",
-                "band_sell_note_prefix", "band_sell_note_suffix"):
-        assert f"{key}:" in i18n, f"missing SV translation for new key {key}"
-
-
-def test_band_cut_text_bakes_in_the_current_language():
-    """applyBandBoundaries() reruns on every sort/filter/horizon-switch, not
-    once per row-rebuild — hardcoding English + data-i18n and waiting for the
-    next language toggle (auth.js's UNBUYABLE_BADGE pattern) would visibly
-    reset a Swedish reader's translated band-cut text back to English on
-    their very next interaction. Browser-verified live by whole-branch
-    review: localStorage.lang='sv', sort/filter the table, watch 'BUY BAND
-    ENDS' reappear in English. buildBandCutRowHtml() must bake in the
-    correct text for the current language at build time via
-    window.translate(), not just tag it data-i18n and hope."""
-    js = _apply_band_boundaries_js()
-    # _apply_band_boundaries_js() only captures applyBandBoundaries() itself;
-    # buildBandCutRowHtml() is defined just above it in the same script block.
-    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    start = text.index("function buildBandCutRowHtml")
-    brace_start = text.index("{", start)
-    depth = 0
-    i = brace_start
-    while True:
-        if text[i] == "{":
-            depth += 1
-        elif text[i] == "}":
-            depth -= 1
-            if depth == 0:
-                break
-        i += 1
-    fn_body = text[start:i + 1]
-    assert "window.translate" in fn_body, (
-        "buildBandCutRowHtml() must call window.translate() to bake in the "
-        "current language's text, not just emit English + data-i18n"
-    )
-
-
 def test_apply_horizon_badges_calls_apply_band_boundaries():
     """applyHorizonBadges() must keep calling applyBandBoundaries() at its own
     end — this is what already gives the signed-in path (sm:leaderboard-upgraded/
@@ -1609,41 +1495,6 @@ def test_apply_horizon_badges_direct_band_boundaries_call_is_guarded():
         f"expected exactly one applyBandBoundaries() call site in "
         f"applyHorizonBadges(), found {fn_body.count('applyBandBoundaries();')}"
     )
-
-
-def test_apply_horizon_badges_trailing_apply_filters_call_is_guarded():
-    """Live-browser-verified gap in the fix above: window.applyLang()
-    (_i18n.html.j2's apply()) ends with its OWN window.applyFilters() call
-    ("the leaderboard filter count is built in
-    JS... re-render it in the new language", its own comment says). Calling
-    applyFilters() again right after window.applyLang(lang), unconditionally,
-    was a SECOND source of the identical double-renderMobileCards() bug the
-    previous test fixes the first source of -- confirmed live: instrumenting
-    window.renderMobileCards() and calling applyHorizonBadges() still showed
-    2 renders after only the first guard was in place, 1 after this one was
-    added too. The explicit applyFilters() call must fire only when
-    window.applyLang did not already run.
-
-    NOT load-bearing for the double/triple-render bug any more, same as the
-    guard above: renderMobileCards() itself now coalesces repeated calls
-    within one tick, so this guard is a minor efficiency, not a correctness
-    requirement."""
-    fn_body = _apply_horizon_badges_js()
-    tail = fn_body[fn_body.index("if (window.applyLang)"):]
-    assert "} else if (typeof applyFilters === 'function') {" in tail, (
-        "the trailing applyFilters() call is not guarded on window.applyLang "
-        "being unavailable -- window.applyLang(lang) already calls "
-        "applyFilters() internally, so calling it again here unconditionally "
-        "redoes applyBandBoundaries()'s cut-row/renderBuyBand() work for no "
-        "benefit (renderMobileCards() itself now coalesces repeated calls "
-        "within one tick, so this no longer double-renders the card list -- "
-        "see the NOT load-bearing comment in dashboard/templates/index.html.j2)"
-    )
-    # window.applyLang(lang) must still be the call that actually fires in
-    # the normal case (real pages always define window.applyLang) -- this
-    # guards against the guard silently inverting (e.g. skipping applyLang
-    # instead of the redundant applyFilters call).
-    assert "window.applyLang(lang);" in tail
 
 
 def test_scan_history_also_draws_band_boundaries():
@@ -2327,8 +2178,8 @@ def test_render_mobile_cards_position_toggle_uses_outerHTML():
     """positionBtn must be read via outerHTML, matching the read-projection
     pattern the rest of this function already uses for rankBadge/trendBadge/
     unbuyableBadge/setupBadge -- .innerHTML/.textContent would drop the
-    button's own tag (and its aria-pressed/title/data-i18n-* attributes)
-    entirely, not just mis-escape it."""
+    button's own tag (and its aria-pressed/title attributes) entirely, not
+    just mis-escape it."""
     js = _render_mobile_cards_js()
     assert "positionBtn.outerHTML" in js
 
@@ -2453,23 +2304,8 @@ def test_mobile_scan_meta_markup_exists():
     header = (Path(__file__).parent.parent
               / "dashboard/templates/_header.html.j2").read_text()
     assert 'class="mobile-scan-meta"' in header
-    assert 'data-i18n="scan_prefix"' in header
     assert "{{ active_scan_id }}" in header
     assert "{{ scan_date[:10] }}" in header
-
-
-def test_scan_prefix_has_sv_translation():
-    """data-i18n="scan_prefix" without an SV entry would silently fall
-    back to English on language switch — the same gap the horizon
-    control's own SV keys were added to close (see the comment above
-    horizon_label in this same file). Shared by the mobile echo, the
-    desktop summary-strip subline, and the sentiment page's own desktop
-    indicator (see test_desktop_scan_meta_* below) — one key, one
-    translation, three renderers."""
-    core_i18n = (Path(__file__).parent.parent
-                 / "dashboard/templates/i18n/_core.js.j2").read_text()
-    assert re.search(r"\bscan_prefix:\s*\"\S+\"", core_i18n)
-
 
 
 def test_mobile_scan_meta_survives_missing_scan_date():
@@ -2517,7 +2353,6 @@ def test_desktop_scan_meta_markup_exists():
     assert 'class="desktop-scan-meta"' in header
     meta_start = header.index('class="desktop-scan-meta"')
     block = header[meta_start:meta_start + 400]
-    assert 'data-i18n="scan_prefix"' in block
     assert "{{ active_scan_id }}" in block
     assert "{{ scan_date[:10] }}" in block
 
@@ -2814,16 +2649,6 @@ def test_buy_band_is_called_from_scan_history():
     assert "renderBuyBand" in js
 
 
-def test_buy_band_empty_state_is_translatable():
-    """A filter can hide every in-band theme, and a past scan carries no rail
-    at all — empty is a real state, so its copy needs a Swedish entry like any
-    other."""
-    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    sv = (Path(__file__).parent.parent / "dashboard/templates/i18n/_core.js.j2").read_text()
-    assert 'data-i18n="band_empty"' in text
-    assert re.search(r"\bband_empty:", sv), "band_empty has no SV entry"
-
-
 def test_buy_band_pills_are_rank_ordered_not_table_ordered():
     """Every pill prints its own rank, so following a Theme or Composite sort
     would render "1 2 4 3" — which reads as a bug rather than as the table's
@@ -2935,7 +2760,7 @@ def test_horizon_label_has_no_trailing_colon():
     element it used to label is now display:none and no longer the focus
     target; the segmented buttons are."""
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    idx = text.index('data-i18n="horizon_label"')
+    idx = text.index('class="horizon-eyebrow"')
     line = text[max(0, idx - 80):idx + 80]
     assert "Horizon:" not in line
     assert "<label" not in text[max(0, idx - 40):idx]
@@ -3216,18 +3041,6 @@ def test_more_filters_chip_has_a_dashed_border():
     assert "dashed" in m.group(0)
 
 
-def test_more_filters_i18n_key_exists():
-    """The [^"]+ (not \\S+) matters: the Swedish translation is two words
-    ("Fler filter") — a \\S+-based pattern stops at the first space and
-    never reaches the closing quote, failing against a correct
-    translation. Caught live while executing this plan."""
-    core_i18n = (Path(__file__).parent.parent
-                 / "dashboard/templates/i18n/_core.js.j2").read_text()
-    assert re.search(r'\bmore_filters:\s*"[^"]+"', core_i18n)
-    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    assert 'data-i18n="more_filters"' in text
-
-
 def _set_filter_bar_visible_js():
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
     start = text.index("function setFilterBarVisible(")
@@ -3499,35 +3312,8 @@ def test_mobile_card_theme_name_uses_innerhtml_not_textcontent():
     )
 
 
-def test_apply_filters_assigned_before_i18n_include():
-    """Code review, 2026-08-24 (removed-behavior angle): applyHorizonBadges()'s
-    exactly-once applyBandBoundaries() guarantee holds today only because
-    `window.applyFilters = applyFilters;` executes before _i18n.html.j2's
-    include -- nothing structural enforces that order, only where the two
-    lines happen to sit in the file. If a future edit moved the include
-    earlier (or the assignment later), _i18n.html.j2's apply() would see
-    window.applyFilters as undefined and skip its own trailing
-    applyFilters() call, while applyHorizonBadges()'s direct-call guard
-    (gated on the LOCAL hoisted `applyFilters` identifier, always defined)
-    would also skip -- applyBandBoundaries()/renderMobileCards() would not
-    run at all for that invocation, a silent regression from "renders
-    twice" to "never renders," which neither of this file's other two
-    guard tests can catch (both are scoped to applyHorizonBadges()'s own
-    body). This test pins the ordering itself."""
-    text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
-    assign_at = text.index("window.applyFilters = applyFilters;")
-    include_at = text.index('{% include "_i18n.html.j2" %}')
-    assert assign_at < include_at, (
-        "window.applyFilters must be assigned before _i18n.html.j2 is "
-        "included, or applyHorizonBadges() can silently render zero times "
-        "instead of the intended once"
-    )
-
-
-def test_short_date_formats_for_both_languages():
-    """Badge suffixes name a real date. Intl handles the month name, so no new
-    i18n keys are needed -- but it must actually differ by language, or Swedish
-    readers get English months (the bug class that shipped on horizon_note)."""
+def test_short_date_formats_correctly():
+    """Badge suffixes name a real date; Intl handles the month name."""
     import json as _json
     import shutil, subprocess
     if shutil.which("node") is None:
@@ -3536,13 +3322,12 @@ def test_short_date_formats_for_both_languages():
     script = (
         f"const R = require({str(js)!r});"
         "console.log(JSON.stringify(["
-        "R.shortDate('2026-08-31','en'), R.shortDate('2026-08-31','sv')]));"
+        "R.shortDate('2026-08-31','en')]));"
     )
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
-    en, sv = _json.loads(out.stdout)
+    en = _json.loads(out.stdout)[0]
     assert "31" in en and "Aug" in en, f"unexpected English format: {en!r}"
-    assert "31" in sv, f"unexpected Swedish format: {sv!r}"
 
 
 def test_badge_carries_no_slot_when_the_book_is_full():
@@ -3550,7 +3335,7 @@ def test_badge_carries_no_slot_when_the_book_is_full():
     holdings rendered a plain green Enter, which reads as 'buy now' when the
     strategy would buy nothing. freeSlots === 0 must be stated on the badge."""
     js = _apply_horizon_badges_js()
-    assert "badge_no_slot" in js, (
+    assert "no slot" in js, (
         "applyHorizonBadges never references the no-slot suffix -- an Enter "
         "badge on a full book still reads as actionable"
     )
@@ -3563,14 +3348,6 @@ def test_badge_carries_the_review_date_between_reviews():
         "applyHorizonBadges does not stamp the next review date onto badges -- "
         "muting alone was already tried and did not work"
     )
-
-
-def test_no_slot_and_review_suffixes_have_swedish():
-    """Swedish has shipped missing twice on this exact surface."""
-    sv = (Path(__file__).parent.parent
-          / "dashboard/templates/i18n/_core.js.j2").read_text()
-    for key in ("badge_no_slot",):
-        assert f"{key}:" in sv, f"{key} has no Swedish translation"
 
 
 def test_surplus_rows_are_marked_when_over_held():
@@ -3820,14 +3597,12 @@ def test_render_horizon_stats_renders_staleness_not_just_the_chips():
     renderHorizonStats("stale");
     var staleState = {{
       hidden: elements["tr-stale"].hidden,
-      text: elements["tr-stale"].textContent,
-      i18nKey: elements["tr-stale"].getAttribute("data-i18n")
+      text: elements["tr-stale"].textContent
     }};
     renderHorizonStats("fresh");
     var freshState = {{
       hidden: elements["tr-stale"].hidden,
-      text: elements["tr-stale"].textContent,
-      i18nKey: elements["tr-stale"].getAttribute("data-i18n")
+      text: elements["tr-stale"].textContent
     }};
 
     process.stdout.write(JSON.stringify({{stale: staleState, fresh: freshState}}));
@@ -3842,10 +3617,6 @@ def test_render_horizon_stats_renders_staleness_not_just_the_chips():
     assert "2026-07-01" in out["stale"]["text"], (
         f"#tr-stale did not name the as-of date for a stale horizon: "
         f"{out['stale']['text']!r}"
-    )
-    assert out["stale"]["i18nKey"] == "track_record_as_of", (
-        "#tr-stale never gets a data-i18n attribute -- a later language "
-        "toggle cannot find and retranslate it (2026-09-05 review finding)"
     )
     assert out["fresh"]["hidden"] is True, (
         "a fresh horizon must keep #tr-stale hidden"
@@ -4576,8 +4347,7 @@ def test_safe_query_lets_the_other_query_succeed_when_one_rejects():
     global.window = {{
       SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
       SM_TRAILING_STOP_FRAC: 0.12,
-      SM_SIGNED_IN: true,
-      applyLangToEl: function () {{}}
+      SM_SIGNED_IN: true
     }};
 
     var appended = [];
@@ -4695,8 +4465,7 @@ def test_chip_wins_and_only_one_element_appended_when_both_rows_exist_for_same_k
     global.window = {{
       SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
       SM_TRAILING_STOP_FRAC: 0.12,
-      SM_SIGNED_IN: true,
-      applyLangToEl: function () {{}}
+      SM_SIGNED_IN: true
     }};
 
     var appended = [];
@@ -4812,8 +4581,7 @@ def test_bar_is_suppressed_entirely_when_the_stop_frac_config_is_missing():
     script = f"""
     global.window = {{
       SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
-      SM_SIGNED_IN: true,
-      applyLangToEl: function () {{}}
+      SM_SIGNED_IN: true
     }};
     // window.SM_TRAILING_STOP_FRAC deliberately absent.
 

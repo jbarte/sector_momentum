@@ -79,12 +79,7 @@
   {% else %}
   <div class="chart-container" style="padding:48px 32px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
     <p style="font-weight:600;color:var(--fg2);margin:0 0 8px">No news sentiment for this snapshot</p>
-    {#- Dynamic values sit OUTSIDE the data-i18n spans on purpose: applyLang()
-        replaces an element's whole textContent from the SV table, so a scan id
-        or date inside one would be wiped the moment a reader switches language.
-        Same prefix/value/suffix split the lag banner in index.html.j2 uses.
-
-        Gated on `auth` because that is what turns the lag on: build.py sets
+    {#- Gated on `auth` because that is what turns the lag on: build.py sets
         `lag_active = bool(auth_ctx["auth"])`, so an unconfigured build renders
         the LATEST scan and every word about lag and signing in would be false
         there. -#}
@@ -133,9 +128,7 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
 
 
 <!-- Tab guides. One modal, one body per tab, shown by data-guide key.
-     Bodies live inside the modal (not cloned in on demand) so the i18n pass
-     still finds every [data-i18n-html] node in the DOM at load and can swap
-     EN/SV on all of them. -->
+     Bodies live inside the modal, not cloned in on demand. -->
 <div class="guide-overlay" id="guide-modal" hidden>
   <div class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
     <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
@@ -181,10 +174,7 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
     re-including this partial themselves. Keep this include ahead of both in
     document order if either moves. -#}
 {% include "_modal.js.j2" %}
-/* Tab guides: one modal, bodies pre-rendered inside it and toggled by key.
-   The bodies stay in the DOM (rather than being cloned in on open) so the i18n
-   pass still sees every [data-i18n-html] node and can swap EN/SV on all of
-   them, including guides for tabs the reader has not opened. */
+/* Tab guides: one modal, bodies pre-rendered inside it and toggled by key. */
 (function () {
   var overlay = document.getElementById("guide-modal");
   if (!overlay) { return; }

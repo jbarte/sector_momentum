@@ -98,8 +98,8 @@ def test_ungated_build_renders_the_badge():
     that keeps them.
     """
     html = _render_index(badges_gated=False)
-    assert '<span class="setup-badge entry" data-i18n="badge_entry">▲ Enter</span>' in html
-    assert '<span class="setup-badge exit" data-i18n="badge_exit">▼ Exit</span>' in html
+    assert '<span class="setup-badge entry">▲ Enter</span>' in html
+    assert '<span class="setup-badge exit">▼ Exit</span>' in html
     tags = _leaderboard_row_tags(html)
     assert any('data-setup="entry"' in t for t in tags)
     assert any('data-setup="exit"' in t for t in tags)
@@ -254,30 +254,18 @@ def test_exit_rank_scales_with_universe_size():
     assert json.loads(out) == [8, 7]  # 5+round(0.15*20=3.0)=8 ; 5+round(0.15*10=1.5)=7
 
 
-def test_badge_pass_rewrites_data_en_when_it_reuses_a_span():
-    """applyLang() restores English from a cached `data-en`, and the badge span
-    is reused across kinds — a span that goes Enter -> Hold and keeps
-    data-en="▲ Enter" snaps back to Enter on the next English pass. Only
-    verifiable in a browser, so this pins the line instead.
-
-    Since the self-describing-suffix / Swedish-suffix fix (fix round 1 on
-    task-2-report.md), `data-en` is refreshed to the BARE kind text (no
-    suffix) — the suffix now lives in a separate `data-suffix` attribute that
-    _i18n.html.j2's apply() appends to whichever base (data-en, or SV[key] on
-    the Swedish branch) it picks. A suffix baked directly into data-en, as
-    this pinned before the fix, made the Swedish branch permanently unable to
-    show it (SV[key] never reads data-en at all) — see
-    test_badge_i18n_playwright.py for the browser-verified regression test of
-    that actual behaviour; this test only pins the source shape.
-    """
+def test_badge_pass_carries_the_suffix_on_a_dedicated_attribute():
+    """The badge span is reused across kinds (Enter -> Hold, etc.), so a
+    stale suffix from a prior render must not survive onto one with none —
+    `data-suffix` is set when there is a suffix and explicitly cleared when
+    there isn't, rather than left to whatever the last render wrote. Only
+    verifiable in a browser, so this pins the source shape instead."""
     tpl = (_TPL_DIR / "index.html.j2").read_text()
     body = tpl[tpl.index("function applyHorizonBadges()"):]
     body = body[:body.index("\n}")]
     assert "badge.textContent = BADGE_TEXT_EN[kind] + suffix;" in body
-    assert "badge.setAttribute('data-en', BADGE_TEXT_EN[kind]);" in body, \
-        "badge text is set without refreshing data-en; applyLang will revert it"
     assert "badge.setAttribute('data-suffix', suffix);" in body, \
-        "suffix is not carried on data-suffix; the Swedish branch cannot show it"
+        "suffix is not carried on data-suffix"
     assert "badge.removeAttribute('data-suffix');" in body, \
         "a stale data-suffix from a prior render can persist onto a badge with no suffix"
 

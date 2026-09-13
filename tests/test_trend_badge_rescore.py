@@ -155,7 +155,7 @@ def test_toggling_the_sentiment_control_rebuilds_the_badge_with_both_spans(page)
 
 def test_the_badge_still_has_its_tooltip_after_rescoring(page):
     """innerHTML on the existing span (not outerHTML replacement) must leave
-    the element's own attributes -- title, data-i18n-title -- untouched."""
+    the element's own attributes -- title in particular -- untouched."""
     page.locator(".rank-settings summary").click()
     page.locator("#sentiment-toggle").check()
     page.wait_for_function(

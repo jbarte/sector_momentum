@@ -61,14 +61,6 @@ def test_deck_uses_the_shared_modal_helper_not_hand_rolled():
     assert "window.SMModal.bind(" in html
 
 
-def test_deck_has_no_i18n_attributes():
-    """Deliberate carve-out matching _methodology.html.j2 -- English only for
-    now. A data-i18n attribute here would need a Swedish entry or
-    tests/test_i18n_coverage.py fails the whole build."""
-    html = _render("_beginner_deck.html.j2")
-    assert "data-i18n" not in html
-
-
 def test_deck_card_one_states_the_buy_band_size_live():
     low = _prose("_beginner_deck.html.j2", default_horizon_top_n=4)
     assert "top 4" in low

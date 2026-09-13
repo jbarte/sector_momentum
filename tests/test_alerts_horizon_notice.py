@@ -22,8 +22,6 @@ import pytest
 _ROOT = Path(__file__).parent.parent
 _FOOTER = _ROOT / "dashboard" / "templates" / "_footer.html.j2"
 _TPL = _ROOT / "dashboard" / "templates"
-_SV = _TPL / "i18n" / "_core.js.j2"
-
 _needs_node = pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
 
 
@@ -111,10 +109,9 @@ def test_the_notice_has_both_states():
 
 
 def test_numbers_live_in_their_own_nodes():
-    """Interpolating a whole sentence would be wiped on the first language
-    switch — applyLang() rewrites textContent from the SV bundle. The words
-    carry data-i18n; the figures get their own elements, the same shape
-    renderHorizonStats() uses."""
+    """The figures get their own elements, the same shape renderHorizonStats()
+    uses, so JS can update just the number via textContent on a horizon
+    switch without re-writing the surrounding static words each time."""
     text = _FOOTER.read_text()
     for node in ("alerts-hz-alert-exit", "alerts-hz-sel-exit",
                  "alerts-hz-alert-top", "alerts-hz-sel-top"):
@@ -131,13 +128,6 @@ def test_the_notice_is_recomputed_on_open():
     assert "renderHorizonNote()" in body
 
 
-def test_swedish_has_every_fragment():
-    sv = _SV.read_text()
-    text = _FOOTER.read_text()
-    keys = set(re.findall(r'data-i18n="(alerts_hz_[a-z0-9_]+)"', text))
-    assert keys, "no alerts_hz_* fragments found in the footer"
-    missing = sorted(k for k in keys if f"{k}:" not in sv)
-    assert not missing, f"Swedish is missing: {missing}"
 
 
 def test_no_jinja_comment_leaks_into_the_rendered_page():

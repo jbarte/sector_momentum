@@ -121,10 +121,10 @@
           "1M — 12M —" beside a "what this compares" button explains nothing.
           The div renders empty in that case, exactly as it used to. -#}
       {% if has_backtest %}
-      {#- title/data-i18n-title so the unit is explained without opening the
-          guide -- "pp" is jargon, and the gap-between-two-percentages point
-          is the part a reader actually needs. Same pattern the trend badge
-          and the unbuyable badge already use. -#}
+      {#- title explains the unit without opening the guide -- "pp" is
+          jargon, and the gap-between-two-percentages point is the part a
+          reader actually needs. Same pattern the trend badge and the
+          unbuyable badge already use. -#}
       <span class="chip" id="tr-m1-chip"
             title="Percentage points ahead of (or behind) ACWI over this window"><span>1M</span> <b id="tr-m1">—</b></span>
       <span class="chip" id="tr-m12-chip"
@@ -196,11 +196,11 @@
       {% endfor %}
     </select>
     {#- The cost of the chosen horizon, beside the control rather than crammed
-        into every option label. Numbers live in their own elements and the unit
-        words carry data-i18n: applyLang() rewrites [data-i18n] textContent, so
-        putting both in one node would wipe the figures on a language switch.
-        The full three-way comparison lives in the Backtest tab, which already
-        tabulates every preset and highlights the active row. -#}
+        into every option label. Numbers live in their own elements so a
+        horizon switch can update just the figure via textContent without
+        re-writing the surrounding unit words each time. The full three-way
+        comparison lives in the Backtest tab, which already tabulates every
+        preset and highlights the active row. -#}
     <span class="horizon-stats" id="horizon-stats">
       <span class="hz-stat"><b id="hz-held">—</b> <span>held</span></span>
       <span class="hz-stat"><span>sell past rank</span> <b id="hz-exit">—</b></span>
@@ -812,8 +812,8 @@ function _renderMobileCardsNow() {
       + '<div class="card-line1">'
       + (rankBadge ? '<span class="card-rank">' + rankBadge.outerHTML + '</span>' : '')
       {#- .outerHTML: the button carries its own attributes (aria-pressed,
-          title, data-i18n-*) that a plain re-creation would have to restate
-          by hand and could drift from decorateRow()'s own markup. It has no
+          title) that a plain re-creation would have to restate by hand and
+          could drift from decorateRow()'s own markup. It has no
           user-supplied content (just a static ★/☆ glyph), so unlike
           themeName below there is no escaping concern either way -- outerHTML
           is simply the least code, not a second escaping fix. -#}
@@ -2242,9 +2242,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 
 
 <!-- Tab guides. One modal, one body per tab, shown by data-guide key.
-     Bodies live inside the modal (not cloned in on demand) so the i18n pass
-     still finds every [data-i18n-html] node in the DOM at load and can swap
-     EN/SV on all of them. -->
+     Bodies live inside the modal, not cloned in on demand. -->
 <div class="guide-overlay" id="guide-modal" hidden>
   <div class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
     <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
@@ -2479,10 +2477,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
     re-including this partial themselves. Keep this include ahead of both in
     document order if either moves. -#}
 {% include "_modal.js.j2" %}
-/* Tab guides: one modal, bodies pre-rendered inside it and toggled by key.
-   The bodies stay in the DOM (rather than being cloned in on open) so the i18n
-   pass still sees every [data-i18n-html] node and can swap EN/SV on all of
-   them, including guides for tabs the reader has not opened. */
+/* Tab guides: one modal, bodies pre-rendered inside it and toggled by key. */
 (function () {
   var overlay = document.getElementById("guide-modal");
   if (!overlay) { return; }
