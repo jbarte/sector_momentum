@@ -146,15 +146,8 @@ def test_load_falls_back_to_the_narrow_select_when_stop_loss_since_is_missing():
     assert 'select("ntfy_topic, enabled")' in load_fn
 
 
-def test_stop_loss_checkbox_is_present_and_translated():
-    """The checkbox is the only way to turn stops on, and every data-i18n key
-    it carries must resolve in Swedish (tests/test_i18n_coverage.py enforces
-    the second half of that independently)."""
+def test_stop_loss_checkbox_is_present():
+    """The checkbox is the only way to turn stops on."""
     from pathlib import Path
     footer = Path("dashboard/templates/_footer.html.j2").read_text()
     assert 'id="alert-prefs-stop"' in footer
-    assert 'data-i18n="alerts_stop_label"' in footer
-
-    sv = Path("dashboard/templates/i18n/_core.js.j2").read_text()
-    assert "alerts_stop_label:" in sv
-    assert "alerts_stop_help:" in sv

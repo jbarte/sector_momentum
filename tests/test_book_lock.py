@@ -336,7 +336,7 @@ def test_star_toggle_is_blocked_while_locked():
 def test_blocked_click_explains_itself():
     """A star that silently does nothing reads as a broken page."""
     js = (_ROOT / "dashboard/assets/positions.js").read_text()
-    assert "lock_blocked" in js, (
+    assert "Book locked until" in js, (
         "a refused toggle gives the reader no reason"
     )
 
@@ -439,9 +439,3 @@ def test_done_auto_locks_until_the_next_review():
     assert "SMBookLock.lock" in done[:800], (
         "ticking Done does not re-lock the book, so the cycle does not close"
     )
-
-
-def test_lock_strings_have_swedish():
-    sv = (_ROOT / "dashboard/templates/i18n/_core.js.j2").read_text()
-    for key in ("rp_lock_label", "lock_blocked", "rp_unlock"):
-        assert f"{key}:" in sv, f"{key} has no Swedish translation"

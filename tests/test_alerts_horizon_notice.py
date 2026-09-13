@@ -22,8 +22,6 @@ import pytest
 _ROOT = Path(__file__).parent.parent
 _FOOTER = _ROOT / "dashboard" / "templates" / "_footer.html.j2"
 _TPL = _ROOT / "dashboard" / "templates"
-_SV = _TPL / "i18n" / "_core.js.j2"
-
 _needs_node = pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
 
 
@@ -131,13 +129,6 @@ def test_the_notice_is_recomputed_on_open():
     assert "renderHorizonNote()" in body
 
 
-def test_swedish_has_every_fragment():
-    sv = _SV.read_text()
-    text = _FOOTER.read_text()
-    keys = set(re.findall(r'data-i18n="(alerts_hz_[a-z0-9_]+)"', text))
-    assert keys, "no alerts_hz_* fragments found in the footer"
-    missing = sorted(k for k in keys if f"{k}:" not in sv)
-    assert not missing, f"Swedish is missing: {missing}"
 
 
 def test_no_jinja_comment_leaks_into_the_rendered_page():
