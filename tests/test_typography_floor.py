@@ -108,7 +108,7 @@ def test_guide_modal_subsection_heading_meets_floor():
 
 def test_lang_toggle_meets_floor():
     css = _css("_chrome.css.j2")
-    assert _resolved_px(_rule_font_size(css, ".lang-toggle")) >= 12
+    assert _resolved_px(_rule_font_size(css, ".pill-button")) >= 12
 
 
 def test_market_context_chip_meets_floor():

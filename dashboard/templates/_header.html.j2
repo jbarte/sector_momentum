@@ -41,16 +41,16 @@
     {% endif %}
     {% if auth %}
     <span class="auth-root" id="auth-root">
-      <button id="auth-signin" class="lang-toggle" type="button">Sign in</button>
+      <button id="auth-signin" class="pill-button" type="button">Sign in</button>
       <form id="auth-form" class="auth-form" hidden>
         <input id="auth-email" class="auth-email" type="email" required autocomplete="email"
                placeholder="you@example.com" aria-label="Email">
-        <button id="auth-send" class="lang-toggle auth-send" type="submit">Send link</button>
+        <button id="auth-send" class="pill-button auth-send" type="submit">Send link</button>
         <span id="auth-status" class="auth-status" aria-live="polite"></span>
       </form>
       <span id="auth-user" hidden>
         <span id="auth-email-label" class="scan-meta"></span>
-        <button id="auth-signout" class="lang-toggle" type="button">Sign out</button>
+        <button id="auth-signout" class="pill-button" type="button">Sign out</button>
       </span>
     </span>
     {% endif %}
