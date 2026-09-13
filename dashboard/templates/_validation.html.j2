@@ -1,25 +1,25 @@
 {# Forward-return validation & holding-period stats panels #}
 {% if validation_min_scans_met %}
-<h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)" data-i18n="val_fwd_title">Do the rankings predict returns?</h3>
-<p class="tab-note" data-i18n="val_fwd_desc">Excess return of the top-5 themes vs the benchmark.</p>
+<h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">Do the rankings predict returns?</h3>
+<p class="tab-note">Excess return of the top-5 themes vs the benchmark.</p>
 {% if not validation_conclusive %}
 <p class="tab-note val-provisional">
-  <strong data-i18n="val_provisional_head">Provisional — not yet conclusive.</strong>
-  <span data-i18n="val_provisional_pre">Based on</span>
+  <strong>Provisional — not yet conclusive.</strong>
+  <span>Based on</span>
   <strong>{{ "%.1f"|format(validation_span_days / 30.4) }}</strong>
-  <span data-i18n="val_provisional_mid">months of scans (since</span>
-  <strong>{{ validation_first_scan }}</strong><span data-i18n="val_provisional_post">). Forward-return windows overlap heavily, so these observations are not independent and the sample cannot support a conclusion. The equity curves above cover multiple years; this panel reflects only live scans since tracking began. Colour-coding returns after ~12 months of history.</span>
+  <span>months of scans (since</span>
+  <strong>{{ validation_first_scan }}</strong><span>). Forward-return windows overlap heavily, so these observations are not independent and the sample cannot support a conclusion. The equity curves above cover multiple years; this panel reflects only live scans since tracking began. Colour-coding returns after ~12 months of history.</span>
 </p>
 {% endif %}
 <div class="table-wrap">
   <table>
     <thead>
       <tr>
-        <th scope="col" data-i18n="val_horizon">Horizon</th>
-        <th scope="col" data-i18n="val_obs">Obs</th>
-        <th scope="col" data-i18n="val_hit_rate">Hit rate</th>
-        <th scope="col" data-i18n="val_mean">Mean excess</th>
-        <th scope="col" data-i18n="val_median">Median excess</th>
+        <th scope="col">Horizon</th>
+        <th scope="col">Obs</th>
+        <th scope="col">Hit rate</th>
+        <th scope="col">Mean excess</th>
+        <th scope="col">Median excess</th>
       </tr>
     </thead>
     <tbody>
@@ -40,23 +40,23 @@
   </table>
 </div>
 
-<h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)" data-i18n="val_hold_title">How long do top-5 positions last?</h3>
-<p class="tab-note" data-i18n="val_hold_desc">Duration of contiguous top-5 rank streaks (in market days).</p>
+<h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">How long do top-5 positions last?</h3>
+<p class="tab-note">Duration of contiguous top-5 rank streaks (in market days).</p>
 <div class="table-wrap">
   <table>
     <thead>
       <tr>
-        <th scope="col" data-i18n="val_hold_runs">Runs</th>
-        <th scope="col" data-i18n="val_hold_median">Median</th>
-        <th scope="col" data-i18n="val_hold_mean">Mean</th>
-        <th scope="col" data-i18n="val_min">Min</th>
-        <th scope="col" data-i18n="val_max">Max</th>
+        <th scope="col">Runs</th>
+        <th scope="col">Median</th>
+        <th scope="col">Mean</th>
+        <th scope="col">Min</th>
+        <th scope="col">Max</th>
       </tr>
     </thead>
     <tbody>
       {% for row in validation_holding %}
       <tr>
-        <td>{{ row.runs }}{% if row.ongoing %} <span style="color:var(--fg4)">({{ row.ongoing }} <span data-i18n="val_ongoing">ongoing</span>)</span>{% endif %}</td>
+        <td>{{ row.runs }}{% if row.ongoing %} <span style="color:var(--fg4)">({{ row.ongoing }} <span>ongoing</span>)</span>{% endif %}</td>
         {% if row.median is not none %}
         <td>{{ row.median }}</td>
         <td>{{ row.mean }}</td>

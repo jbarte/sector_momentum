@@ -5,11 +5,6 @@
     for sequential beginner pacing rather than copied verbatim. See
     sector_momentum-notes/specs/2026-09-09-beginner-walkthrough-deck-design.md.
 
-    English only, deliberately -- no data-i18n/data-i18n-html anywhere in
-    this file. Matches _methodology.html.j2's existing carve-out, which is
-    what keeps tests/test_i18n_coverage.py from requiring a Swedish
-    translation for content that doesn't have one yet.
-
     NOT inside {% if auth %} -- static public content, shown to guests and
     signed-in readers alike, exactly like the methodology modal beside it.
 

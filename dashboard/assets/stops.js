@@ -124,7 +124,6 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
     // instead of ever showing "NaN".
     var stopPct = Math.round(100 * stopFrac);
     var hasStopPct = isFinite(stopPct);
-    wrap.setAttribute("data-i18n-title", "stop_distance_tip");
     wrap.title = "Currently " + pct + "% below its peak since you starred it, as of "
                + row.as_of + "."
                + (hasStopPct ? " An alert fires if it closes " + stopPct + "% below peak." : "");
@@ -171,17 +170,9 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
         var chip = document.createElement("span");
         chip.className = "stop-chip";
         chip.textContent = "■ " + pct + "%";
-        chip.setAttribute("data-i18n-title", "stop_chip_tip");
         chip.title = "Closed " + pct + "% below its peak since you starred it, on "
                    + stop.stopped_on + ". It does not mean the position was sold.";
         cell.appendChild(chip);
-        // Page-wide applyLang() already ran (auth.js runs it before dispatching
-        // sm:leaderboard-upgraded/sm:auth-changed, which is what triggers this
-        // decorate() call) and will not run again for an element created after
-        // it. Without a scoped translate call here, a Swedish-language reader
-        // would see this English title forever. Same pattern positions.js uses
-        // for its own dynamically-created content (applyRowState()).
-        if (window.applyLangToEl) window.applyLangToEl(chip);
         tr.classList.add("position-stopped");
         return;
       }
@@ -195,7 +186,6 @@ if (typeof window !== "undefined") { window.SMStopDistance = SMStopDistance; }
       if (!hasValidStopFrac) return;
       var bar = buildDistanceEl(distance);
       cell.appendChild(bar);
-      if (window.applyLangToEl) window.applyLangToEl(bar);
     });
   }
 

@@ -163,14 +163,14 @@
           // buffer leaves no gap between them (both land on this row), only
           // the exit cut shows — same tie-break as applyBandBoundaries().
           if (isBuyCut && !isHoldCut) {
-            html += window.buildBandCutRowHtml('buy', 'band_buy_ends', 'BUY BAND ENDS',
+            html += window.buildBandCutRowHtml('buy', 'BUY BAND ENDS',
               [{key: 'band_buy_note', en: 'below this line: not a new buy'}]);
           }
           if (isHoldCut) {
             // Copy kept in lockstep with applyBandBoundaries()'s own call
             // site (index.html.j2) -- see the reasoning for "HOLD BAND ENDS"
             // over "SELL LINE" there.
-            html += window.buildBandCutRowHtml('exit', 'band_hold_ends', 'HOLD BAND ENDS', [
+            html += window.buildBandCutRowHtml('exit', 'HOLD BAND ENDS', [
               {key: 'band_sell_note_prefix', en: 'a holding past rank'},
               {text: String(exitRankVal)},
               {key: 'band_sell_note_suffix', en: 'is sold at the next review'}
@@ -224,11 +224,11 @@
     updateShowingBadge(scanId);
     var meta = findScanMeta(scanId);
     if (headerDate && meta) {
-      headerDate.innerHTML = '<span data-i18n="lastScan">Last scan:</span> #' + scanId + " · " + meta.date;
+      headerDate.innerHTML = '<span>Last scan:</span> #' + scanId + " · " + meta.date;
     }
     if (banner) banner.style.display = "";
     if (bannerText) {
-      var prefix = bannerText.getAttribute("data-en-prefix") || "Viewing scan #";
+      var prefix = "Viewing scan #";
       bannerText.textContent = prefix + scanId;
     }
     if (sentimentToggle) sentimentToggle.disabled = true;

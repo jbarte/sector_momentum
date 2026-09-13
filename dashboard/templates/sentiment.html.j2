@@ -13,7 +13,7 @@
 </head>
 <body>
 
-<a href="#main-content" class="skip-link" data-i18n="skip_to_content">Skip to content</a>
+<a href="#main-content" class="skip-link">Skip to content</a>
 
 {#- FinBERT news-sentiment table (sectors only). -#}
 {% macro sentiment_table(rows) %}
@@ -21,11 +21,11 @@
   <table>
     <thead>
       <tr>
-        <th scope="col" data-i18n="sent_col_sector">Theme</th>
-        <th scope="col" data-i18n="sent_col_news_polarity">Polarity</th>
-        <th scope="col" data-i18n="sent_col_news_count">Articles</th>
-        <th scope="col" data-i18n="sent_col_news_pos">Pos%</th>
-        <th scope="col" data-i18n="sent_col_news_neg">Neg%</th>
+        <th scope="col">Theme</th>
+        <th scope="col">Polarity</th>
+        <th scope="col">Articles</th>
+        <th scope="col">Pos%</th>
+        <th scope="col">Neg%</th>
       </tr>
     </thead>
     <tbody>
@@ -45,7 +45,7 @@
 
 {#- Scatter footnote. -#}
 {% macro scatter_footnote() %}
-<p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px" data-i18n-html="sentiment_footnote">
+<p style="color:var(--fg4);font-size:0.8rem;padding:8px 0 0 4px">
   Bottom-right quadrant (data ahead of sentiment) is the early-rotation zone.
   Hollow points = no news sentiment this scan (source unavailable).
   Sentiment is a confirming signal — noisy and news-driven.
@@ -63,14 +63,14 @@
   {#- Was "Sentiment weighting affects the leaderboard ranking only", which
       stopped being true when the blend control was withdrawn: sentiment now
       affects nothing. -#}
-  <p class="tab-note experimental-note" data-i18n-html="note_sentiment"><strong>Experimental.</strong>
+  <p class="tab-note experimental-note"><strong>Experimental.</strong>
      These readings are experimental and have not been validated. They are
      <strong>excluded from the composite score and from the ranking</strong> &mdash;
      nothing on the Themes board moves because of anything on this page. Shown for
      research only.</p>
 
   <div class="utility-row">
-  <button type="button" class="tab-guide-btn" data-guide="guide_body_sentiment" data-i18n="guide_summary_sentiment">How is the sentiment score calculated?</button>
+  <button type="button" class="tab-guide-btn" data-guide="guide_body_sentiment">How is the sentiment score calculated?</button>
   </div>
 
   {% if sentiment_available %}
@@ -78,7 +78,7 @@
   {{ scatter_footnote() }}
   {% else %}
   <div class="chart-container" style="padding:48px 32px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
-    <p style="font-weight:600;color:var(--fg2);margin:0 0 8px" data-i18n="sentiment_empty_title">No news sentiment for this snapshot</p>
+    <p style="font-weight:600;color:var(--fg2);margin:0 0 8px">No news sentiment for this snapshot</p>
     {#- Dynamic values sit OUTSIDE the data-i18n spans on purpose: applyLang()
         replaces an element's whole textContent from the SV table, so a scan id
         or date inside one would be wiped the moment a reader switches language.
@@ -90,18 +90,18 @@
         there. -#}
     {% if auth and scan_date %}
     <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto">
-      <span data-i18n="sentiment_empty_showing">Showing scan</span>
-      <strong>#{{ active_scan_id }}</strong> <span aria-hidden="true">&middot;</span> <strong>{{ scan_date[:10] }}</strong><span data-i18n="sentiment_empty_lag_pre">. The public view shows the newest scan at least</span>
-      <strong>{{ lag_days }}</strong> <span data-i18n="sentiment_empty_lag">days old. No sentiment was recorded for the day shown. Signing in refreshes the Themes board but not this page, so a gap in the data surfaces here about a week after it actually happened.</span>
+      <span>Showing scan</span>
+      <strong>#{{ active_scan_id }}</strong> <span aria-hidden="true">&middot;</span> <strong>{{ scan_date[:10] }}</strong><span>. The public view shows the newest scan at least</span>
+      <strong>{{ lag_days }}</strong> <span>days old. No sentiment was recorded for the day shown. Signing in refreshes the Themes board but not this page, so a gap in the data surfaces here about a week after it actually happened.</span>
     </p>
-    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:10px auto 0" data-i18n="sentiment_empty_health">To see whether sentiment is working right now, check the health panel at the foot of the Themes page — it flags a failure on the day it occurs.</p>
+    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:10px auto 0">To see whether sentiment is working right now, check the health panel at the foot of the Themes page — it flags a failure on the day it occurs.</p>
     {% else %}
-    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto" data-i18n="sentiment_empty_body">No news sentiment appears for any theme in the snapshot shown here. This happens when the source (GDELT / FinBERT) recorded nothing that day. Sentiment appears automatically once a scan with real readings is on display; the leaderboard and other tabs are unaffected.</p>
+    <p style="color:var(--fg4);font-size:0.9rem;max-width:52ch;margin:0 auto">No news sentiment appears for any theme in the snapshot shown here. This happens when the source (GDELT / FinBERT) recorded nothing that day. Sentiment appears automatically once a scan with real readings is on display; the leaderboard and other tabs are unaffected.</p>
     {% endif %}
   </div>
   {% endif %}
   {% if sentiment_signal_rows %}
-  <h2 style="margin:24px 0 8px 4px" data-i18n="sent_news_heading">News sentiment</h2>
+  <h2 style="margin:24px 0 8px 4px">News sentiment</h2>
   {{ sentiment_table(sentiment_signal_rows) }}
   {% endif %}
 </section>
@@ -129,7 +129,6 @@ window.CHART_DARK = CHART_DARK;
 
 if (window.SMTheme) { window.SMTheme.initControl(); }
 
-{% include "_i18n.html.j2" %}
 </script>
 
 
@@ -141,8 +140,8 @@ if (window.SMTheme) { window.SMTheme.initControl(); }
   <div class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
     <button type="button" class="guide-close" id="guide-close" aria-label="Close">&times;</button>
     {% include "_guide_illo.html.j2" %}
-    <h2 id="guide-modal-title" data-i18n="guide_summary">How to read this tab</h2>
-    <div class="tab-guide-body" data-guide-body="guide_body_sentiment" hidden data-i18n-html="guide_body_sentiment">
+    <h2 id="guide-modal-title">How to read this tab</h2>
+    <div class="tab-guide-body" data-guide-body="guide_body_sentiment" hidden>
           <h3>Source — FinBERT news sentiment</h3>
           <p>The <strong>sentiment score</strong> is built from recent financial
              news. For each theme we fetch the latest 24&nbsp;hours of

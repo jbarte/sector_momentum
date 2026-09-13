@@ -79,7 +79,7 @@
 {% endif %}
 
 <footer class="site-footer">
-  <span data-i18n="disclaimer">Analytical tooling, not investment advice.</span>
+  <span>Analytical tooling, not investment advice.</span>
   <button type="button" id="methodology-link" class="footer-link">Methodology</button>
   <button type="button" id="beginner-deck-link" class="footer-link">New here? Start here</button>
   {#- Inside {% if auth %} so guests never get a link to a dialog that cannot
@@ -87,7 +87,7 @@
       alerts are actually available for this reader — a signed-in user whose
       alert_prefs table is missing would otherwise open an empty dialog. -#}
   {% if auth %}
-  <button type="button" id="alerts-link" class="footer-link" hidden data-i18n="alerts_title">Alerts</button>
+  <button type="button" id="alerts-link" class="footer-link" hidden>Alerts</button>
   {% endif %}
 </footer>
 {% if auth %}
@@ -113,9 +113,9 @@
 <div class="methodology-overlay" id="alerts-modal" hidden>
   <div class="methodology-modal" role="dialog" aria-modal="true" aria-labelledby="alerts-title">
     <button type="button" class="methodology-close" id="alerts-close" aria-label="Close">&times;</button>
-    <h2 id="alerts-title" data-i18n="alerts_title">Alerts</h2>
+    <h2 id="alerts-title">Alerts</h2>
 <section id="alert-prefs" class="alert-prefs" hidden>
-  <p class="alert-prefs-intro" data-i18n="alerts_intro">Get a push notification after each scan: Exit signals for themes you hold, plus new Enter signals.</p>
+  <p class="alert-prefs-intro">Get a push notification after each scan: Exit signals for themes you hold, plus new Enter signals.</p>
   {#- Which band alerts actually evaluate, and a warning when that is not the
       band the reader is looking at.
 
@@ -129,45 +129,45 @@
       wiped on the first language switch — applyLang() rewrites textContent from
       the SV bundle, which is why renderHorizonStats() is built the same way. -#}
   <p class="alerts-hz-note" id="alerts-hz-agree" hidden>
-    <span data-i18n="alerts_hz_pre">Alerts use the</span>
+    <span>Alerts use the</span>
     <b id="alerts-hz-name"></b>
-    <span data-i18n="alerts_hz_post">band — the same one the board is showing.</span>
+    <span>band — the same one the board is showing.</span>
   </p>
   <p class="alerts-hz-warn" id="alerts-hz-differ" hidden>
-    <span data-i18n="alerts_hz_warn_pre">Your board is set to</span>
-    <b id="alerts-hz-sel"></b><span data-i18n="alerts_hz_warn_mid">, but alerts use</span>
-    <b id="alerts-hz-alert"></b><span data-i18n="alerts_hz_warn_exit">. Alerts flag Exit past rank</span>
-    <b id="alerts-hz-alert-exit"></b><span data-i18n="alerts_hz_warn_vs">, where your board waits until</span>
-    <b id="alerts-hz-sel-exit"></b><span data-i18n="alerts_hz_warn_entry">, and Enter within the top</span>
+    <span>Your board is set to</span>
+    <b id="alerts-hz-sel"></b><span>, but alerts use</span>
+    <b id="alerts-hz-alert"></b><span>. Alerts flag Exit past rank</span>
+    <b id="alerts-hz-alert-exit"></b><span>, where your board waits until</span>
+    <b id="alerts-hz-sel-exit"></b><span>, and Enter within the top</span>
     {# This fragment begins with a word, not punctuation, so it needs the space
        the newline below provides. Use the PLAIN comment delimiters here, never
        the whitespace-stripping variant: that form eats the very space being
        preserved, which is how "top4 against" shipped in the first draft. #}
     <b id="alerts-hz-alert-top"></b>
-    <span data-i18n="alerts_hz_warn_vs2">against your board's</span>
+    <span>against your board's</span>
     <b id="alerts-hz-sel-top"></b>.
   </p>
   <div id="alert-prefs-off" hidden>
-    <button type="button" id="alert-prefs-enable" class="lang-toggle" data-i18n="alerts_enable">Enable alerts</button>
+    <button type="button" id="alert-prefs-enable" class="lang-toggle">Enable alerts</button>
   </div>
   <div id="alert-prefs-on" hidden>
     <div class="alert-prefs-topic">
       <code id="alert-prefs-topic"></code>
-      <button type="button" id="alert-prefs-copy" class="lang-toggle" data-i18n="alerts_copy">Copy</button>
+      <button type="button" id="alert-prefs-copy" class="lang-toggle">Copy</button>
     </div>
     <p class="alert-prefs-help">
-      <span data-i18n="alerts_help">Install the ntfy app and subscribe to this topic.</span>
+      <span>Install the ntfy app and subscribe to this topic.</span>
       <a id="alert-prefs-link" href="#" target="_blank" rel="noopener noreferrer">ntfy.sh</a>
     </p>
-    <p class="alert-prefs-warn" data-i18n="alerts_warn">Anyone who knows this topic name can read these notifications. Don't share it — regenerate if it leaks.</p>
+    <p class="alert-prefs-warn">Anyone who knows this topic name can read these notifications. Don't share it — regenerate if it leaks.</p>
     <label class="alert-prefs-toggle">
-      <input type="checkbox" id="alert-prefs-enabled"> <span data-i18n="alerts_enabled_label">Alerts enabled</span>
+      <input type="checkbox" id="alert-prefs-enabled"> <span>Alerts enabled</span>
     </label>
     <label class="alert-prefs-toggle">
-      <input type="checkbox" id="alert-prefs-stop"> <span data-i18n="alerts_stop_label">Stop-loss alerts</span>
+      <input type="checkbox" id="alert-prefs-stop"> <span>Stop-loss alerts</span>
     </label>
-    <p class="alert-prefs-help" data-i18n="alerts_stop_help">Tells you once when a theme you hold closes 12% below its highest close since you starred it. Measured from that peak, not from what you paid.</p>
-    <button type="button" id="alert-prefs-regen" class="lang-toggle" data-i18n="alerts_regen">Regenerate</button>
+    <p class="alert-prefs-help">Tells you once when a theme you hold closes 12% below its highest close since you starred it. Measured from that peak, not from what you paid.</p>
+    <button type="button" id="alert-prefs-regen" class="lang-toggle">Regenerate</button>
   </div>
   <p id="alert-prefs-status" class="alert-prefs-status" aria-live="polite"></p>
 </section>

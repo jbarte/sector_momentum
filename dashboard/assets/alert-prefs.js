@@ -39,20 +39,14 @@
   var stopBox = document.getElementById("alert-prefs-stop");
   var statusEl = document.getElementById("alert-prefs-status");
 
-  /* Dynamic strings can't use the data-i18n pass, so they carry EN/SV pairs. */
   var MSG = {
-    saved:   { en: "Saved.", sv: "Sparat." },
-    copied:  { en: "Copied.", sv: "Kopierat." },
-    error:   { en: "Something went wrong. Try again.", sv: "Något gick fel. Försök igen." }
+    saved: "Saved.",
+    copied: "Copied.",
+    error: "Something went wrong. Try again."
   };
 
-  function lang() {
-    try { return localStorage.getItem("lang") === "sv" ? "sv" : "en"; }
-    catch (e) { return "en"; }
-  }
-
   function setStatus(key) {
-    statusEl.textContent = key ? MSG[key][lang()] : "";
+    statusEl.textContent = key ? MSG[key] : "";
   }
 
   /* 128 bits from the CSPRNG, hex-encoded at fixed width (2 chars per byte, so
