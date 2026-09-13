@@ -67,9 +67,13 @@ Object.assign(SV, {
   badge_no_slot: "ingen plats",
   band_buy_ends: "köpband slutar",
   band_buy_note: "under denna linje: inte ett nytt köp",
-  band_sell_line: "säljlinje",
-  band_sell_note_prefix: "ett innehav som faller under rank",
-  band_sell_note_suffix: "säljs",
+  // band_hold_ends (was band_sell_line, "säljlinje"): renamed 2026-09-12 with
+  // the English label, so the key does not outlive the wording it described.
+  // "hållband" parallels "köpband" above; "granskning" is this file's
+  // established word for a review (see rp_next_review).
+  band_hold_ends: "hållband slutar",
+  band_sell_note_prefix: "ett innehav under rank",
+  band_sell_note_suffix: "säljs vid nästa granskning",
   badge_experimental: "experimentell",
   chip_live: "Live",
   chip_live_tip: "Visar den senaste skanningen",
@@ -92,6 +96,7 @@ Object.assign(SV, {
   alerts_stop_label: "Stop loss-aviseringar",
   alerts_stop_help: "Meddelar dig en gång när ett tema du äger stänger 12 % under sin högsta stängningskurs sedan du markerade det. Mätt från den toppen, inte från vad du betalade.",
   stop_chip_tip: "Stängde under sin högsta kurs sedan du markerade temat. Det betyder inte att innehavet har sålts.",
+  stop_distance_tip: "Hur nära temat är sin stop loss, mätt från toppen sedan du markerade det. En avisering skickas om det stänger under den nivån.",
   gate_modal_title: "ETF Momentum",
   gate_modal_body: "Logga in för senaste data, eller fortsätt surfa med data från förra veckan.",
   gate_modal_continue: "Fortsätt som gäst",
@@ -115,6 +120,7 @@ Object.assign(SV, {
   col_composite: "Komposit",
   col_levelchange: "Nivå / Förändring",
   col_rankdelta: "Rank Δ",
+  col_stop: "Till stopp",
   sentiment_empty_title: "Inget nyhetssentiment för denna ögonblicksbild",
   sentiment_empty_body: "Inget nyhetssentiment visas för något tema i den ögonblicksbild som visas här. Det beror på att källan (GDELT / FinBERT) inte registrerade något den dagen. Sentimentet visas automatiskt så snart en skanning med verkliga värden visas här; topplistan och övriga flikar påverkas inte.",
   // Gated build only — the branch that names the snapshot, the lag, and the
@@ -153,9 +159,6 @@ Object.assign(SV, {
   si_top: "Topptema",
   si_report: "Rapport",
   si_download: "ladda ner",
-  digest_new_top5: "Nya i topp 5:",
-  digest_gains: "Störst uppgång:",
-  digest_drops: "Störst nedgång:",
   note_correlation: "60 handelsdagars rullande parvis avkastningskorrelation. Topp-5-teman i fetstil. Rött = rör sig tillsammans; blått = rör sig oberoende.",
   lastScan: "Senaste skanning:",
   correlation_no_data: "Inte tillräckligt med prishistorik för en 60-dagars korrelationsmatris.",

@@ -32,32 +32,6 @@
   text-decoration: none;
 }
 #scan-history-banner a:hover { text-decoration: underline; }
-#scan-digest-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 16px;
-  padding: 8px 16px;
-  margin-bottom: 8px;
-  background: var(--bg-raised);
-  border-left: 3px solid var(--brand-strong);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  color: var(--fg3);
-}
-.digest-cluster { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.digest-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.digest-chip { white-space: nowrap; }
-.digest-collapsed .digest-cluster[data-cluster="up"],
-.digest-collapsed .digest-cluster[data-cluster="down"] { display: none; }
-.digest-toggle {
-  cursor: pointer;
-  color: var(--fg4);
-  font-size: 12px;
-  margin-left: 4px;
-  user-select: none;
-}
-.digest-toggle:hover { color: var(--fg2); }
 table {
   width: 100%;
   border-collapse: collapse;
@@ -550,6 +524,95 @@ tbody td:nth-child(n+4) {
   color: var(--err);
   background: color-mix(in srgb, var(--err) 14%, transparent);
   white-space: nowrap;
+}
+/* Stop-distance bar: shown INSTEAD OF .stop-chip until a position actually
+   breaches (stops.js's decorate() decides which one applies, never both).
+   The fill's colour is set INLINE via color-mix() with the live proximity
+   value (computed in JS, since only JS knows today's reading) -- this rule
+   only supplies a plain fallback colour for the rare case color-mix() fails
+   to parse: an invalid inline background-color declaration is dropped
+   entirely by the browser, letting this class rule's own colour show
+   through untouched. Lives in the trailing "To stop" column (.stop-cell);
+   it sat inline in the theme cell until 2026-09-12, which is why the
+   margin-left below is overridden there. */
+.stop-distance {
+  display: inline-flex;
+  align-items: center;
+  gap: .35em;
+  margin-left: .4em;
+}
+.stop-distance-track {
+  display: inline-block;
+  width: 40px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+.stop-distance-fill {
+  display: block;
+  height: 100%;
+  background: var(--fg4);   /* fallback if color-mix() is unsupported */
+  border-radius: 3px 0 0 3px;
+}
+.stop-distance-pct {
+  font-size: .78em;
+  font-weight: 600;
+  color: var(--fg3);
+  white-space: nowrap;
+}
+
+/* The "To stop" column (added 2026-09-12 when the bar moved out of the theme
+   cell). Sized to its content rather than sharing the table's flexible
+   width: it is empty for guests, for readers without stop-loss alerts on,
+   and for any theme they do not hold, so it must not take space from the
+   columns that always have something in them.
+
+   LEFT-aligned, deliberately. text-align: right was the first attempt and it
+   quietly defeated the entire point of having a column: it right-aligns
+   [track][label] as a UNIT, so a row labelled "-100%" pushes its track
+   further left than one labelled "-4%" -- measured an 11.2px spread across
+   three rows, which is exactly the un-comparable stagger the column exists
+   to remove. Left-aligned, every track starts at the same x and the bars
+   can finally be read against each other; the variable-width labels trail
+   off to the right where their raggedness costs nothing.
+
+   The font declarations undo an inherited numeric-column treatment: this is
+   the SIXTH column, so it falls under `tbody td:nth-child(n+4)` (top of this
+   file), which sets --font-mono at 12px for the numeric columns it was
+   written for. Inherited here it shrinks .stop-chip and .stop-distance-pct
+   -- both already .78em -- to ~9.4px monospace, under this repo's 12px
+   typography floor. Same nth-child trap the .traj-word comment above
+   documents hitting once before.
+
+   Scoped through #leaderboard-table for SPECIFICITY, not scoping: a bare
+   `.stop-cell` is (0,1,0) and loses to `tbody td:nth-child(n+4)`'s (0,1,2),
+   so the mono/12px kept applying and the label still measured 9.36px.
+   Measured, not reasoned about -- the first attempt at this override was a
+   bare class and silently did nothing. */
+#leaderboard-table td.stop-cell {
+  width: 1%;
+  white-space: nowrap;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+/* No left margin inside the column: .stop-distance and .stop-chip both carry
+   one to separate themselves from the theme name, which is where they used
+   to sit. In their own cell it would just indent them off the column's edge
+   and re-break the alignment above. */
+.stop-cell .stop-distance,
+.stop-cell .stop-chip { margin-left: 0; }
+/* Not sortable (no onclick/data-col on the th), so it must not advertise
+   itself as clickable. Without this it inherits the sortable headers'
+   cursor/hover, and after sign-in makeLeaderboardReadOnly() strips those
+   from the real sortable headers via th[onclick] -- leaving this the only
+   header still rendering as clickable, which is precisely backwards. */
+#leaderboard-table thead th[data-i18n="col_stop"] {
+  cursor: default;
+}
+#leaderboard-table thead th[data-i18n="col_stop"]:hover {
+  color: var(--fg4);
 }
 .leaderboard-row.position-warn {
   box-shadow: inset 3px 0 0 0 var(--down);

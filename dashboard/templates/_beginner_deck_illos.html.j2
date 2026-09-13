@@ -1,0 +1,108 @@
+{#- Four small decorative SVG banners for the beginner deck's cards, one
+    concept each -- same visual family as _rotation_illo.html.j2 and
+    _guide_illo.html.j2 (colours live in a scoped <style> reading CSS custom
+    properties, not fill=/stroke= attributes, so they follow the theme; a
+    single subtle fade-in animation lives in css/_chrome.css.j2 rather than
+    per-element choreography, since each banner replays every time its card
+    is re-shown -- see that file's .beginner-deck-illo rule for why).
+
+    Deliberately macros in ONE file, not four separate include files like
+    _rotation_illo.html.j2/_guide_illo.html.j2: those each render exactly
+    once per page, but these four need to land at four different points
+    inside _beginner_deck.html.j2's four card blocks, and a Jinja
+    {% include %} can't be parameterised or placed selectively the way a
+    macro call can.
+
+    illo_buy_band's highlighted-bar count is LIVE (default_horizon_top_n),
+    not a fixed number -- deliberately, to not repeat _guide_illo.html.j2's
+    own drift bug (its comment claims "top_n 5" while the live Medium
+    preset is 4; see BACKLOG.md / the beginner-deck spec's "Related
+    findings"). The other three illustrations state no specific counts or
+    percentages at all, so they have nothing to drift. #}
+
+{% macro illo_buy_band(top_n) %}
+{%- set n = top_n if (top_n is number and 1 <= top_n <= 10) else 4 -%}
+{%- set bar_w = 28 -%}
+{%- set spacing = 54 -%}
+{%- set x0 = 96 -%}
+{%- set baseline = 80 -%}
+<div class="beginner-deck-illo-band">
+  <svg class="beginner-deck-illo illo-buy-band" viewBox="0 0 640 96" preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="A ranked list of themes from strongest to weakest, with the top few highlighted as the buy band">
+    <style>
+      .illo-buy-band .bar-buy  { fill: var(--up); }
+      .illo-buy-band .bar-rest { fill: var(--border-soft); }
+      .illo-buy-band .bracket  { stroke: var(--up); }
+    </style>
+    {% for i in range(10) -%}
+    {%- set h = [58 - i * 5, 10] | max -%}
+    <rect class="bar {{ 'bar-buy' if i < n else 'bar-rest' }}" x="{{ x0 + i * spacing }}" y="{{ baseline - h }}" width="{{ bar_w }}" height="{{ h }}" rx="3"/>
+    {% endfor -%}
+    {%- set bx1 = x0 - 6 -%}
+    {%- set bx2 = x0 + (n - 1) * spacing + bar_w + 6 -%}
+    <line class="bracket" x1="{{ bx1 }}" y1="14" x2="{{ bx2 }}" y2="14" stroke-width="1.4" stroke-dasharray="3 4" stroke-linecap="round"/>
+    <line class="bracket" x1="{{ bx1 }}" y1="10" x2="{{ bx1 }}" y2="18" stroke-width="1.4" stroke-linecap="round"/>
+    <line class="bracket" x1="{{ bx2 }}" y1="10" x2="{{ bx2 }}" y2="18" stroke-width="1.4" stroke-linecap="round"/>
+  </svg>
+</div>
+{% endmacro %}
+
+{% macro illo_buy_sell_lines() %}
+<div class="beginner-deck-illo-band">
+  <svg class="beginner-deck-illo illo-lines" viewBox="0 0 640 96" preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="A buy line and a looser sell line with quiet room between them; most themes sit safely inside that gap, only one drifts below the sell line">
+    <style>
+      .illo-lines .buy-line  { stroke: var(--up); }
+      .illo-lines .sell-line { stroke: var(--down); }
+      .illo-lines .dot-safe  { fill: var(--fg4); }
+      .illo-lines .dot-exit  { fill: var(--down); }
+    </style>
+    <line class="buy-line"  x1="60" y1="26" x2="580" y2="26" stroke-width="1.6" stroke-dasharray="4 6" stroke-linecap="round"/>
+    <line class="sell-line" x1="60" y1="72" x2="580" y2="72" stroke-width="1.6" stroke-dasharray="4 6" stroke-linecap="round"/>
+    <circle class="dot-safe" cx="160" cy="42" r="6"/>
+    <circle class="dot-safe" cx="260" cy="50" r="6"/>
+    <circle class="dot-safe" cx="360" cy="38" r="6"/>
+    <circle class="dot-safe" cx="460" cy="58" r="6"/>
+    <circle class="dot-exit" cx="520" cy="80" r="6.5"/>
+  </svg>
+</div>
+{% endmacro %}
+
+{% macro illo_review_period() %}
+<div class="beginner-deck-illo-band">
+  <svg class="beginner-deck-illo illo-cadence" viewBox="0 0 640 96" preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="A timeline of evenly spaced review dates, with the next scheduled review highlighted">
+    <style>
+      .illo-cadence .tick { fill: var(--border-soft); }
+      .illo-cadence .next { fill: var(--brand-strong); }
+      .illo-cadence .halo { stroke: var(--brand-strong); }
+      .illo-cadence .track { stroke: var(--border); }
+    </style>
+    <line class="track" x1="60" y1="48" x2="580" y2="48" stroke-width="1.4" stroke-linecap="round"/>
+    <circle class="tick" cx="140" cy="48" r="6"/>
+    <circle class="tick" cx="240" cy="48" r="6"/>
+    <circle class="tick" cx="340" cy="48" r="6"/>
+    <circle class="tick" cx="440" cy="48" r="6"/>
+    <circle class="halo" cx="520" cy="48" r="14" fill="none" stroke-width="1.5" opacity="0.5"/>
+    <circle class="next" cx="520" cy="48" r="8"/>
+  </svg>
+</div>
+{% endmacro %}
+
+{% macro illo_stop_loss() %}
+<div class="beginner-deck-illo-band">
+  <svg class="beginner-deck-illo illo-stop-loss" viewBox="0 0 640 96" preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="A price rising to a peak, then falling and crossing a trailing stop threshold set below that peak, marked with an alert">
+    <style>
+      .illo-stop-loss .price     { stroke: var(--fg1); }
+      .illo-stop-loss .threshold { stroke: var(--down); }
+      .illo-stop-loss .alert     { fill: var(--down); }
+      .illo-stop-loss .halo      { stroke: var(--down); }
+    </style>
+    <polyline class="price" points="60,70 160,40 260,22 360,34 460,58 540,78" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <line class="threshold" x1="260" y1="46" x2="580" y2="46" stroke-width="1.4" stroke-dasharray="4 6" stroke-linecap="round"/>
+    <circle class="halo" cx="460" cy="58" r="13" fill="none" stroke-width="1.5" opacity="0.5"/>
+    <circle class="alert" cx="460" cy="58" r="7"/>
+  </svg>
+</div>
+{% endmacro %}

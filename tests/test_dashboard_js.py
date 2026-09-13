@@ -705,47 +705,6 @@ def test_scan_history_json_in_rendered_output(tmp_path):
     assert parsed["scans"][0]["id"] == 2
 
 
-def test_scan_digest_markup_in_rendered_output(tmp_path):
-    """Rendered index.html contains the scan-digest banner, script tag, and i18n keys."""
-    scan_history = {
-        "scans": [{"id": 2, "date": "2026-07-12 06:00 UTC", "sectors": 22, "top": "Technology (US)"}],
-        "scores": {"2": {"US|Technology": {"rank": 1, "composite": 0.8, "level": 0.7, "change": 0.4, "data": 0.55, "sentiment": 0.2}}},
-    }
-    out = tmp_path / "index.html"
-    _render(
-        template_path=_TEMPLATE,
-        out_path=out,
-        context=dict(
-            scan_date="2026-07-12",
-            scan_index=[{"scan_id": 2, "run_at_display": "2026-07-12 06:00 UTC",
-                         "run_at_raw": "2026-07-12T06:00:00", "theme_count": 22,
-                         "top_theme": "Technology", "top_region": "US"}],
-            active_scan_id=2,
-            leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
-            cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
-            sentiment_scatter_json=_make_mock_plotly_json(),
-            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
-            scan_history_json=json.dumps(scan_history),
-            signals_list=[],
-            plotly_bundle="assets/plotly.min.js",
-            backtest_json=json.dumps({}),
-            backtest_metrics=[],
-            has_backtest=False,
-            rotation_json=json.dumps([]),
-            has_rotations=False,
-        ),
-    )
-    html = out.read_text()
-    assert 'id="scan-digest-banner"' in html
-    assert "assets/scan-digest.js" in html
-    assert 'data-i18n="digest_new_top5"' in html
-    assert 'data-i18n="digest_gains"' in html
-    assert 'data-i18n="digest_drops"' in html
-    assert 'id="digest-chips-entries"' in html
-    assert 'id="digest-chips-up"' in html
-    assert 'id="digest-chips-down"' in html
-
-
 # ---------------------------------------------------------------------------
 # Per-cohort chart context (Task 3 — chart tabs get a cohort selector)
 # ---------------------------------------------------------------------------
@@ -986,9 +945,14 @@ def test_leaderboard_row_builders_emit_the_same_cell_classes():
     def head(vals):
         return [v.split("{")[0].strip() for v in vals]
 
-    # Five cells since the Trend column was removed and its badge moved into
-    # the theme cell; the trailing "" is the unclassed Level/Change cell.
-    expected = ["rank-cell", "theme-cell", "composite-cell", "", "delta-cell"]
+    # Six cells: five since the Trend column was removed and its badge moved
+    # into the theme cell (the "" is the unclassed Level/Change cell), plus the
+    # trailing .stop-cell added 2026-09-12 when the stop-distance bar moved out
+    # of the theme cell into its own column. All three builders must emit it --
+    # a row one cell short of the header collapses the column for exactly the
+    # readers who have stop data to show.
+    expected = ["rank-cell", "theme-cell", "composite-cell", "", "delta-cell",
+                "stop-cell"]
     for name, vals in got.items():
         assert head(vals) == expected, f"{name} cell classes drifted: {head(vals)}"
 
@@ -1491,8 +1455,8 @@ def test_removes_existing_cut_rows_before_reinserting():
 
 
 def test_band_cut_rank_text_is_not_hardcoded():
-    """The exit note ('a holding that falls past rank N is sold') must read N
-    from the active horizon preset via the one shared Rescore.exitRank()
+    """The exit note ('a holding past rank N is sold at the next review')
+    must read N from the active horizon preset via the shared Rescore.exitRank()
     function, never a literal number and never a second, independently
     inlined h.top_n + h.buffer formula."""
     js = _apply_band_boundaries_js()
@@ -1523,7 +1487,13 @@ def test_band_cut_i18n_keys_updated():
     i18n = (Path(__file__).parent.parent / "dashboard/templates/i18n/_core.js.j2").read_text()
     assert "band_buy:" not in i18n
     assert "band_exit:" not in i18n
-    for key in ("band_buy_ends", "band_buy_note", "band_sell_line",
+    # band_sell_line was renamed to band_hold_ends 2026-09-12 when the label
+    # became "HOLD BAND ENDS"; pinned as absent so the dead key cannot drift
+    # back in alongside its replacement (this repo has lost live keys to a
+    # dead-code sweep that could not tell the two apart -- see
+    # tests/test_i18n_coverage.py's docstring).
+    assert "band_sell_line:" not in i18n
+    for key in ("band_buy_ends", "band_buy_note", "band_hold_ends",
                 "band_sell_note_prefix", "band_sell_note_suffix"):
         assert f"{key}:" in i18n, f"missing SV translation for new key {key}"
 
@@ -1769,6 +1739,216 @@ def test_modal_helper_include_precedes_footer_and_methodology():
                 f"{partial}'s window.SMModal.bind(...) call would run before "
                 f"window.SMModal is defined"
             )
+
+
+# ---------------------------------------------------------------------------
+# Gate modal auto-show-once — guestDismissed() / render()'s show-unless-
+# dismissed branch / the "only the explicit button sets the flag" contract.
+#
+# Runs the REAL dashboard/assets/auth.js and dashboard/templates/_modal.js.j2
+# under node, against a hand-rolled DOM subset (id lookup, per-element
+# addEventListener/dispatch, dataset, hidden, focus) rather than jsdom, which
+# this project's JS tests don't use (see the "Source-pinned rather than run
+# under Node" comment on test_render_mobile_cards_reflects_band_cut_rows_too
+# above). _modal.js.j2 is otherwise plain JS; only its two leading Jinja
+# `{# ... #}` comment blocks need stripping before it's valid to eval().
+# ---------------------------------------------------------------------------
+
+_AUTH_HARNESS_TEMPLATE = r"""
+var _store = {};
+var THROW_GET = false, THROW_SET = false;
+global.localStorage = {
+  getItem: function (k) {
+    if (THROW_GET) throw new Error("blocked (private browsing)");
+    return Object.prototype.hasOwnProperty.call(_store, k) ? _store[k] : null;
+  },
+  setItem: function (k, v) {
+    if (THROW_SET) throw new Error("blocked (private browsing)");
+    _store[k] = String(v);
+  },
+};
+
+function makeEl(id) {
+  var listeners = {};
+  return {
+    id: id,
+    hidden: false,
+    dataset: {},
+    textContent: "",
+    addEventListener: function (type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    removeEventListener: function (type, fn) {
+      var a = listeners[type] || []; var i = a.indexOf(fn); if (i !== -1) a.splice(i, 1);
+    },
+    dispatch: function (type, evt) { (listeners[type] || []).slice().forEach(function (fn) { fn(evt); }); },
+    focus: function () {},
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; },
+  };
+}
+
+var authRoot = makeEl("auth-root");
+var signinBtn = makeEl("auth-signin");
+var headerForm = makeEl("auth-form");
+var userBox = makeEl("auth-user");
+var emailLabel = makeEl("auth-email-label");
+var signoutBtn = makeEl("auth-signout");
+var modal = makeEl("gate-modal");
+// The real #gate-modal markup (index.html.j2) starts with the `hidden`
+// attribute present, i.e. hidden === true before any JS runs. makeEl()'s
+// generic default of false would make the "modal shows" assertions below
+// pass even if the showModal(true)/gate.open() call were deleted outright.
+modal.hidden = true;
+var continueBtn = makeEl("gate-continue");
+var elements = {
+  "auth-root": authRoot, "auth-signin": signinBtn, "auth-form": headerForm,
+  "auth-user": userBox, "auth-email-label": emailLabel, "auth-signout": signoutBtn,
+  "gate-modal": modal, "gate-continue": continueBtn,
+};
+
+var docListeners = {};
+global.document = {
+  getElementById: function (id) { return elements[id] || null; },
+  querySelectorAll: function () { return []; },
+  addEventListener: function (type, fn) { (docListeners[type] = docListeners[type] || []).push(fn); },
+  removeEventListener: function (type, fn) {
+    var a = docListeners[type] || []; var i = a.indexOf(fn); if (i !== -1) a.splice(i, 1);
+  },
+  dispatchEvent: function () {},
+  activeElement: null,
+};
+function fireKeydown(e) { (docListeners.keydown || []).slice().forEach(function (fn) { fn(e); }); }
+
+global.CustomEvent = function (type) { this.type = type; };
+
+var authCallback = null;
+var sb = {
+  auth: {
+    onAuthStateChange: function (cb) { authCallback = cb; },
+    signOut: function () { return { catch: function () {} }; },
+  },
+  from: function () {
+    return { select: function () { return this; }, order: function () { return this; }, then: function () {} };
+  },
+};
+
+global.window = {
+  SUPABASE_CONFIG: { url: "https://x.example", key: "anon-key" },
+  SMSupabase: sb,
+  location: { hash: "", pathname: "/", search: "" },
+};
+
+var modalSrc = require("fs").readFileSync(__MODAL_PATH__, "utf8")
+  .replace(/\{#[\s\S]*?#\}/g, "");
+eval(modalSrc);
+var authSrc = require("fs").readFileSync(__AUTH_PATH__, "utf8");
+eval(authSrc);
+"""
+
+
+# Shared tail for the three tests below that need both the dismissed-flag
+# state and the modal's open/closed state -- kept in one place so a future
+# added field (e.g. a focus-restoration check) is edited once, not per-test.
+_DUMP_DISMISS_STATE_JS = """
+        console.log(JSON.stringify({
+          stored: _store.hasOwnProperty("guest_dismissed") ? _store.guest_dismissed : null,
+          modalHidden: modal.hidden,
+        }));
+"""
+
+
+def _run_gate_modal_scenario(driver_js: str) -> dict:
+    """Runs the harness preamble (real auth.js + real _modal.js.j2, fake DOM)
+    followed by `driver_js`, which must end by printing one JSON object to
+    stdout. Returns that object."""
+    auth_path = Path(__file__).parent.parent / "dashboard/assets/auth.js"
+    modal_path = Path(__file__).parent.parent / "dashboard/templates/_modal.js.j2"
+    preamble = (_AUTH_HARNESS_TEMPLATE
+                .replace("__AUTH_PATH__", json.dumps(str(auth_path)))
+                .replace("__MODAL_PATH__", json.dumps(str(modal_path))))
+    res = subprocess.run(["node", "-e", preamble + driver_js],
+                          capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    return json.loads(res.stdout)
+
+
+@_needs_node
+def test_gate_modal_shows_for_a_first_time_guest():
+    """render()'s else-branch calls showModal(!guestDismissed()) for a
+    signed-out visitor. With guest_dismissed unset, the modal must show."""
+    out = _run_gate_modal_scenario("""
+        authCallback("INITIAL_SESSION", null);
+        console.log(JSON.stringify({modalHidden: modal.hidden}));
+    """)
+    assert out["modalHidden"] is False, (
+        "the gate modal did not show for a first-time signed-out visitor"
+    )
+
+
+@_needs_node
+def test_gate_modal_stays_hidden_once_guest_dismissed_flag_is_set():
+    """Mirror of the above: with localStorage.guest_dismissed already '1',
+    render() must not show the modal again on a return visit."""
+    out = _run_gate_modal_scenario("""
+        _store["guest_dismissed"] = "1";
+        authCallback("INITIAL_SESSION", null);
+        console.log(JSON.stringify({modalHidden: modal.hidden}));
+    """)
+    assert out["modalHidden"] is True, (
+        "the gate modal showed again despite guest_dismissed already being set"
+    )
+
+
+@_needs_node
+def test_continue_as_guest_click_sets_the_dismissed_flag():
+    """Only the explicit 'Continue as guest' click may set guest_dismissed."""
+    out = _run_gate_modal_scenario("""
+        authCallback("INITIAL_SESSION", null);
+        continueBtn.dispatch("click", {});
+    """ + _DUMP_DISMISS_STATE_JS)
+    assert out["stored"] == "1", (
+        "clicking 'Continue as guest' did not set localStorage.guest_dismissed"
+    )
+    assert out["modalHidden"] is True, "the modal did not close after the click"
+
+
+@_needs_node
+def test_escape_closes_the_modal_without_setting_the_dismissed_flag():
+    """Escape closes the modal (via SMModal's own keydown handler, not the
+    explicit continueBtn handler) for this visit only -- it must NOT set
+    guest_dismissed, or an accidental Escape would permanently hide sign-in."""
+    out = _run_gate_modal_scenario("""
+        authCallback("INITIAL_SESSION", null);
+        fireKeydown({key: "Escape"});
+    """ + _DUMP_DISMISS_STATE_JS)
+    assert out["stored"] is None, "Escape set guest_dismissed -- it must only close for this visit"
+    assert out["modalHidden"] is True, "Escape did not close the modal"
+
+
+@_needs_node
+def test_backdrop_click_closes_the_modal_without_setting_the_dismissed_flag():
+    """Same contract as Escape, for SMModal's backdrop-click close path."""
+    out = _run_gate_modal_scenario("""
+        authCallback("INITIAL_SESSION", null);
+        modal.dispatch("click", {target: modal});
+    """ + _DUMP_DISMISS_STATE_JS)
+    assert out["stored"] is None, "backdrop click set guest_dismissed -- it must only close for this visit"
+    assert out["modalHidden"] is True, "backdrop click did not close the modal"
+
+
+@_needs_node
+def test_guest_dismissed_fails_open_when_localstorage_throws():
+    """Private browsing can make localStorage.getItem throw. guestDismissed()
+    must degrade to "not dismissed" (fail-open, per its own try/catch) rather
+    than crash the auth flow -- so the modal must still show, and the node
+    process must exit cleanly rather than raising uncaught."""
+    out = _run_gate_modal_scenario("""
+        THROW_GET = true;
+        authCallback("INITIAL_SESSION", null);
+        console.log(JSON.stringify({modalHidden: modal.hidden}));
+    """)
+    assert out["modalHidden"] is False, (
+        "guestDismissed() did not fail open when localStorage.getItem threw"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2799,7 +2979,10 @@ def test_horizon_row_and_utility_row_are_merged():
     the actual test."""
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
     horizon_row_start = text.index('class="horizon-row"')
-    horizon_row_end = text.index('id="scan-digest-banner"')
+    # End anchor moved from the scan-digest banner to the scan-history one
+    # when the digest was removed (2026-09-12) -- scan-history-banner is now
+    # the first element after the horizon row.
+    horizon_row_end = text.index('id="scan-history-banner"')
     row = text[horizon_row_start:horizon_row_end]
     assert 'class="utility-row"' not in row, (
         "the leaderboard tab's own .utility-row must be gone — merged into .horizon-row"
@@ -3075,14 +3258,17 @@ def test_control_chip_and_more_filters_get_touch_targets():
 
 
 # ---------------------------------------------------------------------------
-# escapeHtml — auth.js / scan-digest.js / scan-history.js interpolation hardening
+# escapeHtml — auth.js / scan-history.js interpolation hardening
 # ---------------------------------------------------------------------------
 #
 # Found in the 2026-08-23 sweep: renderLatestRows() (auth.js) and fmtChip()
-# (scan-digest.js) both build row/chip HTML by string concatenation,
-# interpolating theme/sector names unescaped. Not exploitable today — the
-# names come from config/themes.yaml via the pipeline, never from a reader —
-# but hardening against the day any row field stops being repo-controlled.
+# (scan-digest.js, since removed) both built row/chip HTML by string
+# concatenation, interpolating theme/sector names unescaped. Not exploitable
+# today — the names come from config/themes.yaml via the pipeline, never from
+# a reader — but hardening against the day any row field stops being
+# repo-controlled. The scan-digest arm went away with the digest banner
+# itself (2026-09-12); the same hardening still applies to the two files
+# below, which build HTML the same way.
 #
 # scan-history.js's renderScanLeaderboard() has the identical pattern (its
 # own comment even cites auth.js's r.gics_sector by name) but was missed by
@@ -3097,7 +3283,7 @@ def _extract_escape_html_js(filename: str) -> str:
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
-@pytest.mark.parametrize("filename", ["auth.js", "scan-digest.js", "scan-history.js"])
+@pytest.mark.parametrize("filename", ["auth.js", "scan-history.js"])
 def test_escape_html_neutralizes_markup(filename):
     """Executes the real production function, not a re-implementation —
     same discipline as test_item_for_row_classifies_by_region_not_dataset_shape
@@ -3142,18 +3328,6 @@ def test_auth_js_row_builder_escapes_the_ticker_too():
         "renderLatestRows no longer escapes ticker before interpolating it "
         "into tickerHtml"
     )
-
-
-def test_scan_digest_js_chip_builder_escapes_sector_and_region():
-    """Pins the CALL SITE — same shape as the auth.js test above."""
-    src = (Path(__file__).parent.parent / "dashboard/assets/scan-digest.js").read_text()
-    assert "escapeHtml(item.sector)" in src, (
-        "fmtChip no longer escapes item.sector before interpolating it into innerHTML"
-    )
-    assert "escapeHtml(item.region)" in src, (
-        "fmtChip no longer escapes item.region before interpolating it into innerHTML"
-    )
-    assert "function escapeHtml(" in src
 
 
 def test_scan_history_js_row_builder_escapes_the_theme_name():
@@ -3583,3 +3757,1036 @@ def test_market_context_is_gone_from_every_template():
         for dead in ("macro_vix_", "macro_chip_spy", "guide_body_market_context",
                      "market_context_title", "strip_eyebrow_market"):
             assert dead not in tpl, f"{name} still references {dead}"
+
+
+_BEGINNER_DECK_JS = (Path(__file__).parent.parent / "dashboard" / "assets" / "beginner-deck.js").read_text()
+
+
+def _run_beginner_deck_js(js_call: str) -> str:
+    """Execute beginner-deck.js under node with a minimal DOM stub, then run
+    js_call and print its JSON-stringified result. Mirrors the harness other
+    _needs_node tests in this file already use for rescore.js."""
+    script = f"""
+    global.document = {{
+      getElementById: function(id) {{ return global.__els[id] || null; }},
+      querySelectorAll: function(sel) {{ return global.__querySelectorAll(sel); }},
+      addEventListener: function() {{}},
+    }};
+    global.window = {{ SMBeginnerDeckModal: {{ open: function(){{}}, close: function(){{}} }} }};
+    {_BEGINNER_DECK_JS}
+    console.log(JSON.stringify({js_call}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_beginner_deck_starts_on_step_1():
+    result = _run_beginner_deck_js("BeginnerDeck.currentStep()")
+    assert result == "1"
+
+
+@_needs_node
+def test_beginner_deck_next_advances_one_step():
+    result = _run_beginner_deck_js("(BeginnerDeck.next(), BeginnerDeck.currentStep())")
+    assert result == "2"
+
+
+@_needs_node
+def test_beginner_deck_next_stops_at_step_4():
+    result = _run_beginner_deck_js(
+        "(BeginnerDeck.next(), BeginnerDeck.next(), BeginnerDeck.next(), "
+        "BeginnerDeck.next(), BeginnerDeck.currentStep())"
+    )
+    assert result == "4", "four cards means step 4 is the last -- next() must not overrun"
+
+
+@_needs_node
+def test_beginner_deck_back_retreats_one_step():
+    result = _run_beginner_deck_js(
+        "(BeginnerDeck.next(), BeginnerDeck.next(), BeginnerDeck.back(), BeginnerDeck.currentStep())"
+    )
+    assert result == "2"
+
+
+@_needs_node
+def test_beginner_deck_back_stops_at_step_1():
+    result = _run_beginner_deck_js("(BeginnerDeck.back(), BeginnerDeck.currentStep())")
+    assert result == "1"
+
+
+@_needs_node
+def test_beginner_deck_go_to_step_jumps_directly():
+    result = _run_beginner_deck_js("(BeginnerDeck.goToStep(3), BeginnerDeck.currentStep())")
+    assert result == "3"
+
+
+def _run_beginner_deck_autoshow_js(dismissed, gate_present, gate_hidden):
+    """Exercises maybeAutoShow() directly (a plain decision function) rather
+    than the full document/MutationObserver wiring, which needs a real DOM
+    -- that wiring is exercised by hand in the browser, per Task 5 Step 5."""
+    script = f"""
+    var storage = {{ deck_dismissed: {"'1'" if dismissed else 'null'} }};
+    global.localStorage = {{
+      getItem: function(k) {{ return storage[k] || null; }},
+      setItem: function(k, v) {{ storage[k] = v; }},
+    }};
+    var gate = {"null" if not gate_present else "{ hidden: " + str(gate_hidden).lower() + " }"};
+    global.document = {{
+      getElementById: function(id) {{ return id === "gate-modal" ? gate : null; }},
+      querySelectorAll: function() {{ return []; }},
+      addEventListener: function() {{}},
+    }};
+    global.window = {{ SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }} }};
+    {_BEGINNER_DECK_JS}
+    BeginnerDeck.maybeAutoShow();
+    console.log(JSON.stringify(!!global.__opened));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_autoshow_fires_when_never_dismissed_and_no_gate_modal():
+    assert _run_beginner_deck_autoshow_js(dismissed=False, gate_present=False, gate_hidden=True) == "true"
+
+
+@_needs_node
+def test_autoshow_does_not_fire_when_already_dismissed():
+    assert _run_beginner_deck_autoshow_js(dismissed=True, gate_present=False, gate_hidden=True) == "false"
+
+
+@_needs_node
+def test_autoshow_fires_when_gate_modal_present_but_already_hidden():
+    """Signed-in reader, or a guest whose guest_dismissed was already set --
+    nothing is blocking, so the deck shows immediately."""
+    assert _run_beginner_deck_autoshow_js(dismissed=False, gate_present=True, gate_hidden=True) == "true"
+
+
+@_needs_node
+def test_autoshow_does_not_fire_immediately_when_gate_modal_is_visible():
+    """The collision this whole mechanism exists to prevent: if the gate
+    modal is currently showing, the deck must NOT open at the same time."""
+    assert _run_beginner_deck_autoshow_js(dismissed=False, gate_present=True, gate_hidden=False) == "false"
+
+
+def _run_beginner_deck_race_js():
+    """Exercises the real sm:auth-changed wiring (not maybeAutoShow()
+    directly) against the ACTUAL event order in auth.js's render():
+    `document.dispatchEvent(new CustomEvent("sm:auth-changed"))` runs
+    (and fully resolves) BEFORE render()'s own showModal() call flips
+    #gate-modal's `hidden` attribute -- see dashboard/assets/auth.js,
+    where the dispatchEvent line sits several lines above the
+    showModal()/showModal(false) branch at the end of render().
+
+    A naive listener that reads gate.hidden synchronously inside the
+    sm:auth-changed handler would see the PRE-render() value (the
+    template bakes #gate-modal `hidden` initially) for a first-time
+    guest, and open the deck before render() has opened the gate modal
+    -- the exact simultaneous-open this task exists to prevent. This
+    stubs a real (synchronous) EventTarget-style document so the actual
+    listener registered by beginner-deck.js runs, and simulates
+    render()'s ordering by flipping gate.hidden to false immediately
+    after the dispatchEvent call returns, exactly as auth.js does."""
+    script = f"""
+    var gate = {{ hidden: true }};
+    var listeners = {{}};
+    global.localStorage = {{ getItem: function(k) {{ return null; }}, setItem: function() {{}} }};
+    global.document = {{
+      getElementById: function(id) {{ return id === "gate-modal" ? gate : null; }},
+      querySelectorAll: function() {{ return []; }},
+      addEventListener: function(type, fn) {{ (listeners[type] = listeners[type] || []).push(fn); }},
+      removeEventListener: function(type, fn) {{
+        listeners[type] = (listeners[type] || []).filter(function (f) {{ return f !== fn; }});
+      }},
+      dispatchEvent: function(evt) {{
+        (listeners[evt.type] || []).slice().forEach(function (fn) {{ fn(evt); }});
+      }},
+    }};
+    var moCallback = null;
+    function MutationObserver(cb) {{
+      moCallback = cb;
+      this.observe = function() {{}};
+      this.disconnect = function() {{ global.__disconnected = true; }};
+    }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{
+      SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }},
+      setTimeout: setTimeout,
+      // Fix 4 (whole-branch review): the sm:auth-changed handler now clears
+      // its timeout fallback the moment the real event fires -- must be
+      // stubbed or that call throws and this test's dispatchEvent() blows up.
+      clearTimeout: clearTimeout,
+    }};
+    {_BEGINNER_DECK_JS}
+
+    // Simulate auth.js's render() for a first-time guest: dispatchEvent
+    // fires first, and only afterward does render() call showModal(true),
+    // which flips gate.hidden -- both still synchronous within render().
+    document.dispatchEvent({{type: "sm:auth-changed"}});
+    gate.hidden = false;
+
+    setTimeout(function () {{
+      var openedBeforeClose = !!global.__opened;
+      // Guest now closes the gate modal (button/Escape/backdrop). SMModal's
+      // close() just sets hidden = true and fires no event of its own --
+      // the MutationObserver is what beginner-deck.js relies on instead.
+      gate.hidden = true;
+      moCallback();
+      console.log(JSON.stringify({{
+        openedBeforeClose: openedBeforeClose,
+        openedAfterClose: !!global.__opened,
+        disconnectedObserver: !!global.__disconnected,
+      }}));
+    }}, 5);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_autoshow_does_not_race_ahead_of_gate_modal_render():
+    """Regression test for a timing bug found while implementing this task:
+    auth.js dispatches sm:auth-changed BEFORE it applies its own show/hide
+    decision to #gate-modal, so a listener that reads gate.hidden
+    synchronously (rather than deferring past render()'s showModal() call)
+    would open the deck at the same instant the gate modal opens for a
+    first-time guest. See beginner-deck.js's sm:auth-changed handler."""
+    result = _run_beginner_deck_race_js()
+    assert result["openedBeforeClose"] is False, (
+        "deck opened before the gate modal actually closed -- the exact "
+        "simultaneous-open collision this task must prevent"
+    )
+    assert result["openedAfterClose"] is True, "deck never opened once the gate modal closed"
+    assert result["disconnectedObserver"] is True, "MutationObserver was not disconnected after firing"
+
+
+def _run_beginner_deck_no_gate_wiring_js():
+    """Exercises the real-DOM wiring's entry point (not maybeAutoShow()
+    directly) for a build with no #gate-modal element at all -- i.e. auth
+    isn't configured. auth.js's own top-level guard (missing
+    SUPABASE_CONFIG/#auth-root/SMSupabase) returns before ever calling
+    render() in that case, so sm:auth-changed is never dispatched. A wiring
+    that only ever calls maybeAutoShow() from inside that event's listener
+    would leave the deck permanently stuck: never shown, on any build
+    without auth. This never dispatches sm:auth-changed at all, and asserts
+    the deck opens anyway."""
+    script = f"""
+    global.localStorage = {{ getItem: function(k) {{ return null; }}, setItem: function() {{}} }};
+    global.document = {{
+      getElementById: function(id) {{ return null; }},
+      querySelectorAll: function() {{ return []; }},
+      addEventListener: function() {{}},
+      removeEventListener: function() {{}},
+    }};
+    function MutationObserver(cb) {{ this.observe = function() {{}}; this.disconnect = function() {{}}; }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{ SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }} }};
+    {_BEGINNER_DECK_JS}
+    console.log(JSON.stringify(!!global.__opened));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_autoshow_wiring_fires_immediately_with_no_gate_modal_in_dom():
+    """Regression test for a second bug found in review: when #gate-modal
+    doesn't exist in the DOM at all (a build with no auth configured),
+    auth.js never calls render(), so sm:auth-changed never fires -- a
+    wiring that waits exclusively for that event would never show the deck
+    on such a build. beginner-deck.js must check for #gate-modal's absence
+    up front and call maybeAutoShow() immediately in that case, without
+    waiting for any event."""
+    assert _run_beginner_deck_no_gate_wiring_js() == "true"
+
+
+def _run_beginner_deck_late_load_js(gate_hidden):
+    """Exercises the real-DOM wiring for a THIRD bug found in browser
+    verification (Task 5 Step 5): auth.js's initial onAuthStateChange
+    callback can resolve -- running render() to full completion, including
+    its sm:auth-changed dispatch and its showModal() call -- before this
+    script even loads, several script tags later in the page. Measured
+    empirically: under 50ms, comfortably faster than script-tag load order
+    can guarantee. A wiring that only ever calls maybeAutoShow() from
+    inside an sm:auth-changed listener registered by THIS script would
+    miss that already-past dispatch and never show the deck at all.
+
+    This never dispatches sm:auth-changed. Instead it sets
+    global.window.SM_SIGNED_IN to a defined value up front, mirroring
+    auth.js's render() (auth.js:100-101: SM_SIGNED_IN is set immediately
+    before the dispatch) having already fully run by the time
+    beginner-deck.js loads -- the same signal stops.js already relies on
+    for this identical race (stops.js:82-84's `if (window.SM_SIGNED_IN)
+    load()`)."""
+    script = f"""
+    var gate = {{ hidden: {str(gate_hidden).lower()} }};
+    global.localStorage = {{ getItem: function(k) {{ return null; }}, setItem: function() {{}} }};
+    global.document = {{
+      getElementById: function(id) {{ return id === "gate-modal" ? gate : null; }},
+      querySelectorAll: function() {{ return []; }},
+      addEventListener: function() {{}},
+      removeEventListener: function() {{}},
+    }};
+    var moCallback = null;
+    function MutationObserver(cb) {{
+      moCallback = cb;
+      this.observe = function() {{}};
+      this.disconnect = function() {{ global.__disconnected = true; }};
+    }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{
+      SM_SIGNED_IN: false,
+      SMBeginnerDeckModal: {{ open: function(){{ global.__opened = true; }}, close: function(){{}} }},
+    }};
+    {_BEGINNER_DECK_JS}
+    var openedImmediately = !!global.__opened;
+    var openedAfterFlip = null;
+    if (!openedImmediately && moCallback) {{
+      gate.hidden = true;
+      moCallback();
+      openedAfterFlip = !!global.__opened;
+    }}
+    console.log(JSON.stringify({{openedImmediately: openedImmediately, openedAfterFlip: openedAfterFlip}}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_autoshow_wiring_decides_immediately_when_auth_already_resolved_and_gate_hidden():
+    """Regression test for the third bug (see _run_beginner_deck_late_load_js's
+    docstring): render() already ran and left #gate-modal hidden (signed-in
+    reader, or guest_dismissed already set) by the time this script loaded --
+    the deck must open right away rather than waiting on an event that has
+    already fired and will not fire again."""
+    result = _run_beginner_deck_late_load_js(gate_hidden=True)
+    assert result["openedImmediately"] is True
+
+
+@_needs_node
+def test_autoshow_wiring_watches_gate_when_auth_already_resolved_and_gate_visible():
+    """Companion case: render() already ran and left #gate-modal VISIBLE
+    (first-time guest) by the time this script loaded. The deck must not
+    open immediately (that would collide with the still-open gate modal),
+    but must still open once the gate later closes."""
+    result = _run_beginner_deck_late_load_js(gate_hidden=False)
+    assert result["openedImmediately"] is False, "deck opened while the gate modal was still visible"
+    assert result["openedAfterFlip"] is True, "deck never opened once the gate modal closed"
+
+
+# ---------------------------------------------------------------------------
+# Whole-branch review, Fix 1: SMModal's onOpen hook must reset the deck to
+# Card 1 on every open() -- footer link, methodology cross-link, or a repeat
+# maybeAutoShow -- not just on a fresh page load's static markup.
+# ---------------------------------------------------------------------------
+
+def _modal_js() -> str:
+    """_modal.js.j2 rendered through Jinja, not read raw -- it's a template
+    (Jinja `{# ... #}` comments throughout, even though it has no variables
+    to substitute), and node chokes on those comment markers as a syntax
+    error if the file is passed through verbatim."""
+    from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
+
+    tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)), keep_trailing_newline=True)
+    register_asset_url(env)
+    return env.get_template("_modal.js.j2").render()
+
+
+_MODAL_JS = _modal_js()
+
+
+def _beginner_deck_inline_script() -> str:
+    """The literal inline <script>...</script> block rendered by
+    _beginner_deck.html.j2 -- the home of the SMModal.bind(...) call with
+    onOpen (Fix 1) and the Card 4 methodology cross-link handler (Fix 2).
+    Not beginner-deck.js (that's the separate src= script, _BEGINNER_DECK_JS
+    above)."""
+    from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
+
+    tpl_dir = Path(__file__).parent.parent / "dashboard" / "templates"
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)), keep_trailing_newline=True)
+    register_asset_url(env)
+    html = env.get_template("_beginner_deck.html.j2").render(
+        default_horizon_top_n=4, trailing_stop_pct=12
+    )
+    m = re.search(r"<script>(.*?)</script>", html, re.S)
+    assert m, "no inline <script> block found in the rendered beginner-deck partial"
+    return m.group(1)
+
+
+def _run_beginner_deck_onopen_reset_js():
+    """Runs the REAL _modal.js.j2 helper plus the REAL rendered inline
+    script against a minimal but structurally complete element stub (each
+    element carries hidden/dataset/textContent/etc, not just a bare
+    getElementById lookup) -- SMModal.bind()'s open()/onOpen plumbing needs
+    more surface than the plain-decision-function stubs used elsewhere in
+    this file."""
+    inline_script = _beginner_deck_inline_script()
+    script = f"""
+    function makeEl(overrides) {{
+      return Object.assign({{
+        hidden: false,
+        dataset: {{}},
+        className: "",
+        textContent: "",
+        innerHTML: "",
+        children: [],
+        addEventListener: function () {{}},
+        removeEventListener: function () {{}},
+        focus: function () {{}},
+        querySelector: function () {{ return null; }},
+        querySelectorAll: function () {{ return []; }},
+        appendChild: function (child) {{ this.children.push(child); }},
+        setAttribute: function () {{}},
+        getAttribute: function () {{ return null; }},
+        scrollTop: 0,
+      }}, overrides || {{}});
+    }}
+
+    var overlay = makeEl({{ hidden: true }});
+    var closeBtn = makeEl({{}});
+    var backBtn = makeEl({{}});
+    var nextBtn = makeEl({{}});
+    var dots = makeEl({{}});
+    var methodologyLink = makeEl({{}});
+    var cards = [1, 2, 3, 4].map(function (n) {{
+      return makeEl({{ getAttribute: function (name) {{ return name === "data-step" ? String(n) : null; }} }});
+    }});
+
+    var els = {{
+      "beginner-deck-modal": overlay,
+      "beginner-deck-close": closeBtn,
+      "beginner-deck-back": backBtn,
+      "beginner-deck-next": nextBtn,
+      "beginner-deck-dots": dots,
+      "beginner-deck-methodology-link": methodologyLink,
+    }};
+
+    global.document = {{
+      body: {{}},
+      getElementById: function (id) {{ return els[id] || null; }},
+      querySelectorAll: function (sel) {{ return sel === ".beginner-deck-card" ? cards : []; }},
+      addEventListener: function () {{}},
+      removeEventListener: function () {{}},
+      createElement: function () {{ return makeEl({{}}); }},
+      activeElement: null,
+    }};
+    global.window = {{}};
+
+    {_MODAL_JS}
+    {_BEGINNER_DECK_JS}
+    {inline_script}
+
+    // Leave the stepper on Card 3 -- exactly what a returning reader who
+    // dismissed the deck mid-walkthrough on a prior visit would see, since
+    // nothing has called render() since the fresh page load's static markup.
+    BeginnerDeck.goToStep(3);
+    window.SMBeginnerDeckModal.open();
+    console.log(JSON.stringify({{
+      step: BeginnerDeck.currentStep(),
+      backHidden: backBtn.hidden,
+    }}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_beginner_deck_open_resets_to_step_1_via_onopen():
+    """Fix 1 (whole-branch review): opening the deck any way other than a
+    fresh page load -- footer link, methodology cross-link, or a repeat
+    maybeAutoShow() -- must reset to Card 1, via SMModal's onOpen hook bound
+    in _beginner_deck.html.j2's inline script."""
+    result = _run_beginner_deck_onopen_reset_js()
+    assert result["step"] == 1, "open() did not reset the stepper to Card 1"
+    assert result["backHidden"] is True, (
+        "Back button still visible after open() -- the stepper was not "
+        "actually reset to step 1's rendered state"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Whole-branch review, Fix 3: nothing previously exercised the WRITE side of
+# deck_dismissed -- only the READ side (maybeAutoShow's behavior once
+# dismissed). These drive the real click-wiring (stepper handler +
+# dismissal-marking handler, the latter gated behind DOMContentLoaded) so the
+# actual production code paths run, not a re-implementation of them.
+# ---------------------------------------------------------------------------
+
+def _run_beginner_deck_dismiss_js(final_step):
+    script = f"""
+    var storage = {{}};
+    global.localStorage = {{
+      getItem: function (k) {{ return storage[k] || null; }},
+      setItem: function (k, v) {{ storage[k] = v; }},
+    }};
+
+    function makeButton() {{
+      var listeners = [];
+      return {{
+        textContent: "",
+        hidden: false,
+        addEventListener: function (type, fn) {{ if (type === "click") {{ listeners.push(fn); }} }},
+        click: function () {{ listeners.slice().forEach(function (fn) {{ fn(); }}); }},
+      }};
+    }}
+    var nextBtn = makeButton();
+    var backBtn = makeButton();
+
+    var domListeners = {{}};
+    global.document = {{
+      body: {{}},
+      getElementById: function (id) {{
+        if (id === "beginner-deck-next") {{ return nextBtn; }}
+        if (id === "beginner-deck-back") {{ return backBtn; }}
+        return null;
+      }},
+      querySelectorAll: function () {{ return []; }},
+      addEventListener: function (type, fn) {{ (domListeners[type] = domListeners[type] || []).push(fn); }},
+      removeEventListener: function () {{}},
+    }};
+    function MutationObserver(cb) {{ this.observe = function () {{}}; this.disconnect = function () {{}}; }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{ SMBeginnerDeckModal: {{ open: function () {{}}, close: function () {{}} }} }};
+    {_BEGINNER_DECK_JS}
+
+    // Fire DOMContentLoaded so the dismissal-marking listener (registered
+    // inside that handler in beginner-deck.js) actually gets attached.
+    (domListeners["DOMContentLoaded"] || []).forEach(function (fn) {{ fn(); }});
+
+    BeginnerDeck.goToStep({final_step});
+    nextBtn.click();
+
+    console.log(JSON.stringify({{ deckDismissed: storage.deck_dismissed || null }}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_next_click_on_last_step_marks_deck_dismissed():
+    """The WRITE side of deck_dismissed, previously untested: clicking Next
+    ("Got it") on the last card must actually persist the flag, via the
+    click-wiring beginner-deck.js registers on #beginner-deck-next."""
+    result = _run_beginner_deck_dismiss_js(final_step=4)
+    assert result["deckDismissed"] == "1"
+
+
+@_needs_node
+def test_next_click_on_a_non_last_step_does_not_mark_deck_dismissed():
+    """Clicking through Cards 1-3 (or presumably dismissing via Escape/
+    backdrop, which never touches #beginner-deck-next at all) must never set
+    deck_dismissed -- only reaching and leaving the last card should."""
+    result = _run_beginner_deck_dismiss_js(final_step=1)
+    assert result["deckDismissed"] is None
+
+
+# ---------------------------------------------------------------------------
+# Whole-branch review, Fix 4: the spec's fail-open branch -- if #gate-modal
+# exists (auth configured) but auth.js's OWN JS failed (missing #auth-root,
+# SMSupabase not loaded, a CDN failure) so render() never runs, SM_SIGNED_IN
+# stays undefined and sm:auth-changed never dispatches. Without a timeout
+# fallback the deck would wait forever for an event that will never fire.
+# ---------------------------------------------------------------------------
+
+def _run_beginner_deck_timeout_fallback_js():
+    """Uses node's REAL setTimeout/clearTimeout (not a simulated/advanced
+    clock -- there is no precedent for that in this file) and the real
+    2000ms fallback constant from beginner-deck.js, waiting a bit past it.
+    This is the one test in this suite allowed to cost real wall-clock time,
+    per the review finding -- it is specifically proving a timer fires."""
+    script = f"""
+    // #gate-modal present but stuck at its baked initial value (hidden) --
+    // exactly what a build with auth configured but a failed auth.js leaves
+    // behind: the template bakes it hidden, and nothing ever calls render()
+    // to change that.
+    var gate = {{ hidden: true }};
+    var domListeners = {{}};
+    global.localStorage = {{ getItem: function () {{ return null; }}, setItem: function () {{}} }};
+    global.document = {{
+      getElementById: function (id) {{ return id === "gate-modal" ? gate : null; }},
+      querySelectorAll: function () {{ return []; }},
+      addEventListener: function (type, fn) {{ (domListeners[type] = domListeners[type] || []).push(fn); }},
+      removeEventListener: function (type, fn) {{
+        domListeners[type] = (domListeners[type] || []).filter(function (f) {{ return f !== fn; }});
+      }},
+    }};
+    function MutationObserver(cb) {{ this.observe = function () {{}}; this.disconnect = function () {{}}; }}
+    global.MutationObserver = MutationObserver;
+    global.window = {{
+      // SM_SIGNED_IN deliberately absent -- stays undefined, as it would if
+      // auth.js's render() never ran.
+      SMBeginnerDeckModal: {{ open: function () {{ global.__opened = true; }}, close: function () {{}} }},
+      setTimeout: setTimeout,
+      clearTimeout: clearTimeout,
+    }};
+    // sm:auth-changed is never dispatched anywhere in this script.
+    {_BEGINNER_DECK_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{ opened: !!global.__opened }}));
+    }}, 2200);
+    """
+    res = subprocess.run(
+        ["node", "-e", script], capture_output=True, text=True, check=True, timeout=10
+    )
+    return json.loads(res.stdout.strip())
+
+
+@_needs_node
+def test_autoshow_wiring_fails_open_when_sm_auth_changed_never_fires():
+    """Fix 4 (whole-branch review): when #gate-modal exists but auth.js's own
+    JS failed -- so sm:auth-changed never dispatches -- the deck must still
+    auto-show eventually via the timeout fallback, not wait forever."""
+    result = _run_beginner_deck_timeout_fallback_js()
+    assert result["opened"] is True, (
+        "deck never auto-showed -- the timeout fallback did not fire (or "
+        "did not fail open) when sm:auth-changed never dispatched"
+    )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — SMStopDistance pure math (Task 4)
+# ---------------------------------------------------------------------------
+
+_STOPS_JS = (Path(__file__).parent.parent / "dashboard" / "assets" / "stops.js").read_text()
+
+
+def _run_stops_js(js_call: str) -> str:
+    """Execute stops.js under node with a minimal `window` stub (just an
+    empty object -- enough for the config-gated IIFE's `window.SUPABASE_CONFIG`
+    read to resolve to undefined and no-op, without needing a real DOM), then
+    run js_call and print its JSON-stringified result. Mirrors
+    _run_beginner_deck_js's harness."""
+    script = f"""
+    global.window = {{}};
+    {_STOPS_JS}
+    console.log(JSON.stringify({js_call}));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return res.stdout.strip()
+
+
+@_needs_node
+def test_compute_proximity_at_zero_drawdown_is_zero():
+    assert _run_stops_js("SMStopDistance.computeProximity(0, 0.12)") == "0"
+
+
+@_needs_node
+def test_compute_proximity_at_half_the_threshold_is_half():
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.06, 0.12)"))
+    assert abs(result - 0.5) < 1e-9
+
+
+@_needs_node
+def test_compute_proximity_at_the_threshold_is_one():
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.12, 0.12)"))
+    assert abs(result - 1.0) < 1e-9
+
+
+@_needs_node
+def test_compute_proximity_clamps_past_the_threshold():
+    """A position can fall well past its stop between two scans -- the bar
+    must not overflow past 100%."""
+    result = float(_run_stops_js("SMStopDistance.computeProximity(-0.30, 0.12)"))
+    assert result == 1.0
+
+
+@_needs_node
+def test_compute_proximity_guards_a_zero_stop_frac():
+    """Defensive: stop_frac is always > 0 in production
+    (trailing_stop_frac()'s own docstring guarantees 0 < val < 1), but a
+    div-by-zero here must not throw and break the whole leaderboard render."""
+    assert _run_stops_js("SMStopDistance.computeProximity(-0.05, 0)") == "0"
+
+
+@_needs_node
+def test_proximity_color_at_zero_is_pure_up():
+    result = _run_stops_js("SMStopDistance.proximityColor(0)")
+    assert result == '"color-mix(in srgb, var(--fg1) 0%, var(--up))"'
+
+
+@_needs_node
+def test_proximity_color_at_the_midpoint_is_pure_neutral():
+    result = _run_stops_js("SMStopDistance.proximityColor(0.5)")
+    assert result == '"color-mix(in srgb, var(--fg1) 100%, var(--up))"'
+
+
+@_needs_node
+def test_proximity_color_at_one_is_pure_down():
+    result = _run_stops_js("SMStopDistance.proximityColor(1)")
+    assert result == '"color-mix(in srgb, var(--down) 100%, var(--fg1))"'
+
+
+@_needs_node
+def test_proximity_color_just_past_the_midpoint_uses_the_down_segment():
+    result = _run_stops_js("SMStopDistance.proximityColor(0.75)")
+    assert result == '"color-mix(in srgb, var(--down) 50%, var(--fg1))"'
+
+
+@_needs_node
+def test_proximity_color_on_a_realistic_non_round_value():
+    """Task 4's own colour tests only checked p = 0, 0.5, 0.75, 1 -- every one
+    of those happens to land on a round color-mix() percentage, so none would
+    catch a rounding bug on a genuinely fractional proximity. drawdown=-0.04,
+    stopFrac=0.12 gives p = 1/3 (0.3333...), a realistic in-between reading:
+    Math.round(1/3 * 200) = Math.round(66.66...) = 67, pinning the actual
+    rounding behaviour on a non-round input for the first time."""
+    p = float(_run_stops_js("SMStopDistance.computeProximity(-0.04, 0.12)"))
+    assert abs(p - (1.0 / 3.0)) < 1e-9
+    result = _run_stops_js("SMStopDistance.proximityColor(SMStopDistance.computeProximity(-0.04, 0.12))")
+    assert result == '"color-mix(in srgb, var(--fg1) 67%, var(--up))"'
+
+
+# ---------------------------------------------------------------------------
+# stops.js — safeQuery() must survive a catch-less thenable, not just a real
+# Promise (Task 5, fix round 1: Critical review finding).
+#
+# The REAL Supabase query builder returned by sb.from(...).select(...)
+# (dashboard/assets/supabase.min.js) is a bare thenable: it implements
+# .then() but has NO .catch()/.finally() and is not `instanceof Promise`.
+# The original safeQuery called `.catch(...)` directly on that builder,
+# which threw a SYNCHRONOUS TypeError -- before Promise.all was ever
+# entered -- disabling every caller of load() and, with it, both the new
+# stop-distance bar AND the pre-existing breach chip.
+#
+# This drives the REAL load() path (via window.SM_SIGNED_IN, exactly as a
+# real page load does), not a reimplementation of safeQuery, against a stub
+# builder that mimics the catch-less shape for one query while the other
+# succeeds -- and asserts the successful query's row still reaches
+# decorate() (gets appended to the cell) despite the other one rejecting.
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_safe_query_lets_the_other_query_succeed_when_one_rejects():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_TRAILING_STOP_FRAC: 0.12,
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    // Deliberately a DIFFERENT object from `cell`: if stops.js ever went
+    // back to targeting the theme cell (nameSpan.parentNode), appends would
+    // land here instead and the assertions below would catch it. Pointing
+    // both at one object would make this stub pass either way.
+    var themeAppended = [];
+    var themeCell = {{ appendChild: function (el) {{ themeAppended.push(el); }} }};
+    var nameSpan = {{ parentNode: themeCell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        // .stop-cell is where both the bar and the chip now go (the "To
+        // stop" column). .theme-name is still answered so the stub keeps
+        // matching a real row's shape, but stops.js no longer reads it.
+        if (sel === ".stop-cell") return cell;
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    // A catch-less thenable -- mimics the real Supabase query builder shape.
+    // Deliberately no .catch/.finally: calling .catch on this throws.
+    function catchlessThenable(ok, value) {{
+      return {{
+        then: function (onFulfilled, onRejected) {{
+          if (ok) return Promise.resolve(onFulfilled(value));
+          return Promise.resolve(onRejected(value));
+        }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              // This query's builder REJECTS.
+              return catchlessThenable(false, new Error("position_stops boom"));
+            }}
+            // position_stop_distance's builder FULFILLS.
+            return catchlessThenable(true, {{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.04}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{appendedCount: appended.length,
+                                  themeCellAppendedCount: themeAppended.length}}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw instead of degrading -- a rejecting query builder "
+        "with no .catch() must not kill the other query's result:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["themeCellAppendedCount"] == 0, (
+        "the surviving query's marker must land in the .stop-cell column, "
+        "not back in the theme cell"
+    )
+    assert out["appendedCount"] == 1, (
+        "the position_stop_distance query's successful result never reached "
+        "decorate() -- the rejecting position_stops query took it down too"
+    )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — chip-vs-bar precedence is a BEHAVIORAL invariant, not just a
+# source-order string check (whole-branch review finding 1).
+#
+# tests/test_dashboard_stops.py's
+# test_breach_chip_takes_precedence_over_the_distance_bar_in_source_order only
+# checks that `if (stop) {` appears before the `buildDistanceEl(distance)`
+# call site in the file's TEXT -- it would still pass if the `if (stop)`
+# branch forgot its `return` statement and decorate() went on to append BOTH
+# the chip and the bar to the same row. This drives the real load()/decorate()
+# path (same harness as
+# test_safe_query_lets_the_other_query_succeed_when_one_rejects above) with
+# BOTH position_stops and position_stop_distance fulfilling a row for the
+# SAME position key, and asserts exactly one element was appended to that
+# row's cell, with className "stop-chip" -- not just a count, since in the
+# both-rows case either branch appends exactly one element, so a bare count
+# would not catch a precedence inversion (chip and bar swapped).
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_chip_wins_and_only_one_element_appended_when_both_rows_exist_for_same_key():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_TRAILING_STOP_FRAC: 0.12,
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    // Deliberately a DIFFERENT object from `cell`: if stops.js ever went
+    // back to targeting the theme cell (nameSpan.parentNode), appends would
+    // land here instead and the assertions below would catch it. Pointing
+    // both at one object would make this stub pass either way.
+    var themeAppended = [];
+    var themeCell = {{ appendChild: function (el) {{ themeAppended.push(el); }} }};
+    var nameSpan = {{ parentNode: themeCell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        // .stop-cell is where both the bar and the chip now go (the "To
+        // stop" column). .theme-name is still answered so the stub keeps
+        // matching a real row's shape, but stops.js no longer reads it.
+        if (sel === ".stop-cell") return cell;
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    // Both queries fulfill, both with a row for the SAME key
+    // (theme|""|Space) -- the both-rows-exist case Finding 1 is about.
+    function fulfilledThenable(value) {{
+      return {{
+        then: function (onFulfilled) {{ return Promise.resolve(onFulfilled(value)); }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              return fulfilledThenable({{
+                data: [{{item_type: "theme", region: "", name: "Space",
+                         stopped_on: "2026-09-10", drawdown: -0.13}}],
+                error: null
+              }});
+            }}
+            return fulfilledThenable({{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.04}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{
+        appendedCount: appended.length,
+        themeCellAppendedCount: themeAppended.length,
+        classNames: appended.map(function (el) {{ return el.className; }})
+      }}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw when both tables had a row for the same key:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["appendedCount"] == 1, (
+        "expected exactly one element appended to the row's cell when it has "
+        f"BOTH a position_stops row and a position_stop_distance row -- got "
+        f"{out['appendedCount']}: {out['classNames']}"
+    )
+    assert out["themeCellAppendedCount"] == 0, (
+        "the chip/bar must go in the .stop-cell column, never back into the "
+        "theme cell -- something was appended to the theme cell instead"
+    )
+    assert out["classNames"] == ["stop-chip"], (
+        "the breach chip must win when both rows exist for the same key -- "
+        f"got {out['classNames']} instead of ['stop-chip']"
+    )
+
+
+# ---------------------------------------------------------------------------
+# stops.js — the bar must not render at all when the stop-threshold config is
+# missing/invalid (whole-branch review finding 3).
+#
+# SMStopDistance.computeProximity(drawdown, stopFrac) returns 0 when stopFrac
+# is falsy/zero, so with window.SM_TRAILING_STOP_FRAC absent a row that would
+# otherwise get a bar renders one at 0% fill in pure var(--up) (green) --
+# actively signalling "nowhere near its stop" while the real drawdown could be
+# anything. decorate() must skip rendering the bar entirely in that case,
+# leaving the cell exactly as it already is.
+# ---------------------------------------------------------------------------
+
+@_needs_node
+def test_bar_is_suppressed_entirely_when_the_stop_frac_config_is_missing():
+    script = f"""
+    global.window = {{
+      SUPABASE_CONFIG: {{ url: "https://fake.supabase.co", key: "fake-key" }},
+      SM_SIGNED_IN: true,
+      applyLangToEl: function () {{}}
+    }};
+    // window.SM_TRAILING_STOP_FRAC deliberately absent.
+
+    var appended = [];
+    var cell = {{ appendChild: function (el) {{ appended.push(el); }} }};
+    // Deliberately a DIFFERENT object from `cell`: if stops.js ever went
+    // back to targeting the theme cell (nameSpan.parentNode), appends would
+    // land here instead and the assertions below would catch it. Pointing
+    // both at one object would make this stub pass either way.
+    var themeAppended = [];
+    var themeCell = {{ appendChild: function (el) {{ themeAppended.push(el); }} }};
+    var nameSpan = {{ parentNode: themeCell }};
+    var row = {{
+      dataset: {{ region: "THEME", sector: "Space" }},
+      classList: {{ add: function () {{}}, remove: function () {{}} }},
+      cells: [],
+      querySelector: function (sel) {{
+        // .stop-cell is where both the bar and the chip now go (the "To
+        // stop" column). .theme-name is still answered so the stub keeps
+        // matching a real row's shape, but stops.js no longer reads it.
+        if (sel === ".stop-cell") return cell;
+        if (sel === ".theme-name") return nameSpan;
+        return null;
+      }}
+    }};
+
+    function makeEl() {{
+      return {{
+        style: {{}},
+        appendChild: function () {{}},
+        setAttribute: function (k, v) {{ this[k] = v; }}
+      }};
+    }}
+
+    global.document = {{
+      createElement: function () {{ return makeEl(); }},
+      querySelectorAll: function () {{ return [row]; }},
+      addEventListener: function () {{}}
+    }};
+
+    function fulfilledThenable(value) {{
+      return {{
+        then: function (onFulfilled) {{ return Promise.resolve(onFulfilled(value)); }}
+      }};
+    }}
+
+    window.SMSupabase = {{
+      from: function (table) {{
+        return {{
+          select: function () {{
+            if (table === "position_stops") {{
+              return fulfilledThenable({{data: [], error: null}});
+            }}
+            return fulfilledThenable({{
+              data: [{{item_type: "theme", region: "", name: "Space",
+                       as_of: "2026-09-10", drawdown: -0.10}}],
+              error: null
+            }});
+          }}
+        }};
+      }}
+    }};
+
+    {_STOPS_JS}
+
+    setTimeout(function () {{
+      console.log(JSON.stringify({{appendedCount: appended.length,
+                                  themeCellAppendedCount: themeAppended.length}}));
+    }}, 20);
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, (
+        "stops.js threw when SM_TRAILING_STOP_FRAC was missing:\n" + res.stderr
+    )
+    out = json.loads(res.stdout.strip())
+    assert out["themeCellAppendedCount"] == 0, (
+        "nothing should be appended anywhere when the stop-frac config is "
+        "missing -- least of all into the theme cell"
+    )
+    assert out["appendedCount"] == 0, (
+        "a bar was appended even though window.SM_TRAILING_STOP_FRAC was "
+        "absent/invalid -- it would render at 0% fill in green, falsely "
+        "signalling 'far from its stop' for a position whose real proximity "
+        "is unknown"
+    )

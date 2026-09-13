@@ -20,75 +20,52 @@ Loosely prioritized list of features and improvements not yet scheduled.
 ---
 
 # Queued
-## Beginner-level "how this works" deck — buy/sell lines, review period, stop-loss
+## Remove all localization support — English only
 
-2026-09-07. Jonas: "We need to improve the methodology. I really want some
-kind of slide with pages (deck with cards?) We need to explain on a beginner
-level, very educational the whole idea. About when to buyin and what sell and
-buy line mean, and the stop loss and the review period. Everything."
+Requested 2026-09-12, no design done yet. The ask is to drop Swedish and the
+translation layer entirely rather than maintain it going forward — this is a
+removal, not a "fix the gaps" item (compare the several closed Done items
+above about filling in missing Swedish strings, which this would make moot).
 
-**This is not starting from zero.** `_methodology.html.j2` (shipped
-2026-07-22, rewritten "for a novice reader" 2026-07-something — see Done)
-already opens with a one-sentence summary, defines "theme"/"ETF" before
-using them, explains momentum as a tendency not a law, explains z-scores in
-plain terms ("0 = average, +1 = better than about 5 of 6"), and has a
-section each for horizon presets and the hold band. It also states plainly
-that Entry/Exit describe *position, not health*, and the three ways the
-backtest flatters the strategy.
+**What's actually in scope, so whoever picks this up doesn't scope it too
+narrowly:**
 
-**What's actually being asked for is a different FORMAT, not different
-content that doesn't exist.** The methodology modal is reference-style: one
-long scrollable explainer, opened from a footer link, read on demand by
-someone who already wants the detail. A "deck with cards" is a guided,
-sequential, one-idea-per-screen walkthrough — the kind of thing a genuinely
-new reader goes through once, in order, before ever touching the
-leaderboard. Same underlying facts, different job: teaching a beginner step
-by step vs. answering "what does X mean" for someone already using the
-tool.
+- **The engine itself**: `dashboard/templates/_i18n.html.j2` —
+  `currentLang()`/`apply()`/`toggleLang()`/`applyLangToEl()`, the `#lang-toggle`
+  button and its `localStorage` persistence, the `SV`/`SV_HTML` globals.
+- **The translation tables**: `dashboard/templates/i18n/` — `_core.js.j2`
+  (147 keys alone) plus `_backtest.js.j2`, `_badges.js.j2`, `_guides.js.j2`,
+  `_sentiment.js.j2`, `_validation.js.j2`, `_auth.js.j2`.
+- **Every consumer**: `data-i18n`/`data-i18n-title`/`data-i18n-html`
+  attributes across ~19 template/JS files, plus scattered runtime calls
+  (`window.applyLangToEl(el)` after dynamically building an element — see
+  `stops.js`, `positions.js`).
+- **The `.lang-toggle` CSS class is a false friend here** — it's reused as a
+  generic pill-button style on buttons that have nothing to do with language
+  (`#auth-signin`, `#auth-send`, `#alert-prefs-enable`, `#alert-prefs-copy`,
+  `#alert-prefs-regen`, the auth-modal submit). Deleting the class along with
+  the language feature would silently unstyle all of those — the styling and
+  the language toggle need to be separated, not deleted together.
+- **The dedicated test suite**: `tests/test_i18n_coverage.py` (the coverage
+  guard itself) plus i18n-touching assertions inside ~18 other test files
+  (`test_dashboard_js.py`, `test_dashboard_stops.py`, `test_badge_i18n_playwright.py`,
+  `test_beginner_deck.py`, and others) — these need to be edited down to their
+  non-i18n assertions, not just deleted wholesale, since several also pin
+  unrelated behavior in the same test.
 
-**Content it needs to cover, per Jonas's list — check each against what
-already exists before writing new copy:**
-- When to buy in — the buy band (`rank <= top_n`), probably NEW as a
-  standalone "here's the moment to act" framing; today this is implicit in
-  the horizon section, not stated as its own step.
-- What the buy line and sell line mean — the hysteresis band
-  (`exit_rank = top_n + buffer`) is covered in the methodology modal's hold-
-  band section already; needs simplifying into deck form, and needs to state
-  plainly what the sell line is NOT: it is not a stop-loss (relative rank,
-  not price; only fires on review dates). That confusion is the exact
-  question that led to the trailing stop-loss shipping (see Done) — a
-  beginner deck is the right place to make the distinction explicit and
-  early, not bury it in an aside.
-- The review period — cadence (`medium` monthly / `long` bi-monthly) and
-  what "review" actually means (re-rank, not "check your positions") is in
-  the methodology modal; needs a beginner-paced explanation of WHY it isn't
-  continuous (churn/cost, not laziness).
-- The stop-loss — **shipped 2026-09-08** (see Done: "Trailing stop-loss on
-  held positions"), so the sequencing blocker below is gone. The
-  methodology modal already has its own explanation section
-  (`_methodology.html.j2`, added with that PR); this deck's job is
-  translating that into the same beginner-paced, one-idea-per-card form as
-  the other three topics, not writing new content from scratch.
+**Open questions for the spec:**
 
-**Open questions for whoever picks this up (design decisions, not
-judgment calls — brainstorm first per this file's own guidance):**
-- Format: an actual slide/carousel component (new JS, new nav — swipe or
-  arrow-key through cards), or a series of sections within the existing
-  modal with a progress indicator? The former is more "deck-like" but is
-  real new UI; the latter reuses `_methodology.html.j2`'s existing
-  accessible-modal plumbing.
-- When does a reader see it: forced on first visit (onboarding), a
-  discoverable "New here? Start here" link beside the existing Methodology
-  link, or both?
-- Does it replace the existing methodology modal, sit beside it as a
-  "beginner" alternative to the existing "reference" one, or feed content
-  into both from one source so they can't drift apart the way the pre-2.0
-  methodology text drifted from the actual badge rule?
-- Swedish: the existing modal is **English only** (per its Done entry) —
-  a beginner-focused onboarding flow is arguably where translation matters
-  *most*, which is a bigger scope decision than it looks.
-
----
+- Does the `#lang-toggle` UI element disappear entirely, or does the header
+  lose only the *language* function while any other chrome around it stays?
+- English strings today live as literal `textContent` in the templates (the
+  `data-i18n` attribute's value is the *key*, the element's own text is the
+  English fallback) — confirm nothing currently relies on `SV`-only content
+  (`data-i18n-html` entries in particular) that has no English equivalent to
+  fall back to.
+- Given the size (19+ template/JS files, 18+ test files), this likely wants
+  the full brainstorm → spec → plan pipeline rather than being treated as a
+  bounded fix — the blast radius crosses the "meaningful blast radius" bar in
+  CLAUDE.md's guidance on when to use the full flow.
 
 ## Guest mode should be a frozen demo snapshot, not a rolling 7-day lag
 
@@ -375,37 +352,6 @@ test the validation still owes comes back positive.
 
 **The desktop-scan-date bullet shipped separately (2026-08-23)** — see Done.
 Only the signed-in fetch remains, above.
-
-## `init_db()`'s DDL has a first-run TOCTOU race, systemic, not worth fixing narrowly
-
-Code review, 2026-08-23 (on the `CREATE INDEX IF NOT EXISTS` statements added
-that day): `CREATE INDEX IF NOT EXISTS` is not atomic across concurrent
-sessions in Postgres. Two overlapping `init_db()` calls, both racing to create
-the same not-yet-existing index, can both pass the existence check and
-collide — one succeeds, the other raises a duplicate-relation error that
-aborts that call's `init_db()` transaction (rolling back its column adds too,
-since everything runs inside one `with conn:` block).
-
-**Not unique to the index statements.** The identical TOCTOU exists for every
-`CREATE TABLE IF NOT EXISTS` and `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in
-this same function — 19 statements total, none hardened, some shipped over a
-month ago. Guarding only the 3 newest ones would be inconsistent, not a real
-fix.
-
-**Narrower in practice than it sounds.** CI's four `init_db()` callers
-(`scan.py`, `dashboard/build.py`, `restore.py`,
-`scripts/backfill_region_ranks.py`) only collide across `scan.yml` and
-`build-docs.yml`, and those two share the `pages-deploy` concurrency group
-specifically to serialize them. The real exposure is a human running one of
-those scripts locally against production at the exact moment CI is creating a
-given object *for the first time* — a window that closes for good the moment
-that object exists, typically within one scan of merging.
-
-**Recommendation: leave as-is.** A real fix (retry-on-duplicate-object-error
-around every `IF NOT EXISTS` DDL statement, or serializing `init_db()` with an
-advisory lock) is systemic hardening, not a three-line addition, and the
-window it closes is a same-day, self-healing one. Worth doing in one pass if
-`init_db()` is ever revisited for another reason — not on its own.
 
 ## Composite structure — 4.2 effective signals of 8
 
@@ -744,6 +690,122 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **`init_db()`'s DDL TOCTOU race closed with an advisory lock (2026-09-12).**
+  Closes the item recorded 2026-08-23. That item's own recommendation was to
+  leave the race unfixed unless `init_db()` was ever revisited for another
+  reason — picked up on its own this time, a deliberate override rather than
+  new information changing the cost/benefit case recorded there.
+  `SELECT pg_advisory_xact_lock(hashtext('sector_momentum.init_db'))` now runs
+  as the first statement inside `init_db()`'s existing transaction
+  (`src/state.py`), before any of the 22 `IF NOT EXISTS` DDL statements.
+  Transaction-scoped, so it releases automatically at commit/rollback — no
+  matching unlock call needed. Chosen over the other option on record
+  (retry-on-duplicate-object-error around every statement) because a
+  duplicate-object error aborts the whole surrounding transaction in
+  Postgres, so that path would have needed a `SAVEPOINT` around each of the
+  22 statements individually; one lock closes the race for every current and
+  future `IF NOT EXISTS` statement in the function at once. Pinned with
+  source-order tests (`tests/test_state_init_db_lock.py`) rather than a live
+  concurrency reproduction — driving two real overlapping sessions into the
+  actual collision needs a second process/thread plus timing control that
+  would dwarf the fix it's proving, and this repo already has behavioral
+  init_db() coverage against a real database
+  (`test_state_smoke.py`, `TEST_DATABASE_URL`-gated).
+
+- **Stop-distance bar moved into its own "To stop" column** — the bar (and
+  the breach chip with it) moved out of the theme cell into a dedicated
+  trailing column, 2026-09-12. The original spec chose inline placement
+  explicitly, citing ripple into `colspan`, `renderMobileCards()` and
+  sorting; re-checked before doing this and that reasoning was partly
+  overstated — **every `cells[N]` read in the codebase indexes 0 or 1**
+  (rank/name, at the row's start), so a column appended last shifts no
+  consumer. Real cost was six files of append-at-end edits. The gain is the
+  point of the feature: inline, each bar started after a variable-length
+  theme name, so no two were comparable; aligned in a column, "which holding
+  is closest to stopping out" is answerable at a glance. The chip moved with
+  the bar because the two are one mutually-exclusive status slot — leaving
+  it behind would blank the column on breached rows, the rows it matters
+  most for. Deliberately NOT sortable: the values are written client-side
+  after render, only for the reader's own holdings, so no bake-time sort key
+  exists. Accepted cost: the column is empty for guests, for readers without
+  stop-loss alerts on, and for any theme they do not hold — judged
+  acceptable since `Rank Δ` is already mostly empty in the same table.
+
+- **Scan-digest banner removed** — the "New in Top 5 / Biggest gains /
+  Biggest drops" strip above the leaderboard (`#scan-digest-banner`,
+  `dashboard/assets/scan-digest.js`), collapsed by default behind a
+  more/less toggle. Removed 2026-09-12 as not pulling its weight: the two
+  hidden clusters duplicated the dedicated **Movers** tab, which charts the
+  same rank movement properly, and "New in Top 5" partly overlapped the
+  summary strip's own **In the buy band** cell. Being collapsed by default
+  meant the one cluster it did show was the least differentiated of the
+  three. Deleted whole rather than trimmed: the 126-line module, its
+  markup, script tag, CSS (`_tables.css.j2`, `_responsive.css.j2`), the
+  `build.py` asset copy, three Swedish keys (`digest_new_top5`,
+  `digest_gains`, `digest_drops`) and its tests. `dashboard/digest.py` is a
+  DIFFERENT thing and stays — it supplies `todays_read`, the summary
+  strip's "X leads the board" line.
+
+- **"SELL LINE" divider row renamed to "HOLD BAND ENDS"** — investigated
+  2026-09-12 (the flagged item asked whether the row did anything at all).
+  Findings: the row itself is inert — nothing keys off its existence, and
+  the only code reading it back is `renderMobileCards()`, projecting it into
+  the mobile card list. But its *position* is live (`Rescore.exitRank(h,
+  universeSize)`, so it moves with the horizon preset), and the exit-rank
+  concept behind it is load-bearing (drives `setupForRank`'s Exit badge and
+  `selectBook`, with Python/JS parity tests). Kept rather than removed for a
+  reason the investigation surfaced: on the deployed page the per-row Exit
+  badge reaches neither audience most at risk of misreading the table. A
+  guest gets no badge at all (`badgesVisible()` is false while
+  `BADGES_GATED`, which `build.py` sets from `lag_active`), and a signed-in
+  reader holding nothing gets none either (`badgeForRank` returns null when
+  `!isHeld` outside the entry band). For both, this line is the only place
+  the hysteresis band appears in the table, so deleting it would make "two
+  lines, not one" invisible in the product to exactly the readers the
+  beginner deck's Card 2 is written for. (Note the two gates are distinct:
+  on an *ungated* local build a guest does see plain-band Exit badges via
+  `setupForRank`, so the holdings gate alone is not what makes this line
+  load-bearing — `BADGES_GATED` is.) Fixed the
+  copy instead: "SELL LINE / a holding that falls past rank N is sold" became
+  "HOLD BAND ENDS / a holding past rank N is sold at the next review". Naming
+  the zone stops ranks `top_n+1..exitRank` reading as a weaker *buy* tier
+  (they are hold-if-owned, buy-nothing — `selectBook` buys only while
+  `free = top_n - keepCount > 0`), and "at the next review" removes an
+  overclaim: nothing here sells anything, and the rule only evaluates on the
+  review calendar. i18n key `band_sell_line` renamed to `band_hold_ends` so
+  it doesn't outlive the wording it described; Swedish updated to match
+  ("hållband slutar", using this file's established "granskning" for review).
+
+- **Stop-distance indicator** — a fill bar beside a starred, stop-loss
+  opted-in position showing how close it is to its trailing stop, shown
+  wherever the position hasn't breached yet (the existing red chip still
+  wins once it has — never both). The bar's proportional fill and the
+  number beside it are deliberately decoupled: the number is always the
+  real drawdown from peak, in the same unit the breach chip already uses,
+  so it never drops at the exact instant a position actually breaches. Live
+  every scan via a new `position_stop_distance` table (upserted, unlike the
+  existing breach latch), reusing the exact drawdown `evaluate_stop` was
+  already computing and discarding for every not-yet-breached position.
+  Fill colour follows the theme via `color-mix()`, never hardcoded hex.
+  Spec: `sector_momentum-notes/specs/2026-09-11-stop-distance-indicator-design.md`.
+
+- **Beginner "how this works" walkthrough deck** — a four-card carousel
+  (when to buy in, the buy/sell lines, the review period, the stop-loss)
+  teaching a first-time reader the essentials before they touch the
+  leaderboard. Auto-shows once on first visit, sequenced after the
+  existing sign-in gate modal so the two never collide; reachable
+  afterward via a permanent "New here? Start here" footer link, and
+  cross-linked with the full Methodology modal in both directions.
+  Content derives from the tab-guide prose rather than duplicating it
+  fresh; the buy-band size and stop-loss percentage are read from a live
+  build-time context value (mirroring the existing `exit_rank_today`
+  pattern) rather than typed as literals, so they can't silently drift
+  from the shipped config the way an earlier illustration already had
+  (see the two related findings below). English only for now — Swedish
+  deliberately deferred, same reasoning as the methodology modal's own
+  existing carve-out. Spec:
+  `sector_momentum-notes/specs/2026-09-09-beginner-walkthrough-deck-design.md`.
 
 - **Trailing stop-loss on held positions** — a theme you hold that closes 12%
   below its peak since you starred it now notifies you once and is marked on

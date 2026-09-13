@@ -196,3 +196,14 @@ def test_guide_illo_bands_match_the_shipped_medium_preset():
         f"SVG's buy+hold bars ({hi_count + mid_count}) no longer sum to "
         f"exit_rank ({exit_rank})")
     assert hi_count + mid_count + lo_count == 12, "a bar lost its band class"
+
+
+def test_methodology_links_back_to_the_beginner_deck():
+    """The spec requires cross-linking both directions -- Card 4 already
+    links to Methodology (tests/test_beginner_deck.py); this is the other
+    direction. Checks for methodology-to-deck-link specifically, NOT the
+    footer's beginner-deck-link id -- reusing that id here would be an
+    HTML id-uniqueness violation, since both _footer.html.j2 and
+    _methodology.html.j2 are included on the same real page."""
+    html = _render("_methodology.html.j2")
+    assert 'id="methodology-to-deck-link"' in html

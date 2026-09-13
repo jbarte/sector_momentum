@@ -281,21 +281,6 @@
     {% endif %}
     <button type="button" class="tab-guide-btn" data-guide="guide_body_leaderboard" data-i18n="guide_summary">How to read this tab</button>
   </div>
-  <div id="scan-digest-banner" class="digest-collapsed" style="display:none">
-    <span class="digest-cluster" data-cluster="entries">
-      <span data-i18n="digest_new_top5">New in Top 5:</span>
-      <span class="digest-chips" id="digest-chips-entries"></span>
-    </span>
-    <span class="digest-toggle" role="button" tabindex="0" onclick="this.closest('#scan-digest-banner').classList.toggle('digest-collapsed'); this.textContent = this.textContent === 'more ▾' ? 'less ▴' : 'more ▾'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">more ▾</span>
-    <span class="digest-cluster" data-cluster="up">
-      <span data-i18n="digest_gains">Biggest gains:</span>
-      <span class="digest-chips" id="digest-chips-up"></span>
-    </span>
-    <span class="digest-cluster" data-cluster="down">
-      <span data-i18n="digest_drops">Biggest drops:</span>
-      <span class="digest-chips" id="digest-chips-down"></span>
-    </span>
-  </div>
   <div id="scan-history-banner" style="display:none">
     <span class="scan-history-text" data-i18n="scan_viewing" data-en-prefix="Viewing scan #">Viewing scan #</span>
     <a href="javascript:void(0)" onclick="restoreLatest()" data-i18n="scan_back_to_latest">Back to latest</a>
@@ -315,6 +300,14 @@
           <th scope="col" onclick="sortTable(2)" data-col="2" tabindex="0" data-i18n="col_composite">Composite</th>
           <th scope="col" onclick="sortTable(3)" data-col="3" tabindex="0" data-i18n="col_levelchange">Level / Change</th>
           <th scope="col" onclick="sortTable(4)" data-col="4" tabindex="0" data-i18n="col_rankdelta">Rank Δ</th>
+          {#- Stop-status column. Deliberately NOT sortable (no sortTable/data-col):
+              its content is written client-side by stops.js after the table is
+              already rendered, and only for a signed-in reader's own starred,
+              stop-loss-opted-in rows -- so a sort key does not exist at bake
+              time and would be empty for most rows and every guest. Appended
+              LAST on purpose: every cells[N] read in this codebase indexes 0
+              or 1 (rank/name), so a trailing column shifts nothing. -#}
+          <th scope="col" data-i18n="col_stop">To stop</th>
         </tr>
       </thead>
       <tbody>
@@ -348,16 +341,22 @@
           <td class="delta-cell">
             {% if row.arrow %}<span class="arrow {{ row.arrow_class }}">{{ row.arrow }}</span> {% endif %}{{ row.delta_rank }}
           </td>
+          {#- Left empty at bake time: stops.js fills it per row from the
+              reader's own position_stop_distance / position_stops rows. Stays
+              empty for guests, for non-opted-in readers, and for any theme
+              they do not hold -- the same rows that showed nothing when this
+              lived inline in the name cell. -#}
+          <td class="stop-cell"></td>
         </tr>
         <tr class="breakdown-row" id="bd-{{ row.theme_id }}">
-          <td colspan="5">{{ row.breakdown_html | safe }}</td>
+          <td colspan="6">{{ row.breakdown_html | safe }}</td>
         </tr>
         {% endfor %}
         {% if not has_any_rows %}
-        <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
+        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="leaderboard_empty">No data available yet.</td></tr>
         {% endif %}
         <tr id="filter-no-match" style="display:none">
-          <td colspan="5" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
+          <td colspan="6" style="text-align:center;padding:24px;color:var(--fg4)" data-i18n="filter_no_match">No themes match the filters.</td>
         </tr>
       </tbody>
     </table>
@@ -1078,7 +1077,7 @@ function applyBandBoundaries() {
     // flex:1 on .bcr-rule lets it absorb whatever width the eyebrow/note
     // don't need, rather than a guessed calc() budget that wrapped the note
     // onto two lines the first time this was measured live.
-    return '<tr class="band-cut-row ' + kind + '"><td colspan="5">'
+    return '<tr class="band-cut-row ' + kind + '"><td colspan="6">'
       + '<div class="bcr-row">'
       + '<span class="bcr-eyebrow" data-i18n="' + eyebrowKey + '">' + t(eyebrowKey, eyebrowText) + '</span>'
       + '<span class="bcr-rule"></span>'
@@ -1113,10 +1112,18 @@ function applyBandBoundaries() {
       existingBuy.remove();
     }
     var exitRankVal = Rescore.exitRank(h, universeSize);
-    insertCutRow(tr, 'exit', 'band_sell_line', 'SELL LINE', [
-      {key: 'band_sell_note_prefix', en: 'a holding that falls past rank'},
+    // "HOLD BAND ENDS", not "SELL LINE": naming the zone above it is what
+    // stops ranks top_n+1..exitRank reading as a weaker BUY tier. They are
+    // not — selectBook() keeps a holding anywhere inside the band and buys
+    // nothing while the book is full (rescore.js, `free = top_n -
+    // keepCount`), so the middle zone is "hold if owned, don't buy if not".
+    // "at the next review", not a bare "is sold": nothing here sells
+    // anything, and the rule only evaluates on the review calendar — the
+    // beginner deck's Card 2 makes the same distinction in prose.
+    insertCutRow(tr, 'exit', 'band_hold_ends', 'HOLD BAND ENDS', [
+      {key: 'band_sell_note_prefix', en: 'a holding past rank'},
       {text: String(exitRankVal)},
-      {key: 'band_sell_note_suffix', en: 'is sold'}
+      {key: 'band_sell_note_suffix', en: 'is sold at the next review'}
     ]);
   });
 
@@ -2280,7 +2287,6 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 {% include "_i18n.html.j2" %}
 </script>
 <script src="{{ asset_url('scan-history.js') }}"></script>
-<script src="{{ asset_url('scan-digest.js') }}"></script>
 
 
 <!-- Tab guides. One modal, one body per tab, shown by data-guide key.
@@ -2566,6 +2572,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
 
 {% include '_footer.html.j2' %}
 {% include '_methodology.html.j2' %}
+{% include '_beginner_deck.html.j2' %}
 
 </body>
 </html>

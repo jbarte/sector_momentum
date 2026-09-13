@@ -91,3 +91,53 @@ def test_migration_grants_select_only_to_clients():
     assert "grant select on public.position_stops to authenticated;" in sql
     for forbidden in ("grant insert", "grant update", "grant delete", "grant all"):
         assert forbidden not in sql
+
+
+def test_upsert_position_stop_distance_upserts_not_inserts():
+    """Unlike the latch's ON CONFLICT DO NOTHING, this must overwrite the
+    previous reading every scan -- it's a live gauge, not a one-time record."""
+    conn = MagicMock()
+    cur = conn.cursor.return_value.__enter__.return_value
+    state.upsert_position_stop_distance(
+        conn, user_id="u1", item_type="theme", region="", name="Uranium & Nuclear",
+        as_of="2026-09-11", peak_price=52.1, peak_on="2026-08-18",
+        latest_price=48.3, drawdown=-0.073)
+    sql = cur.execute.call_args[0][0]
+    assert "INSERT INTO position_stop_distance" in sql
+    assert "ON CONFLICT" in sql and "DO UPDATE" in sql
+    assert "DO NOTHING" not in sql
+
+
+def test_upsert_position_stop_distance_passes_the_right_values():
+    conn = MagicMock()
+    cur = conn.cursor.return_value.__enter__.return_value
+    state.upsert_position_stop_distance(
+        conn, user_id="u1", item_type="theme", region="", name="Uranium & Nuclear",
+        as_of="2026-09-11", peak_price=52.1, peak_on="2026-08-18",
+        latest_price=48.3, drawdown=-0.073)
+    params = cur.execute.call_args[0][1]
+    assert params == ("u1", "theme", "", "Uranium & Nuclear",
+                      "2026-09-11", 52.1, "2026-08-18", 48.3, -0.073)
+
+
+def test_position_stop_distance_migration_cascades_on_delete():
+    from pathlib import Path
+    sql = Path("scripts/position_stop_distance_migration.sql").read_text().lower()
+    assert "references public.positions(user_id, item_type, region, name)" in sql
+    assert "on delete cascade" in sql
+
+
+def test_position_stop_distance_migration_grants_select_only():
+    from pathlib import Path
+    sql = Path("scripts/position_stop_distance_migration.sql").read_text().lower()
+    assert "grant select on public.position_stop_distance to authenticated;" in sql
+    for forbidden in ("grant insert", "grant update", "grant delete", "grant all"):
+        assert forbidden not in sql
+
+
+def test_position_stop_distance_migration_upserts_not_latches():
+    """The whole point of this table vs. reusing position_stops: it must be
+    writable more than once for the same key."""
+    from pathlib import Path
+    sql = Path("scripts/position_stop_distance_migration.sql").read_text()
+    assert "primary key (user_id, item_type, region, name)" in sql

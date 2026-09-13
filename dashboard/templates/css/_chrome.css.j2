@@ -364,8 +364,82 @@
 }
 .methodology-modal h2 { margin: 0 0 14px; font-size: 1.3rem; color: var(--fg1); }
 .methodology-modal h3 { margin: 20px 0 6px; font-size: 1rem; color: var(--fg1); }
+.beginner-deck-card { margin-bottom: 8px; }
+.beginner-deck-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+.beginner-deck-nav button {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--fg1);
+  cursor: pointer;
+}
+.beginner-deck-nav button:hover { background: var(--bg-sunken); }
+/* The bare [hidden] attribute selector still loses to the UA stylesheet's
+   own `[hidden] { display: none }` for the `display` property specifically
+   -- CSS cascades per property, and this rule never declared `display` at
+   all, so it only ever won the `visibility` property. Back therefore kept
+   `display: none` regardless, occupied no flex space, and Next (the only
+   remaining flex child) sat at flex-start instead of flex-end on Card 1.
+   `display: block` re-enters the flex layout as a normal flex item (any
+   non-none display value is blockified there); `visibility: hidden` then
+   keeps it invisible while still reserving its width, which is what keeps
+   Next pinned to the right whether or not Back is showing. */
+#beginner-deck-back[hidden] { display: block; visibility: hidden; }
+.beginner-deck-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+.beginner-deck-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.beginner-deck-dot.active { background: var(--fg1); }
+/* Per-card illustration banners (_beginner_deck_illos.html.j2). Deliberately
+   NOT reusing .modal-illo-band's class name even though the visual family is
+   the same: that selector is scoped as `.methodology-modal .modal-illo-band`
+   with a full-bleed negative margin assuming it is the panel's very first
+   child, and this deck's panel (.methodology-modal.beginner-deck) already
+   has a permanent <h2> ahead of it -- reusing the class would pull each
+   banner up to overlap that title instead of sitting inside its own card. */
+.beginner-deck-illo-band {
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--bg-raised) 0%, var(--bg-sunken) 100%);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.beginner-deck-illo {
+  display: block;
+  width: 100%;
+  height: 92px;
+  opacity: 0;
+  transform: translateY(4px);
+  animation: beginner-deck-illo-in .45s var(--illo-soft) forwards;
+}
+@keyframes beginner-deck-illo-in { to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .beginner-deck-illo { opacity: 1; transform: none; animation: none; }
+}
 .methodology-body p,
 .methodology-body li { color: var(--fg2); font-size: 0.9rem; line-height: 1.55; }
+/* Both cross-links (beginner-deck-methodology-link in the deck's Card 4,
+   methodology-to-deck-link in .methodology-body) are plain in-text <a>
+   tags with no class of their own -- without this they render in the
+   browser's default link blue, which clashes with the rest of the theme.
+   Scoped to .methodology-modal so it reaches both the real methodology
+   panel and the deck's (.methodology-modal.beginner-deck), without
+   touching links elsewhere on the page. */
+.methodology-modal a { color: var(--brand-strong); text-decoration: underline; }
+.methodology-modal a:hover { color: var(--fg1); }
 /* Paragraphs need air. The methodology used to be one paragraph per section, so
    zero margin read fine; it is now several per section and ran together into a
    wall of text without this. */

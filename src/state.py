@@ -77,6 +77,15 @@ _SCAN_CHILD_TABLES = (
     "signals",
 )
 
+# init_db()'s serialization key for pg_advisory_xact_lock (see init_db()).
+# hashtext() of a fixed, human-readable string rather than a hand-picked
+# integer: guarantees no accidental collision with an advisory lock some
+# other part of this codebase might take later, without having to maintain a
+# registry of "keys in use". A plain int would work identically — hashtext()
+# is just cheap insurance against two unrelated features quietly picking the
+# same magic number.
+_INIT_DB_LOCK_KEY_SQL = "SELECT pg_advisory_xact_lock(hashtext('sector_momentum.init_db'))"
+
 # The `scans` health columns, shared by every reader and writer of them
 # (save_scan's INSERT, get_latest_health's and get_health_for_scan's SELECT).
 # One list, not three independently hand-maintained copies: code review
@@ -135,6 +144,23 @@ def init_db() -> psycopg2.extensions.connection:
     conn = psycopg2.connect(db_url)
     with conn:
         with conn.cursor() as cur:
+            # Every statement below is `IF NOT EXISTS`/`IF NOT EXISTS`-guarded,
+            # but that check-then-create is not atomic across sessions in
+            # Postgres: two overlapping init_db() calls can both pass the
+            # existence check for the same not-yet-existing object, then
+            # collide on create — one succeeds, the other raises a
+            # duplicate-object error that aborts its whole transaction here
+            # (rolling back every ALTER TABLE it already ran too, since this
+            # is all one `with conn:` block). A transaction-scoped advisory
+            # lock (released automatically at commit/rollback, so this needs
+            # no matching unlock call) makes the whole block below run for
+            # one session at a time: whoever gets here first creates
+            # everything while every other caller blocks, then those callers
+            # run their own IF NOT EXISTS checks against objects that already
+            # exist and simply no-op. See BACKLOG.md Done entry for the
+            # narrower origin of this — it was previously left unfixed as not
+            # worth doing in isolation.
+            cur.execute(_INIT_DB_LOCK_KEY_SQL)
             for stmt in _DDL_STATEMENTS:
                 cur.execute(stmt)
             cur.execute(
@@ -717,6 +743,40 @@ def insert_position_stop(
                 "ON CONFLICT (user_id, item_type, region, name) DO NOTHING",
                 (user_id, item_type, region, name, stopped_on,
                  peak_price, peak_on, drawdown, notified),
+            )
+
+
+def upsert_position_stop_distance(
+    conn: psycopg2.extensions.connection,
+    *,
+    user_id: str,
+    item_type: str,
+    region: str,
+    name: str,
+    as_of,
+    peak_price: float,
+    peak_on,
+    latest_price: float,
+    drawdown: float,
+) -> None:
+    """Record the current (not-yet-breached) distance to the stop.
+
+    Unlike insert_position_stop's latch (ON CONFLICT DO NOTHING), this is a
+    live reading and must always reflect today's peak/drawdown, not the
+    first one ever seen -- hence DO UPDATE, not DO NOTHING.
+    """
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO position_stop_distance (user_id, item_type, region, "
+                "name, as_of, peak_price, peak_on, latest_price, drawdown, "
+                "updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now()) "
+                "ON CONFLICT (user_id, item_type, region, name) DO UPDATE SET "
+                "as_of = EXCLUDED.as_of, peak_price = EXCLUDED.peak_price, "
+                "peak_on = EXCLUDED.peak_on, latest_price = EXCLUDED.latest_price, "
+                "drawdown = EXCLUDED.drawdown, updated_at = now()",
+                (user_id, item_type, region, name, as_of,
+                 peak_price, peak_on, latest_price, drawdown),
             )
 
 

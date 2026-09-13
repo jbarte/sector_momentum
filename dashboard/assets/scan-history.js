@@ -22,7 +22,8 @@
   // unescaped. Not exploitable today — both come from config/themes.yaml via
   // the pipeline, never from a reader — but hardening against the day any
   // row field stops being repo-controlled, same as auth.js's
-  // renderLatestRows() and scan-digest.js's fmtChip(). `sector` was missed in
+  // renderLatestRows() (and, until it was removed, scan-digest.js's
+  // fmtChip()). `sector` was missed in
   // the 2026-08-23 sweep that hardened those two despite this file's own
   // comment (below) citing auth.js's identical pattern by name; the ticker
   // call site was then missed in the first fix too. Both caught in code
@@ -135,6 +136,12 @@
           + '<td data-sort-value="' + (sc.level === null || sc.level === undefined ? "" : sc.level) + '">'
             + Rescore.levelChangeBars(sc.level, sc.change) + "</td>"
           + '<td class="delta-cell">' + arrowHtml + fmtDelta(e.delta) + "</td>"
+          // Stop-status cell, kept empty and never filled on this path: a
+          // past scan is a historical snapshot, while the reader's stop
+          // readings are about their holdings TODAY -- painting today's bar
+          // onto a week-old row would date-mismatch the two. Emitted anyway
+          // so these rows keep the header's column count.
+          + '<td class="stop-cell"></td>'
           + "</tr>";
 
         // Band cut rows — same rule as applyBandBoundaries() (index.html.j2),
@@ -160,10 +167,13 @@
               [{key: 'band_buy_note', en: 'below this line: not a new buy'}]);
           }
           if (isHoldCut) {
-            html += window.buildBandCutRowHtml('exit', 'band_sell_line', 'SELL LINE', [
-              {key: 'band_sell_note_prefix', en: 'a holding that falls past rank'},
+            // Copy kept in lockstep with applyBandBoundaries()'s own call
+            // site (index.html.j2) -- see the reasoning for "HOLD BAND ENDS"
+            // over "SELL LINE" there.
+            html += window.buildBandCutRowHtml('exit', 'band_hold_ends', 'HOLD BAND ENDS', [
+              {key: 'band_sell_note_prefix', en: 'a holding past rank'},
               {text: String(exitRankVal)},
-              {key: 'band_sell_note_suffix', en: 'is sold'}
+              {key: 'band_sell_note_suffix', en: 'is sold at the next review'}
             ]);
           }
         }
@@ -226,7 +236,6 @@
     // Past-scan rows are rebuilt without filter data attributes.
     if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(false);
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
-    if (typeof window.renderScanDigest === "function") window.renderScanDigest(scanId);
   };
 
   window.restoreLatest = function () {
@@ -247,7 +256,6 @@
     }
     if (sentimentControl) sentimentControl.style.opacity = "";
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
-    if (typeof window.renderScanDigest === "function") window.renderScanDigest(latestScanId);
     // The original tbody (with filter data attributes) is back, so show the bar
     // and re-apply whatever filter state was active before.
     if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(true);
