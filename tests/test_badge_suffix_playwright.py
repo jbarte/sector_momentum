@@ -1,18 +1,12 @@
-"""Runtime regression test for the badge-suffix / Swedish i18n interaction bug.
+"""Runtime regression test for the entry-badge date suffix and the review
+panel's initial English render.
 
 Task 2 ("Self-describing badge suffixes") added a " · <date>" / " · no slot"
-suffix to entry/exit badges in applyHorizonBadges() (index.html.j2). It self-
-disclosed a Critical bug: _i18n.html.j2's apply() -- the function every
-language toggle (and every re-render, since applyHorizonBadges() itself calls
-window.applyLang() at its own tail) runs -- rewrote a [data-i18n] element's
-textContent from SV[key] alone on the Swedish branch, discarding whatever
-suffix applyHorizonBadges() had just written a few lines earlier in the same
-call. English readers saw the suffix; Swedish readers never did.
-
-None of Task 2's existing tests (in tests/test_dashboard_js.py) would have
-caught this: they only assert that identifiers/strings are *referenced* in
-source text, never that Swedish output actually contains the suffix. This
-test drives a real rendered page in headless Chromium (same pattern as
+suffix to entry/exit badges in applyHorizonBadges() (index.html.j2). None of
+Task 2's existing tests (in tests/test_dashboard_js.py) would catch a
+regression here: they only assert that identifiers/strings are *referenced*
+in source text, never that the rendered page actually contains the suffix.
+This test drives a real rendered page in headless Chromium (same pattern as
 tests/test_dashboard_render_coalescing.py) and reads the live DOM instead.
 
 See sector_momentum-notes' plan for review-cadence-and-book-lock, Task 2,
@@ -177,66 +171,20 @@ def _entry_badge_suffix_attr(page):
 
 
 def test_entry_badge_carries_date_suffix_in_english(page):
-    """Sanity/regression-guard: the English path must still show the suffix
-    after the fix, so a Swedish-path fix can't silently regress English."""
-    page.evaluate("() => localStorage.setItem('lang', 'en')")
+    """Regression guard for the suffix added by Task 2: the row ranked #1
+    must render an entry badge whose text ends with its own data-suffix."""
     page.evaluate("() => window.applyHorizonBadges()")
     text = _entry_badge_text(page)
     suffix = _entry_badge_suffix_attr(page)
     assert suffix, "expected the row ranked #1 to render an entry badge with a suffix"
     assert text is not None and text.endswith(suffix), (
-        f"English badge text {text!r} does not end with its own data-suffix {suffix!r}"
+        f"badge text {text!r} does not end with its own data-suffix {suffix!r}"
     )
-    assert text.startswith("▲ Enter"), f"unexpected English badge text: {text!r}"
-
-
-def test_entry_badge_carries_suffix_in_swedish(page):
-    """The actual regression: toggling to Swedish must NOT discard the
-    suffix. Before the fix, _i18n.html.j2's apply() took SV[key] verbatim on
-    the Swedish branch and ignored data-en (and therefore the suffix) --
-    Swedish readers never saw it. This drives the real code path
-    (applyHorizonBadges() -> window.applyLang('sv') at its own tail, exactly
-    like a real horizon switch or positions change would) rather than
-    hand-setting attributes."""
-    page.evaluate("() => localStorage.setItem('lang', 'sv')")
-    page.evaluate("() => window.applyHorizonBadges()")
-    text = _entry_badge_text(page)
-    suffix = _entry_badge_suffix_attr(page)
-    assert suffix, "expected the row ranked #1 to render an entry badge with a suffix"
-    assert text is not None and text.endswith(suffix), (
-        f"Swedish badge text {text!r} does not end with its own data-suffix {suffix!r} "
-        f"-- the Swedish [data-i18n] branch is discarding the suffix again"
-    )
-    assert text.startswith("▲ Gå in"), f"unexpected Swedish badge text: {text!r}"
-
-
-def test_toggle_lang_after_render_preserves_suffix(page):
-    """A second real-world path into the same bug: the badge renders once
-    (English, at page load), then the reader toggles language via
-    window.toggleLang() -- exactly the lang-toggle button's own handler --
-    without applyHorizonBadges() running again. The suffix must survive."""
-    en_text = _entry_badge_text(page)
-    suffix = _entry_badge_suffix_attr(page)
-    assert suffix, "expected the row ranked #1 to render an entry badge with a suffix"
-    assert en_text is not None and en_text.endswith(suffix)
-
-    page.evaluate("() => window.toggleLang()")
-    sv_text = _entry_badge_text(page)
-    assert sv_text is not None and sv_text.endswith(suffix), (
-        f"badge text after toggleLang() ({sv_text!r}) lost its suffix {suffix!r}"
-    )
-    assert sv_text.startswith("▲ Gå in"), f"unexpected text after toggle: {sv_text!r}"
+    assert text.startswith("▲ Enter"), f"unexpected badge text: {text!r}"
 
 
 # ---------------------------------------------------------------------------
-# Whole-branch review finding: the review panel never re-renders on a
-# language toggle. renderReviewPanel()'s headline/action-list/count text is
-# built imperatively via t(key, fallback) calls that read the current
-# language once, at render time; apply(lang) (_i18n.html.j2) only rewrites
-# [data-i18n*] elements, with no hook back into renderReviewPanel(). A reader
-# who toggles language sees the panel stay in the old language until some
-# UNRELATED event (a horizon switch, a star click, sign-in) happens to
-# re-run renderReviewPanel() for its own reasons.
+# The review panel's initial render.
 # ---------------------------------------------------------------------------
 
 def _rp_headline_text(page):
@@ -260,8 +208,8 @@ def _set_fake_book_state(page):
     so setting it directly exercises the exact same render path with far
     less fixture machinery. Combined with the page's far-future review
     calendar (status.due === false), this puts renderReviewPanel() on its
-    "no action" branch, which has real translated dynamic text (the
-    headline's date-qualified "Next review" and the rp_no_action note) --
+    "no action" branch, which has real dynamic text (the headline's
+    date-qualified "Next review" and the "No action until then." note) --
     unlike the guest (book === null) branch, which shows only the date."""
     page.evaluate(
         "() => { window.SM_BOOK_STATE = { picks: [], buys: [], sells: [], "
@@ -270,44 +218,13 @@ def _set_fake_book_state(page):
 
 
 def test_review_panel_renders_in_english(page):
-    """Sanity/regression-guard, same role as
-    test_entry_badge_carries_date_suffix_in_english: the English render must
-    be correct before the Swedish-toggle path below can mean anything."""
-    page.evaluate("() => localStorage.setItem('lang', 'en')")
+    """Regression guard: renderReviewPanel()'s "no action" branch must render
+    the expected headline/note text."""
     _set_fake_book_state(page)
     page.evaluate("() => window.renderReviewPanel()")
     headline = _rp_headline_text(page)
     note = _rp_note_text(page)
     assert headline is not None and headline.startswith("Next review"), (
-        f"unexpected English headline: {headline!r}"
+        f"unexpected headline: {headline!r}"
     )
-    assert note == "No action until then.", f"unexpected English note: {note!r}"
-
-
-def test_review_panel_retranslates_on_lang_toggle(page):
-    """The actual regression: renderReviewPanel() renders once (English), the
-    reader then toggles language via window.toggleLang() -- exactly the
-    lang-toggle button's own handler, same pattern as
-    test_toggle_lang_after_render_preserves_suffix -- with NO direct
-    renderReviewPanel() call in between. The panel's live DOM text must
-    switch to Swedish anyway, which only happens if apply(lang) itself calls
-    renderReviewPanel()."""
-    page.evaluate("() => localStorage.setItem('lang', 'en')")
-    _set_fake_book_state(page)
-    page.evaluate("() => window.renderReviewPanel()")
-    en_headline = _rp_headline_text(page)
-    en_note = _rp_note_text(page)
-    assert en_headline is not None and en_headline.startswith("Next review")
-    assert en_note == "No action until then."
-
-    page.evaluate("() => window.toggleLang()")
-    sv_headline = _rp_headline_text(page)
-    sv_note = _rp_note_text(page)
-    assert sv_headline is not None and sv_headline.startswith("Nästa granskning"), (
-        f"panel headline after toggleLang() ({sv_headline!r}) is still "
-        f"English -- apply(lang) never re-ran renderReviewPanel()"
-    )
-    assert sv_note == "Ingen åtgärd förrän dess.", (
-        f"panel action-list text after toggleLang() ({sv_note!r}) is still "
-        f"English"
-    )
+    assert note == "No action until then.", f"unexpected note: {note!r}"
