@@ -7,8 +7,13 @@
    explaining — the descending composite profile, the buy band at the top, the
    deliberately quiet hold band in the middle, and the exit zone at the tail.
 
-   The bands match the shipped Medium preset (top_n 5, exit_rank 9), so the
-   picture is the strategy rather than an arbitrary gradient.
+   The bands match the shipped Medium preset (top_n 4, exit_rank 9 at today's
+   18-theme universe), so the picture is the strategy rather than an
+   arbitrary gradient. These numbers are pinned against config/weights.yaml
+   and config/themes.yaml by
+   test_methodology.py::test_guide_illo_bands_match_the_shipped_medium_preset
+   — update the bar split (and this comment) together with that test if the
+   preset or universe size ever moves.
 
    Decorative but labelled for AT; animated via CSS in css/_guides.css.j2. #}
 <div class="guide-illo-band">
@@ -27,9 +32,9 @@
     <!-- hold band: the silent middle, drawn behind the bars. Its two edges are
          the thresholds the guide is about, so they are drawn explicitly —
          a soft fill alone did not read as a *band* with boundaries. -->
-    <rect class="hold-band" x="290" y="18" width="120" height="98" rx="7" opacity="0"/>
+    <rect class="hold-band" x="260" y="18" width="150" height="98" rx="7" opacity="0"/>
     <g class="band-edges" opacity="0">
-      <line class="band-edge" x1="290" y1="20" x2="290" y2="114" stroke-width="1"
+      <line class="band-edge" x1="260" y1="20" x2="260" y2="114" stroke-width="1"
             stroke-dasharray="3 4" stroke-linecap="round"/>
       <line class="band-edge" x1="410" y1="20" x2="410" y2="114" stroke-width="1"
             stroke-dasharray="3 4" stroke-linecap="round"/>
@@ -40,7 +45,7 @@
       <rect class="bar b2 bar-hi"  x="176" y="38"  width="18" height="74" rx="3" opacity="0.92"/>
       <rect class="bar b3 bar-hi"  x="206" y="45"  width="18" height="67" rx="3"/>
       <rect class="bar b4 bar-hi"  x="236" y="52"  width="18" height="60" rx="3" opacity="0.92"/>
-      <rect class="bar b5 bar-hi"  x="266" y="59"  width="18" height="53" rx="3" opacity="0.84"/>
+      <rect class="bar b5 bar-mid" x="266" y="59"  width="18" height="53" rx="3" opacity="0.84"/>
       <rect class="bar b6 bar-mid" x="296" y="66"  width="18" height="46" rx="3"/>
       <rect class="bar b7 bar-mid" x="326" y="72"  width="18" height="40" rx="3" opacity="0.9"/>
       <rect class="bar b8 bar-mid" x="356" y="78"  width="18" height="34" rx="3" opacity="0.8"/>
