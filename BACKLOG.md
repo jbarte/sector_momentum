@@ -187,31 +187,6 @@ though this doesn't need CI, a manual run is fine, next one due ~2026-10-07)
 for a few real cycles, then revisit Defense specifically — AI & Robotics no
 longer looks like it belongs in the same sentence.
 
-## Mobile card's expand-region nests a real button inside role="button"
-
-Code review, 2026-08-24, on the mobile-holdings-toggle fix (see Done). An
-expandable card (`renderMobileCards()`, has breakdown content) renders as
-`<div class="leaderboard-card" role="button" tabindex="0">` — the whole card
-is one tap target for opening the breakdown. That same fix now also puts a
-real `<button class="position-toggle">` inside some of those same cards
-(when the row carries a `.position-toggle`) — an interactive element nested
-inside a `role="button"` container, which is not a pattern this template
-had anywhere before.
-
-`stopPropagation()` keeps mouse/touch clicks correct (verified live), so
-this is not a functional bug for sighted mouse/touch users. The risk is
-narrower: some AT/switch-control configurations (flagged as Android
-TalkBack/Switch Control specifically) may flatten a `role="button"`
-container to a single activation target, making the inner star unreachable
-or ambiguously announced by keyboard/switch navigation, distinct from the
-click-path itself.
-
-Not fixed now — the correct shape is a real redesign of how "tap card to
-expand" and "tap star to toggle" coexist (e.g. moving the expand affordance
-to its own explicit control rather than the whole card, so the card itself
-is no longer `role="button"`), not a patch on top of the current markup.
-Recorded rather than guessed at.
-
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
@@ -691,6 +666,34 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **Mobile card's expand button is no longer nested inside role="button"
+  (2026-09-12).** Closes the item recorded 2026-08-24. The card's whole-card
+  `<div class="leaderboard-card" role="button" tabindex="0">` — wrapping a
+  real `<button class="position-toggle">` (the star), the exact nested-
+  interactive-content pattern some AT/switch-control configurations flatten
+  to one activation target — is now a plain `<div>` with a dedicated,
+  invisible `<button class="card-expand-hit">` doing the disclosure job
+  instead, a DOM sibling of the star rather than its ancestor.
+  Tap-anywhere-to-expand is unchanged: a positioned `<button>`, even
+  z-index:auto and first in the DOM, paints above ordinary non-positioned
+  siblings per CSS2.1's stacking order, so it still receives a tap on any
+  ordinary part of the card. The star escapes that via its own
+  `position: relative` (`.leaderboard-card .position-toggle`,
+  `_responsive.css.j2`), which promotes it into the same positioned layer,
+  where later-in-DOM-order wins. Verified live via
+  `document.elementFromPoint()` at real screen coordinates — both in a
+  standalone reproduction using the actual CSS file and again on the real
+  rendered dashboard — not assumed from the CSS spec alone. `aria-expanded`
+  moved from the card to the button (the actual trigger, correct per
+  WAI-ARIA's disclosure pattern); the button's accessible name comes from
+  `aria-labelledby` pointing at the existing `.card-theme` text node rather
+  than re-deriving and re-escaping the theme name into an attribute a second
+  time. A now-pointless `e.stopPropagation()` in the star's own click
+  handler (originally needed only because the toggle listener sat on an
+  ancestor) and a keydown-forwarding handler that existed only to give the
+  old `role="button"` div Enter/Space activation (a real `<button>` gets
+  that natively) were both removed as dead code the fix made unnecessary,
+  not left behind as harmless leftovers.
 - **`init_db()`'s DDL TOCTOU race closed with an advisory lock (2026-09-12).**
   Closes the item recorded 2026-08-23. That item's own recommendation was to
   leave the race unfixed unless `init_db()` was ever revisited for another

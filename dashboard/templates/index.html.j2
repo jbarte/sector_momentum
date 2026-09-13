@@ -765,14 +765,52 @@ function _renderMobileCardsNow() {
     // empty panel. Found in review at a 375px viewport, on scan #159.
     var expandable = bdContent !== '';
 
+    // The card itself is no longer role="button"/tabindex -- it is a plain
+    // <div>, and the expand affordance is a real <button class="card-expand-
+    // hit"> instead, absolutely positioned (_responsive.css.j2) to cover the
+    // whole card. This replaced a real accessibility bug (BACKLOG.md,
+    // 2026-08-24 review): a <div role="button"> wrapping a genuine
+    // <button class="position-toggle"> (the star) is the exact nested-
+    // interactive-content pattern some AT/switch-control configurations
+    // (Android TalkBack/Switch Control specifically) flatten to ONE
+    // activation target, making the star unreachable or ambiguously
+    // announced -- correct mouse/touch behaviour (stopPropagation on the
+    // star's own click handler, below) never caught this, since it is a
+    // hit-testing problem, not a click-routing one.
+    //
+    // Tapping anywhere on the card still expands it -- same UX as before.
+    // Per CSS2.1 Appendix E's paint order, a positioned element (even
+    // z-index:auto, even first in the DOM, as this button is) is stacked
+    // ABOVE every ordinary non-positioned sibling -- rank, theme name,
+    // composite bar, badges -- so a tap anywhere over THOSE genuinely lands
+    // on this invisible button and expands the card, exactly as intended.
+    // The star alone escapes that: giving it `position: relative` too
+    // (`.leaderboard-card .position-toggle`, _responsive.css.j2) promotes
+    // it into the SAME positioned layer as this button, where ties break by
+    // DOM order -- and the star sits later in the markup than this button,
+    // so it paints on top and wins the exact pixels it occupies. It never
+    // needed stopPropagation() for this: the two are DOM siblings, not
+    // ancestor and descendant, so a click on the star was never going to
+    // bubble through this button's own listener regardless.
+    //
+    // aria-labelledby, not aria-label: the button has no text of its own to
+    // announce, and the theme name already exists as a sibling text node
+    // (.card-theme, given a matching id below) -- pointing at it avoids
+    // re-deriving and re-escaping the same name into an attribute value a
+    // second time. No aria-controls: the desktop row's own aria-expanded
+    // pattern (.leaderboard-row, above) never paired one either; adding it
+    // only here would be a new, inconsistent convention rather than part of
+    // this fix.
     html += '<div class="leaderboard-card'
       + (isInBand ? ' in-band' : '')
       + (isHeld ? ' position-held' : '')
       + (isWarn ? ' position-warn' : '')
       + (isSurplus ? ' position-surplus' : '')
       + '"'
-      + (expandable ? ' role="button" tabindex="0" aria-expanded="false"' : '')
       + ' data-theme-id="' + themeId + '">'
+      + (expandable
+          ? '<button type="button" class="card-expand-hit" aria-expanded="false" aria-labelledby="card-theme-' + themeId + '"></button>'
+          : '')
       + '<div class="card-line1">'
       + (rankBadge ? '<span class="card-rank">' + rankBadge.outerHTML + '</span>' : '')
       {#- .outerHTML: the button carries its own attributes (aria-pressed,
@@ -796,7 +834,7 @@ function _renderMobileCardsNow() {
           .theme-name holds only a single text node (the table builders never
           nest elements inside it), so this is a pure fix, not a behavior
           change for real data. Found in code review, 2026-08-23. -#}
-      + '<span class="card-theme">' + (themeName ? themeName.innerHTML : '') + '</span>'
+      + '<span class="card-theme"' + (expandable ? ' id="card-theme-' + themeId + '"' : '') + '>' + (themeName ? themeName.innerHTML : '') + '</span>'
       + (trendBadge ? trendBadge.outerHTML : '')
       + '</div>'
       + '<div class="card-line2">'
@@ -828,14 +866,21 @@ function _renderMobileCardsNow() {
     Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card'), function (c) {
       if (c.dataset.themeId && openThemeIds[c.dataset.themeId]) {
         c.classList.add('open');
-        c.setAttribute('aria-expanded', 'true');
+        // aria-expanded now lives on the trigger (.card-expand-hit), not the
+        // card it discloses -- see the click-delegation comment below for why.
+        var expandBtn = c.querySelector('.card-expand-hit');
+        if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
       }
     });
   }
   if (focusThemeId) {
     var refocusCard = container.querySelector('.leaderboard-card[data-theme-id="' + focusThemeId + '"]');
+    // The card itself is no longer focusable (no tabindex) now that it is a
+    // plain <div> -- the non-toggle fallback must re-target the card's own
+    // .card-expand-hit button instead, or .focus() on the div silently
+    // no-ops and drops keyboard/AT focus to <body>.
     var refocusTarget = refocusCard
-      && (focusWasToggle ? refocusCard.querySelector('.position-toggle') : refocusCard);
+      && (focusWasToggle ? refocusCard.querySelector('.position-toggle') : refocusCard.querySelector('.card-expand-hit'));
     if (refocusTarget && typeof refocusTarget.focus === 'function') { refocusTarget.focus(); }
   }
 
@@ -844,11 +889,20 @@ function _renderMobileCardsNow() {
   // state. The two are never visible at the same time (table hidden on
   // mobile, cards hidden on desktop), so independent state causes no
   // visible inconsistency.
-  // [role="button"], not every card: a non-expandable card (see `expandable`
-  // above) has no breakdown to toggle, so a handler on it would only add an
-  // 'open' class nothing reads.
-  Array.prototype.forEach.call(container.querySelectorAll('.leaderboard-card[role="button"]'), function (card) {
-    card.addEventListener('click', function () {
+  //
+  // Delegated on .card-expand-hit, not the card itself: a non-expandable
+  // card (see `expandable` above) never gets one rendered, so this
+  // querySelectorAll simply finds nothing for it -- no handler, no dead tap
+  // target. The 'open' class still lives on .leaderboard-card (CSS keys off
+  // it: .leaderboard-card.open .card-breakdown), but aria-expanded moves to
+  // the button that actually triggers the disclosure, which is where it
+  // belongs per WAI-ARIA's disclosure pattern -- and is also the reason a
+  // real <button> replaced the old role="button" div in the first place
+  // (see the render comment above).
+  Array.prototype.forEach.call(container.querySelectorAll('.card-expand-hit'), function (btn) {
+    btn.addEventListener('click', function () {
+      var card = btn.closest('.leaderboard-card');
+      if (!card) return;
       // Same accordion rule as the table's toggleBreakdown(), kept as its
       // own copy rather than shared: the two views deliberately hold
       // independent open-state (see this function's comment above), and
@@ -859,12 +913,13 @@ function _renderMobileCardsNow() {
           container.querySelectorAll('.leaderboard-card.open'), function (other) {
             if (other !== card) {
               other.classList.remove('open');
-              other.setAttribute('aria-expanded', 'false');
+              var otherBtn = other.querySelector('.card-expand-hit');
+              if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
             }
           });
       }
       var open = card.classList.toggle('open');
-      card.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
   });
 
@@ -880,9 +935,17 @@ function _renderMobileCardsNow() {
   // this card from the now-updated table row (new glyph, position-held/
   // position-warn classes) -- so the star flip and the shading are just
   // this function re-running, not a second state machine to keep in sync.
+  // No e.stopPropagation() here (removed 2026-09-12, see the render comment
+  // above): it used to keep a tap on the star from also triggering the
+  // card's own open/breakdown toggle, back when that toggle listener sat on
+  // .leaderboard-card itself -- an ANCESTOR of this button, so the click
+  // would otherwise have bubbled straight into it. The card's expand
+  // listener now lives on the sibling .card-expand-hit button instead, and
+  // a click on this button was never going to reach a sibling's listener by
+  // bubbling regardless of stopPropagation -- keeping the call would have
+  // been true only by accident, for a reason that no longer holds.
   Array.prototype.forEach.call(container.querySelectorAll('.position-toggle'), function (btn) {
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();   // don't also trigger the card's own open/breakdown toggle
+    btn.addEventListener('click', function () {
       var card = btn.closest('.leaderboard-card');
       var themeId = card && card.dataset.themeId;
       var tableBtn = themeId
@@ -2132,21 +2195,16 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   }
 });
 
-// Same treatment for the mobile cards, which get role="button"/tabindex="0"
-// (renderMobileCards() above) but only a click listener — found in review,
-// same class of gap the table's own delegated handler above already exists
-// to close. Delegated on the container rather than attached per-card: cards
-// are fully rebuilt by renderMobileCards() on every sort/filter/horizon-
-// switch, so a per-card listener would need re-adding on every render for
-// no benefit over one delegated listener that survives all of them.
-document.getElementById('leaderboard-cards')?.addEventListener('keydown', function(e) {
-  if (e.key !== 'Enter' && e.key !== ' ') return;
-  var t = e.target;
-  if (t.matches('.leaderboard-card')) {
-    e.preventDefault();
-    t.click();
-  }
-});
+// No equivalent keydown-forwarding handler for mobile cards: this used to
+// exist here (removed 2026-09-12) because the card itself was a <div
+// role="button" tabindex="0">, and a div's role="button" gets none of a
+// real <button>'s native Enter/Space activation for free -- it had to be
+// added by hand, mirroring the table's own delegated handler above for the
+// identical role="button" gap on .leaderboard-row. Replacing that div with
+// a real <button class="card-expand-hit"> (see renderMobileCards(), and the
+// BACKLOG.md Done entry on the nested-interactive-content fix that drove
+// it) removed the gap itself, not just this workaround for it: a native
+// button already fires 'click' on Enter/Space with no JS at all.
 
 // ----- Sentiment toggle wiring -----
 (function () {
