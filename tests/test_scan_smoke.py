@@ -28,7 +28,7 @@ def _make_rows(n: int = 4) -> list[dict]:
     ]
     rows = []
     for i, (region, sector, key) in enumerate(data[:n]):
-        row = {"region": region, "gics_sector": sector, "sector_key": key}
+        row = {"region": region, "gics_sector": sector, "theme_key": key}
         for col in SIGNAL_COLUMNS:
             row[col] = float(i)
         rows.append(row)
@@ -166,7 +166,7 @@ def _run_minimal_scan(monkeypatch, extra_argv=None, prior_health=None, health_ch
         else _make_minimal_scan_cfg() if "universe" in path
         else {}))
     monkeypatch.setattr("scan.build_theme_signals_rows", lambda *a, **k: [
-        {"region": "THEME", "gics_sector": "Space", "sector_key": "THEME|Space",
+        {"region": "THEME", "gics_sector": "Space", "theme_key": "THEME|Space",
          **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
     ])
 
@@ -181,7 +181,7 @@ def _run_minimal_scan(monkeypatch, extra_argv=None, prior_health=None, health_ch
     def _fake_zscore(wide_df, *a, **k):
         z = pd.DataFrame(
             {col: [0.0] for col in scan.SIGNAL_COLUMNS},
-            index=pd.Index(["THEME|Space"], name="sector_key"),
+            index=pd.Index(["THEME|Space"], name="theme_key"),
         )
         return z
     monkeypatch.setattr(_scoring_mod, "zscore_cross_section", _fake_zscore)
@@ -401,7 +401,7 @@ def test_coverage_guard_aborts_on_partial_scan(monkeypatch):
                   "themes": {f"Theme{i}": {"ticker": f"T{i}"} for i in range(20)}}
     # Only 3 of 20 expected themes → 15% coverage → should abort
     rows = [
-        {"region": "THEME", "gics_sector": f"Theme{i}", "sector_key": f"THEME|Theme{i}",
+        {"region": "THEME", "gics_sector": f"Theme{i}", "theme_key": f"THEME|Theme{i}",
          **{c: 1.0 for c in scan.SIGNAL_COLUMNS}}
         for i in range(3)
     ]
@@ -435,7 +435,7 @@ def test_coverage_guard_passes_at_80_percent(monkeypatch):
                   "themes": {f"Theme{i}": {"ticker": f"T{i}"} for i in range(10)}}
     # 8 of 10 expected → exactly 80% → should pass
     rows = [
-        {"region": "THEME", "gics_sector": f"Theme{i}", "sector_key": f"THEME|Theme{i}",
+        {"region": "THEME", "gics_sector": f"Theme{i}", "theme_key": f"THEME|Theme{i}",
          **{c: 1.0 for c in scan.SIGNAL_COLUMNS}}
         for i in range(8)
     ]
@@ -451,7 +451,7 @@ def test_coverage_guard_passes_at_80_percent(monkeypatch):
         else {"price_lookback_days": 252} if "universe" in path else {}))
     monkeypatch.setattr("scan.build_theme_signals_rows", lambda *a, **k: rows)
 
-    wide_idx = pd.Index([r["sector_key"] for r in rows], name="sector_key")
+    wide_idx = pd.Index([r["theme_key"] for r in rows], name="theme_key")
     scored = pd.DataFrame(
         {col: [0.0] * len(rows) for col in ["level_score", "change_score", "data_score",
                                               "sentiment_score", "composite", "rank"]},
@@ -500,13 +500,13 @@ def test_conn_closed_on_exception(monkeypatch):
         _make_minimal_themes_cfg() if "themes" in path
         else _make_minimal_scan_cfg() if "universe" in path else {}))
     monkeypatch.setattr("scan.build_theme_signals_rows", lambda *a, **k: [
-        {"region": "THEME", "gics_sector": "Space", "sector_key": "THEME|Space",
+        {"region": "THEME", "gics_sector": "Space", "theme_key": "THEME|Space",
          **{c: 1.0 for c in scan.SIGNAL_COLUMNS}},
     ])
     monkeypatch.setattr(_scoring_mod, "score_all", lambda *a, **k: scored)
     monkeypatch.setattr(_scoring_mod, "zscore_cross_section",
                         lambda df: pd.DataFrame({c: [0.0] for c in df.columns},
-                                                index=pd.Index(["THEME|Space"], name="sector_key")))
+                                                index=pd.Index(["THEME|Space"], name="theme_key")))
     monkeypatch.setattr(_state_mod, "init_db", lambda: fake_conn)
     monkeypatch.setattr(_state_mod, "load_last_scan", lambda *a, **k: None)
     scored_with_deltas = pd.DataFrame({

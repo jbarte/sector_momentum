@@ -39,6 +39,12 @@ def test_score_themes_as_of_returns_scored_frame():
     }
     scored = replay.score_themes_as_of(themes_cfg, prices, pd.Timestamp("2021-01-01"))
     assert scored is not None
+    # Pins the identifier itself, not just its values: build_theme_signals_rows()
+    # (src/pipeline.py) and this function's own set_index() call are two
+    # independently-maintained sides of the same string contract, with no
+    # exact-string test on either side before this -- a partial rename of one
+    # but not the other previously escaped make test entirely (BACKLOG.md).
+    assert scored.index.name == "theme_key"
     assert set(scored.index) == {"THEME|Semiconductors", "THEME|Space"}
     assert "composite" in scored.columns
     # Higher-trend SOXX should outrank UFO

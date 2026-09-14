@@ -315,7 +315,7 @@ def test_ratio_signals_are_nan_not_inf_on_flat_prices():
     from src.pipeline import compute_signals_for_sector
     frame = _flat_price_frame()
     bench = _flat_price_frame(price=50.0)
-    # Signature (verified): (sector_key, region, gics_sector, sector_ticker,
+    # Signature (verified): (theme_key, region, gics_sector, sector_ticker,
     #                        benchmark_ticker, prices, rs_momentum_fast=5)
     got = compute_signals_for_sector(
         "US|Test", "US", "Test", "TST", "BENCH", {"TST": frame, "BENCH": bench},

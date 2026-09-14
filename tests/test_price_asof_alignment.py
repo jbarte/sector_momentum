@@ -256,7 +256,7 @@ def test_scan_scores_every_theme_as_of_one_date(monkeypatch):
     def _capture(cfg, price_dict, **kwargs):
         seen["prices"] = price_dict
         return [
-            {"region": "THEME", "gics_sector": name, "sector_key": f"THEME|{name}",
+            {"region": "THEME", "gics_sector": name, "theme_key": f"THEME|{name}",
              **{c: 1.0 for c in scan.SIGNAL_COLUMNS}}
             for name in cfg["themes"]
         ]
@@ -282,7 +282,7 @@ def test_scan_scores_every_theme_as_of_one_date(monkeypatch):
         _scoring_mod, "zscore_cross_section",
         lambda wide_df, *a, **k: pd.DataFrame(
             {col: [0.0] * 3 for col in scan.SIGNAL_COLUMNS},
-            index=pd.Index(scored.index, name="sector_key"),
+            index=pd.Index(scored.index, name="theme_key"),
         ),
     )
     monkeypatch.setattr(_state_mod, "init_db", lambda: MagicMock())

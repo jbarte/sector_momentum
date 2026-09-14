@@ -53,7 +53,7 @@ def _render_index(leaderboard_rows, cohort_list=None):
         round_trip_bps=round_trip_bps(),
         cohort_list=cohort_list if cohort_list is not None else cohorts(_TEST_THEMES_CFG),
         has_any_rows=bool(leaderboard_rows),
-        sector_keys=[], scan_index=[], backtest_metrics=[], badge_scorecard=[],
+        theme_keys=[], scan_index=[], backtest_metrics=[], badge_scorecard=[],
     )
 
 
