@@ -6,7 +6,7 @@ import math
 
 
 def _build_sentiment_signal_rows(sent_df) -> list[dict]:
-    """One display row per sector-key with FinBERT news columns.
+    """One display row per theme-key with FinBERT news columns.
 
     Returns [] when no sentiment_signals rows exist (older scans / dry runs).
     """

@@ -77,21 +77,21 @@ def test_panel_handles_an_exhausted_review_calendar():
 
 def test_name_of_falls_back_to_theme_id():
     """nameOf(key) had the identical bug as applyHorizonBadges()'s surplus
-    lookup: a data-sector-key-only querySelector that silently fails on rows
+    lookup: a data-theme-key-only querySelector that silently fails on rows
     auth.js's renderLatestRows() rebuilt client-side (those rows carry
-    data-theme-id, not data-sector-key -- the signed-in path, the only path
+    data-theme-id, not data-theme-key -- the signed-in path, the only path
     where a book (and therefore Sell/Buy actions) exists at all). Its own
     fallback was to display the raw internal key string instead of the theme
     name. Both this and the surplus lookup now share one helper."""
     js = _TPL.read_text()
     assert "_leaderboardRowForKey(key)" in js, (
         "nameOf() does not call the shared row-lookup helper -- it is still "
-        "a raw data-sector-key-only querySelector, so a signed-in reader's "
+        "a raw data-theme-key-only querySelector, so a signed-in reader's "
         "Sell/Buy list shows raw internal keys instead of theme names"
     )
     name_of_start = js.index("var nameOf = function (key) {")
     name_of_end = js.index("};", name_of_start)
     name_of_body = js[name_of_start:name_of_end]
-    assert 'querySelector(\'.leaderboard-row[data-sector-key="\' + key + \'"]\')' not in name_of_body, (
+    assert 'querySelector(\'.leaderboard-row[data-theme-key="\' + key + \'"]\')' not in name_of_body, (
         "nameOf() still has the raw single-selector query inline"
     )

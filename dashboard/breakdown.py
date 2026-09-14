@@ -179,7 +179,7 @@ def _build_breakdown_html(
 
     # Score-tree HTML
     tree = (
-        f'<div class="score-tree" data-sector-key="{_html.escape(theme_key)}">'
+        f'<div class="score-tree" data-theme-key="{_html.escape(theme_key)}">'
         f'<div class="st-row st-top">'
         f'<span class="st-label">Composite</span>'
         f'<span class="st-val st-composite-val">{composite}</span>'

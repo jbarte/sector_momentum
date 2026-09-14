@@ -248,31 +248,11 @@ fixing after the rename, the suite would have caught it if it had.
 returns zero hits outside `BACKLOG.md`'s own historical Done entries (left
 alone — they correctly describe what the code was called at the time).
 
-**(A) done 2026-09-14 (`refactor/sector-key-to-theme-key`) — see Done.**
-**(B) `data-sector-key` / `dataset.sectorKey` in `index.html.j2` remains
-open** (14 refs) — DOM/JS-layer. **This has TWO independent producers that
-must already agree, not one:** `index.html.j2:322` sets it from `row.key`
-on the baked leaderboard row; `dashboard/breakdown.py:182` sets the SAME
-attribute name from its own `theme_key` function parameter (renamed
-alongside (A) — only the attribute NAME `data-sector-key` itself is
-unrenamed, since it's DOM-facing), on the breakdown/`.score-tree` panel.
-`index.html.j2:2158` then joins across both by matching the attribute
-value — meaning the two producers already have to compute an identical
-string today for that join to work at all. A rename here means keeping
-THREE independently-maintained producers in sync (the two above, plus
-`auth.js`'s rebuilt-row path, which the `_leaderboardRowForKey` fallback at
-`index.html.j2:1180,1187` already treats as NOT reliably carrying this
-attribute) — a step up in verification difficulty from `sector_id`'s
-single-producer-per-render-path shape, where each render mode had exactly
-one place setting the value. (B) does have some test coverage (via
-`test_dashboard_js.py`/`test_review_panel.py`) but less than `sector_id`
-had, since fewer call sites read the attribute directly by string.
-
-**Correction from (A)'s actual execution (2026-09-14):** the "no exact-
-string test coverage, fails SILENTLY" premise above did not hold as
-starkly as recorded for (A) — full record in the Done entry below. Don't
-assume it applies to (B) either without checking fresh; B's own producers
-(index.html.j2, breakdown.py, auth.js) were not part of that check.
+**(A) and (B) both done (2026-09-14, 2026-09-15) — see Done** for what
+shipped and the two corrections found while scoping/executing (B): the
+"THREE producers" framing was wrong (only two), and the two-producer join
+turned out to have zero exact-string coverage before this — the opposite
+kind of surprise, closed with a new pinning test.
 
 **`sectors_expected`/`sectors_produced` are real DB columns**
 (`src/state.py`'s `init_db()`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
@@ -287,7 +267,7 @@ genuinely cheap set.
 | `region` | ~265 | **DB column** on `signals`, `scores`, `sentiment_signals`, `positions`, and the `v_recent_scores` view |
 | `gics_sector` | ~123 | **DB column** on the same tables |
 | `sectors_expected` / `sectors_produced` | 16 | **DB columns** on `scans` — corrected 2026-09-07, was mis-filed as schema-independent |
-| `sector_key` (B only — DOM attr) | ~14 | `data-sector-key` in `index.html.j2` with 3 producers that must agree. **Still open.** (A), the internal Python key, is **done 2026-09-14** — see Done. |
+| ~~`sector_key`~~ | ~~91~~ | **Done** — (A) 65 replacements 2026-09-14, (B) 26 replacements 2026-09-15 — see above |
 | ~~`sector_id`~~ | ~~30+~~ | **Done 2026-09-07** — see above |
 
 **Recommendation: leave the three DB columns alone** (`region`, `gics_sector`,
@@ -606,10 +586,48 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
-- **`sector_key` → `theme_key` — Part A only, the internal Python key
-  (2026-09-14, `refactor/sector-key-to-theme-key`).** Part of "Sector-era
-  naming in the data layer" (see Queued) — Part B (`data-sector-key` DOM
-  attribute, 3 producers) remains open. One literal-string sweep across
+- **`data-sector-key` DOM attribute → `data-theme-key` — Part B, the
+  remaining half of the `sector_key` rename (2026-09-15,
+  `refactor/sector-key-dom-to-theme-key`).** Completes "Sector-era naming
+  in the data layer" (see Queued) alongside Part A below — both parts of
+  `sector_key` are now done; only the `region`/`gics_sector`/
+  `sectors_expected`/`sectors_produced` DB columns remain, deliberately
+  left alone (see Queued).
+
+  One literal-string sweep (`sector-key`→`theme-key`, `sectorKey`→
+  `themeKey`) across `dashboard/templates/index.html.j2` (11 refs: the
+  leaderboard-row producer, a comment block, 6 JS read sites),
+  `dashboard/breakdown.py` (1 ref, the `.score-tree` producer),
+  `dashboard/assets/auth.js` (1 comment, no code — it never sets this
+  attribute), a one-word docstring in `dashboard/sentiment.py`, and 3 test
+  files (`test_review_panel.py`, `test_dashboard_js.py`,
+  `test_leaderboard_filters.py`) — 26 replacements total.
+
+  **Correction to the item's own "THREE producers" premise, found while
+  scoping:** `auth.js`'s rebuilt rows were never a producer of this
+  attribute — confirmed by its own comment and two pre-existing tests
+  (`test_review_panel.py`, `test_dashboard_js.py`) that pin the
+  `data-theme-id` fallback specifically because those rows don't carry
+  it. The real join is two producers (the leaderboard row, and
+  `breakdown.py`'s `.score-tree` panel), not three.
+
+  **The opposite correction also applied, in the other direction this
+  time.** That two-producer join had **zero** exact-string test coverage:
+  reverting `breakdown.py` alone (sabotage check) passed the entire 1447-
+  test suite unchanged, since nothing checked that `.score-tree`'s
+  attribute name matched what the sentiment-toggle's `updateTrees()`
+  selector reads. Closed with a new test,
+  `test_score_tree_key_attribute_matches_sentiment_toggle_selector`
+  (`tests/test_dashboard_breakdown.py`), pinning both sides of the join.
+  Sabotage-verified two ways — reverting `breakdown.py` alone and
+  reverting `index.html.j2` alone each fail the new test with a clear
+  message naming which side broke; both restored, suite green (1448
+  passed, 19 skipped). Verified against a real `make build`: the built
+  `docs/index.html` carries 46 occurrences of the new name and zero of
+  the old.
+
+- **`sector_key` → `theme_key` — Part A, the internal Python key
+  (2026-09-14, `refactor/sector-key-to-theme-key`).** One literal-string sweep across
   `src/pipeline.py`, `dashboard/breakdown.py` (its Part-A usages only —
   the `data-sector-key` attribute name itself is untouched, since it's
   hyphenated and never contains the literal substring `sector_key`,
