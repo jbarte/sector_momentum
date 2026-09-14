@@ -35,8 +35,8 @@ def _history_df(run_at_values):
 ])
 def test_build_drilldown_data_mixed_timestamps(run_at_values):
     df = _history_df(run_at_values)
-    sector_signal_data, sector_keys, _ = _build_drilldown_data(df)
-    assert "US|Technology" in sector_keys
+    sector_signal_data, theme_keys, _ = _build_drilldown_data(df)
+    assert "US|Technology" in theme_keys
     assert "US|Technology" in sector_signal_data
 
 

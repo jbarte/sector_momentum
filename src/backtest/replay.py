@@ -239,7 +239,7 @@ def score_themes_as_of(
     rows = build_theme_signals_rows(themes_cfg, truncated)
     if not rows:
         return None
-    wide = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
+    wide = pd.DataFrame(rows).set_index("theme_key")[SIGNAL_COLUMNS]
     scored = score_all(wide, weights_path="config/weights.yaml",
                        sentiment_score=None, blend_sentiment=False)
     return scored

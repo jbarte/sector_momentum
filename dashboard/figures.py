@@ -365,9 +365,9 @@ def _build_sentiment_scatter_figure(history_df) -> str:
 def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     """
     Build per-sector timeseries for each score column.
-    Returns (sector_signal_data, sector_keys, score_signals).
+    Returns (theme_signal_data, theme_keys, score_signals).
 
-    sector_signal_data: { sector_key: plotly_figure_json }
+    theme_signal_data: { theme_key: plotly_figure_json }
     """
     import pandas as pd
 
@@ -376,17 +376,17 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     if history_df.empty:
         return {}, [], score_signals
 
-    sector_keys = (history_df["region"] + "|" + history_df["gics_sector"]).unique().tolist()
-    sector_keys.sort()
+    theme_keys = (history_df["region"] + "|" + history_df["gics_sector"]).unique().tolist()
+    theme_keys.sort()
 
     history_df = history_df.copy()
-    history_df["sector_key"] = history_df["region"] + "|" + history_df["gics_sector"]
+    history_df["theme_key"] = history_df["region"] + "|" + history_df["gics_sector"]
     history_df["run_at_str"] = pd.to_datetime(history_df["run_at"], format="ISO8601", utc=True).dt.strftime("%Y-%m-%d")
 
     # Per-sector per-signal breakdown (used by the drilldown tab)
-    sector_signal_data: dict[str, str] = {}
-    for sk in sector_keys:
-        sk_data = history_df[history_df["sector_key"] == sk].sort_values("scan_id")
+    theme_signal_data: dict[str, str] = {}
+    for sk in theme_keys:
+        sk_data = history_df[history_df["theme_key"] == sk].sort_values("scan_id")
         if sk_data.empty:
             continue
         region, sector_name = sk.split("|", 1)
@@ -408,9 +408,9 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
             xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
             yaxis=dict(title="Score / Rank", gridcolor="#DFD5BE"),
         ))
-        sector_signal_data[sk] = _fig_to_json(fig)
+        theme_signal_data[sk] = _fig_to_json(fig)
 
-    return sector_signal_data, sector_keys, score_signals
+    return theme_signal_data, theme_keys, score_signals
 
 
 def _build_movers_figure(history_df) -> str:
@@ -730,7 +730,7 @@ def _build_rescore_data(history_df) -> dict:
         return {"scans": [], "sectors": [], "data": {}, "sentiment": {}}
 
     df = history_df.copy()
-    df["sector_key"] = df["region"] + "|" + df["gics_sector"]
+    df["theme_key"] = df["region"] + "|" + df["gics_sector"]
 
     scan_ids = sorted(df["scan_id"].unique().tolist())
     scans_meta = []
@@ -738,12 +738,12 @@ def _build_rescore_data(history_df) -> dict:
         run_at = df[df["scan_id"] == sid]["run_at"].iloc[0]
         scans_meta.append({"scan_id": int(sid), "run_at": str(run_at)})
 
-    sectors = sorted(df["sector_key"].unique().tolist())
+    sectors = sorted(df["theme_key"].unique().tolist())
 
     def _series(col: str) -> dict:
         result = {}
         for key in sectors:
-            sk = df[df["sector_key"] == key].groupby("scan_id")[col].first()
+            sk = df[df["theme_key"] == key].groupby("scan_id")[col].first()
             vals = []
             for sid in scan_ids:
                 fv = _safe_float(sk.get(sid))
@@ -868,14 +868,14 @@ def build_cohort_chart_context(shared: dict) -> dict:
         rrg_json = _build_rrg_figure(region_rrg)
         movers_json = _build_movers_figure(region_history)
         history_json = _build_history_figure(region_history)
-        drilldown_raw, sector_keys, _ = _build_drilldown_data(region_history)
+        drilldown_raw, theme_keys, _ = _build_drilldown_data(region_history)
 
         cohort_charts[region] = {
             "rrg": _json.loads(rrg_json),
             "movers": _json.loads(movers_json),
             "history": _json.loads(history_json),
             "drilldown": {k: _json.loads(v) for k, v in drilldown_raw.items()},
-            "keys": sector_keys,
+            "keys": theme_keys,
         }
 
     return {

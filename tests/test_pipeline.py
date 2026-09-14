@@ -38,7 +38,7 @@ def test_build_theme_signals_rows_produces_expected_keys():
     rows = build_theme_signals_rows(themes_cfg, prices)
     assert len(rows) == 1
     row = rows[0]
-    assert row["sector_key"] == "THEME|Technology"
+    assert row["theme_key"] == "THEME|Technology"
     assert row["region"] == "THEME"
     for col in SIGNAL_COLUMNS:
         assert col in row
@@ -157,7 +157,7 @@ def test_compute_signals_returns_none_when_benchmark_missing():
     """compute_signals_for_sector returns None when benchmark is not in prices."""
     prices = {"XLK": _price_df()}
     result = compute_signals_for_sector(
-        sector_key="US|Technology",
+        theme_key="US|Technology",
         region="US",
         gics_sector="Technology",
         sector_ticker="XLK",
@@ -171,7 +171,7 @@ def test_compute_signals_returns_none_when_sector_missing():
     """compute_signals_for_sector returns None when sector is not in prices."""
     prices = {"RSP": _price_df()}
     result = compute_signals_for_sector(
-        sector_key="US|Technology",
+        theme_key="US|Technology",
         region="US",
         gics_sector="Technology",
         sector_ticker="XLK",
@@ -192,7 +192,7 @@ def test_nan_close_in_sector_produces_nan_signals():
     bench_df = _price_df(n=260)
     prices = {"XLK": sector_df, "RSP": bench_df}
     result = compute_signals_for_sector(
-        sector_key="US|Technology",
+        theme_key="US|Technology",
         region="US",
         gics_sector="Technology",
         sector_ticker="XLK",

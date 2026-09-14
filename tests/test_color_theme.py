@@ -819,8 +819,8 @@ def _build_all_seven_figures() -> dict:
 
     figs["history"] = json.loads(_build_history_figure(hist))
 
-    drilldown, sector_keys, _ = _build_drilldown_data(hist)
-    figs["drilldown"] = json.loads(drilldown[sector_keys[0]])
+    drilldown, theme_keys, _ = _build_drilldown_data(hist)
+    figs["drilldown"] = json.loads(drilldown[theme_keys[0]])
 
     backtest_figs = _build_backtest_figures(_backtest_summary())
     figs["backtest"] = json.loads(backtest_figs["US"])

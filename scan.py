@@ -94,14 +94,14 @@ def _build_long_signals_df(rows: list[dict], z_wide_df=None) -> pd.DataFrame:
     Convert wide-format rows to long format expected by save_scan().
 
     Columns: region, gics_sector, signal_name, raw_value, z_value
-    Pass z_wide_df (index=sector_key, columns=signal names) to populate z_value.
+    Pass z_wide_df (index=theme_key, columns=signal names) to populate z_value.
     """
     if not rows:
         return pd.DataFrame(columns=["region", "gics_sector", "signal_name", "raw_value", "z_value"])
 
     wide = pd.DataFrame(rows)
     long = wide.melt(
-        id_vars=["region", "gics_sector", "sector_key"],
+        id_vars=["region", "gics_sector", "theme_key"],
         value_vars=SIGNAL_COLUMNS,
         var_name="signal_name",
         value_name="raw_value",
@@ -110,17 +110,17 @@ def _build_long_signals_df(rows: list[dict], z_wide_df=None) -> pd.DataFrame:
 
     if z_wide_df is not None:
         z_long = z_wide_df.reset_index().melt(
-            id_vars=["sector_key"],
+            id_vars=["theme_key"],
             value_vars=[c for c in SIGNAL_COLUMNS if c in z_wide_df.columns],
             var_name="signal_name",
             value_name="z_value_new",
         )
-        long = long.merge(z_long[["sector_key", "signal_name", "z_value_new"]],
-                          on=["sector_key", "signal_name"], how="left")
+        long = long.merge(z_long[["theme_key", "signal_name", "z_value_new"]],
+                          on=["theme_key", "signal_name"], how="left")
         long["z_value"] = long["z_value_new"].where(long["z_value_new"].notna(), long["z_value"])
         long = long.drop(columns=["z_value_new"])
 
-    long = long.drop(columns=["sector_key"])
+    long = long.drop(columns=["theme_key"])
     return long.reset_index(drop=True)
 
 
@@ -131,11 +131,11 @@ def _build_scored_df_for_db(scored: pd.DataFrame) -> pd.DataFrame:
     and return a DataFrame ready for save_scan() scores table.
     """
     df = scored.copy().reset_index()
-    df.rename(columns={"index": "sector_key"}, inplace=True)
-    parts = df["sector_key"].str.split("|", n=1, expand=True)
+    df.rename(columns={"index": "theme_key"}, inplace=True)
+    parts = df["theme_key"].str.split("|", n=1, expand=True)
     df.insert(0, "region", parts[0])
     df.insert(1, "gics_sector", parts[1])
-    df = df.drop(columns=["sector_key"])
+    df = df.drop(columns=["theme_key"])
     return df
 
 
@@ -469,7 +469,7 @@ def run(args: argparse.Namespace) -> int:
     #    a constituent list, which themes structurally do not have. This is the
     #    state themes have always been in \u2014 the column is kept rather than dropped
     #    so SIGNAL_COLUMNS, weights.yaml and stored history stay stable.
-    wide_df = pd.DataFrame(rows).set_index("sector_key")[SIGNAL_COLUMNS]
+    wide_df = pd.DataFrame(rows).set_index("theme_key")[SIGNAL_COLUMNS]
 
     # 6. FinBERT news sentiment (non-fatal)
     sentiment_score, sentiment_signals_df, _finbert_health = _compute_finbert_sentiment(

@@ -36,7 +36,7 @@ def test_benchmark_falls_back_when_absent():
     assert cohorts({"themes": {"Space": {"ticker": "UFO"}}})[0].benchmark == "ACWI"
 
 
-def test_instruments_are_keyed_by_sector_key():
+def test_instruments_are_keyed_by_theme_key():
     theme = cohorts(_THEMES)[0]
     assert theme.instruments == {"THEME|Space": "UFO", "THEME|Biotech": "XBI"}
 

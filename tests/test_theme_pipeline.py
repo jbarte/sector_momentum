@@ -19,7 +19,7 @@ def test_build_theme_rows_shape_and_keys():
     assert len(rows) == 2
     r = next(r for r in rows if r["gics_sector"] == "Space")
     assert r["region"] == "THEME"
-    assert r["sector_key"] == "THEME|Space"
+    assert r["theme_key"] == "THEME|Space"
     assert set(SIGNAL_COLUMNS).issubset(r.keys())
     assert np.isnan(r["breadth_above_50dma"])          # breadth N/A for themes
     assert not np.isnan(r["rs_ratio"])                 # RS computed vs ACWI

@@ -105,8 +105,8 @@ def main():
                             scan_id, len(scores_df), us_max, eu_max)
                 continue
 
-            for sector_key, row in scores_df.iterrows():
-                parts = sector_key.split("|", 1)
+            for theme_key, row in scores_df.iterrows():
+                parts = theme_key.split("|", 1)
                 region, gics_sector = parts[0], parts[1]
                 cur.execute(
                     "UPDATE scores SET level_score=%s, change_score=%s, data_score=%s, "

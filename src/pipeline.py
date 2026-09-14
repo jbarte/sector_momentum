@@ -34,7 +34,7 @@ SIGNAL_COLUMNS = [
 
 
 def compute_signals_for_sector(
-    sector_key: str,
+    theme_key: str,
     region: str,
     gics_sector: str,
     sector_ticker: str,
@@ -157,7 +157,7 @@ def build_theme_signals_rows(
     """Compute signal rows for each theme ETF vs one global benchmark.
 
     themes_cfg = {"benchmark": <ticker>, "themes": {name: etf_ticker, ...}}.
-    Rows use region="THEME", gics_sector=<name>, sector_key="THEME|<name>", and all
+    Rows use region="THEME", gics_sector=<name>, theme_key="THEME|<name>", and all
     SIGNAL_COLUMNS. breadth_above_50dma stays NaN (themes have no constituent list).
     A theme whose ETF has no price data is skipped. The benchmark falls back to "SPY"
     when the configured benchmark ticker is absent from ``prices``.
@@ -201,9 +201,9 @@ def build_theme_signals_rows(
                 else:
                     dropped_out[name] = "asof_dropped"
             continue
-        sector_key = f"THEME|{name}"
+        theme_key = f"THEME|{name}"
         sig = compute_signals_for_sector(
-            sector_key=sector_key,
+            theme_key=theme_key,
             region="THEME",
             gics_sector=name,
             sector_ticker=ticker,
@@ -215,7 +215,7 @@ def build_theme_signals_rows(
             if dropped_out is not None:
                 dropped_out[name] = "signal_calc_failed"
             continue
-        row = {"region": "THEME", "gics_sector": name, "sector_key": sector_key}
+        row = {"region": "THEME", "gics_sector": name, "theme_key": theme_key}
         row.update(sig)
         rows.append(row)
     return rows

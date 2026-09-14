@@ -42,14 +42,14 @@ _SIGNAL_DESCRIPTIONS: dict[str, str] = {
 
 
 def _build_instruments_html(
-    sector_key: str,
+    theme_key: str,
     sector_etfs: dict,
     themes_cfg: dict | None = None,
 ) -> str:
     """Render the Instruments table for a sector breakdown panel."""
     import html as _html
 
-    region, sector_name = sector_key.split("|", 1)
+    region, sector_name = theme_key.split("|", 1)
     if region == "THEME" and themes_cfg:
         etf_list = themes_cfg.get("ucits", {}).get(sector_name, [])
     else:
@@ -145,7 +145,7 @@ def _z_bar(z_v: float) -> tuple[str, str]:
 
 
 def _build_breakdown_html(
-    sector_key: str,
+    theme_key: str,
     score_row: dict,
     sector_signals: list[dict],
     universe: dict,
@@ -156,7 +156,7 @@ def _build_breakdown_html(
     """Pre-render the breakdown panel for one sector (or theme) row."""
     import html as _html
 
-    region, sector_name = sector_key.split("|", 1)
+    region, sector_name = theme_key.split("|", 1)
 
     # Ticker + benchmark from the themes config.
     _tcfg = (themes_cfg or {}).get("themes", {}).get(sector_name)
@@ -179,7 +179,7 @@ def _build_breakdown_html(
 
     # Score-tree HTML
     tree = (
-        f'<div class="score-tree" data-sector-key="{_html.escape(sector_key)}">'
+        f'<div class="score-tree" data-sector-key="{_html.escape(theme_key)}">'
         f'<div class="st-row st-top">'
         f'<span class="st-label">Composite</span>'
         f'<span class="st-val st-composite-val">{composite}</span>'
@@ -285,7 +285,7 @@ def _build_breakdown_html(
     )
 
     instruments = _build_instruments_html(
-        sector_key, sector_etfs or {}, themes_cfg=themes_cfg,
+        theme_key, sector_etfs or {}, themes_cfg=themes_cfg,
     )
     return (
         f'<div class="breakdown-inner">'
