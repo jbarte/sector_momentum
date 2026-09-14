@@ -140,7 +140,7 @@
     // Filtering stays available: renderLatestRows emits the same filter data
     // attributes as the static build. Re-apply any active filters to the
     // freshly rebuilt rows. (Sorting stays disabled above — sortTable groups by
-    // data-sector-key, which these rows don't carry.)
+    // data-theme-key, which these rows don't carry.)
     if (typeof window.applyFilters === "function") window.applyFilters();
   }
 

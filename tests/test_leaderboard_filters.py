@@ -136,7 +136,7 @@ def test_leaderboard_renders_every_cohort_group():
 def test_theme_rows_carry_filter_data_attributes():
     """Themes must be filterable like sectors — the chips read these."""
     html = _render_index(_COHORT_ROWS)
-    theme_row = [l for l in html.splitlines() if 'data-sector-key="THEME|Space"' in l]
+    theme_row = [l for l in html.splitlines() if 'data-theme-key="THEME|Space"' in l]
     assert theme_row, "theme row missing"
     assert 'data-setup=' in theme_row[0]
     assert 'data-trend=' in theme_row[0]

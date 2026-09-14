@@ -311,7 +311,7 @@
       </thead>
       <tbody>
         {% for row in leaderboard_rows %}
-        <tr class="leaderboard-row" data-sector-key="{{ row.key }}" data-theme-id="{{ row.theme_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"{% if row.unbuyable %} data-unbuyable="1"{% endif %}
+        <tr class="leaderboard-row" data-theme-key="{{ row.key }}" data-theme-id="{{ row.theme_id }}" data-region="{{ row.region }}" data-sector="{{ row.sector }}" data-setup="{{ row.setup or '' }}" data-trend="{{ row.trajectory_state }}"{% if row.unbuyable %} data-unbuyable="1"{% endif %}
             data-composite="{{ row._raw_composite if row._raw_composite is not none else '' }}"
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
             data-level="{{ row._raw_level if row._raw_level is not none else '' }}"
@@ -607,15 +607,15 @@ function currentReviewStatus() {
 
 // Row lookup shared by applyHorizonBadges() (the surplus mark) and
 // renderReviewPanel() (nameOf()). Server-baked rows carry both
-// data-sector-key and data-theme-id, but rows rebuilt client-side by
+// data-theme-key and data-theme-id, but rows rebuilt client-side by
 // auth.js's renderLatestRows() carry only data-theme-id -- that function's
-// own comment says so explicitly ("these rows don't carry [data-sector-key]").
+// own comment says so explicitly ("these rows don't carry [data-theme-key]").
 // renderLatestRows() is the signed-in path, and it's the ONLY path where
-// book-state exists at all, so a data-sector-key-only lookup silently misses
+// book-state exists at all, so a data-theme-key-only lookup silently misses
 // every reader this feature serves. Found identically broken in two places
 // (the surplus mark and nameOf()) by task review; fixed once, here, for both.
 function _leaderboardRowForKey(key) {
-  return document.querySelector('.leaderboard-row[data-sector-key="' + key + '"]')
+  return document.querySelector('.leaderboard-row[data-theme-key="' + key + '"]')
       || document.querySelector('.leaderboard-row[data-theme-id="' + key + '"]');
 }
 
@@ -1218,14 +1218,14 @@ function applyHorizonBadges() {
     // result is correct independent of DOM/sort order -- whole-branch
     // review finding.
     var _rankedRows = Array.prototype.filter.call(rows, function (tr) {
-      var k = tr.dataset.sectorKey || tr.dataset.themeId;
+      var k = tr.dataset.themeKey || tr.dataset.themeId;
       return !!k && tr.hasAttribute('data-rank');
     });
     _rankedRows.sort(function (a, b) {
       return parseFloat(a.dataset.rank) - parseFloat(b.dataset.rank);
     });
     _rankedRows.forEach(function (tr) {
-      var k = tr.dataset.sectorKey || tr.dataset.themeId;
+      var k = tr.dataset.themeKey || tr.dataset.themeId;
       _rankedKeys.push(k);
       if (pos.isHeld(tr)) { _heldKeys.push(k); }
       if (tr.dataset.unbuyable === '1') { _unbuyableKeys.push(k); }
@@ -2119,7 +2119,7 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   function updateTrees(scored, W) {
     var dataPct = Math.round((1 - W) * 100), sentPct = Math.round(W * 100);
     Object.keys(scored).forEach(function (key) {
-      var sel = '.score-tree[data-sector-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]';
+      var sel = '.score-tree[data-theme-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]';
       document.querySelectorAll(sel).forEach(function (tree) {
         var cv = tree.querySelector(".st-composite-val");
         if (cv) { cv.textContent = fmt(scored[key].composite, 3); }
@@ -2132,7 +2132,7 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
   // Update the visible leaderboard rows' cells from `scored`.
   function updateRows(rows, scored) {
     rows.forEach(function (tr) {
-      var r = scored[tr.getAttribute("data-sector-key")];
+      var r = scored[tr.getAttribute("data-theme-key")];
       if (!r) { return; }
       var badge = tr.querySelector(".rank-cell .rank-badge");
       // The highlight is applyHorizonBadges()'s to write (it runs at the end
@@ -2175,8 +2175,8 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
 
   function sortVisibleByRank(rows, scored, tbody) {
     rows.sort(function (a, b) {
-      var ra = scored[a.getAttribute("data-sector-key")];
-      var rb = scored[b.getAttribute("data-sector-key")];
+      var ra = scored[a.getAttribute("data-theme-key")];
+      var rb = scored[b.getAttribute("data-theme-key")];
       return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
     });
     rows.forEach(function (tr) {
