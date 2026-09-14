@@ -248,26 +248,11 @@ fixing after the rename, the suite would have caught it if it had.
 returns zero hits outside `BACKLOG.md`'s own historical Done entries (left
 alone — they correctly describe what the code was called at the time).
 
-**(A) and (B) both done — see Done.** (A), the internal Python `sector_key`
-parameter, shipped 2026-09-14 (`refactor/sector-key-to-theme-key`). (B), the
-`data-sector-key`/`dataset.sectorKey` DOM attribute in `index.html.j2` and
-`dashboard/breakdown.py`, shipped 2026-09-15
-(`refactor/sector-key-dom-to-theme-key`).
-
-**Correction found while scoping (B) (2026-09-15):** the "THREE independent
-producers" framing above didn't hold — `auth.js`'s rebuilt rows were never a
-producer of this attribute at all (confirmed by its own comment and two
-existing tests), so the real join was two producers, not three. But the
-*opposite* correction also applied: exploration found the two-producer join
-(`breakdown.py`'s `.score-tree` panel ↔ `index.html.j2`'s sentiment-toggle
-`updateTrees()`) had **zero** exact-string test coverage — reverting
-`breakdown.py` alone passed the full suite unchanged. Closed with a new
-regression test (`test_score_tree_key_attribute_matches_sentiment_toggle_
-selector` in `test_dashboard_breakdown.py`) pinning both sides; sabotage-
-verified by reverting each side independently and confirming both fail
-loudly. Net lesson: don't trust either a "worse than X" or a "same as X"
-guess about test coverage without checking — this file has now been wrong
-in both directions on the same identifier.
+**(A) and (B) both done (2026-09-14, 2026-09-15) — see Done** for what
+shipped and the two corrections found while scoping/executing (B): the
+"THREE producers" framing was wrong (only two), and the two-producer join
+turned out to have zero exact-string coverage before this — the opposite
+kind of surprise, closed with a new pinning test.
 
 **`sectors_expected`/`sectors_produced` are real DB columns**
 (`src/state.py`'s `init_db()`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
@@ -640,14 +625,6 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   passed, 19 skipped). Verified against a real `make build`: the built
   `docs/index.html` carries 46 occurrences of the new name and zero of
   the old.
-
-  **Net lesson, recorded so it isn't re-guessed:** this backlog item has
-  now been wrong about test coverage in *both* directions on the same
-  identifier family — "less coverage than `sector_id`" undersold Part A's
-  actual protection, and "TWO producers that must already agree" oversold
-  Part B's actual protection (agreeing today said nothing about a test
-  catching future disagreement). Don't trust a coverage guess in either
-  direction without a sabotage check.
 
 - **`sector_key` → `theme_key` — Part A, the internal Python key
   (2026-09-14, `refactor/sector-key-to-theme-key`).** One literal-string sweep across

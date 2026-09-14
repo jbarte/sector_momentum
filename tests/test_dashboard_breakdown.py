@@ -48,11 +48,16 @@ def test_score_tree_key_attribute_matches_sentiment_toggle_selector():
         "toggle's updateTrees() selector will silently stop matching it"
     )
 
+    # Whole-template membership, not a hand-extracted updateTrees() body --
+    # this exact selector string occurs exactly once in the template (code
+    # review, 2026-09-15), so scoping the search would add fragility (a
+    # brace/line-based extraction to break on reformatting) for zero extra
+    # precision. If that ever stops being true, the assertion below starts
+    # failing to discriminate and should switch to the brace-balanced
+    # extraction technique in test_dashboard_js.py's
+    # _apply_band_boundaries_js()/_apply_horizon_badges_js().
     js = _TPL.read_text()
-    start = js.index("function updateTrees(")
-    end = js.index("\n  }\n", start)
-    body = js[start:end]
-    assert '.score-tree[data-theme-key="' in body, (
+    assert '.score-tree[data-theme-key="' in js, (
         "updateTrees() no longer selects .score-tree by data-theme-key -- "
         "it will silently stop finding the breakdown panel to re-render"
     )
