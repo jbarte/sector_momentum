@@ -365,9 +365,9 @@ def _build_sentiment_scatter_figure(history_df) -> str:
 def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     """
     Build per-sector timeseries for each score column.
-    Returns (sector_signal_data, theme_keys, score_signals).
+    Returns (theme_signal_data, theme_keys, score_signals).
 
-    sector_signal_data: { theme_key: plotly_figure_json }
+    theme_signal_data: { theme_key: plotly_figure_json }
     """
     import pandas as pd
 
@@ -384,7 +384,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
     history_df["run_at_str"] = pd.to_datetime(history_df["run_at"], format="ISO8601", utc=True).dt.strftime("%Y-%m-%d")
 
     # Per-sector per-signal breakdown (used by the drilldown tab)
-    sector_signal_data: dict[str, str] = {}
+    theme_signal_data: dict[str, str] = {}
     for sk in theme_keys:
         sk_data = history_df[history_df["theme_key"] == sk].sort_values("scan_id")
         if sk_data.empty:
@@ -408,9 +408,9 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
             xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
             yaxis=dict(title="Score / Rank", gridcolor="#DFD5BE"),
         ))
-        sector_signal_data[sk] = _fig_to_json(fig)
+        theme_signal_data[sk] = _fig_to_json(fig)
 
-    return sector_signal_data, theme_keys, score_signals
+    return theme_signal_data, theme_keys, score_signals
 
 
 def _build_movers_figure(history_df) -> str:

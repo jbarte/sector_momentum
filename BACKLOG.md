@@ -270,23 +270,9 @@ had, since fewer call sites read the attribute directly by string.
 
 **Correction from (A)'s actual execution (2026-09-14):** the "no exact-
 string test coverage, fails SILENTLY" premise above did not hold as
-starkly as recorded — checked by actually sabotage-reverting `scan.py`
-alone (18 tests failed immediately with `KeyError`, naming the exact
-mismatch) and `src/backtest/replay.py` alone (1 test failed the same way,
-after adding the one genuinely-missing pinning assertion there). Existing
-coverage in `test_pipeline.py`/`test_theme_pipeline.py`/`test_scan_smoke.py`
-already exercised the identifier at every other cross-module boundary
-tightly enough to fail loudly on a partial rename, not silently — the
-first attempt's silent failure more likely escaped `make test` because the
-affected code path needed a live scan run to exercise for real, not
-because no test existed. Also found and worked around while sweeping (A):
-`scripts/signal_correlation.py` was excluded — it queries a literal SQL
-column named `sector_key` against a table called `sector_signals`, neither
-of which exists in the current schema (`signals`/`scores`/
-`sentiment_signals`/`positions`/`scans`), so that script already appears
-stale independent of this rename. A SQL string is DB-facing surface
-regardless of whether the table it names is real, so it was correctly out
-of scope either way.
+starkly as recorded for (A) — full record in the Done entry below. Don't
+assume it applies to (B) either without checking fresh; B's own producers
+(index.html.j2, breakdown.py, auth.js) were not part of that check.
 
 **`sectors_expected`/`sectors_produced` are real DB columns**
 (`src/state.py`'s `init_db()`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
