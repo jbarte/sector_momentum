@@ -248,45 +248,45 @@ fixing after the rename, the suite would have caught it if it had.
 returns zero hits outside `BACKLOG.md`'s own historical Done entries (left
 alone — they correctly describe what the code was called at the time).
 
-**`sector_key` remains open — full inventory taken 2026-09-07 (read-only,
-no code changed), and it's bigger than even the FIRST correction above
-found.** 103 occurrences (case-insensitive), 25 files — not ~40. It is
-genuinely **two separable concerns wearing one name**, which is itself the
-reason to scope it as two tasks rather than one if ever picked up:
+**(A) done 2026-09-14 (`refactor/sector-key-to-theme-key`) — see Done.**
+**(B) `data-sector-key` / `dataset.sectorKey` in `index.html.j2` remains
+open** (14 refs) — DOM/JS-layer. **This has TWO independent producers that
+must already agree, not one:** `index.html.j2:322` sets it from `row.key`
+on the baked leaderboard row; `dashboard/breakdown.py:182` sets the SAME
+attribute name from its own `theme_key` function parameter (renamed
+alongside (A) — only the attribute NAME `data-sector-key` itself is
+unrenamed, since it's DOM-facing), on the breakdown/`.score-tree` panel.
+`index.html.j2:2158` then joins across both by matching the attribute
+value — meaning the two producers already have to compute an identical
+string today for that join to work at all. A rename here means keeping
+THREE independently-maintained producers in sync (the two above, plus
+`auth.js`'s rebuilt-row path, which the `_leaderboardRowForKey` fallback at
+`index.html.j2:1180,1187` already treats as NOT reliably carrying this
+attribute) — a step up in verification difficulty from `sector_id`'s
+single-producer-per-render-path shape, where each render mode had exactly
+one place setting the value. (B) does have some test coverage (via
+`test_dashboard_js.py`/`test_review_panel.py`) but less than `sector_id`
+had, since fewer call sites read the attribute directly by string.
 
-- **(A) An internal Python computation key** — a pandas index name / dict
-  key for the `"{region}|{name}"` composite string, used purely server-side
-  in `src/pipeline.py`, `dashboard/breakdown.py`, `dashboard/figures.py`,
-  `scan.py`, `scripts/signal_correlation.py`, `src/backtest/replay.py`,
-  `scripts/backfill_region_ranks.py`, plus ~9 test files. No DOM, no DB.
-  This is what the first attempt found and reverted.
-- **(B) `data-sector-key` / `dataset.sectorKey` in `index.html.j2`** (14
-  refs) — DOM/JS-layer, not previously inventoried. **This has TWO
-  independent producers that must already agree, not one:**
-  `index.html.j2:322` sets it from `row.key` on the baked leaderboard row;
-  `dashboard/breakdown.py:182` sets the SAME attribute name from its own
-  `sector_key` function parameter, on the breakdown/`.score-tree` panel.
-  `index.html.j2:2158` then joins across both by matching the attribute
-  value — meaning `row.key` and `breakdown.py`'s `sector_key` already have
-  to compute an identical string today for that join to work at all. A
-  rename here means keeping THREE independently-maintained producers in
-  sync (the two above, plus `auth.js`'s rebuilt-row path, which the
-  `_leaderboardRowForKey` fallback at `index.html.j2:1180,1187` already
-  treats as NOT reliably carrying this attribute) — a step up in
-  verification difficulty from `sector_id`'s single-producer-per-render-path
-  shape, where each render mode had exactly one place setting the value.
-
-Renaming (A) without (B), or vice versa, is coherent on its own — they are
-genuinely different code, not two halves of one refactor — but doing (B)
-needs the three-producer relationship above understood first, or a partial
-rename would leave `.score-tree` panels unable to find their leaderboard
-row. Unlike `sector_id`, (A) has no exact-string test coverage on the
-identifier itself, so a partial rename there fails SILENTLY (a live data-
-flow break between modules), not loudly in tests — confirmed by the first
-attempt reverting on a manual re-check, not a test failure. (B) does have
-some test coverage (via `test_dashboard_js.py`/`test_review_panel.py`,
-already counted above) but less than `sector_id` had, since fewer call
-sites read the attribute directly by string.
+**Correction from (A)'s actual execution (2026-09-14):** the "no exact-
+string test coverage, fails SILENTLY" premise above did not hold as
+starkly as recorded — checked by actually sabotage-reverting `scan.py`
+alone (18 tests failed immediately with `KeyError`, naming the exact
+mismatch) and `src/backtest/replay.py` alone (1 test failed the same way,
+after adding the one genuinely-missing pinning assertion there). Existing
+coverage in `test_pipeline.py`/`test_theme_pipeline.py`/`test_scan_smoke.py`
+already exercised the identifier at every other cross-module boundary
+tightly enough to fail loudly on a partial rename, not silently — the
+first attempt's silent failure more likely escaped `make test` because the
+affected code path needed a live scan run to exercise for real, not
+because no test existed. Also found and worked around while sweeping (A):
+`scripts/signal_correlation.py` was excluded — it queries a literal SQL
+column named `sector_key` against a table called `sector_signals`, neither
+of which exists in the current schema (`signals`/`scores`/
+`sentiment_signals`/`positions`/`scans`), so that script already appears
+stale independent of this rename. A SQL string is DB-facing surface
+regardless of whether the table it names is real, so it was correctly out
+of scope either way.
 
 **`sectors_expected`/`sectors_produced` are real DB columns**
 (`src/state.py`'s `init_db()`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
@@ -301,7 +301,7 @@ genuinely cheap set.
 | `region` | ~265 | **DB column** on `signals`, `scores`, `sentiment_signals`, `positions`, and the `v_recent_scores` view |
 | `gics_sector` | ~123 | **DB column** on the same tables |
 | `sectors_expected` / `sectors_produced` | 16 | **DB columns** on `scans` — corrected 2026-09-07, was mis-filed as schema-independent |
-| `sector_key` | 103 | TWO concerns: (A) internal Python computation key across `pipeline.py`/`breakdown.py`/`figures.py`/`scan.py`/etc + ~9 tests, (B) `data-sector-key` DOM attr in `index.html.j2` with 3 producers that must agree — corrected 2026-09-07 twice (first ~27→~40+, now →103). **Still open.** |
+| `sector_key` (B only — DOM attr) | ~14 | `data-sector-key` in `index.html.j2` with 3 producers that must agree. **Still open.** (A), the internal Python key, is **done 2026-09-14** — see Done. |
 | ~~`sector_id`~~ | ~~30+~~ | **Done 2026-09-07** — see above |
 
 **Recommendation: leave the three DB columns alone** (`region`, `gics_sector`,
@@ -313,11 +313,12 @@ the backup/restore path, and every reader — for zero functional gain.
 meaning*: it is the filter that keeps the retired US/EU rows out of every
 read, so touching it is the riskiest cosmetic change available.
 
-`sector_key` is the one piece left of the original "cheap subset," is
-larger than `sector_id` was, and is two tasks rather than one if ever
-done — the internal Python key (A) and the DOM attribute (B) above. Don't
-assume "derived string" means small; that assumption was made and corrected
-twice on this exact identifier in one day (2026-09-07).
+`sector_key`'s DOM attribute (B) is the one piece left of the original
+"cheap subset." Don't assume "derived string" means small; that assumption
+was made and corrected twice on this exact identifier in one day
+(2026-09-07), and (A)'s actual execution still found a real trap in
+scope-adjacent code (`scripts/signal_correlation.py`'s stale SQL string —
+see Done) despite the careful two-part split.
 
 If the DB columns are ever renamed, `region` → `cohort` and `gics_sector` →
 `name` are the honest names.
@@ -618,6 +619,46 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **`sector_key` → `theme_key` — Part A only, the internal Python key
+  (2026-09-14, `refactor/sector-key-to-theme-key`).** Part of "Sector-era
+  naming in the data layer" (see Queued) — Part B (`data-sector-key` DOM
+  attribute, 3 producers) remains open. One literal-string sweep across
+  `src/pipeline.py`, `dashboard/breakdown.py` (its Part-A usages only —
+  the `data-sector-key` attribute name itself is untouched, since it's
+  hyphenated and never contains the literal substring `sector_key`,
+  confirmed by inspection rather than assumed), `dashboard/figures.py`,
+  `scan.py`, `src/backtest/replay.py`, `scripts/backfill_region_ranks.py`,
+  and 9 test files — 65 replacements, matching the `sector_id`→`theme_id`
+  precedent's method exactly.
+
+  Added one new pinning test (`tests/test_backtest_replay.py`) at the one
+  real coverage gap found: `src/backtest/replay.py`'s `score_themes_as_of()`
+  had zero existing assertions on the identifier itself. Sabotage-verified
+  two ways — reverting `scan.py` alone made 18 tests fail immediately with
+  `KeyError`, naming the exact mismatch; reverting `replay.py` alone made
+  the new test fail the same way — both restored, suite green (1447
+  passed, 19 skipped).
+
+  **Correction to the item's own premise, found during execution:** "(A)
+  has no exact-string test coverage... fails SILENTLY" did not hold as
+  starkly as recorded. `test_pipeline.py`/`test_theme_pipeline.py`/
+  `test_scan_smoke.py` already pinned or exercised this identifier at
+  every other cross-module boundary tightly enough to fail loudly, not
+  silently, on a partial rename — the first attempt's silent failure more
+  likely escaped `make test` because the affected code path needed a live
+  scan run to exercise for real, not because no test existed anywhere.
+
+  **Found and worked around, not a rename bug:** `scripts/signal_
+  correlation.py` was excluded from the sweep after it turned out to query
+  a literal SQL column `sector_key` against a table `sector_signals` —
+  neither exists in the current schema (`signals`/`scores`/
+  `sentiment_signals`/`positions`/`scans`), so this script already appears
+  stale independent of this rename. Reverted rather than compounded; a SQL
+  string is DB-facing surface regardless of whether the table it names is
+  real, so it was correctly out of scope either way. Not investigated
+  further — fixing or removing a possibly-dead script is a separate
+  question from this rename.
 
 - **i18n removal — English only, all 3 PRs shipped (2026-09-13).** Design:
   `sector_momentum-notes/specs/2026-09-13-remove-i18n-support-design.md` and
