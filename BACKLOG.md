@@ -128,7 +128,7 @@ ranking. Re-measure once ~3 months of clean daily scans exist.
 column sorting for signed-in readers, because the signed-in path replaces the
 baked rows with fresh ones from `v_recent_scores`, and the client-side rescore
 reads `RESCORE_DATA` — a per-scan history baked at build time and keyed by
-`data-sector-key`, which the rebuilt rows do not carry.
+`data-theme-key`, which the rebuilt rows do not carry.
 
 But that query already selects what the blend needs:
 
@@ -142,9 +142,14 @@ It needs `Rescore.rescore()`'s arithmetic sourced from the row instead of from
 `RESCORE_DATA`, then a re-rank. Signing in currently trades the slider and
 sorting for badges and fresh data, and it need not.
 
-**Sorting is a separate, smaller fix:** `sortTable` groups by
-`data-sector-key`, which `renderLatestRows` does not emit. Adding that attribute
-is likely all it needs.
+**Sorting needs more than the missing attribute, found during backlog-sync
+(2026-09-16):** `sortTable()` (`index.html.j2`) bails out immediately on
+`window._leaderboardUpgraded` — a flag `makeLeaderboardReadOnly()` sets for
+every signed-in reader (`auth.js:129-145`, in place since 2026-07-21, well
+before this item was last edited). Adding `data-theme-key` to the rebuilt
+rows is necessary but not sufficient; the guard itself also has to be
+relaxed (or the sort re-enabled once the row-rebuild path can support it)
+for sorting to actually work signed in.
 
 **Two things to honour when it returns:**
 
@@ -162,10 +167,11 @@ hidden anymore — the 2026-08-19 6-column restructure (Stage 1 of the
 leaderboard redesign, see Done) removed it outright, and `_sentiment.css.j2`'s
 old `display:none` block is gone with it. Restoring the column now means
 re-adding a `<th>`, a cell in **all three** row-builders (`dashboard/rows.py`,
-`renderLatestRows()` in `auth.js`, and the row loop in `scan-history.js`), an
-i18n key, and renumbering every `sortTable()`/`data-col` index and `colspan`
-that counts columns — meaningfully more work than the one CSS block this used
-to be. Also drop the `alpha` badge from the Sentiment nav and page note.
+`renderLatestRows()` in `auth.js`, and the row loop in `scan-history.js`), and
+renumbering every `sortTable()`/`data-col` index and `colspan` that counts
+columns — meaningfully more work than the one CSS block this used to be.
+Also drop the `alpha` badge from the Sentiment nav and page note. (No i18n
+key needed any more — i18n was removed entirely, 2026-09-13, see Done.)
 
 ## Sentiment page never upgrades for signed-in readers
 
@@ -279,12 +285,14 @@ the backup/restore path, and every reader — for zero functional gain.
 meaning*: it is the filter that keeps the retired US/EU rows out of every
 read, so touching it is the riskiest cosmetic change available.
 
-`sector_key`'s DOM attribute (B) is the one piece left of the original
-"cheap subset." Don't assume "derived string" means small; that assumption
-was made and corrected twice on this exact identifier in one day
-(2026-09-07), and (A)'s actual execution still found a real trap in
-scope-adjacent code (`scripts/signal_correlation.py`'s stale SQL string —
-see Done) despite the careful two-part split.
+The `sector_key` rename (both parts) completes the original "cheap subset."
+Don't assume "derived string" means small for whatever's renamed next: that
+assumption was made and corrected on this exact identifier three separate
+times — 2026-09-07 (twice, same day), and again 2026-09-15 when Part B's own
+scoping found the "three producers" it was queued under was itself wrong.
+(A)'s execution also found a real trap in scope-adjacent code
+(`scripts/signal_correlation.py`'s stale SQL string — see Done) despite the
+careful two-part split.
 
 If the DB columns are ever renamed, `region` → `cohort` and `gics_sector` →
 `name` are the honest names.
