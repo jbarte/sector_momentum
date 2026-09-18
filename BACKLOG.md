@@ -594,6 +594,37 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **Past scans leave the scan line alone — dead header-date code removed
+  (2026-09-18, `fix/scan-history-dead-header-date`).** `scan-history.js`
+  looked up `.scan-date` at load and had `showScan()` write "Last scan: #N
+  · date" into it, with `restoreLatest()` putting the original back. No
+  template has rendered that class since `fa37065` (the command-bar
+  rewrite), so the lookup was always null and none of it ever ran. It
+  nearly came back to life by accident when the entry below first named
+  its scan-line hooks `.scan-date`.
+
+  **Decided with Jonas:** opening a past scan does *not* change the scan
+  id/date line (strip subline on desktop, `.mobile-scan-meta` on phones).
+  The summary strip describes the latest scan as one unit, and its
+  "Today's read" headline and drift sentence are never recomputed for a
+  past scan. Rewriting only the scan line would put "#150 · 2026-08-01"
+  beside a headline about #195. `#scan-history-banner` ("Viewing scan #N ·
+  Back to latest") sits directly above the table on both layouts and
+  already names the scan. So the dead code, and `findScanMeta()`, its only
+  helper, were deleted rather than revived. `applyTodaysRead()` stays the
+  scan line's only writer.
+
+  Two new tests. One checks that every class `scan-history.js` queries is
+  rendered by some template; it catches this whole class of dead lookup,
+  not just this one. The other checks that `scan-history.js` references
+  none of the scan-line classes, which pins the decision. Both were red
+  against the old file and named `.scan-date`. Sabotage-verified by
+  pointing the lookup at `.mobile-scan-meta` instead, a class that does
+  render. The first test rightly passed that case, and the second caught
+  it. In headless Chromium, a round trip (past scan → back to latest) left
+  the scan line at "Scan #2 · 2026-08-24" throughout, while the banner
+  read "Viewing scan #1".
+
 - **"Today's read" follows the live board for signed-in readers
   (2026-09-18, `fix/todays-read-live-upgrade`).** Reported by Jonas: signed
   in, the strip read "AgTech & Food Innovation leads the board … Scan #187 ·
