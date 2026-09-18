@@ -193,3 +193,230 @@ def test_mobile_does_not_hide_the_track_record_cell():
         "Cell C is hidden on mobile again -- that removes the feature on "
         "phones rather than de-duplicating it; see this test's docstring"
     )
+
+
+# ---------------------------------------------------------------------------
+# Signed-in upgrade: "Today's read" must follow the live board.
+#
+# Found 2026-09-18: the cell is baked from the GATED scan, and nothing updated
+# it when auth.js swapped the table to the live one -- so a signed-in reader saw
+# "AgTech & Food Innovation leads the board. Scan #187 · 2026-09-10" above a
+# live table (scan #195) led by Shipping, beside a green "Live" chip claiming
+# the page showed the latest scan. auth.js's own comment said there was no
+# scan-date element to update; that stopped being true when the strip and the
+# scan-meta rows were added, and the decision was never revisited.
+# ---------------------------------------------------------------------------
+
+import json as _json
+import shutil as _shutil
+import subprocess as _subprocess
+
+import pytest as _pytest
+
+_TPL_DIR = ROOT / "dashboard" / "templates"
+_RESCORE_JS = ROOT / "dashboard" / "assets" / "rescore.js"
+
+
+def _render_index(todays_read, active_scan_id=187, scan_date="2026-09-10 11:09 UTC"):
+    """Minimal real render of index.html.j2 -- same context shape
+    tests/test_leaderboard_filters.py::_render_index uses, plus the three
+    values this cell reads."""
+    from jinja2 import Environment, FileSystemLoader
+    from dashboard.build import register_asset_url
+    from src.horizons import round_trip_bps
+    env = Environment(loader=FileSystemLoader(str(_TPL_DIR)), keep_trailing_newline=True)
+    register_asset_url(env)
+    env.filters["js_json"] = lambda v: v.replace("</", r"<\/") if isinstance(v, str) else v
+    return env.get_template("index.html.j2").render(
+        leaderboard_rows=[], round_trip_bps=round_trip_bps(), cohort_list=[],
+        has_any_rows=False, theme_keys=[], scan_index=[], backtest_metrics=[],
+        badge_scorecard=[], todays_read=todays_read,
+        active_scan_id=active_scan_id, scan_date=scan_date,
+    )
+
+
+def _todays_read_cell(html):
+    start = html.index('id="cell-todays-read"')
+    return html[start:html.index('id="cell-buy-band"', start)]
+
+
+@_pytest.mark.parametrize("drift", ["rising", "falling", "flat"])
+def test_every_drift_sentence_is_rendered_but_only_the_current_one_shows(drift):
+    """All three sentences must be in the DOM so the live upgrade can switch
+    between them WITHOUT JS owning any prose (digest.py: every user-visible
+    word lives in this template). Exactly one may be visible -- a guest, who
+    never gets the upgrade, must still read one sentence, not three."""
+    cell = _todays_read_cell(_render_index({"lead_theme": "Shipping", "drift": drift}))
+    for d in ("rising", "falling", "flat"):
+        span = re.search(r'<span data-drift="%s"([^>]*)>' % d, cell)
+        assert span, f"no data-drift={d} sentence rendered"
+        assert ("hidden" in span.group(1)) == (d != drift), (
+            f"drift={drift}: the {d} sentence has the wrong visibility"
+        )
+
+
+def test_the_lead_theme_and_scan_facts_are_addressable():
+    """The upgrade rewrites these by hook, so each must be its own element --
+    in the strip's subline AND the mobile header row, which both print the
+    scan id and date (the subline is hidden at <=600px, so on a phone the
+    header row is the only one a reader sees)."""
+    html = _render_index({"lead_theme": "AgTech & Food Innovation", "drift": "falling"})
+    cell = _todays_read_cell(html)
+    assert '<span class="todays-read-lead">AgTech &amp; Food Innovation</span>' in cell \
+        or '<span class="todays-read-lead">AgTech & Food Innovation</span>' in cell
+    assert html.count('<span class="scan-meta-id">187</span>') == 2, (
+        "scan id must be hookable in both the strip subline and .mobile-scan-meta"
+    )
+    assert html.count('<span class="scan-meta-date">2026-09-10</span>') == 2
+
+
+def test_the_upgrade_event_carries_the_live_rows():
+    """auth.js has the live rows; the page owns the strip. The event is the
+    seam between them, so it must carry the rows rather than make the page
+    re-query v_recent_scores."""
+    assert re.search(
+        r'new CustomEvent\("sm:leaderboard-upgraded",\s*\{\s*detail:\s*\{\s*rows:\s*latest',
+        AUTH,
+    ), "sm:leaderboard-upgraded no longer carries the live rows"
+
+
+def test_the_page_listens_for_the_upgrade():
+    assert "document.addEventListener('sm:leaderboard-upgraded', applyTodaysRead)" in INDEX
+
+
+def test_the_stale_no_scan_date_claim_is_gone():
+    """The comment above markLive() said no scan-date element existed to
+    update. That false premise is how this bug survived; leaving it in place
+    invites the next reader to trust it."""
+    assert "scan_date isn't used anywhere in" not in AUTH
+
+
+def _extract_function(src, signature):
+    """Brace-balanced extraction, same technique as test_dashboard_js.py's
+    _apply_horizon_badges_js() -- a naive search for the closing brace would
+    stop at the first nested block."""
+    start = src.index(signature)
+    i = src.index("{", start)
+    depth = 0
+    while True:
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[start:i + 1]
+        i += 1
+
+
+_FAKE_DOM = """
+function el(props) {
+  var e = { textContent: "", hidden: false, dataset: {}, children: [] };
+  for (var k in props) { e[k] = props[k]; }
+  return e;
+}
+var lead = el({ textContent: "AgTech & Food Innovation" });
+var drifts = ["rising", "falling", "flat"].map(function (d) {
+  return el({ dataset: { drift: d }, hidden: d !== "falling" });
+});
+var cell = el({});
+cell.querySelector = function (sel) { return sel === ".todays-read-lead" ? lead : null; };
+cell.querySelectorAll = function (sel) { return sel === "[data-drift]" ? drifts : []; };
+var ids = [el({ textContent: "187" }), el({ textContent: "187" })];
+var dates = [el({ textContent: "2026-09-10" }), el({ textContent: "2026-09-10" })];
+global.document = {
+  getElementById: function (id) { return id === "cell-todays-read" ? cell : null; },
+  querySelectorAll: function (sel) {
+    return sel === ".scan-meta-id" ? ids : (sel === ".scan-meta-date" ? dates : []);
+  }
+};
+global.window = { COHORTS: [{ region: "THEME" }] };
+window.Rescore = require(%(rescore)r);
+var Rescore = window.Rescore;
+"""
+
+
+def _run_apply_todays_read(detail):
+    fn = _extract_function(INDEX, "function applyTodaysRead(")
+    script = (_FAKE_DOM % {"rescore": str(_RESCORE_JS)}) + fn + """
+      applyTodaysRead({ detail: %s });
+      console.log(JSON.stringify({
+        lead: lead.textContent,
+        visible: drifts.filter(function (d) { return !d.hidden; })
+                       .map(function (d) { return d.dataset.drift; }),
+        ids: ids.map(function (e) { return e.textContent; }),
+        dates: dates.map(function (e) { return e.textContent; })
+      }));
+    """ % _json.dumps(detail)
+    res = _subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, f"node failed: {res.stderr}"
+    return _json.loads(res.stdout)
+
+
+def _live_rows(changes_by_theme):
+    rows = []
+    for i, (theme, change) in enumerate(changes_by_theme, start=1):
+        rows.append({"scan_id": 195, "run_at": "2026-09-18T11:05:52.187557+00:00",
+                     "region": "THEME", "gics_sector": theme, "rank": i,
+                     "change_score": change})
+    return rows
+
+
+@_pytest.mark.skipif(_shutil.which("node") is None, reason="node not available")
+def test_upgrade_rewrites_the_cell_from_the_live_board():
+    """Behavioural, not source-pinned: runs the page's real handler against
+    the exact disagreement from the bug report -- baked AgTech/falling/#187,
+    live Shipping-led board with a rising bottom half."""
+    rows = _live_rows([("Shipping", 0.0), ("Cybersecurity", 0.0),
+                       ("AgTech & Food Innovation", 0.3), ("Biotech", 0.3)])
+    out = _run_apply_todays_read({"rows": rows})
+    assert out["lead"] == "Shipping"
+    assert out["visible"] == ["rising"], "exactly one drift sentence must show"
+    assert out["ids"] == ["195", "195"]
+    assert out["dates"] == ["2026-09-18", "2026-09-18"]
+
+
+@_pytest.mark.skipif(_shutil.which("node") is None, reason="node not available")
+def test_retired_cohort_rows_cannot_lead():
+    """v_recent_scores has no region filter and retired sector rows are still
+    in the table (see auth.js's COHORTS comment). The headline must be computed
+    from the rows the table actually renders, or a dead sector could lead."""
+    rows = _live_rows([("Shipping", 0.0), ("Biotech", 0.0)])
+    rows.insert(0, dict(rows[0], region="US", gics_sector="Technology", rank=0.5))
+    out = _run_apply_todays_read({"rows": rows})
+    assert out["lead"] == "Shipping"
+
+
+@_pytest.mark.skipif(_shutil.which("node") is None, reason="node not available")
+def test_an_upgrade_without_rows_leaves_the_baked_cell_alone():
+    """A dispatch with no detail must not blank the headline or write
+    'undefined' into the scan line -- leaving the baked cell is the honest
+    fallback."""
+    out = _run_apply_todays_read(None)
+    assert out["lead"] == "AgTech & Food Innovation"
+    assert out["visible"] == ["falling"]
+    assert out["ids"] == ["187", "187"]
+
+
+def test_no_other_script_queries_the_scan_line_hooks():
+    """applyTodaysRead() writes the scan id/date by class, so it must own those
+    classes outright. The first version used .scan-date, which
+    scan-history.js had been querying since before the command-bar rewrite
+    removed the last element carrying it -- dead code that the new spans
+    brought back to life: opening a past scan would have rewritten the
+    phone's scan line into "Scan #187 · Last scan: #150 · 2026-08-01", and
+    returning to the latest scan would have put the gated date back beside
+    the live scan id. Found in code review, 2026-09-18.
+
+    Reads the class names out of the handler itself, so a later rename is
+    still covered."""
+    fn = _extract_function(INDEX, "function applyTodaysRead(")
+    hooks = re.findall(r"document\.querySelectorAll\('\.([a-z0-9-]+)'\)", fn)
+    assert len(hooks) == 2, f"expected the scan id and date hooks, found {hooks}"
+    for js in sorted((ROOT / "dashboard" / "assets").glob("*.js")):
+        if js.name in ("plotly.min.js", "supabase.min.js"):
+            continue
+        text = js.read_text(encoding="utf-8")
+        for hook in hooks:
+            assert f".{hook}" not in text, (
+                f"{js.name} queries .{hook}, which applyTodaysRead() owns"
+            )

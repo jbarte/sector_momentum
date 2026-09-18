@@ -11,8 +11,6 @@
   var originalTbody = tbody.innerHTML;
   var banner = document.getElementById("scan-history-banner");
   var bannerText = banner ? banner.querySelector(".scan-history-text") : null;
-  var headerDate = document.querySelector(".scan-date");
-  var originalDate = headerDate ? headerDate.innerHTML : "";
   var sentimentToggle = document.getElementById("sentiment-toggle");
   var sentimentControl = document.getElementById("sentiment-control");
   var latestScanId = SCAN_HISTORY.scans[0].id;
@@ -205,27 +203,20 @@
     });
   }
 
-  function findScanMeta(scanId) {
-    for (var i = 0; i < SCAN_HISTORY.scans.length; i++) {
-      if (SCAN_HISTORY.scans[i].id === scanId) return SCAN_HISTORY.scans[i];
-    }
-    return null;
-  }
-
   // Which past scan is on screen, or null for the latest. switchHorizon() reads
   // this to re-render: these rows bake the band highlight at render time, so
   // without a re-render the highlight would keep describing the horizon that
   // was active when the scan was opened.
   window.SM_ACTIVE_SCAN_ID = null;
 
+  // Opening a past scan deliberately leaves the scan id/date line alone: the
+  // summary strip describes the latest scan as a unit (its headline is never
+  // recomputed for a past scan), and #scan-history-banner names the scan on
+  // screen. That line has one writer, index.html.j2's applyTodaysRead().
   window.showScan = function (scanId) {
     window.SM_ACTIVE_SCAN_ID = scanId;
     renderScanLeaderboard(scanId);
     updateShowingBadge(scanId);
-    var meta = findScanMeta(scanId);
-    if (headerDate && meta) {
-      headerDate.innerHTML = '<span>Last scan:</span> #' + scanId + " · " + meta.date;
-    }
     if (banner) banner.style.display = "";
     if (bannerText) {
       var prefix = "Viewing scan #";
@@ -246,7 +237,6 @@
     // reader has selected; these rows carry data-rank, so the pass applies.
     if (typeof applyHorizonBadges === "function") { applyHorizonBadges(); }
     updateShowingBadge(latestScanId);
-    if (headerDate) headerDate.innerHTML = originalDate;
     if (banner) banner.style.display = "none";
     if (sentimentToggle) {
       sentimentToggle.disabled = false;

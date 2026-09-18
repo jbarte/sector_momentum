@@ -594,6 +594,85 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **Past scans leave the scan line alone — dead header-date code removed
+  (2026-09-18, `fix/scan-history-dead-header-date`).** `scan-history.js`
+  looked up `.scan-date` at load and had `showScan()` write "Last scan: #N
+  · date" into it, with `restoreLatest()` putting the original back. No
+  template has rendered that class since `fa37065` (the command-bar
+  rewrite), so the lookup was always null and none of it ever ran. It
+  nearly came back to life by accident when the entry below first named
+  its scan-line hooks `.scan-date`.
+
+  **Decided with Jonas:** opening a past scan does *not* change the scan
+  id/date line (strip subline on desktop, `.mobile-scan-meta` on phones).
+  The summary strip describes the latest scan as one unit, and its
+  "Today's read" headline and drift sentence are never recomputed for a
+  past scan. Rewriting only the scan line would put "#150 · 2026-08-01"
+  beside a headline about #195. `#scan-history-banner` ("Viewing scan #N ·
+  Back to latest") sits directly above the table on both layouts and
+  already names the scan. So the dead code, and `findScanMeta()`, its only
+  helper, were deleted rather than revived. `applyTodaysRead()` stays the
+  scan line's only writer.
+
+  Two new tests. One checks that every class `scan-history.js` queries is
+  rendered by some template; it catches this whole class of dead lookup,
+  not just this one. The other checks that `scan-history.js` references
+  none of the scan-line classes, which pins the decision. Both were red
+  against the old file and named `.scan-date`. Sabotage-verified by
+  pointing the lookup at `.mobile-scan-meta` instead, a class that does
+  render. The first test rightly passed that case, and the second caught
+  it. In headless Chromium, a round trip (past scan → back to latest) left
+  the scan line at "Scan #2 · 2026-08-24" throughout, while the banner
+  read "Viewing scan #1".
+
+- **"Today's read" follows the live board for signed-in readers
+  (2026-09-18, `fix/todays-read-live-upgrade`).** Reported by Jonas: signed
+  in, the strip read "AgTech & Food Innovation leads the board … Scan #187 ·
+  2026-09-10" above a live table (scan #195) led by Shipping, where AgTech
+  sat third — beside a green "Live" chip saying the page showed the latest
+  scan.
+
+  **Cause:** the cell, and both scan id/date lines, are baked from the
+  GATED scan. `auth.js`'s upgrade swapped the table and nothing else; no JS
+  anywhere wrote to `#cell-todays-read`. The comment above `markLive()` said
+  the template had no scan-date element to update — true when written,
+  false once the summary strip and the scan-meta rows were added, and never
+  revisited. Pipeline and gating were both verified correct: a scan landed
+  every day #187→#195, and #187 was the right gated scan (#188 missed the
+  7-day cutoff by 88 seconds, which is GitHub cron jitter against a
+  to-the-minute `>= 7 days` rule, not a bug).
+
+  **Fix:** `sm:leaderboard-upgraded` now carries the live rows;
+  `applyTodaysRead()` in `index.html.j2` recomputes the facts via a new
+  `rescore.js:todaysRead()` (a port of `digest.py:todays_read()`) from the
+  COHORTS-filtered rows the table renders, then rewrites the lead theme,
+  which drift sentence is visible, and the scan id/date in both the strip
+  subline and `.mobile-scan-meta` — the only scan line a phone shows. All
+  three drift sentences are now pre-rendered with two `hidden`, so no prose
+  moved into JS and a guest's page reads exactly as before.
+
+  **Found in code review:** the scan-line hooks were first named
+  `.scan-date`, which `scan-history.js` had been querying since
+  `fa37065` removed the last element carrying that class — dead code the
+  new spans would have revived, turning the phone's scan line into "Scan
+  #187 · Last scan: #150 · 2026-08-01" on opening a past scan. Renamed to
+  `.scan-meta-id`/`.scan-meta-date`, with a test that fails if any asset
+  script queries a class `applyTodaysRead()` writes to. That leaves
+  `scan-history.js`'s header update still dead, so viewing a past scan does
+  not change the scan line (the History banner names the scan instead) —
+  pre-existing, and left for its own decision.
+
+  27 new tests: 16 Node parity cases against the Python original (dead-band
+  edges, odd/single/two-row boards, missing values, unranked rows, shuffled
+  input, a rank-1 tie), render tests for the pre-rendered sentences and
+  hooks, a hook-ownership test, and a behavioural test running the page's
+  real handler against a fake DOM. Sabotage-verified eight ways — inclusive dead band, leader in its
+  own bottom half, null counted as zero, cohort filter removed, event
+  without rows, listener unregistered, mobile line left baked, toggle
+  inverted — each caught. Browser-verified against a real `make build` by
+  firing the upgrade event with a synthetic scan-#195 board, desktop and
+  375px: headline, drift sentence and both scan lines all switched.
+
 - **`data-sector-key` DOM attribute → `data-theme-key` — Part B, the
   remaining half of the `sector_key` rename (2026-09-15,
   `refactor/sector-key-dom-to-theme-key`).** Completes "Sector-era naming

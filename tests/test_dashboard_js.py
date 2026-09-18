@@ -3276,6 +3276,46 @@ def test_scan_history_js_row_builder_escapes_the_ticker_too():
     )
 
 
+def test_scan_history_js_queries_only_classes_the_templates_render():
+    """scan-history.js queried `.scan-date` for a header date line from
+    fa37065 (the command-bar rewrite, which removed the last element
+    carrying that class) until 2026-09-18 -- a lookup that always returned
+    null, so showScan()'s header update never ran and nobody noticed. It
+    was nearly revived by accident when #310 briefly named its new
+    scan-line hooks `.scan-date`. A class selector with no element behind
+    it is dead code that a later, unrelated rename can bring back to life."""
+    root = Path(__file__).parent.parent
+    src = (root / "dashboard/assets/scan-history.js").read_text()
+    templates = "".join(p.read_text() for p in (root / "dashboard/templates").rglob("*.j2"))
+    rendered = set()
+    for attr in re.findall(r'class="([^"]*)"', templates):
+        rendered.update(attr.split())
+    queried = re.findall(r"""querySelector(?:All)?\(\s*["']\.([a-z0-9_-]+)""", src)
+    assert queried, "expected scan-history.js to query at least one class"
+    dead = sorted(set(queried) - rendered)
+    assert not dead, (
+        f"scan-history.js queries classes no template renders: {dead}"
+    )
+
+
+def test_scan_history_js_leaves_the_scan_line_alone():
+    """Decided 2026-09-18: opening a past scan does NOT change the scan
+    id/date line (the strip subline on desktop, .mobile-scan-meta on
+    phones). The summary strip describes the latest scan as one unit --
+    its "Today's read" headline and drift sentence are never re-rendered
+    for a past scan -- so rewriting only the scan line would print a past
+    scan's id beside the latest scan's headline. The #scan-history-banner
+    ("Viewing scan #N · Back to latest") directly above the table is what
+    names the scan on screen, on both layouts. The scan line's one writer
+    is applyTodaysRead() (index.html.j2), for the signed-in live upgrade."""
+    src = (Path(__file__).parent.parent / "dashboard/assets/scan-history.js").read_text()
+    for name in ("scan-date", "scan-meta", "strip-subline", "mobile-scan-meta"):
+        assert name not in src, (
+            f"scan-history.js references {name!r}; the scan line is not "
+            "scan-history.js's to write"
+        )
+
+
 def test_mobile_card_theme_name_uses_innerhtml_not_textcontent():
     """The severer finding from the same review round: renderMobileCards()
     (index.html.j2) re-derives the mobile card view from the LEADERBOARD
