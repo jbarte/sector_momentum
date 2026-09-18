@@ -75,13 +75,13 @@
       passes no scan_date at all. -#}
   {% if scan_date %}
   <div class="mobile-scan-meta">
-    {#- .scan-id / .scan-date are rewritten by index.html.j2's
+    {#- .scan-meta-id / .scan-meta-date are rewritten by index.html.j2's
         applyTodaysRead() when a signed-in reader's board goes live. This is
         the only scan line a phone shows (.strip-subline is hidden at
         <=600px), so leaving it baked would keep the stale scan on mobile
         even after the strip itself was fixed. -#}
-    <span>Scan</span> #<span class="scan-id">{{ active_scan_id }}</span>
-    <span aria-hidden="true">&middot;</span> <span class="scan-date">{{ scan_date[:10] }}</span>
+    <span>Scan</span> #<span class="scan-meta-id">{{ active_scan_id }}</span>
+    <span aria-hidden="true">&middot;</span> <span class="scan-meta-date">{{ scan_date[:10] }}</span>
   </div>
   {% endif %}
 </header>

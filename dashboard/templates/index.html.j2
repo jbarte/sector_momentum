@@ -71,8 +71,8 @@
     </p>
     {% if scan_date %}
     <p class="strip-subline">
-      <span>Scan</span> #<span class="scan-id">{{ active_scan_id }}</span>
-      <span aria-hidden="true">&middot;</span> <span class="scan-date">{{ scan_date[:10] }}</span>
+      <span>Scan</span> #<span class="scan-meta-id">{{ active_scan_id }}</span>
+      <span aria-hidden="true">&middot;</span> <span class="scan-meta-date">{{ scan_date[:10] }}</span>
     </p>
     {% endif %}
   </div>
@@ -1427,10 +1427,10 @@ function applyTodaysRead(e) {
   var scanId = live[0].scan_id;
   var scanDate = String(live[0].run_at || '').slice(0, 10);
   if (scanId === null || scanId === undefined || !scanDate) { return; }
-  Array.prototype.forEach.call(document.querySelectorAll('.scan-id'), function (el) {
+  Array.prototype.forEach.call(document.querySelectorAll('.scan-meta-id'), function (el) {
     el.textContent = String(scanId);
   });
-  Array.prototype.forEach.call(document.querySelectorAll('.scan-date'), function (el) {
+  Array.prototype.forEach.call(document.querySelectorAll('.scan-meta-date'), function (el) {
     el.textContent = scanDate;
   });
 }

@@ -264,10 +264,10 @@ def test_the_lead_theme_and_scan_facts_are_addressable():
     cell = _todays_read_cell(html)
     assert '<span class="todays-read-lead">AgTech &amp; Food Innovation</span>' in cell \
         or '<span class="todays-read-lead">AgTech & Food Innovation</span>' in cell
-    assert html.count('<span class="scan-id">187</span>') == 2, (
+    assert html.count('<span class="scan-meta-id">187</span>') == 2, (
         "scan id must be hookable in both the strip subline and .mobile-scan-meta"
     )
-    assert html.count('<span class="scan-date">2026-09-10</span>') == 2
+    assert html.count('<span class="scan-meta-date">2026-09-10</span>') == 2
 
 
 def test_the_upgrade_event_carries_the_live_rows():
@@ -326,7 +326,7 @@ var dates = [el({ textContent: "2026-09-10" }), el({ textContent: "2026-09-10" }
 global.document = {
   getElementById: function (id) { return id === "cell-todays-read" ? cell : null; },
   querySelectorAll: function (sel) {
-    return sel === ".scan-id" ? ids : (sel === ".scan-date" ? dates : []);
+    return sel === ".scan-meta-id" ? ids : (sel === ".scan-meta-date" ? dates : []);
   }
 };
 global.window = { COHORTS: [{ region: "THEME" }] };
@@ -395,3 +395,28 @@ def test_an_upgrade_without_rows_leaves_the_baked_cell_alone():
     assert out["lead"] == "AgTech & Food Innovation"
     assert out["visible"] == ["falling"]
     assert out["ids"] == ["187", "187"]
+
+
+def test_no_other_script_queries_the_scan_line_hooks():
+    """applyTodaysRead() writes the scan id/date by class, so it must own those
+    classes outright. The first version used .scan-date, which
+    scan-history.js had been querying since before the command-bar rewrite
+    removed the last element carrying it -- dead code that the new spans
+    brought back to life: opening a past scan would have rewritten the
+    phone's scan line into "Scan #187 · Last scan: #150 · 2026-08-01", and
+    returning to the latest scan would have put the gated date back beside
+    the live scan id. Found in code review, 2026-09-18.
+
+    Reads the class names out of the handler itself, so a later rename is
+    still covered."""
+    fn = _extract_function(INDEX, "function applyTodaysRead(")
+    hooks = re.findall(r"document\.querySelectorAll\('\.([a-z0-9-]+)'\)", fn)
+    assert len(hooks) == 2, f"expected the scan id and date hooks, found {hooks}"
+    for js in sorted((ROOT / "dashboard" / "assets").glob("*.js")):
+        if js.name in ("plotly.min.js", "supabase.min.js"):
+            continue
+        text = js.read_text(encoding="utf-8")
+        for hook in hooks:
+            assert f".{hook}" not in text, (
+                f"{js.name} queries .{hook}, which applyTodaysRead() owns"
+            )

@@ -620,11 +620,22 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   three drift sentences are now pre-rendered with two `hidden`, so no prose
   moved into JS and a guest's page reads exactly as before.
 
-  26 new tests: 16 Node parity cases against the Python original (dead-band
+  **Found in code review:** the scan-line hooks were first named
+  `.scan-date`, which `scan-history.js` had been querying since
+  `fa37065` removed the last element carrying that class — dead code the
+  new spans would have revived, turning the phone's scan line into "Scan
+  #187 · Last scan: #150 · 2026-08-01" on opening a past scan. Renamed to
+  `.scan-meta-id`/`.scan-meta-date`, with a test that fails if any asset
+  script queries a class `applyTodaysRead()` writes to. That leaves
+  `scan-history.js`'s header update still dead, so viewing a past scan does
+  not change the scan line (the History banner names the scan instead) —
+  pre-existing, and left for its own decision.
+
+  27 new tests: 16 Node parity cases against the Python original (dead-band
   edges, odd/single/two-row boards, missing values, unranked rows, shuffled
   input, a rank-1 tie), render tests for the pre-rendered sentences and
-  hooks, and a behavioural test running the page's real handler against a
-  fake DOM. Sabotage-verified eight ways — inclusive dead band, leader in its
+  hooks, a hook-ownership test, and a behavioural test running the page's
+  real handler against a fake DOM. Sabotage-verified eight ways — inclusive dead band, leader in its
   own bottom half, null counted as zero, cohort filter removed, event
   without rows, listener unregistered, mobile line left baked, toggle
   inverted — each caught. Browser-verified against a real `make build` by
