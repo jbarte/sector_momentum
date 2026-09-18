@@ -351,6 +351,63 @@
     return out;
   }
 
+  // Facts for the summary strip's "Today's read" cell, mirroring
+  // dashboard/digest.py:todays_read -- kept in lockstep by
+  // tests/test_todays_read_parity.py (Node). The server bakes this cell from
+  // the GATED scan; this recomputes it from the live rows when a signed-in
+  // reader's board is upgraded, so the headline stops naming a leader from a
+  // scan the table no longer shows.
+  //
+  // FACTS, never prose, same contract as digest.py: every word the reader sees
+  // stays in index.html.j2, which renders all three drift sentences and lets
+  // the page toggle between them.
+  //
+  // rows: v_recent_scores rows {gics_sector, rank, change_score} for ONE scan.
+  // Returns {lead_theme, drift: "rising"|"falling"|"flat"} or null.
+  var DRIFT_EPS = 0.05;
+
+  // Python's float() either converts or raises; skipping on a raise is what
+  // makes a missing or malformed value "not counted". Number() never raises
+  // and turns null and "" into 0, which would silently count them as zero --
+  // so the missing cases are rejected before converting.
+  function _toFinite(v) {
+    if (v === null || v === undefined || v === "") { return null; }
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  function todaysRead(rows) {
+    var ranked = [];
+    (rows || []).forEach(function (r) {
+      var k = _toFinite(r.rank);
+      if (k !== null) { ranked.push({ row: r, rank: k }); }
+    });
+    if (!ranked.length) { return null; }
+    // Array.prototype.sort is stable (ES2019), as is Python's list.sort, so a
+    // tie at rank 1 leads with whichever row was listed first on both sides.
+    ranked.sort(function (a, b) { return a.rank - b.rank; });
+
+    var leadTheme = ranked[0].row.gics_sector;
+    if (!leadTheme) { return null; }
+
+    // max(1, ...) keeps the leader out of its own bottom half; an odd count
+    // puts the middle row in the bottom half. See digest.py.
+    var bottom = ranked.slice(Math.max(1, Math.floor(ranked.length / 2)));
+    var changes = [];
+    bottom.forEach(function (p) {
+      var c = _toFinite(p.row.change_score);
+      if (c !== null) { changes.push(c); }
+    });
+
+    var drift = "flat";
+    if (changes.length) {
+      var mean = changes.reduce(function (a, b) { return a + b; }, 0) / changes.length;
+      if (mean > DRIFT_EPS) { drift = "rising"; }
+      else if (mean < -DRIFT_EPS) { drift = "falling"; }
+    }
+    return { lead_theme: leadTheme, drift: drift };
+  }
+
   /* Composite cell: a centre-origin diverging bar plus the number.
    *
    * The composite is an average of z-scores, so it is signed and centred on
@@ -509,7 +566,8 @@
               badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               trajBadgeInner: trajBadgeInner, trajBadgeHTML: trajBadgeHTML,
-              latestRowMeta: latestRowMeta, compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,
+              latestRowMeta: latestRowMeta, todaysRead: todaysRead, DRIFT_EPS: DRIFT_EPS,
+              compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,
               reviewStatus: reviewStatus, localISODate: localISODate, shortDate: shortDate,
               COMPOSITE_FULL_SCALE: COMPOSITE_FULL_SCALE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }

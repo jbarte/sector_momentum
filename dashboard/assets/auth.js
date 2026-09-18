@@ -122,7 +122,11 @@
         renderLatestRows(tbody, latest, meta);
         markLive();
         makeLeaderboardReadOnly();
-        document.dispatchEvent(new CustomEvent("sm:leaderboard-upgraded"));
+        // The live rows ride on the event so the page can rewrite the facts
+        // it baked from the gated scan (applyTodaysRead) without a second
+        // v_recent_scores query. Listeners that don't need them ignore detail.
+        document.dispatchEvent(new CustomEvent("sm:leaderboard-upgraded",
+          { detail: { rows: latest } }));
       });
   }
 
@@ -244,10 +248,15 @@
     });
   }
 
-  /* Task 6 resolved ambiguity: the leaderboard template renders no
-   * #scan-date element (scan_date isn't used anywhere in
-   * dashboard/templates/), so this only adds the Live chip — no
-   * scan-date text update. */
+  /* Adds the Live chip only. The scan id/date lines and the "Today's read"
+   * headline are NOT updated here: they are the page's (index.html.j2's
+   * applyTodaysRead(), fed the live rows on sm:leaderboard-upgraded).
+   *
+   * This comment used to say the template rendered no scan-date element at
+   * all, so there was nothing to update. That stopped being true once the
+   * summary strip and the scan-meta rows were added, and the decision was
+   * never revisited — which is how a signed-in reader came to see "Scan #187"
+   * and last week's leader beside this very chip (fixed 2026-09-18). */
   function markLive() {
     if (document.getElementById("live-chip")) { return; }
     // Prefer the market-context control, so Live sits with the chips it belongs

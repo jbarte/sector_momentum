@@ -57,20 +57,22 @@
   {% if todays_read %}
   <div class="strip-cell" id="cell-todays-read">
     <p class="strip-eyebrow">Today's read</p>
+    {#- All three drift sentences are rendered and all but one hidden, so
+        applyTodaysRead() can switch between them when a signed-in reader's
+        board goes live -- without any of this prose moving into JS
+        (dashboard/digest.py: every user-visible word lives here). The
+        visible one is chosen by the same rising/falling/else-flat rule the
+        old if/elif/else used, so a guest's page reads exactly as before. -#}
     <p class="strip-headline">
-      {{ todays_read.lead_theme }} <span>leads the board.</span>
-      {% if todays_read.drift == "rising" %}
-      <span>The bottom half is picking up.</span>
-      {% elif todays_read.drift == "falling" %}
-      <span>The bottom half keeps sliding.</span>
-      {% else %}
-      <span>The bottom half is holding flat.</span>
-      {% endif %}
+      <span class="todays-read-lead">{{ todays_read.lead_theme }}</span> <span>leads the board.</span>
+      <span data-drift="rising"{% if todays_read.drift != "rising" %} hidden{% endif %}>The bottom half is picking up.</span>
+      <span data-drift="falling"{% if todays_read.drift != "falling" %} hidden{% endif %}>The bottom half keeps sliding.</span>
+      <span data-drift="flat"{% if todays_read.drift in ("rising", "falling") %} hidden{% endif %}>The bottom half is holding flat.</span>
     </p>
     {% if scan_date %}
     <p class="strip-subline">
-      <span>Scan</span> #{{ active_scan_id }}
-      <span aria-hidden="true">&middot;</span> {{ scan_date[:10] }}
+      <span>Scan</span> #<span class="scan-id">{{ active_scan_id }}</span>
+      <span aria-hidden="true">&middot;</span> <span class="scan-date">{{ scan_date[:10] }}</span>
     </p>
     {% endif %}
   </div>
@@ -1386,6 +1388,53 @@ document.addEventListener('sm:leaderboard-upgraded', applyHorizonBadges);
 // it never called applyHorizonBadges() (or applyBandBoundaries()) at all, and
 // couldn't rely on either even if it did, since its rows deliberately carry
 // no data-rank attribute.
+
+// "Today's read" and the scan id/date lines are baked from the GATED scan. When
+// auth.js swaps the table to the live one it passes the live rows on the event,
+// and this rewrites those facts from them -- otherwise a signed-in reader sees a
+// headline naming last week's leader, and "Scan #187", directly above a live
+// table and beside a green "Live" chip (found 2026-09-18).
+//
+// Only facts are written: the lead theme's text, WHICH of the three pre-rendered
+// drift sentences is visible, and the scan id/date. The sentences themselves
+// stay in the template (see dashboard/digest.py).
+//
+// Computed from the rows the table actually renders -- filtered by COHORTS,
+// the same way auth.js's renderLatestRows() is -- because v_recent_scores has no
+// region filter and retired sector rows are still in it.
+//
+// No rows (or no detail at all) leaves the baked cell untouched: stale but
+// honestly labelled beats blank, or "Scan #undefined".
+function applyTodaysRead(e) {
+  var rows = e && e.detail && e.detail.rows;
+  if (!rows || !rows.length || !window.Rescore || !Rescore.todaysRead) { return; }
+  var regions = (window.COHORTS || []).map(function (c) { return c.region; });
+  var live = rows.filter(function (r) { return regions.indexOf(r.region) !== -1; });
+  if (!live.length) { return; }
+
+  var facts = Rescore.todaysRead(live);
+  var cell = document.getElementById('cell-todays-read');
+  if (cell && facts) {
+    var lead = cell.querySelector('.todays-read-lead');
+    if (lead) { lead.textContent = facts.lead_theme; }
+    Array.prototype.forEach.call(cell.querySelectorAll('[data-drift]'), function (s) {
+      s.hidden = s.dataset.drift !== facts.drift;
+    });
+  }
+
+  // run_at is a UTC timestamptz ("2026-09-18T11:05:52+00:00"); its first ten
+  // characters are the same UTC date the build prints via scan_date[:10].
+  var scanId = live[0].scan_id;
+  var scanDate = String(live[0].run_at || '').slice(0, 10);
+  if (scanId === null || scanId === undefined || !scanDate) { return; }
+  Array.prototype.forEach.call(document.querySelectorAll('.scan-id'), function (el) {
+    el.textContent = String(scanId);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.scan-date'), function (el) {
+    el.textContent = scanDate;
+  });
+}
+document.addEventListener('sm:leaderboard-upgraded', applyTodaysRead);
 
 // Sync the <select> to the restored state. Without this the control shows the
 // first option while activeHorizon is whatever localStorage (or the config

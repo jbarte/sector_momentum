@@ -594,6 +594,43 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **"Today's read" follows the live board for signed-in readers
+  (2026-09-18, `fix/todays-read-live-upgrade`).** Reported by Jonas: signed
+  in, the strip read "AgTech & Food Innovation leads the board … Scan #187 ·
+  2026-09-10" above a live table (scan #195) led by Shipping, where AgTech
+  sat third — beside a green "Live" chip saying the page showed the latest
+  scan.
+
+  **Cause:** the cell, and both scan id/date lines, are baked from the
+  GATED scan. `auth.js`'s upgrade swapped the table and nothing else; no JS
+  anywhere wrote to `#cell-todays-read`. The comment above `markLive()` said
+  the template had no scan-date element to update — true when written,
+  false once the summary strip and the scan-meta rows were added, and never
+  revisited. Pipeline and gating were both verified correct: a scan landed
+  every day #187→#195, and #187 was the right gated scan (#188 missed the
+  7-day cutoff by 88 seconds, which is GitHub cron jitter against a
+  to-the-minute `>= 7 days` rule, not a bug).
+
+  **Fix:** `sm:leaderboard-upgraded` now carries the live rows;
+  `applyTodaysRead()` in `index.html.j2` recomputes the facts via a new
+  `rescore.js:todaysRead()` (a port of `digest.py:todays_read()`) from the
+  COHORTS-filtered rows the table renders, then rewrites the lead theme,
+  which drift sentence is visible, and the scan id/date in both the strip
+  subline and `.mobile-scan-meta` — the only scan line a phone shows. All
+  three drift sentences are now pre-rendered with two `hidden`, so no prose
+  moved into JS and a guest's page reads exactly as before.
+
+  26 new tests: 16 Node parity cases against the Python original (dead-band
+  edges, odd/single/two-row boards, missing values, unranked rows, shuffled
+  input, a rank-1 tie), render tests for the pre-rendered sentences and
+  hooks, and a behavioural test running the page's real handler against a
+  fake DOM. Sabotage-verified eight ways — inclusive dead band, leader in its
+  own bottom half, null counted as zero, cohort filter removed, event
+  without rows, listener unregistered, mobile line left baked, toggle
+  inverted — each caught. Browser-verified against a real `make build` by
+  firing the upgrade event with a synthetic scan-#195 board, desktop and
+  375px: headline, drift sentence and both scan lines all switched.
+
 - **`data-sector-key` DOM attribute → `data-theme-key` — Part B, the
   remaining half of the `sector_key` rename (2026-09-15,
   `refactor/sector-key-dom-to-theme-key`).** Completes "Sector-era naming

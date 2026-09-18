@@ -11,6 +11,13 @@ The design spec suggested naming a shared "tag" across the top 4 instead, but
 no tag concept exists in config/themes.yaml (themes carry ticker,
 gdelt_keywords, unbuyable) — and the spec's own risk note says a wrong sentence
 is worse than no sentence, so this states only what the data supports.
+
+**Mirrored in JS.** The build bakes this cell from the GATED scan, so for a
+signed-in reader whose board is upgraded to the live one,
+`dashboard/assets/rescore.js:todaysRead()` recomputes the same facts from the
+live rows (wired by `applyTodaysRead()` in index.html.j2). Change the rule here
+— the dead band, the bottom-half split, how missing values count — and change
+it there too; `tests/test_todays_read_parity.py` fails if the two disagree.
 """
 from __future__ import annotations
 
