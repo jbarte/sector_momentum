@@ -590,27 +590,34 @@ their own rate limits, so it is its own integration + test surface, not a
 same-day fix. Reopen this if yfinance actually fails a scan, rather than
 speculatively — the caching layer already absorbs most single-day hiccups.
 
-## `MAX_DUPLICATE_RUN` counts every replay in the window, not the trailing run
-
-`dashboard/rows.py:_build_rows_common` computes `duplicate_run` as
-`len(raw_ids) - len(distinct_ids)` over the whole history it gets, which is 20
-scans from `build.py`. Its comment describes a *trailing* run ("a long weekend
-is 3"; past 7 "the pipeline is stuck"). A normal week adds 2 replays (Sunday
-and Monday repeat Saturday's copy of Friday), so 20 scans hold 4–6. Two
-weekday market holidays add 2 more. Around Christmas and New Year that makes
-8 > 7, and every guest delta reads "—" on a healthy pipeline. Reproduced
-2026-09-19 with `_build_leaderboard_rows`: 8 scattered replays and a fresh
-latest scan gave `—` for every row.
-
-Fix: count only the replays that end at the latest scan (raw scans after
-`distinct_ids[-2]`, minus one). The JS copy in `rescore.js:latestRowMeta()`
-mirrors the current rule and must move with it. Its 6-scan window can't reach
-the limit today, so `tests/test_latest_row_meta_parity.py` won't catch drift
-on its own. Add a scattered-replays fixture there with more than 6 scans.
-
 ---
 
 # Done
+
+- **The duplicate-run guard counts the run ending at the latest scan
+  (2026-09-19, `fix/duplicate-run-guard-trailing`).** `MAX_DUPLICATE_RUN = 7`
+  exists to blank the rank delta when the pipeline is stuck, but
+  `_build_rows_common` computed it as `len(raw_ids) - len(distinct_ids)`, i.e.
+  replays *anywhere* in the 20-scan window. A healthy week adds 2 (Sunday and
+  Monday repeat Saturday's copy of Friday) and each weekday market holiday
+  adds 1, so three weekends plus Christmas and New Year reach 8 > 7 and every
+  guest delta read "—" with today's scan fresh. Reproduced with
+  `_build_leaderboard_rows` on a 20-scan window of 8 scattered replays.
+
+  It now counts the trailing run: scans after the previous distinct scan,
+  minus the latest itself. That is the quantity the guard's own comment
+  describes. `rescore.js:latestRowMeta()` moved with it. Its 6-scan window
+  never reached the limit, but the rule is window-independent and the parity
+  fixtures now use windows longer than 6 to prove that.
+
+  Tests: `test_duplicate_scan_dedup.py` gained scattered replays (no trip), the
+  trailing run at and one past the limit, and an old stuck stretch followed by
+  a fresh scan; `test_latest_row_meta_parity.py` gained two matching fixtures.
+  Sabotage-verified four ways: the old Python rule (5 fail), the old JS rule
+  (2 fail, parity), and an off-by-one in each language (the at-limit case
+  fails in both). Behaviour that does *not* change: the existing
+  "9 copies of one scan" case still blanks, and the Trend has no guard, as
+  before.
 
 - **Signed-in rank delta and Trend follow the server's distinct-scan rules
   (2026-09-19, `fix/signed-in-rank-delta-distinct-scans`).** Signed in, the

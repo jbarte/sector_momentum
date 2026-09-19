@@ -144,6 +144,42 @@ def test_long_duplicate_run_falls_back_to_no_delta():
     assert _rows(_history(scans))["Alpha"] == "—"
 
 
+def _from_pattern(pattern: str) -> pd.DataFrame:
+    """One scan per character: 'D' is a new observation, 'R' replays the scan
+    before it. Distinct scans alternate Alpha between ranks 1 and 2."""
+    per_scan, n = [], 0
+    for ch in pattern:
+        if ch == "D":
+            n += 1
+        per_scan.append(_weekday(1.0 + n % 2, 0.5 + n / 100))
+    return _history(per_scan)
+
+
+def test_scattered_replays_do_not_trip_the_guard():
+    """The guard is about a stuck pipeline, i.e. the run of replays ending at
+    the latest scan. It used to count every replay in the 20-scan window, so
+    three weekends plus two weekday holidays (Christmas and New Year) gave 8 > 7
+    and blanked every delta on a healthy pipeline, with today's scan fresh."""
+    pattern = "DSRRDDRDDSRRDRDSRRDD"          # 8 replays, none of them trailing
+    assert len(pattern) == 20 and pattern.count("R") > MAX_DUPLICATE_RUN
+    assert _rows(_from_pattern(pattern.replace("S", "D")))["Alpha"] != "—"
+
+
+def test_guard_counts_the_trailing_run_at_the_limit():
+    """MAX_DUPLICATE_RUN replays ending at the latest scan still show a delta;
+    one more presumes a stuck pipeline."""
+    at_limit = "D" * 5 + "D" + "R" * MAX_DUPLICATE_RUN
+    past_limit = at_limit + "R"
+    assert _rows(_from_pattern(at_limit))["Alpha"] != "—"
+    assert _rows(_from_pattern(past_limit))["Alpha"] == "—"
+
+
+def test_old_replays_do_not_add_to_a_short_trailing_run():
+    """Replays before the last real observation are not part of the run: a
+    stuck stretch of 8 long ago, then a fresh scan, is a live pipeline."""
+    assert _rows(_from_pattern("D" + "R" * 8 + "DD"))["Alpha"] != "—"
+
+
 # ---------------------------------------------------------------------------
 # trend slope
 # ---------------------------------------------------------------------------
