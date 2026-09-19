@@ -590,9 +590,72 @@ their own rate limits, so it is its own integration + test surface, not a
 same-day fix. Reopen this if yfinance actually fails a scan, rather than
 speculatively — the caching layer already absorbs most single-day hiccups.
 
+## `MAX_DUPLICATE_RUN` counts every replay in the window, not the trailing run
+
+`dashboard/rows.py:_build_rows_common` computes `duplicate_run` as
+`len(raw_ids) - len(distinct_ids)` over the whole history it gets, which is 20
+scans from `build.py`. Its comment describes a *trailing* run ("a long weekend
+is 3"; past 7 "the pipeline is stuck"). A normal week adds 2 replays (Sunday
+and Monday repeat Saturday's copy of Friday), so 20 scans hold 4–6. Two
+weekday market holidays add 2 more. Around Christmas and New Year that makes
+8 > 7, and every guest delta reads "—" on a healthy pipeline. Reproduced
+2026-09-19 with `_build_leaderboard_rows`: 8 scattered replays and a fresh
+latest scan gave `—` for every row.
+
+Fix: count only the replays that end at the latest scan (raw scans after
+`distinct_ids[-2]`, minus one). The JS copy in `rescore.js:latestRowMeta()`
+mirrors the current rule and must move with it. Its 6-scan window can't reach
+the limit today, so `tests/test_latest_row_meta_parity.py` won't catch drift
+on its own. Add a scattered-replays fixture there with more than 6 scans.
+
 ---
 
 # Done
+
+- **Signed-in rank delta and Trend follow the server's distinct-scan rules
+  (2026-09-19, `fix/signed-in-rank-delta-distinct-scans`).** Signed in, the
+  leaderboard is rebuilt from `v_recent_scores` (the last 6 raw scans), and
+  `rescore.js:latestRowMeta()` compared each rank against the previous *raw*
+  scan and fitted the Trend slope over the last 5 *raw* scans, unrounded. The
+  cron runs 7 days a week against a 5-day market, so Saturday, Sunday and
+  Monday replay Friday's close. On those three days every signed-in delta
+  read "—" and the Trend was diluted toward flat. Guests saw the right values,
+  because `dashboard/rows.py` fixed the same bug on the server in August
+  (`distinct_scan_ids`), and the JS copy was never brought along.
+
+  `latestRowMeta()` now uses the server's rules. It collapses identical scans
+  by the same fingerprint (key, rank and composite rounded to 10 dp, pandas'
+  half-even rounding), takes the delta against the previous distinct scan,
+  and applies the `MAX_DUPLICATE_RUN` guard. The Trend uses the last 5
+  distinct scans, with the slope rounded to 3 dp before the thresholds. Two
+  smaller differences went with it. It sized the exit band from every theme
+  seen across the window rather than the latest scan's rows (`build.py` uses
+  `len(leaderboard_rows)`). And it returned meta for themes that had left the
+  latest scan. The band size doesn't reach the page today: `auth.js` doesn't
+  read `meta.setup`, and `applyHorizonBadges()` counts the rendered rows. It
+  is aligned anyway so the function's output matches its docstring.
+
+  `tests/test_latest_row_meta_parity.py` runs the real server code
+  (`_build_leaderboard_rows`, `_compute_rank_trajectories`, `_compute_setup`)
+  against `latestRowMeta()` under Node, on 17 fixtures. Against the old file,
+  12 fail. Each rule was also sabotaged on its own (no rounding, no guard,
+  whole-window universe, composite dropped from the fingerprint), and each
+  sabotage failed its own fixture. The composite fixture passed at first:
+  the composite-only scan has to be the *latest* scan before collapsing it
+  changes which scan counts as previous. The band fixture from the iOS
+  config-feed plan (`docs/band-fixture.json`) doesn't exist yet, so these
+  fixtures are hand-built.
+
+  **The Python guard has its own problem, not fixed here:** `duplicate_run`
+  counts replays across the whole 20-scan window, not the trailing run its
+  comment describes. Three weekends plus two weekday holidays (Christmas and
+  New Year) make 8 replays and blank every guest delta on a healthy
+  pipeline. Reproduced with `_build_leaderboard_rows`, queued as
+  "`MAX_DUPLICATE_RUN` counts every replay in the window". The JS copy mirrors
+  the current rule. With 6 scans it has at most 5 replays, so the guard never
+  fires there. The dormant sentiment-toggle `Rescore.rescore()` also still
+  compares raw scans. It reads `RESCORE_DATA` and its control is withdrawn
+  (see Queued, "Restore the sentiment blend control").
 
 - **Past scans leave the scan line alone — dead header-date code removed
   (2026-09-18, `fix/scan-history-dead-header-date`).** `scan-history.js`

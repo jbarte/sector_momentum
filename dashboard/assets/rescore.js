@@ -319,29 +319,105 @@
     };
   }
 
-  // recentRows: array of {scan_id, region, gics_sector, change_score, composite, rank}.
-  // Returns per-"REGION|Sector" meta for the LATEST scan: formatted delta, arrow,
-  // trajectory, and entry/exit setup — mirroring dashboard/rows.py.
-  function latestRowMeta(recentRows, horizon) {
-    var groups = {};
-    recentRows.forEach(function (r) {
-      var key = r.region + "|" + r.gics_sector;
-      (groups[key] || (groups[key] = [])).push(r);
+  // Mirror dashboard/rows.py's MAX_DUPLICATE_RUN and _TRAJECTORY_SCANS.
+  var MAX_DUPLICATE_RUN = 7;
+  var TRAJECTORY_SCANS = 5;
+
+  // One scan's fingerprint, mirroring rows.py:_scan_fingerprint: every row's
+  // key, rank and composite, rounded to 10 dp, missing values as "nan". Rounds
+  // the way pandas' .round(10) does (scale, round half to even, unscale) so a
+  // value on a tie cannot make two scans equal on one side and not the other.
+  function _round10(v) {
+    var n = _toFinite(v);
+    if (n === null) { return "nan"; }
+    var y = n * 1e10, f = Math.floor(y), d = y - f;
+    var r = d > 0.5 ? f + 1 : (d < 0.5 ? f : (f % 2 === 0 ? f : f + 1));
+    return String(r / 1e10);
+  }
+
+  function _scanFingerprint(rows) {
+    return JSON.stringify(rows.map(function (r) {
+      return [String(r.region), String(r.gics_sector), _round10(r.rank), _round10(r.composite)];
+    }).sort(function (a, b) {
+      return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+    }));
+  }
+
+  // rows.py:distinct_scan_ids. The cron runs 7 days a week against a 5-day
+  // market, so Saturday, Sunday and Monday scans replay Friday's close; a run
+  // of identical scans counts once, represented by its LAST id.
+  function _distinctScanIds(scanIds, byScan) {
+    var out = [], prevFp = null;
+    scanIds.forEach(function (sid) {
+      var fp = _scanFingerprint(byScan[sid]);
+      if (prevFp !== null && fp === prevFp) { out[out.length - 1] = sid; }
+      else { out.push(sid); }
+      prevFp = fp;
     });
-    var universeSize = Object.keys(groups).length;
+    return out;
+  }
+
+  // recentRows: v_recent_scores rows {scan_id, region, gics_sector, composite, rank, ...}.
+  // Returns per-"REGION|Sector" meta for each row of the LATEST scan: formatted
+  // delta, arrow, trajectory, and entry/exit setup, following the server's
+  // rules in dashboard/rows.py (_build_rows_common, _compute_rank_trajectories)
+  // and build.py's universe size. Kept in lockstep by
+  // tests/test_latest_row_meta_parity.py (Node).
+  //
+  // It used to compare against the previous RAW scan and fit the slope over
+  // the last 5 RAW scans, so on Saturday, Sunday and Monday every signed-in
+  // delta read "—" and the Trend was diluted toward flat, while guests saw
+  // the server's distinct-scan values.
+  function latestRowMeta(recentRows, horizon) {
+    var byScan = {}, scanIds = [];
+    (recentRows || []).forEach(function (r) {
+      if (!byScan[r.scan_id]) { byScan[r.scan_id] = []; scanIds.push(r.scan_id); }
+      byScan[r.scan_id].push(r);
+    });
+    if (!scanIds.length) { return {}; }
+    scanIds.sort(function (a, b) { return a - b; });
+
+    var distinct = _distinctScanIds(scanIds, byScan);
+    // Replays across the whole window, as rows.py counts them. Past the limit
+    // the pipeline looks stuck, and a delta would present stale data as fresh.
+    var duplicateRun = scanIds.length - distinct.length;
+    var prevId = distinct.length >= 2 ? distinct[distinct.length - 2] : null;
+    if (prevId !== null && duplicateRun > MAX_DUPLICATE_RUN) { prevId = null; }
+
+    function ranksOf(sid) {
+      var m = {};
+      byScan[sid].forEach(function (r) { m[r.region + "|" + r.gics_sector] = _toFinite(r.rank); });
+      return m;
+    }
+    var prevRanks = prevId !== null ? ranksOf(prevId) : null;
+    var trajRanks = distinct.slice(-TRAJECTORY_SCANS).map(ranksOf);
+
+    var latestRows = byScan[scanIds[scanIds.length - 1]];
+    // build.py sizes the exit band from the latest scan's rows, not from every
+    // theme seen across the window: one that left the universe mid-window
+    // would otherwise widen the band.
+    var universeSize = latestRows.length;
     var out = {};
-    Object.keys(groups).forEach(function (key) {
-      var rows = groups[key].slice().sort(function (a, b) { return a.scan_id - b.scan_id; });
-      var n = rows.length;
-      var latest = rows[n - 1];
-      var dRank = (n >= 2) ? (rows[n - 2].rank - latest.rank) : 0;
+    latestRows.forEach(function (latest) {
+      var key = latest.region + "|" + latest.gics_sector;
+      var rankNow = _toFinite(latest.rank);
+      var rankPrev = prevRanks ? prevRanks[key] : null;
+      // A theme with no rank now or before gets no delta (rows.py's fillna(0)).
+      var dRank = (rankNow !== null && rankPrev !== null && rankPrev !== undefined)
+        ? rankPrev - rankNow : 0;
       var deltaStr = (dRank !== 0) ? ((dRank > 0 ? "+" : "") + dRank.toFixed(1)) : "—";
       var arrow = dRank > 0 ? "▲" : (dRank < 0 ? "▼" : "");
       var arrowClass = dRank > 0 ? "up" : (dRank < 0 ? "down" : "");
       var series = [];
-      for (var i = Math.max(0, n - 5); i < n; i++) { series.push(rows[i].rank); }
-      var traj = trajectoryLabel(olsSlope(series));
-      var setup = setupForRank(latest.rank, horizon, universeSize);
+      trajRanks.forEach(function (m) {
+        if (m[key] !== null && m[key] !== undefined) { series.push(m[key]); }
+      });
+      // 3 dp before thresholding, as rows.py does: a raw -0.29999999999999993
+      // is "flat" unrounded and "up" rounded. toFixed rounds the exact binary
+      // value like Python's round(); the two differ only on exact ties, which
+      // are odd sixteenths and never land on a threshold.
+      var traj = trajectoryLabel(parseFloat(olsSlope(series).toFixed(3)));
+      var setup = setupForRank(rankNow, horizon, universeSize);
       out[key] = {
         delta_rank: deltaStr, arrow: arrow, arrow_class: arrowClass,
         trajectory_label: traj.label, trajectory_state: traj.state,
