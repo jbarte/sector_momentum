@@ -76,8 +76,8 @@ def test_series_include_a_case_only_rounding_classifies():
 
 def test_weekend_replay_keeps_the_delta():
     """Sat/Sun/Mon scans replay Friday's close. Python compares against the
-    previous DISTINCT scan, so the delta survives; (what rescore.js:latestRowMeta
-    did before #313) reads '—'."""
+    previous DISTINCT scan, so the delta survives; comparing against the
+    previous raw scan (as rescore.js:latestRowMeta did before #313) reads '—'."""
     board = next(b for b in _fx()["boards"] if b["name"] == "weekend replay")
     assert board["expected"]["THEME|Alpha"]["delta_rank"] == "+1.0"
     assert board["expected"]["THEME|Bravo"]["delta_rank"] == "-1.0"
