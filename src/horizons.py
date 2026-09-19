@@ -8,6 +8,12 @@ never ran:
 - `dashboard/rows.py`, which derives the Entry/Exit band badge
 - `dashboard/assets/rescore.js`, which re-derives that badge client-side when
   the reader switches preset
+- the iOS app (`jbarte/etf-momentum-ios`), which re-derives the band, rank
+  delta and trend natively. It reads the presets from `docs/data.json`'s
+  `config` block rather than hardcoding them, and its tests run against
+  `docs/band-fixture.json` (`dashboard/band_fixture.py`), generated from these
+  same Python rules — change a rule here and that file changes with it, which
+  turns the app's CI red until it follows.
 
 This module is the single source. Pure config -> data; no I/O beyond reading
 the YAML, no database, no network.

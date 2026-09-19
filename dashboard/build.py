@@ -790,7 +790,7 @@ def main() -> None:
     try:
         import json
         from datetime import datetime, timezone
-        from dashboard.data_export import build_data_export
+        from dashboard.data_export import build_config_block, build_data_export
 
         data_payload = build_data_export(
             theme_rows=theme_rows,
@@ -799,6 +799,8 @@ def main() -> None:
             scan_date=scan_date,
             lagged=bool(auth_ctx["auth"]) and lb_scan_id is not None,
             generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            config=build_config_block(_themes_cfg, cohort_list, horizon_list,
+                                      _default_horizon, _review_since),
         )
         (out_dir / "data.json").write_text(
             json.dumps(data_payload, indent=2), encoding="utf-8")
@@ -806,6 +808,20 @@ def main() -> None:
                     out_dir / "data.json", len(data_payload["themes"]))
     except Exception as exc:  # fail-open
         logger.warning("data.json export failed (%s) — continuing", exc)
+
+    # 6c. Parity fixture for the iOS app (dashboard/band_fixture.py). Fail-open
+    # like data.json -- but deterministic, since the app's CI diffs it
+    # byte-for-byte against its vendored copy.
+    try:
+        import json
+        from dashboard.band_fixture import build_band_fixture
+
+        (out_dir / "band-fixture.json").write_text(
+            json.dumps(build_band_fixture(horizon_list), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        logger.info("Band fixture written to %s", out_dir / "band-fixture.json")
+    except Exception as exc:  # fail-open
+        logger.warning("band-fixture.json export failed (%s) — continuing", exc)
 
     # 7. Disable Jekyll on GitHub Pages (the published artifact is static).
     _disable_jekyll(out_dir)

@@ -101,3 +101,13 @@ def test_boards_fit_the_apps_window():
     longer than that would test a window the app never has."""
     for b in _fx()["boards"]:
         assert len({r["scan_id"] for r in b["rows"]}) <= 6, b["name"]
+
+
+def test_build_publishes_the_fixture_and_the_config():
+    """Both artifacts are consumed by another repo, so a silently unwired
+    build would only show up there. Pinned at the source, like the other
+    build.py wiring tests."""
+    src = (ROOT / "dashboard" / "build.py").read_text()
+    assert 'out_dir / "band-fixture.json"' in src
+    assert "build_band_fixture(horizon_list)" in src
+    assert "config=build_config_block(" in src
