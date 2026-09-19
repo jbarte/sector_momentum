@@ -1,6 +1,6 @@
 """Horizon presets — how long the strategy intends to hold a position.
 
-A preset is a `(rebalance cadence, top_n, buffer)` triple. It is read by three
+A preset is a `(rebalance cadence, top_n, buffer)` triple. It is read by four
 places that must agree or the dashboard will describe a strategy the backtest
 never ran:
 

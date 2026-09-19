@@ -621,8 +621,8 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 - **iOS app groundwork: config block in data.json + a parity fixture
   (2026-09-19, `feature/ios-config-feed`).** First half of the iOS board app
   (spec `sector_momentum-notes/specs/2026-09-17-ios-board-app-design.md`,
-  plans `plans/2026-09-19-ios-board-config-feed.md` and
-  `plans/2026-09-19-ios-board-app.md`). `docs/data.json` is now
+  plans `sector_momentum-notes/plans/2026-09-19-ios-board-config-feed.md` and
+  `sector_momentum-notes/plans/2026-09-19-ios-board-app.md`). `docs/data.json` is now
   `schema_version: 2` with a config-only `config` block — horizon presets,
   cohort regions, universe tickers/unbuyable/UCITS, all already public in
   `config/*.yaml`, pinned leak-free by a test. New `docs/band-fixture.json`
