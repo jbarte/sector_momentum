@@ -123,10 +123,13 @@ def test_boards_fit_the_apps_window():
 
 
 def test_build_publishes_the_fixture_and_the_config():
-    """Both artifacts are consumed by another repo, so a silently unwired
-    build would only show up there. Pinned at the source, like the other
-    build.py wiring tests."""
+    """Source pins, not a behavioural test: both artifacts are consumed by
+    another repo, so a silently unwired build would only show up there. The
+    config block is computed in its own fail-open step BEFORE data.json's try,
+    so a config failure cannot take data.json down with it."""
     src = (ROOT / "dashboard" / "build.py").read_text()
     assert 'out_dir / "band-fixture.json"' in src
     assert "build_band_fixture(horizon_list)" in src
-    assert "config=build_config_block(" in src
+    assert "build_config_block(_themes_cfg, cohort_list, horizon_list," in src
+    assert "config=config_block" in src
+    assert src.index("build_config_block(") < src.index("# 6b")

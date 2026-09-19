@@ -786,11 +786,22 @@ def main() -> None:
         context=sentiment_ctx,
     )
 
+    # 6a. Config block for the iOS app (dashboard/data_export.py). Its own
+    # fail-open step: if it raises, data.json still publishes without it (the
+    # v1 payload) rather than disappearing for every consumer.
+    config_block = None
+    try:
+        from dashboard.data_export import build_config_block
+        config_block = build_config_block(_themes_cfg, cohort_list, horizon_list,
+                                          _default_horizon, _review_since)
+    except Exception as exc:  # fail-open
+        logger.warning("config block failed (%s) — data.json will omit it", exc)
+
     # 6b. Machine-readable data export (fail-open — never breaks the HTML build)
     try:
         import json
         from datetime import datetime, timezone
-        from dashboard.data_export import build_config_block, build_data_export
+        from dashboard.data_export import build_data_export
 
         data_payload = build_data_export(
             theme_rows=theme_rows,
@@ -799,8 +810,7 @@ def main() -> None:
             scan_date=scan_date,
             lagged=bool(auth_ctx["auth"]) and lb_scan_id is not None,
             generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            config=build_config_block(_themes_cfg, cohort_list, horizon_list,
-                                      _default_horizon, _review_since),
+            config=config_block,
         )
         (out_dir / "data.json").write_text(
             json.dumps(data_payload, indent=2), encoding="utf-8")
