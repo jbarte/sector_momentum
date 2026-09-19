@@ -786,6 +786,17 @@ def main() -> None:
         context=sentiment_ctx,
     )
 
+    # 6a. Config block for the iOS app (dashboard/data_export.py). Its own
+    # fail-open step: if it raises, data.json still publishes without it (the
+    # v1 payload) rather than disappearing for every consumer.
+    config_block = None
+    try:
+        from dashboard.data_export import build_config_block
+        config_block = build_config_block(_themes_cfg, cohort_list, horizon_list,
+                                          _default_horizon, _review_since)
+    except Exception as exc:  # fail-open
+        logger.warning("config block failed (%s) — data.json will omit it", exc)
+
     # 6b. Machine-readable data export (fail-open — never breaks the HTML build)
     try:
         import json
@@ -799,6 +810,7 @@ def main() -> None:
             scan_date=scan_date,
             lagged=bool(auth_ctx["auth"]) and lb_scan_id is not None,
             generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            config=config_block,
         )
         (out_dir / "data.json").write_text(
             json.dumps(data_payload, indent=2), encoding="utf-8")
@@ -806,6 +818,20 @@ def main() -> None:
                     out_dir / "data.json", len(data_payload["themes"]))
     except Exception as exc:  # fail-open
         logger.warning("data.json export failed (%s) — continuing", exc)
+
+    # 6c. Parity fixture for the iOS app (dashboard/band_fixture.py). Fail-open
+    # like data.json -- but deterministic, since the app's CI diffs it
+    # byte-for-byte against its vendored copy.
+    try:
+        import json
+        from dashboard.band_fixture import build_band_fixture
+
+        (out_dir / "band-fixture.json").write_text(
+            json.dumps(build_band_fixture(horizon_list), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        logger.info("Band fixture written to %s", out_dir / "band-fixture.json")
+    except Exception as exc:  # fail-open
+        logger.warning("band-fixture.json export failed (%s) — continuing", exc)
 
     # 7. Disable Jekyll on GitHub Pages (the published artifact is static).
     _disable_jekyll(out_dir)

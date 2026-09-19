@@ -5,7 +5,9 @@ import math
 
 import pandas as pd
 
-SCHEMA_VERSION = 1
+# 2 since 2026-09-19: adds the optional "config" block (build_config_block).
+# Additive -- every v1 key is unchanged.
+SCHEMA_VERSION = 2
 
 
 def _num(v):
@@ -47,6 +49,52 @@ def _raw_lookup(df: pd.DataFrame, key_cols: list[str]) -> dict:
     return out
 
 
+def build_config_block(themes_cfg, cohort_list, horizon_list, default_horizon,
+                       review_since: str) -> dict:
+    """Config for clients that derive the board themselves -- the iOS app.
+
+    CONFIG ONLY: horizon presets, cohort regions and universe metadata, all
+    already public in config/weights.yaml and config/themes.yaml. Nothing here
+    comes from a scan. The Enter/Exit badge stays a signed-in tier
+    (tests/test_badge_gating.py): a client computes it from v_recent_scores
+    after signing in, with the presets published here.
+
+    `cohorts` lets a client filter v_recent_scores the way the web table does
+    through window.COHORTS -- that view has no region filter, and retired
+    sector rows are still in it.
+    """
+    from src.cohorts import instrument_map
+    from src.horizons import review_dates
+    from src.universe import is_unbuyable
+
+    ucits = (themes_cfg or {}).get("ucits") or {}
+    fields = ("ticker", "name", "isin", "ter", "issuer", "match", "url")
+    universe = []
+    for key, ticker in instrument_map(cohort_list).items():
+        region, name = key.split("|", 1)
+        universe.append({
+            "region": region,
+            "theme": name,
+            "ticker": ticker,
+            "unbuyable": is_unbuyable(region, name, themes_cfg),
+            # A list, mirroring config/themes.yaml; empty when no UCITS
+            # equivalent exists (Shipping).
+            "ucits": [{f: e.get(f) for f in fields}
+                      for e in (ucits.get(name) or []) if isinstance(e, dict)],
+        })
+    return {
+        "default_horizon": default_horizon.key,
+        "cohorts": [c.region for c in cohort_list],
+        "horizons": [
+            {"key": h.key, "label": h.label, "rebalance": h.rebalance,
+             "top_n": h.top_n, "buffer_frac": h.buffer_frac,
+             "review_dates": review_dates(h, since=review_since)}
+            for h in horizon_list
+        ],
+        "universe": universe,
+    }
+
+
 def build_data_export(
     theme_rows: list[dict],
     theme_latest_df: pd.DataFrame,
@@ -54,8 +102,12 @@ def build_data_export(
     scan_date: str,
     lagged: bool,
     generated_at: str,
+    config: dict | None = None,
 ) -> dict:
-    """Build the docs/data.json dict from already-assembled rows + raw scores."""
+    """Build the docs/data.json dict from already-assembled rows + raw scores.
+
+    `config` (from build_config_block) is attached verbatim when given.
+    """
     thm_raw = _raw_lookup(theme_latest_df, ["gics_sector"])
 
     def _entry(row, raw):
@@ -76,7 +128,7 @@ def build_data_export(
         raw = thm_raw.get((row.get("theme"),), {})
         themes.append({"theme": row.get("theme"), **_entry(row, raw)})
 
-    return {
+    out = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at,
         "scan_id": int(scan_id) if scan_id is not None else None,
@@ -84,3 +136,6 @@ def build_data_export(
         "lagged": bool(lagged),
         "themes": themes,
     }
+    if config is not None:
+        out["config"] = config
+    return out

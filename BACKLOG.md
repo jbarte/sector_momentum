@@ -618,6 +618,20 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   fails in both). Behaviour that does *not* change: the existing
   "9 copies of one scan" case still blanks, and the Trend has no guard, as
   before.
+- **iOS app groundwork: config block in data.json + a parity fixture
+  (2026-09-19, `feature/ios-config-feed`).** First half of the iOS board app
+  (spec `sector_momentum-notes/specs/2026-09-17-ios-board-app-design.md`,
+  plans `sector_momentum-notes/plans/2026-09-19-ios-board-config-feed.md` and
+  `sector_momentum-notes/plans/2026-09-19-ios-board-app.md`). `docs/data.json` is now
+  `schema_version: 2` with a config-only `config` block — horizon presets,
+  cohort regions, universe tickers/unbuyable/UCITS, all already public in
+  `config/*.yaml`, pinned leak-free by a test. New `docs/band-fixture.json`
+  (`dashboard/band_fixture.py`) runs the real `_compute_setup`,
+  `_build_leaderboard_rows` and `_compute_rank_trajectories` over synthetic
+  inputs so the Swift port is tested against Python itself. It includes the
+  weekend-replay case: rank delta and trend are taken over DISTINCT scans,
+  which `rescore.js:latestRowMeta()` did not do until #313 fixed it.
+  `src/horizons.py` now names the app as its fourth consumer.
 
 - **Signed-in rank delta and Trend follow the server's distinct-scan rules
   (2026-09-19, `fix/signed-in-rank-delta-distinct-scans`).** Signed in, the
