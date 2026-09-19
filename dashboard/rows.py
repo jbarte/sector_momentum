@@ -347,13 +347,19 @@ def _build_rows_common(
     # rendered and every delta collapses to "—".
     distinct_ids = distinct_scan_ids(history_df, merge_key_cols)
     raw_ids = sorted(history_df["scan_id"].unique())
-    duplicate_run = len(raw_ids) - len(distinct_ids)
 
     prev_id = distinct_ids[-2] if len(distinct_ids) >= 2 else None
-    if prev_id is not None and duplicate_run > MAX_DUPLICATE_RUN:
-        # The pipeline looks stuck rather than merely idle over a weekend.
-        # Showing a delta here would present stale data as a fresh move.
-        prev_id = None
+    if prev_id is not None:
+        # The run of replays ENDING at the latest scan: every scan after the
+        # previous distinct one is a copy of the latest, bar the latest itself.
+        # Not `len(raw) - len(distinct)`, which counts replays anywhere in the
+        # window: three weekends plus Christmas and New Year reach 8 in 20
+        # scans and would blank every delta on a healthy pipeline.
+        trailing_replays = sum(1 for sid in raw_ids if sid > prev_id) - 1
+        if trailing_replays > MAX_DUPLICATE_RUN:
+            # The pipeline looks stuck rather than merely idle over a weekend.
+            # Showing a delta here would present stale data as a fresh move.
+            prev_id = None
 
     if prev_id is not None:
         prev = history_df[history_df["scan_id"] == prev_id][

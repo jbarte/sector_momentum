@@ -126,6 +126,13 @@ _FIXTURES = {
     # delta still shows, one past it the pipeline is presumed stuck.
     "duplicates at the guard limit": [_WED] + [_THU] * (MAX_DUPLICATE_RUN + 1),
     "duplicates past the guard limit": [_WED] + [_THU] * (MAX_DUPLICATE_RUN + 2),
+    # The guard counts the run of replays ending at the latest scan, not every
+    # replay in the window. 8 scattered replays, fresh latest scan: delta shows.
+    # (v_recent_scores only sends 6 scans; the rule must not depend on that.)
+    "scattered replays past the limit": [
+        _WED, _WED, _THU, _THU, _WED, _WED, _THU, _THU, _WED, _WED,
+        _THU, _THU, _WED, _WED, _THU, _THU, _WED, _WED, _THU],
+    "long old run, fresh latest scan": [_WED] * 9 + [_THU],
     # Themes entering or leaving: a new theme has no previous rank.
     "theme added in the latest scan": [_WED, {**_THU, "New": (5, -1.0)}],
     "theme missing from the previous scan": [_WED, {"T1": (1, 0.3)}, _THU],
@@ -167,6 +174,12 @@ def test_rounding_fixtures_leave_flat():
 def test_guard_fixtures_straddle_the_limit():
     assert _py_meta(_FIXTURES["duplicates at the guard limit"])["THEME|T1"]["delta_rank"] != "—"
     assert _py_meta(_FIXTURES["duplicates past the guard limit"])["THEME|T1"]["delta_rank"] == "—"
+
+
+def test_scattered_replay_fixtures_show_a_delta_on_the_server():
+    """The fixtures above only prove the guard if the server shows a delta."""
+    for label in ("scattered replays past the limit", "long old run, fresh latest scan"):
+        assert _py_meta(_FIXTURES[label])["THEME|T1"]["delta_rank"] != "—", label
 
 
 def test_universe_fixture_moves_the_exit_band():

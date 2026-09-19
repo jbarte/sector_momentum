@@ -378,11 +378,15 @@
     scanIds.sort(function (a, b) { return a - b; });
 
     var distinct = _distinctScanIds(scanIds, byScan);
-    // Replays across the whole window, as rows.py counts them. Past the limit
-    // the pipeline looks stuck, and a delta would present stale data as fresh.
-    var duplicateRun = scanIds.length - distinct.length;
+    // The run of replays ENDING at the latest scan, as rows.py counts it: every
+    // scan after the previous distinct one, bar the latest itself. Past the
+    // limit the pipeline looks stuck, and a delta would present stale data as
+    // fresh.
     var prevId = distinct.length >= 2 ? distinct[distinct.length - 2] : null;
-    if (prevId !== null && duplicateRun > MAX_DUPLICATE_RUN) { prevId = null; }
+    if (prevId !== null) {
+      var trailingReplays = scanIds.filter(function (sid) { return sid > prevId; }).length - 1;
+      if (trailingReplays > MAX_DUPLICATE_RUN) { prevId = null; }
+    }
 
     function ranksOf(sid) {
       var m = {};
