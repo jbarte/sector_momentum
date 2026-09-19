@@ -21,6 +21,11 @@ Three sections:
   scans repeat Friday's close, and the delta must be taken against the
   previous DISTINCT scan or it reads "—".
 
+Not pinned here: the holdings-aware Enter/Hold/Exit badge (rescore.js
+badgeFor/badgeForRank) and the rule that an unbuyable theme never shows Enter.
+Both are layered on top of the plain band this fixture pins, and the app's v1
+deliberately renders only the plain band.
+
 Deterministic and synthetic: no timestamps, no database rows. It is rebuilt
 daily with the dashboard but only changes when a rule or a preset does -- which
 is exactly when the app needs to know. Nothing in it is a real score, so it
@@ -33,6 +38,9 @@ import pandas as pd
 from dashboard.rows import (_build_leaderboard_rows, _compute_rank_trajectories,
                             _compute_setup)
 
+#: Bump only when the SHAPE of the file changes (a key added, renamed or
+#: removed). The bytes change whenever a rule or a horizon preset moves, and
+#: that is not a version change -- it is the signal the consumer's CI reacts to.
 FIXTURE_VERSION = 1
 
 #: Sizes the universe has actually had (10, 13, 18, 20 themes) plus both ends.
@@ -81,9 +89,16 @@ def _history(scans) -> pd.DataFrame:
 
 
 def _as_rows(scans) -> list[dict]:
-    """The same history in the v_recent_scores row shape the app receives."""
+    """The same history in the v_recent_scores row shape the app receives: all
+    ten view columns (scripts/content_gating_migration.sql). Scores are
+    synthetic -- the three pillar scores equal the composite, as in _history.
+    sentiment_score is null on odd scan_ids and a number on even ones, so the
+    consumer exercises both decode paths (the Python rules never read it)."""
     return [{"scan_id": sid, "run_at": _run_at(sid), "region": _REGION,
-             "gics_sector": theme, "rank": rank, "composite": composite}
+             "gics_sector": theme, "level_score": composite,
+             "change_score": composite, "data_score": composite,
+             "sentiment_score": None if sid % 2 else round(composite / 2, 6),
+             "composite": composite, "rank": rank}
             for sid, rows in scans for theme, rank, composite in rows]
 
 
@@ -144,6 +159,12 @@ def _board_cases() -> list[dict]:
             _scan(1, {"Alpha": 3, "Bravo": 1, "Charlie": 2}, 0.01),
             _scan(2, thu, 0.02), _scan(3, fri, 0.03),
             _scan(4, fri, 0.03), _scan(5, fri, 0.03), _scan(6, fri, 0.03),
+        ]),
+        # rows.py fits the trend over the LAST 5 DISTINCT scans; the app's window
+        # is up to 6. Alpha's last five are flat, all six would read "up".
+        _board_case("six distinct scans", [
+            _scan(i + 1, {"Alpha": a, "Bravo": b, "Charlie": 3}, 0.01 * (i + 1))
+            for i, (a, b) in enumerate([(9, 1), (1, 2), (2, 1), (1, 2), (2, 1), (1, 2)])
         ]),
     ]
 

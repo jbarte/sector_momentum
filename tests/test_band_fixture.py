@@ -84,9 +84,13 @@ def test_weekend_replay_keeps_the_delta():
 
 
 def test_boards_are_in_the_row_shape_the_app_receives():
-    """v_recent_scores column names, so the Swift test decodes them with the
-    same ScoreRow type it uses for live data."""
-    keys = {"scan_id", "run_at", "region", "gics_sector", "rank", "composite"}
+    """The ten v_recent_scores columns (scan_id, run_at, region, gics_sector,
+    level_score, change_score, data_score, sentiment_score, composite, rank --
+    scripts/content_gating_migration.sql), so the Swift test decodes them with
+    the same ScoreRow type it uses for live data. sentiment_score is null in
+    some rows and a number in others, so both decode paths are exercised."""
+    keys = {"scan_id", "run_at", "region", "gics_sector", "level_score",
+            "change_score", "data_score", "sentiment_score", "composite", "rank"}
     for b in _fx()["boards"]:
         assert b["rows"], b["name"]
         assert all(set(r) == keys for r in b["rows"]), b["name"]
@@ -94,6 +98,21 @@ def test_boards_are_in_the_row_shape_the_app_receives():
         latest_keys = {f'{r["region"]}|{r["gics_sector"]}'
                        for r in b["rows"] if r["scan_id"] == latest}
         assert set(b["expected"]) == latest_keys, b["name"]
+    sentiments = [r["sentiment_score"] for b in _fx()["boards"] for r in b["rows"]]
+    assert any(s is None for s in sentiments)
+    assert any(isinstance(s, float) for s in sentiments)
+
+
+def test_a_board_pins_the_five_scan_trend_window():
+    """dashboard/rows.py fits the trend over the LAST 5 DISTINCT scans, while
+    the app's window is up to 6. This board has six distinct scans with Alpha's
+    ranks [9, 1, 2, 1, 2, 1]: the last five are flat (slope 0.0), but a port
+    that fits all six reads 'up' (slope -1.086)."""
+    board = next(b for b in _fx()["boards"] if b["name"] == "six distinct scans")
+    assert len({r["scan_id"] for r in board["rows"]}) == 6
+    alpha = board["expected"]["THEME|Alpha"]
+    assert alpha["trajectory"] == "flat"
+    assert alpha["slope"] == 0.0
 
 
 def test_boards_fit_the_apps_window():
