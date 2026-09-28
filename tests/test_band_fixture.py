@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dashboard.band_fixture import UNIVERSE_SIZES, build_band_fixture
+from dashboard.rows import HISTORY_SCANS, MAX_DUPLICATE_RUN
 from src.horizons import horizons
 
 ROOT = Path(__file__).parent.parent
@@ -105,7 +106,7 @@ def test_boards_are_in_the_row_shape_the_app_receives():
 
 def test_a_board_pins_the_five_scan_trend_window():
     """dashboard/rows.py fits the trend over the LAST 5 DISTINCT scans, while
-    the app's window is up to 6. This board has six distinct scans with Alpha's
+    a client's window holds more than five. This board has six distinct scans with Alpha's
     ranks [9, 1, 2, 1, 2, 1]: the last five are flat (slope 0.0), but a port
     that fits all six reads 'up' (slope -1.086)."""
     board = next(b for b in _fx()["boards"] if b["name"] == "six distinct scans")
@@ -116,10 +117,35 @@ def test_a_board_pins_the_five_scan_trend_window():
 
 
 def test_boards_fit_the_apps_window():
-    """The app only ever sees v_recent_scores' last 6 scans. A board case
-    longer than that would test a window the app never has."""
+    """Clients see v_recent_scores' last HISTORY_SCANS scans. A board case
+    longer than that would test a window no client has."""
     for b in _fx()["boards"]:
-        assert len({r["scan_id"] for r in b["rows"]}) <= 6, b["name"]
+        assert len({r["scan_id"] for r in b["rows"]}) <= HISTORY_SCANS, b["name"]
+
+
+def _trailing_replays(board) -> int:
+    ids = sorted({r["scan_id"] for r in board["rows"]})
+    return len(ids) - 2  # scan 1 is the only distinct predecessor; minus the latest
+
+
+def test_a_stuck_pipeline_blanks_the_delta():
+    """One more trailing replay than MAX_DUPLICATE_RUN: the pipeline looks
+    stuck, so Python shows no change rather than week-old data as a move.
+    Out of every client's reach while v_recent_scores returned 6 scans."""
+    board = next(b for b in _fx()["boards"] if b["name"] == "stuck pipeline")
+    assert _trailing_replays(board) == MAX_DUPLICATE_RUN + 1
+    assert board["expected"]["THEME|Alpha"]["delta_rank"] == "—"
+    assert board["expected"]["THEME|Bravo"]["delta_rank"] == "—"
+
+
+def test_the_longest_healthy_replay_run_keeps_the_delta():
+    """Exactly MAX_DUPLICATE_RUN trailing replays is still idle, not stuck.
+    With the case above, this pins the boundary from both sides, so a port
+    using > where Python uses >= (or the reverse) fails one of the two."""
+    board = next(b for b in _fx()["boards"] if b["name"] == "longest healthy replay run")
+    assert _trailing_replays(board) == MAX_DUPLICATE_RUN
+    assert board["expected"]["THEME|Alpha"]["delta_rank"] == "+1.0"
+    assert board["expected"]["THEME|Bravo"]["delta_rank"] == "-1.0"
 
 
 def test_build_publishes_the_fixture_and_the_config():
