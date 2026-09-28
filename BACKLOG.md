@@ -61,6 +61,45 @@ though this doesn't need CI, a manual run is fine, next one due ~2026-10-07)
 for a few real cycles, then revisit Defense specifically — AI & Robotics no
 longer looks like it belongs in the same sentence.
 
+## Three of seven weekly scans still persist duplicate scores/signals
+
+Found in the 2026-08-23 sweep, measured against production. **Not a
+correctness bug** — waste and history noise. Two of three sub-parts have
+shipped (see Done): the redundant *backup* upload is skipped, and the health
+panel now *surfaces* the duplication so a human reading history doesn't
+mistake N scan_ids for N independent days of signal. What's left is the
+actual row-write waste — each duplicate-date scan still writes a full
+scores+signals row set (18 scores + ~250 signals).
+
+`_cache_is_fresh` requires the cache to reach
+`_expected_latest_close(date.today() - 1 day)`. That resolves to **Friday for
+Saturday, Sunday *and* Monday** runs, so all three score identical prices —
+this is *correct* (the 06:00 UTC cron fires before the US close), not a bug.
+
+**Investigated 2026-08-23 and deliberately not fixed**: the obvious fix —
+skip the price/scoring persist on a duplicate-date scan, keep sentiment since
+GDELT genuinely differs each run — turned out to have a much bigger blast
+radius than it looked. A scan_id with sentiment rows but no scores/signals
+breaks every "latest scan" reader that keys off `MAX(scan_id) FROM scans`
+directly instead of joining through `scores` (which naturally skips an
+empty scan_id): `get_signals_for_latest_scan()` / `get_theme_signals_for_
+latest_scan()` in `src/state.py`, and `load_last_scan()` in `scan.py` (breaks
+`compute_deltas`'s rank-delta/emerging-flag continuity across the skip). Worse:
+the live Supabase view `v_recent_scores` (`scripts/content_gating_migration.sql`,
+granted to `authenticated`) hardcodes `scan_id IN (SELECT scan_id FROM scans
+ORDER BY scan_id DESC LIMIT 6)` — an unconditional "last 6 scan_ids" window,
+not "last 6 scans with scores." Every skip-day scan_id would eat one of
+those 6 slots without contributing a real score row, quietly shrinking the
+signed-in leaderboard's real trailing history below 6 scans whenever a skip
+day falls in that window. Fixing this properly means migrating a **live
+production SQL view** granted to `authenticated`, not just touching Python.
+
+Reopen only with a real plan for reconciling every "last N scans" window
+(Python readers + the live view) to mean "last N scans with real data," not
+"last N scan_ids" — brainstorm/spec first per CLAUDE.md's guidance on when a
+wrong early call on data shape is expensive to unwind, same trap as the
+union-merge and false-green bugs this project has already hit.
+
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
@@ -172,6 +211,29 @@ renumbering every `sortTable()`/`data-col` index and `colspan` that counts
 columns — meaningfully more work than the one CSS block this used to be.
 Also drop the `alpha` badge from the Sentiment nav and page note. (No i18n
 key needed any more — i18n was removed entirely, 2026-09-13, see Done.)
+
+## iOS app follow-ups (jbarte/etf-momentum-ios)
+
+The board app shipped in its own repo: v1 (etf-momentum-ios#1, 2026-09-27)
+and magic-link sign-in (#2, 2026-09-28), built on the config block and parity
+fixture this repo publishes (see Done, 2026-09-19). What is left:
+
+- **Install on a physical iPhone.** Free Apple account: pick the Personal Team
+  under Signing & Capabilities; the install expires after 7 days and a re-run
+  renews it. Open the sign-in email on the phone itself.
+- **Push notifications** (the original motive) need a paid Apple Developer
+  account, so they are out of v1 — revisit only if that changes.
+- **Custom SMTP for Supabase auth (optional).** The built-in sender allows a
+  few emails an hour and locks the email templates, which is why the app signs
+  in by link rather than a typed code (`{{ .Token }}` needs an editable
+  template). Worth it only if the rate limit bites.
+- **Rule changes stay Python-first:** a change to the band/delta/trend rules
+  (`dashboard/rows.py`, `src/horizons.py`) regenerates `band-fixture.json`,
+  and the iOS repo's daily CI goes red until the Swift side is ported.
+
+---
+
+# Parked
 
 ## Sentiment page never upgrades for signed-in readers
 
@@ -388,45 +450,6 @@ naming in the data layer* above, which recommends leaving them alone. A rebrand
 is a rename of the *product*, not a schema migration; conflating the two is how
 a cosmetic PR turns into a live-database risk.
 
-## Three of seven weekly scans still persist duplicate scores/signals
-
-Found in the 2026-08-23 sweep, measured against production. **Not a
-correctness bug** — waste and history noise. Two of three sub-parts have
-shipped (see Done): the redundant *backup* upload is skipped, and the health
-panel now *surfaces* the duplication so a human reading history doesn't
-mistake N scan_ids for N independent days of signal. What's left is the
-actual row-write waste — each duplicate-date scan still writes a full
-scores+signals row set (18 scores + ~250 signals).
-
-`_cache_is_fresh` requires the cache to reach
-`_expected_latest_close(date.today() - 1 day)`. That resolves to **Friday for
-Saturday, Sunday *and* Monday** runs, so all three score identical prices —
-this is *correct* (the 06:00 UTC cron fires before the US close), not a bug.
-
-**Investigated 2026-08-23 and deliberately not fixed**: the obvious fix —
-skip the price/scoring persist on a duplicate-date scan, keep sentiment since
-GDELT genuinely differs each run — turned out to have a much bigger blast
-radius than it looked. A scan_id with sentiment rows but no scores/signals
-breaks every "latest scan" reader that keys off `MAX(scan_id) FROM scans`
-directly instead of joining through `scores` (which naturally skips an
-empty scan_id): `get_signals_for_latest_scan()` / `get_theme_signals_for_
-latest_scan()` in `src/state.py`, and `load_last_scan()` in `scan.py` (breaks
-`compute_deltas`'s rank-delta/emerging-flag continuity across the skip). Worse:
-the live Supabase view `v_recent_scores` (`scripts/content_gating_migration.sql`,
-granted to `authenticated`) hardcodes `scan_id IN (SELECT scan_id FROM scans
-ORDER BY scan_id DESC LIMIT 6)` — an unconditional "last 6 scan_ids" window,
-not "last 6 scans with scores." Every skip-day scan_id would eat one of
-those 6 slots without contributing a real score row, quietly shrinking the
-signed-in leaderboard's real trailing history below 6 scans whenever a skip
-day falls in that window. Fixing this properly means migrating a **live
-production SQL view** granted to `authenticated`, not just touching Python.
-
-Reopen only with a real plan for reconciling every "last N scans" window
-(Python readers + the live view) to mean "last N scans with real data," not
-"last N scan_ids" — brainstorm/spec first per CLAUDE.md's guidance on when a
-wrong early call on data shape is expensive to unwind, same trap as the
-union-merge and false-green bugs this project has already hit.
-
 ## Audit record from the 2026-08-23 sweep
 
 The three actionable findings from this sweep (`_modal.js.j2` inlined three
@@ -447,10 +470,6 @@ every f-string in a query interpolates an internal constant (`_COLUMNS`,
 `401 / 42501`** to `anon`. The 7-day content gate cannot be walked around by
 querying the Data API directly — it holds at the database, not only in the baked
 HTML.
-
----
-
-# Parked
 
 ## Guest mode as a frozen demo snapshot — measured and declined
 
