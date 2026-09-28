@@ -30,8 +30,18 @@ grant select on public.v_latest_scores to authenticated;
 -- Verification: as anon -> 0 rows; as authenticated -> latest scan rows.
 -- select count(*) from public.v_latest_scores;
 
--- Recent scans (last 6) for authenticated users, so the client can recompute
--- rank-delta, trajectory, and entry/exit setup for the live leaderboard.
+-- Recent scans for authenticated users, so the client can recompute rank-delta,
+-- Trend and the entry/exit band for the live leaderboard (web auth.js/rescore.js,
+-- and the iOS app). The window MUST equal dashboard/rows.py HISTORY_SCANS, the
+-- window the baked board is built from -- pinned by tests/test_history_window.py.
+-- It was 6 until 2026-09-28: the daily cron replays Friday's close on Sat/Sun/Mon,
+-- so 6 raw scans held only 4 distinct ones Mon-Thu, and signed-in Trend was
+-- fitted over 4 scans where Python fits 5.
+--
+-- Row count is themes x HISTORY_SCANS (18 x 20 = 360). PostgREST caps a
+-- response at the project's "max rows" (Supabase default 1000), and auth.js
+-- orders by scan_id ASCENDING -- so if a larger universe ever hit the cap, the
+-- NEWEST scan would be the one cut. Revisit before the universe nears ~50.
 create or replace view public.v_recent_scores
   with (security_invoker = true) as
 select sc.scan_id, sc.run_at, s.region, s.gics_sector,
@@ -40,10 +50,10 @@ select sc.scan_id, sc.run_at, s.region, s.gics_sector,
 from public.scores s
 join public.scans sc on sc.scan_id = s.scan_id
 where sc.scan_id in (
-    select scan_id from public.scans order by scan_id desc limit 6
+    select scan_id from public.scans order by scan_id desc limit 20
 );
 
 grant select on public.v_recent_scores to authenticated;
 
--- Verification: as anon -> 0 rows; as authenticated -> up to 6 scans of rows.
+-- Verification: as anon -> 0 rows; as authenticated -> up to 20 scans of rows.
 -- select scan_id, count(*) from public.v_recent_scores group by scan_id order by scan_id;

@@ -43,6 +43,14 @@ MAX_DUPLICATE_RUN = 7
 
 _TRAJECTORY_SCANS = 5
 
+# How many raw scans the delta/Trend/band rules read. The baked board fetches
+# this many (build.py), and the live view v_recent_scores must return the same
+# (scripts/content_gating_migration.sql, pinned by tests/test_history_window.py)
+# so signed-in clients re-derive the rules from the SAME input. 20 raw daily
+# scans hold >= 14 distinct ones in a normal week: room for the 5-scan Trend,
+# its previous distinct scan, and a trailing run longer than MAX_DUPLICATE_RUN.
+HISTORY_SCANS = 20
+
 
 def _scan_fingerprint(scan_df, key_cols: list[str]) -> tuple:
     """A hashable snapshot of one scan's scores, for spotting duplicate scans.

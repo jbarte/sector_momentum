@@ -61,45 +61,6 @@ though this doesn't need CI, a manual run is fine, next one due ~2026-10-07)
 for a few real cycles, then revisit Defense specifically — AI & Robotics no
 longer looks like it belongs in the same sentence.
 
-## Three of seven weekly scans still persist duplicate scores/signals
-
-Found in the 2026-08-23 sweep, measured against production. **Not a
-correctness bug** — waste and history noise. Two of three sub-parts have
-shipped (see Done): the redundant *backup* upload is skipped, and the health
-panel now *surfaces* the duplication so a human reading history doesn't
-mistake N scan_ids for N independent days of signal. What's left is the
-actual row-write waste — each duplicate-date scan still writes a full
-scores+signals row set (18 scores + ~250 signals).
-
-`_cache_is_fresh` requires the cache to reach
-`_expected_latest_close(date.today() - 1 day)`. That resolves to **Friday for
-Saturday, Sunday *and* Monday** runs, so all three score identical prices —
-this is *correct* (the 06:00 UTC cron fires before the US close), not a bug.
-
-**Investigated 2026-08-23 and deliberately not fixed**: the obvious fix —
-skip the price/scoring persist on a duplicate-date scan, keep sentiment since
-GDELT genuinely differs each run — turned out to have a much bigger blast
-radius than it looked. A scan_id with sentiment rows but no scores/signals
-breaks every "latest scan" reader that keys off `MAX(scan_id) FROM scans`
-directly instead of joining through `scores` (which naturally skips an
-empty scan_id): `get_signals_for_latest_scan()` / `get_theme_signals_for_
-latest_scan()` in `src/state.py`, and `load_last_scan()` in `scan.py` (breaks
-`compute_deltas`'s rank-delta/emerging-flag continuity across the skip). Worse:
-the live Supabase view `v_recent_scores` (`scripts/content_gating_migration.sql`,
-granted to `authenticated`) hardcodes `scan_id IN (SELECT scan_id FROM scans
-ORDER BY scan_id DESC LIMIT 6)` — an unconditional "last 6 scan_ids" window,
-not "last 6 scans with scores." Every skip-day scan_id would eat one of
-those 6 slots without contributing a real score row, quietly shrinking the
-signed-in leaderboard's real trailing history below 6 scans whenever a skip
-day falls in that window. Fixing this properly means migrating a **live
-production SQL view** granted to `authenticated`, not just touching Python.
-
-Reopen only with a real plan for reconciling every "last N scans" window
-(Python readers + the live view) to mean "last N scans with real data," not
-"last N scan_ids" — brainstorm/spec first per CLAUDE.md's guidance on when a
-wrong early call on data shape is expensive to unwind, same trap as the
-union-merge and false-green bugs this project has already hit.
-
 ## Restore the sentiment blend control — and make it work when signed in
 
 The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
@@ -230,10 +191,36 @@ fixture this repo publishes (see Done, 2026-09-19). What is left:
 - **Rule changes stay Python-first:** a change to the band/delta/trend rules
   (`dashboard/rows.py`, `src/horizons.py`) regenerates `band-fixture.json`,
   and the iOS repo's daily CI goes red until the Swift side is ported.
+- **Port the 20-scan window (after `fix/signed-in-history-window` ships and
+  the live view is applied):** refresh `band-fixture.json` with
+  `scripts/update-fixture.sh` (it gains the "stuck pipeline" and "longest
+  healthy replay run" boards), and update the doc comments in
+  `ScoresClient.swift` and `ScanHistory.swift` that still say 6 scans. The
+  iOS daily CI goes red on fixture drift until this lands. Plan:
+  `sector_momentum-notes/plans/2026-09-28-signed-in-history-window.md`, Task 5.
 
 ---
 
 # Parked
+
+## Duplicate-date scans still write full score/signal rows — declined
+
+Three of seven weekly scans (Sat/Sun/Mon replay Friday's close) write a full
+scores+signals set, about 800 rows a week. Two sub-parts shipped earlier (see
+Done): the redundant backup upload is skipped, and the health panel surfaces
+the duplication. **The rest is declined (2026-09-28).** It saves storage and
+nothing else, and skipping the persist breaks every reader that keys on
+`MAX(scan_id) FROM scans` (`load_last_scan`, `get_signals_for_latest_scan`,
+`get_sentiment_signals_for_latest_scan`) or on a raw "last N scan ids" window.
+
+What readers actually saw was the other half: a signed-in window too short to
+hold 5 distinct scans. That is fixed; see Done, 2026-09-28, and spec
+`sector_momentum-notes/specs/2026-09-28-signed-in-history-window-design.md`.
+
+Related, not done: the guests' rotation chart reads
+`get_rrg_history(conn, n_scans=6)`, also a raw 6-scan window, so weekend
+replays repeat points in its tails. It's a separate chart with separate
+semantics; reopen it on its own if the tails look wrong.
 
 ## Sentiment page never upgrades for signed-in readers
 
@@ -612,6 +599,22 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **Signed-in readers get Python's 20-scan history window
+  (2026-09-28, `fix/signed-in-history-window`).** `v_recent_scores` returned
+  the last 6 raw scans. The daily cron replays Friday's close on Sat/Sun/Mon,
+  so that held only 4 distinct scans Mon-Thu: the signed-in Trend (web
+  `rescore.js`, iOS `ScanHistory`) was fitted over 4 points where the baked
+  board fits 5, and the `MAX_DUPLICATE_RUN` stuck-pipeline guard could never
+  fire for a signed-in reader. The fix:
+  - `dashboard/rows.py` gains `HISTORY_SCANS = 20`, the window `build.py`
+    already read;
+  - the view uses it, pinned by `tests/test_history_window.py`, which also
+    reproduces the 4/4/4/4/5/6/5 weekday table;
+  - the band fixture gains stuck-pipeline boundary cases for the iOS port.
+
+  No client logic changed. The live view is applied by hand. Spec:
+  `sector_momentum-notes/specs/2026-09-28-signed-in-history-window-design.md`.
 
 - **The duplicate-run guard counts the run ending at the latest scan
   (2026-09-19, `fix/duplicate-run-guard-trailing`).** `MAX_DUPLICATE_RUN = 7`

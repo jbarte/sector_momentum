@@ -35,8 +35,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from dashboard.rows import (_build_leaderboard_rows, _compute_rank_trajectories,
-                            _compute_setup)
+from dashboard.rows import (MAX_DUPLICATE_RUN, _build_leaderboard_rows,
+                            _compute_rank_trajectories, _compute_setup)
 
 #: Bump only when the SHAPE of the file changes (a key added, renamed or
 #: removed). The bytes change whenever a rule or a horizon preset moves, and
@@ -154,17 +154,29 @@ def _board_cases() -> list[dict]:
             _scan(i + 1, {"Alpha": a, "Bravo": b, "Charlie": 5}, 0.01 * (i + 1))
             for i, (a, b) in enumerate([(9, 1), (7, 3), (5, 5), (3, 7), (1, 9)])
         ]),
-        # Six raw scans, three distinct: the window the app really has on a Monday.
+        # Six raw scans, three distinct: e.g. the Tuesday after a Monday holiday
+        # under the old 6-scan window. Kept: it tests the rule, whatever the window.
         _board_case("six raw scans, three distinct", [
             _scan(1, {"Alpha": 3, "Bravo": 1, "Charlie": 2}, 0.01),
             _scan(2, thu, 0.02), _scan(3, fri, 0.03),
             _scan(4, fri, 0.03), _scan(5, fri, 0.03), _scan(6, fri, 0.03),
         ]),
-        # rows.py fits the trend over the LAST 5 DISTINCT scans; the app's window
-        # is up to 6. Alpha's last five are flat, all six would read "up".
+        # rows.py fits the trend over the LAST 5 DISTINCT scans; a client's window
+        # holds more than five. Alpha's last five are flat, all six would read "up".
         _board_case("six distinct scans", [
             _scan(i + 1, {"Alpha": a, "Bravo": b, "Charlie": 3}, 0.01 * (i + 1))
             for i, (a, b) in enumerate([(9, 1), (1, 2), (2, 1), (1, 2), (2, 1), (1, 2)])
+        ]),
+        # rows.py's stuck-pipeline guard: more than MAX_DUPLICATE_RUN replays
+        # TRAILING the latest scan blank the delta. Reachable by a client only
+        # since v_recent_scores returns HISTORY_SCANS (20) scans, not 6.
+        # Scan 1 is Thursday; the Friday run follows it.
+        _board_case("stuck pipeline", [_scan(1, thu, 0.01)] + [
+            _scan(i, fri, 0.02) for i in range(2, 2 + MAX_DUPLICATE_RUN + 2)
+        ]),
+        # One replay fewer: exactly MAX_DUPLICATE_RUN trailing, still healthy.
+        _board_case("longest healthy replay run", [_scan(1, thu, 0.01)] + [
+            _scan(i, fri, 0.02) for i in range(2, 2 + MAX_DUPLICATE_RUN + 1)
         ]),
     ]
 

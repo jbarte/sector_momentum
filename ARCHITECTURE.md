@@ -290,7 +290,9 @@ that is wrong on weekends.
 `dashboard/gating.py`. Guests see the newest scan at least `LAG_DAYS` (7) old,
 plus a banner saying so. Authenticated users are upgraded to the live scan
 **client-side** (`dashboard/assets/auth.js`), which re-queries `v_recent_scores`
-and rebuilds the leaderboard rows. Sign-in is invite-only Supabase magic link;
+— the last `HISTORY_SCANS` (20) scans, the same window the baked board is built
+from (`dashboard/rows.py`; pinned by `tests/test_history_window.py`) — and
+rebuilds the leaderboard rows. The iOS app reads the same view. Sign-in is invite-only Supabase magic link;
 signing out reloads the baked page, which *is* the gated state.
 
 ---

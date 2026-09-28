@@ -1,7 +1,7 @@
 """Parity: rescore.js latestRowMeta() must match the server's leaderboard rules.
 
 Signed-in readers get their leaderboard rebuilt client-side from
-`v_recent_scores` (the last 6 raw scans), and latestRowMeta() computes each
+`v_recent_scores` (the last HISTORY_SCANS raw scans, dashboard/rows.py; 6 until 2026-09-28), and latestRowMeta() computes each
 row's rank delta and Trend from those rows. It compared against the previous
 RAW scan and fitted the slope over the last 5 RAW scans -- the exact bug
 dashboard/rows.py:distinct_scan_ids() fixed on the server. The cron runs 7 days
@@ -128,7 +128,7 @@ _FIXTURES = {
     "duplicates past the guard limit": [_WED] + [_THU] * (MAX_DUPLICATE_RUN + 2),
     # The guard counts the run of replays ending at the latest scan, not every
     # replay in the window. 8 scattered replays, fresh latest scan: delta shows.
-    # (v_recent_scores only sends 6 scans; the rule must not depend on that.)
+    # (v_recent_scores sends HISTORY_SCANS (20) scans; the rule must not depend on that.)
     "scattered replays past the limit": [
         _WED, _WED, _THU, _THU, _WED, _WED, _THU, _THU, _WED, _WED,
         _THU, _THU, _WED, _WED, _THU, _THU, _WED, _WED, _THU],
