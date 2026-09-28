@@ -154,7 +154,8 @@ def _board_cases() -> list[dict]:
             _scan(i + 1, {"Alpha": a, "Bravo": b, "Charlie": 5}, 0.01 * (i + 1))
             for i, (a, b) in enumerate([(9, 1), (7, 3), (5, 5), (3, 7), (1, 9)])
         ]),
-        # Six raw scans, three distinct: a holiday Monday under the old 6-scan window. Kept: it tests the rule, whatever the window.
+        # Six raw scans, three distinct: e.g. the Tuesday after a Monday holiday
+        # under the old 6-scan window. Kept: it tests the rule, whatever the window.
         _board_case("six raw scans, three distinct", [
             _scan(1, {"Alpha": 3, "Bravo": 1, "Charlie": 2}, 0.01),
             _scan(2, thu, 0.02), _scan(3, fri, 0.03),

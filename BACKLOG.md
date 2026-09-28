@@ -191,6 +191,13 @@ fixture this repo publishes (see Done, 2026-09-19). What is left:
 - **Rule changes stay Python-first:** a change to the band/delta/trend rules
   (`dashboard/rows.py`, `src/horizons.py`) regenerates `band-fixture.json`,
   and the iOS repo's daily CI goes red until the Swift side is ported.
+- **Port the 20-scan window (after `fix/signed-in-history-window` ships and
+  the live view is applied):** refresh `band-fixture.json` with
+  `scripts/update-fixture.sh` (it gains the "stuck pipeline" and "longest
+  healthy replay run" boards), and update the doc comments in
+  `ScoresClient.swift` and `ScanHistory.swift` that still say 6 scans. The
+  iOS daily CI goes red on fixture drift until this lands. Plan:
+  `sector_momentum-notes/plans/2026-09-28-signed-in-history-window.md`, Task 5.
 
 ---
 
