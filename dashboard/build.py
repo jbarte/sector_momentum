@@ -68,6 +68,7 @@ from dashboard.reports import (                      # noqa: E402, F401
     _generate_scan_reports,
 )
 from dashboard.rows import (                         # noqa: E402, F401
+    HISTORY_SCANS,
     TRAJECTORY_WORDS,
     _build_leaderboard_rows,
     _compute_rank_trajectories,
@@ -377,7 +378,7 @@ def main() -> None:
     # pass regions=None here: the retired US/EU sector rows were deliberately
     # kept in the database, so "every cohort" would pull 41 scans of dead
     # sector history into the leaderboard, the charts and the movers list.
-    history_df = get_scan_history(conn, n_scans=20)
+    history_df = get_scan_history(conn, n_scans=HISTORY_SCANS)
     signals_df = get_signals_for_latest_scan(conn)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
     rrg_df = get_rrg_history(conn, n_scans=6)
@@ -416,7 +417,7 @@ def main() -> None:
         all_scores_df = all_scores_df[all_scores_df["scan_id"] <= lb_scan_id].copy()
         history_df = history_df[history_df["scan_id"] <= lb_scan_id].copy()
         # NOT the same fix as the two lines above. Those filter a window that
-        # is guaranteed to still overlap lb_scan_id (n_scans=20 against a lag
+        # is guaranteed to still overlap lb_scan_id (n_scans=HISTORY_SCANS, 20, against a lag
         # of ~7 scans). rrg_df was fetched with n_scans=6 — LESS than the lag
         # — so filtering the newest 6 down to `<= lb_scan_id` discarded every
         # row every time, not as an edge case but as the steady state: the RRG
