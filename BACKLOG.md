@@ -179,9 +179,16 @@ The board app shipped in its own repo: v1 (etf-momentum-ios#1, 2026-09-27)
 and magic-link sign-in (#2, 2026-09-28), built on the config block and parity
 fixture this repo publishes (see Done, 2026-09-19). What is left:
 
-- **Install on a physical iPhone.** Free Apple account: pick the Personal Team
-  under Signing & Capabilities; the install expires after 7 days and a re-run
-  renews it. Open the sign-in email on the phone itself.
+- **Install on a physical iPhone — blocked (tried 2026-10-02); developing in
+  the simulator instead.** Jonas's own free Personal Team has hit Apple's
+  device-registration cap ("maximum number of registered iPhone devices", 8
+  registered) and a free team cannot remove devices; a second free Apple ID
+  is not an option; the other team the phone is registered in is not his to
+  use without its admin's OK. Ways forward, none taken yet: that admin's OK
+  (use a throwaway bundle ID such as `…etfmomentum.dev`, since a bundle ID
+  registered there belongs to that team), or a paid membership — which would
+  also unlock push notifications below. Meanwhile the website works on the
+  phone (Add to Home Screen).
 - **Push notifications** (the original motive) need a paid Apple Developer
   account, so they are out of v1 — revisit only if that changes.
 - **Custom SMTP for Supabase auth (optional).** The built-in sender allows a
