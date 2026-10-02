@@ -8,7 +8,12 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
 
-from dashboard.rows import _safe_float
+from dashboard.rows import _safe_float, distinct_scan_ids
+
+# Points in each rotation-chart tail, counting the current position. DISTINCT
+# scans: the daily cron replays Friday's close on Sat/Sun/Mon, and raw scans
+# stacked those replays on one spot (tests/test_rrg_tails.py).
+RRG_TAIL_SCANS = 6
 
 
 # ---------------------------------------------------------------------------
@@ -183,6 +188,11 @@ def _build_rrg_figure(rrg_df) -> str:
                        font=dict(size=13, color="#3E392B")),
         ))
         return _fig_to_json(fig)
+
+    # Keep the last RRG_TAIL_SCANS distinct scans; each replay run is
+    # represented by its newest scan, so the latest scan is always kept.
+    tail_ids = distinct_scan_ids(rrg_df, value_cols=("rs_ratio", "rs_momentum"))
+    rrg_df = rrg_df[rrg_df["scan_id"].isin(tail_ids[-RRG_TAIL_SCANS:])]
 
     latest_scan_id = rrg_df["scan_id"].max()
     latest = rrg_df[rrg_df["scan_id"] == latest_scan_id].copy()

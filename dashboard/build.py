@@ -381,7 +381,10 @@ def main() -> None:
     history_df = get_scan_history(conn, n_scans=HISTORY_SCANS)
     signals_df = get_signals_for_latest_scan(conn)
     sentiment_signals_df = get_sentiment_signals_for_latest_scan(conn)
-    rrg_df = get_rrg_history(conn, n_scans=6)
+    # As wide as the leaderboard window: the rotation chart draws its tails
+    # from the last RRG_TAIL_SCANS DISTINCT scans (figures.py), and weekend
+    # replays leave too few of those in a narrower raw window.
+    rrg_df = get_rrg_history(conn, n_scans=HISTORY_SCANS)
 
     all_scores_df = get_scan_history(conn, n_scans=None)
     health_row = get_latest_health(conn)
@@ -418,13 +421,14 @@ def main() -> None:
         history_df = history_df[history_df["scan_id"] <= lb_scan_id].copy()
         # NOT the same fix as the two lines above. Those filter a window that
         # is guaranteed to still overlap lb_scan_id (n_scans=HISTORY_SCANS, 20, against a lag
-        # of ~7 scans). rrg_df was fetched with n_scans=6 — LESS than the lag
-        # — so filtering the newest 6 down to `<= lb_scan_id` discarded every
-        # row every time, not as an edge case but as the steady state: the RRG
-        # tab rendered an empty chart for every guest. Re-fetching anchored at
-        # lb_scan_id gets the right 6 scans instead of filtering the wrong 6.
-        # Found in code review, 2026-08-23.
-        rrg_df = get_rrg_history(conn, n_scans=6, end_scan_id=lb_scan_id)
+        # of ~7 scans). rrg_df used to be fetched with n_scans=6 — LESS than
+        # the lag — so filtering the newest 6 down to `<= lb_scan_id` discarded
+        # every row every time, not as an edge case but as the steady state:
+        # the RRG tab rendered an empty chart for every guest. Found in code
+        # review, 2026-08-23. It is HISTORY_SCANS wide now, but stays
+        # re-fetched anchored at lb_scan_id so a guest's tails get the full
+        # window ending at their scan, not what is left of the live one.
+        rrg_df = get_rrg_history(conn, n_scans=HISTORY_SCANS, end_scan_id=lb_scan_id)
         signals_df = get_signals_for_scan(conn, lb_scan_id)
         # sentiment_signals_df otherwise reads the true latest scan
         # unconditionally (see get_sentiment_signals_for_latest_scan below) —
