@@ -501,6 +501,9 @@ def get_rrg_history(
 ) -> pd.DataFrame:
     """
     Return rs_ratio and rs_momentum for the last n_scans scans, for RRG tail traces.
+    n_scans counts RAW scans; dashboard/build.py passes HISTORY_SCANS (20) because
+    the chart keeps the last 6 DISTINCT points per theme (figures.RRG_TAIL_SCANS)
+    and weekend replays leave too few of those in a 6-scan window.
     `regions` restricts the cohort; None selects every cohort.
     Columns: scan_id, run_at, region, gics_sector, rs_ratio, rs_momentum
 
@@ -511,8 +514,8 @@ def get_rrg_history(
     lb_scan_id roughly 7 scans behind the newest, so that filter discarded
     every row the fetch had returned — the RRG tab rendered an empty chart for
     every guest, every day, not as an edge case but as the steady state. Found
-    2026-08-23. `end_scan_id=lb_scan_id` fetches the right 6 scans instead of
-    filtering a fixed window that may not overlap them at all.
+    2026-08-23. `end_scan_id=lb_scan_id` fetches the window ending at the guest's
+    scan instead of filtering a fixed window that may not overlap it at all.
     """
     condition, params = _recent_scan_filter(n_scans, end_scan_id=end_scan_id)
     rcond, rparams = _region_filter(regions, "sig")

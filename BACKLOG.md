@@ -210,10 +210,8 @@ What readers actually saw was the other half: a signed-in window too short to
 hold 5 distinct scans. That is fixed; see Done, 2026-09-28, and spec
 `sector_momentum-notes/specs/2026-09-28-signed-in-history-window-design.md`.
 
-Related, not done: the guests' rotation chart reads
-`get_rrg_history(conn, n_scans=6)`, also a raw 6-scan window, so weekend
-replays repeat points in its tails. It's a separate chart with separate
-semantics; reopen it on its own if the tails look wrong.
+The rotation chart's tails had the same raw-window problem; fixed separately
+(see Done, 2026-10-02).
 
 ## Sentiment page never upgrades for signed-in readers
 
@@ -592,6 +590,20 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **Rotation-chart tails are drawn from distinct scans
+  (2026-10-02, `fix/rrg-distinct-tails`).** The RRG tab built each theme's
+  tail from the last 6 RAW scans, so the Sat/Sun/Mon replays of Friday's
+  close stacked repeated points on one spot: on the day it was fixed every
+  6-point tail held only 5 distinct points, and a Monday holds 4. The tail
+  now keeps each theme's last `RRG_TAIL_SCANS` (6) distinct points
+  (`dashboard/figures.py:_distinct_tail`), fetched `HISTORY_SCANS` (20) wide
+  in both the live and the guest-anchored fetch. Deduplicated per theme, not
+  per whole scan: review found that one theme missing a reading on a replay
+  day made every replayed scan look distinct. The RRG guide's "last 3 scan
+  positions" copy (already stale at 6) now says 6 positions, one per trading
+  day. Verified on a live build: 18 tails × 6 points, no repeats. Tests:
+  `tests/test_rrg_tails.py`.
 
 - **Signed-in readers get Python's 20-scan history window
   (2026-09-28, `fix/signed-in-history-window`).** `v_recent_scores` returned
