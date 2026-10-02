@@ -2385,7 +2385,7 @@ document.getElementById('leaderboard-table')?.addEventListener('click', function
             </ul>
             <h3>How to use</h3>
             <p>Themes rotate Leading → Weakening → Lagging → Improving → Leading. Buy in <span class="signal-hi">Improving</span> before the move to Leading; sell in <span class="signal-lo">Weakening</span> before the drop to Lagging. Dotted tail lines show each theme's last 6 positions, one per trading day (weekend replays of Friday's close are skipped) — the direction of the tail matters more than the current position.</p>
-            <p><em>Note: current axes are composite-based proxies. True JdK RS-Ratio/Momentum requires daily price data relative to a benchmark.</em></p>
+            <p><em>How the axes are computed: both come from each theme ETF&rsquo;s daily closing prices relative to a global equity benchmark &mdash; RS-Ratio is its smoothed relative strength, RS-Momentum is how fast that is changing. It follows the JdK Relative Rotation Graph method, but as an approximation: the original JdK formula is proprietary.</em></p>
           </div>
     <div class="tab-guide-body" data-guide-body="guide_body_drilldown" hidden>
             <p>Select a theme to see its score component history across all stored scans.</p>
