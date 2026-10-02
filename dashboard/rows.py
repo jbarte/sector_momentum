@@ -52,8 +52,7 @@ _TRAJECTORY_SCANS = 5
 HISTORY_SCANS = 20
 
 
-def _scan_fingerprint(scan_df, key_cols: list[str],
-                      value_cols=("rank", "composite")) -> tuple:
+def _scan_fingerprint(scan_df, key_cols: list[str]) -> tuple:
     """A hashable snapshot of one scan's scores, for spotting duplicate scans.
 
     Covers rank *and* composite, not composite alone. Declaring two scans
@@ -63,7 +62,7 @@ def _scan_fingerprint(scan_df, key_cols: list[str],
     NaN is mapped to a sentinel because NaN != NaN would make a scan differ
     from itself, defeating the check exactly when scores are missing.
     """
-    cols = [c for c in value_cols if c in scan_df.columns]
+    cols = [c for c in ("rank", "composite") if c in scan_df.columns]
     sub = scan_df[key_cols + cols].copy()
     for c in cols:
         sub[c] = pd.to_numeric(sub[c], errors="coerce").round(10)
@@ -81,7 +80,6 @@ def _scan_fingerprint(scan_df, key_cols: list[str],
 def distinct_scan_ids(
     history_df,
     key_cols: list[str] | None = None,
-    value_cols=("rank", "composite"),
 ) -> list[int]:
     """Scan ids in ascending order with consecutive duplicates collapsed.
 
@@ -102,25 +100,18 @@ def distinct_scan_ids(
 
     The representative of a duplicate run is its **last** id, so the newest
     scan is always the one rendered.
-
-    `value_cols` are the columns that decide whether two scans are the same
-    data: rank and composite for the leaderboard, rs_ratio and rs_momentum for
-    the rotation chart (figures.py). With none of them present every scan
-    would fingerprint alike and collapse into one, so it keeps every scan.
     """
     if history_df is None or history_df.empty:
         return []
     keys = key_cols or ["region", "gics_sector"]
-    if ("scan_id" not in history_df.columns
-            or any(c not in history_df.columns for c in keys)
-            or not any(c in history_df.columns for c in value_cols)):
+    if "scan_id" not in history_df.columns or any(c not in history_df.columns for c in keys):
         # Not enough to fingerprint — degrade to every scan rather than raise.
         return sorted(history_df["scan_id"].unique()) if "scan_id" in history_df else []
 
     out: list[int] = []
     prev_fp = None
     for sid in sorted(history_df["scan_id"].unique()):
-        fp = _scan_fingerprint(history_df[history_df["scan_id"] == sid], keys, value_cols)
+        fp = _scan_fingerprint(history_df[history_df["scan_id"] == sid], keys)
         if prev_fp is not None and fp == prev_fp:
             out[-1] = sid          # same data — the run's representative moves forward
         else:

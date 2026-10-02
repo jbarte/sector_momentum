@@ -596,13 +596,14 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   tail from the last 6 RAW scans, so the Sat/Sun/Mon replays of Friday's
   close stacked repeated points on one spot: on the day it was fixed every
   6-point tail held only 5 distinct points, and a Monday holds 4. The tail
-  now keeps the last `RRG_TAIL_SCANS` (6) distinct scans
-  (`dashboard/figures.py`), fetched `HISTORY_SCANS` (20) wide in both the
-  live and the guest-anchored fetch. `distinct_scan_ids` gained a
-  `value_cols` argument (rank/composite for the leaderboard, rs_ratio/
-  rs_momentum here) and now keeps every scan, rather than collapsing them
-  all, when none of those columns is present. Verified on a live build:
-  18 tails × 6 points, no repeats. Tests: `tests/test_rrg_tails.py`.
+  now keeps each theme's last `RRG_TAIL_SCANS` (6) distinct points
+  (`dashboard/figures.py:_distinct_tail`), fetched `HISTORY_SCANS` (20) wide
+  in both the live and the guest-anchored fetch. Deduplicated per theme, not
+  per whole scan: review found that one theme missing a reading on a replay
+  day made every replayed scan look distinct. The RRG guide's "last 3 scan
+  positions" copy (already stale at 6) now says 6 positions, one per trading
+  day. Verified on a live build: 18 tails × 6 points, no repeats. Tests:
+  `tests/test_rrg_tails.py`.
 
 - **Signed-in readers get Python's 20-scan history window
   (2026-09-28, `fix/signed-in-history-window`).** `v_recent_scores` returned

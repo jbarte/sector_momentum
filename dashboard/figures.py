@@ -8,12 +8,24 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
 
-from dashboard.rows import _safe_float, distinct_scan_ids
+from dashboard.rows import _safe_float
 
 # Points in each rotation-chart tail, counting the current position. DISTINCT
-# scans: the daily cron replays Friday's close on Sat/Sun/Mon, and raw scans
+# points: the daily cron replays Friday's close on Sat/Sun/Mon, and raw scans
 # stacked those replays on one spot (tests/test_rrg_tails.py).
 RRG_TAIL_SCANS = 6
+
+
+def _distinct_tail(sec):
+    """One theme's points, oldest first, with replays dropped and the last
+    RRG_TAIL_SCANS kept. A replay repeats the previous point exactly, so a run
+    of equal points keeps only its newest scan -- the current position always
+    survives. Per theme, not per scan: one theme missing a reading on a
+    replay day must not stop the others' replays being recognised."""
+    sec = sec.sort_values("scan_id")
+    xy = sec[["rs_ratio", "rs_momentum"]].round(10)
+    last_of_run = (xy != xy.shift(-1)).any(axis=1)
+    return sec[last_of_run].tail(RRG_TAIL_SCANS)
 
 
 # ---------------------------------------------------------------------------
@@ -189,10 +201,10 @@ def _build_rrg_figure(rrg_df) -> str:
         ))
         return _fig_to_json(fig)
 
-    # Keep the last RRG_TAIL_SCANS distinct scans; each replay run is
-    # represented by its newest scan, so the latest scan is always kept.
-    tail_ids = distinct_scan_ids(rrg_df, value_cols=("rs_ratio", "rs_momentum"))
-    rrg_df = rrg_df[rrg_df["scan_id"].isin(tail_ids[-RRG_TAIL_SCANS:])]
+    rrg_df = pd.concat(
+        [_distinct_tail(sec) for _, sec in rrg_df.groupby(["region", "gics_sector"])],
+        ignore_index=True,
+    )
 
     latest_scan_id = rrg_df["scan_id"].max()
     latest = rrg_df[rrg_df["scan_id"] == latest_scan_id].copy()
