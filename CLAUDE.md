@@ -72,8 +72,8 @@ output, not tracked in git** (gitignored). Build it locally to verify a change
 (`make build`); it's fine to have a local `docs/` on any branch since
 it's never staged. CI rebuilds it fresh on every run and deploys it directly as a
 GitHub Pages artifact (`actions/upload-pages-artifact` + `actions/deploy-pages`) — see
-the `pages-artifact-deploy` design doc in `sector_momentum-notes` (private repo, see
-below). There is no merge-conflict risk from `docs/` anymore; feature PRs should still
+the `pages-artifact-deploy` design doc in `notes/specs/` (local and gitignored,
+see below). There is no merge-conflict risk from `docs/` anymore; feature PRs should still
 be **source-only** (`dashboard/templates/`, `dashboard/build.py`, `src/`, `config/`, tests).
 
 `BACKLOG.md` uses a `merge=union` driver (`.gitattributes`) so concurrent Done-list
@@ -108,18 +108,25 @@ deletion, leaving a fragment behind. Match the next item's known heading text
 instead. This is how the check earned its keep the day it was written: it caught
 exactly this in the commit that added it.
 
-## Design docs (specs & plans) — private companion repo, NOT `docs/` or `design/`
+## Design docs (specs, plans, research) — local `notes/`, gitignored, NEVER committed
 
-`sector_momentum` is a **public** repo (required for free-tier GitHub Pages hosting).
-Brainstorming/writing-plans output does **not** live in this repo — it lives in the
-private companion repo **`jbarte/sector_momentum-notes`**, under `specs/` and `plans/`
-(no `design/` prefix there — the repo itself is the private container). Clone it
-locally if it isn't already present (`gh repo clone jbarte/sector_momentum-notes`,
-sibling directory to this repo), and write specs/plans there instead of the
-brainstorming/writing-plans skills' `docs/superpowers/` default. See
-`sector_momentum-notes/specs/2026-07-20-public-repo-privacy-audit-design.md` for why
-this split exists — in short, this repo used to have a `design/` folder that was
-public without anyone intending it to be; it moved out entirely on 2026-07-20.
+`sector_momentum` is a **public** repo (required for free-tier GitHub Pages hosting),
+so design reasoning stays out of git. Brainstorming/writing-plans output goes in
+**`notes/specs/`** and **`notes/plans/`** (research write-ups in `notes/research/`)
+inside this checkout — instead of the skills' `docs/superpowers/` default. `/notes/`
+is in `.gitignore`: **never `git add -f` anything under it**, and never move a spec
+into a tracked path. Code and docs may *point* at `notes/...` paths; the files
+themselves exist only on Jonas's machine.
+
+History: specs and plans lived in a `design/` folder that was public without anyone
+intending it (moved out 2026-07-20 — `notes/specs/2026-07-20-public-repo-privacy-audit-design.md`),
+then in the private `jbarte/sector_momentum-notes` repo until 2026-10-07, when they
+were folded in here as a local folder and that repo was **archived** (read-only on
+GitHub; its history is the backup of everything up to that date). Done entries in
+`BACKLOG.md` still quote `sector_momentum-notes/...` paths — read them as `notes/...`.
+
+Because `notes/` is not in git, it has no version history and no remote copy:
+it is backed up only as far as this Mac is.
 
 ## When to use the superpowers workflow (brainstorm → spec → plan → execute)
 

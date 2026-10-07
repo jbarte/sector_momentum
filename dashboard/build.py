@@ -670,7 +670,7 @@ def main() -> None:
     # carries them (2026-08-31 churn-figure-honesty fix): a config-driven
     # copy of a backtest-observed statistic goes stale the moment the
     # scored universe changes, exactly the defect this fix closes. See
-    # sector_momentum-notes/specs/2026-08-31-long-churn-honesty-design.md.
+    # notes/specs/2026-08-31-long-churn-honesty-design.md.
     _live_stats = _live_horizon_stats(str(project_root / "backtests"))
     _horizons_json = _json.dumps([
         {"key": h.key, "label": h.label, "rebalance": h.rebalance,

@@ -92,7 +92,7 @@ def test_presets_are_ordered_by_holding_period():
     labels lie about what the reader is choosing.
 
     `Horizon` no longer carries these figures (2026-08-31 churn-figure
-    honesty fix, see sector_momentum-notes/specs/2026-08-31-long-churn-
+    honesty fix, see notes/specs/2026-08-31-long-churn-
     honesty-design.md) -- they come from the live backtest artifact now,
     same source and same real-committed-file pattern as
     test_backtest_artifact_was_generated_at_the_configured_cost above.

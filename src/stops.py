@@ -14,7 +14,7 @@ scripts/stoploss_sweep.py measured.
 
 Callers pass `stop_frac` in (from src.horizons.trailing_stop_frac) so this
 module stays testable without config on disk. See
-sector_momentum-notes/specs/2026-09-07-live-trailing-stop-loss-design.md.
+notes/specs/2026-09-07-live-trailing-stop-loss-design.md.
 """
 from __future__ import annotations
 

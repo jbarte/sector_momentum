@@ -12,7 +12,7 @@ headless Chromium, count actual writes to #leaderboard-cards' innerHTML
 dashboard/templates/index.html.j2:799), and assert the count directly,
 so this bug class is re-checked on every CI run.
 
-See sector_momentum-notes/specs/2026-08-25-mobile-render-coalescing-design.md.
+See notes/specs/2026-08-25-mobile-render-coalescing-design.md.
 """
 import json
 import shutil

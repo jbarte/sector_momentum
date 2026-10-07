@@ -2,8 +2,8 @@ name: Build Dashboard
 
 # Rebuilds docs/ and deploys it as a Pages artifact whenever dashboard
 # source changes on main. docs/ is not committed — see
-# specs/2026-07-20-pages-artifact-deploy-design.md in the private
-# sector_momentum-notes repo.
+# notes/specs/2026-07-20-pages-artifact-deploy-design.md (local design
+# notes, not in git — see CLAUDE.md).
 
 on:
   push:

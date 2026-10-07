@@ -237,7 +237,7 @@ nothing else, and skipping the persist breaks every reader that keys on
 
 What readers actually saw was the other half: a signed-in window too short to
 hold 5 distinct scans. That is fixed; see Done, 2026-09-28, and spec
-`sector_momentum-notes/specs/2026-09-28-signed-in-history-window-design.md`.
+`notes/specs/2026-09-28-signed-in-history-window-design.md`.
 
 The rotation chart's tails had the same raw-window problem; fixed separately
 (see Done, 2026-10-02).
@@ -438,8 +438,9 @@ reads the `<h1>` — which now already says the right thing.
 - Pages URL moves to `jbarte.github.io/etf_momentum/`. GitHub redirects the old
   paths, but the **Supabase Auth Site URL and redirect allowlist must be updated
   first** or magic-link sign-in breaks for everyone, including you.
-- **Companion repo** `sector_momentum-notes` renames alongside it, plus the
-  ~10 spec paths quoting it in this file and in `CLAUDE.md`.
+- **Design notes** are now a local, gitignored `notes/` folder (the
+  `sector_momentum-notes` repo was archived 2026-10-07), so nothing there
+  needs renaming.
 - **Local clone path.** `~/AI Projects/sector_momentum` is what keys this
   project's Claude memory and session history
   (`~/.claude/projects/-Users-jonasbarte-AI-Projects-sector-momentum/`).
@@ -594,8 +595,8 @@ contamination worse, not better. Key findings kept for the record:
   `fetch_sp500_constituents()`), aggregation weighting, and the Trends
   day-cache (since shipped, 2026-07-07).
 
-Phase 1 design + plan: `{specs,plans}/2026-06-26-symbol-trends-*` in the
-private `sector_momentum-notes` repo.
+Phase 1 design + plan: `notes/{specs,plans}/2026-06-26-symbol-trends-*`
+(local design notes, not in git).
 
 ## Streamlit live drill-down
 

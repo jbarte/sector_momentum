@@ -142,8 +142,8 @@ dashboard/
 
 - `docs/` is a **build output and is not tracked in git.** Build it locally to
   check a change; CI rebuilds it from the database on every run.
-- Design docs and plans live in the **private** companion repo
-  `jbarte/sector_momentum-notes`, not here — this repo is public for free-tier
-  Pages hosting.
+- Design docs and plans are kept **out of git** (a local, gitignored `notes/`
+  folder) — this repo is public for free-tier Pages hosting. Paths like
+  `notes/specs/...` in comments refer to those private notes.
 - See [CLAUDE.md](CLAUDE.md) for git workflow, commit style and backlog rules,
   and [BACKLOG.md](BACKLOG.md) for queued and completed work.

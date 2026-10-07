@@ -74,7 +74,7 @@ class Horizon:
     # dashboard reads them live from backtests/summary.json at the point
     # of display instead -- same principle as exit_rank(), which is
     # likewise never cached as a static field. See
-    # sector_momentum-notes/specs/2026-08-31-long-churn-honesty-design.md.
+    # notes/specs/2026-08-31-long-churn-honesty-design.md.
 
     def exit_rank(self, universe_size: int) -> int:
         """Ranks above this leave the hold band, for a scored universe of
@@ -85,7 +85,7 @@ class Horizon:
         as a fixed number: the buffer is a FRACTION of the universe, so
         exit_rank widens or narrows as the theme universe grows or shrinks.
         A stale, cached exit_rank is exactly the bug this design replaces —
-        see sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
+        see notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
         """
         return self.top_n + _round_half_up(self.buffer_frac * universe_size)
 

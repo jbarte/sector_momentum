@@ -1,5 +1,5 @@
 """Guards against the i18n engine, tables, or language toggle quietly
-returning. See sector_momentum-notes/specs/2026-09-13-remove-i18n-support-
+returning. See notes/specs/2026-09-13-remove-i18n-support-
 design.md — this repo is deliberately English-only; there is no language
 toggle and no translation table.
 """

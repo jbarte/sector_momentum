@@ -206,7 +206,7 @@ def collect_stop_events(conn, prices: dict, themes_cfg: dict) -> dict[str, list[
 
     Also upserts a LIVE reading (position_stop_distance) for every
     evaluated, not-yet-breached position -- see
-    sector_momentum-notes/specs/2026-09-11-stop-distance-indicator-design.md.
+    notes/specs/2026-09-11-stop-distance-indicator-design.md.
     Skipped for an already-latched position (the `if key in latched`
     guard above runs before this), since the chip owns that row from here on.
     """

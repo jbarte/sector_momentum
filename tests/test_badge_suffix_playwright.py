@@ -9,7 +9,7 @@ in source text, never that the rendered page actually contains the suffix.
 This test drives a real rendered page in headless Chromium (same pattern as
 tests/test_dashboard_render_coalescing.py) and reads the live DOM instead.
 
-See sector_momentum-notes' plan for review-cadence-and-book-lock, Task 2,
+See notes/plans/ (review-cadence-and-book-lock), Task 2,
 "Fix round 1" -- and .superpowers/sdd/2026-08-27-review-cadence-and-book-lock/
 task-2-report.md for the original trace.
 """
