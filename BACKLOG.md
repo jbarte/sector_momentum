@@ -50,14 +50,36 @@ excluding it from the `close` group barely moves the median (0.85 vs 0.84),
 so it isn't distorting anything yet, but is worth remembering if it's still
 short-history next time.
 
+**Re-run 2026-10-07 (first independent monthly cycle):** data as of
+2026-10-06, 196 weeks for the full-history pairs. Medians unchanged —
+exact 0.93, close 0.84, partial 0.54 — so the label ordering still holds.
+**The Defense anomaly persisted:** ITA/DFEN corr 0.61, tracking error
+20.4%, 184 weeks; still the lowest `close` correlation, and still closer to
+the `partial` median than to its own (|0.61 − 0.84| = 0.23 vs
+|0.61 − 0.54| = 0.07). AI & Robotics (BOTZ/XAIX) sits at 0.73, unchanged,
+and still closer to its own group (0.11 vs 0.19). QUTM now has 71 joint
+weeks: above the script's `MIN_JOINT_WEEKS` floor of 26, so it reports
+real numbers (corr 0.83, TE 17.6%), but it's still far short of the 196
+the rest of the group has. One new development: **Uranium & Nuclear
+(URA/URNU) now has data.** Yahoo has backfilled `URNU.DE` to 55 weeks,
+where the 2026-08-30 pull found 5 days. It comes in at corr 0.89 and
+tracking error 23.3%: the lowest correlation and by far the highest
+tracking error in the `exact` group (the others are 8–10%). That's on short
+history, so it's one to watch, not a finding. Caveat on "independent": the
+window is cumulative from 2023-01-01, so this run shares ~190 of its 196
+weeks with the September one. A 190-week correlation can barely move in 6
+weeks, so Defense's stability is expected, and on its own it's weak
+confirmation. A trailing-window cut (e.g. the last 26 weeks) would show
+whether the gap is recent or long-standing.
+
 **Not acted on yet, deliberately.** A rule like "flag a `close` pair scoring
-below the `partial` median" would fire on Defense off two data points that
-are, per the above, really only one meaningfully independent measurement so
-far. Relabeling a theme's tracking quality is a config change with real
+below the `partial` median" would fire on Defense, which has now read
+anomalous on three runs. Those runs overlap heavily, so this is still closer
+to one measurement than three. Relabeling a theme's tracking quality is a config change with real
 consequences (it changes what a reader expects to be able to buy) and
 deserves more than that before acting. Re-run genuinely monthly (the monitor
 has no schedule yet — see the sibling gap on the restore drill's cadence,
-though this doesn't need CI, a manual run is fine, next one due ~2026-10-07)
+though this doesn't need CI, a manual run is fine, next one due ~2026-11-07)
 for a few real cycles, then revisit Defense specifically — AI & Robotics no
 longer looks like it belongs in the same sentence.
 
