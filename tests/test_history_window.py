@@ -7,7 +7,7 @@ input was short: the cron runs daily against a five-day market, so Sat/Sun/Mon
 replay Friday's close, and the last 6 raw scans held only 4 distinct ones
 Mon-Thu -- a 4-point Trend where Python fits 5, and a stuck-pipeline guard
 (MAX_DUPLICATE_RUN) no client could ever reach.
-Spec: sector_momentum-notes/specs/2026-09-28-signed-in-history-window-design.md.
+Spec: notes/specs/2026-09-28-signed-in-history-window-design.md.
 """
 import re
 import sys

@@ -49,7 +49,7 @@ def _select(ranked_index, prev: set[str], top_n: int, buffer_frac: float) -> lis
     `buffer_frac` is a FRACTION of the scored universe, not an absolute rank
     count — the exit rank is resolved fresh from `len(ranked_index)` on every
     call, so the same buffer_frac yields a wider band as the universe grows.
-    See sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
+    See notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
 
     A previously-held name that has no score this period (its prices went
     missing) is absent from `rank_of` and is therefore dropped — a position we
@@ -153,7 +153,7 @@ def simulate_with_stop(
     """`simulate`, plus an optional trailing stop checked on daily closes.
 
     Exploratory (2026-09-07), answering "does a stop-loss help this
-    strategy?" — see sector_momentum-notes for the conversation that led
+    strategy?" — see the design notes (notes/) for the conversation that led
     here. Not wired into the live scan or the shipped presets.
 
     `stop_frac` is the trailing drawdown from a position's peak close SINCE

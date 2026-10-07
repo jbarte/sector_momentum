@@ -624,7 +624,7 @@ def _build_backtest_context(backtests_dir: str) -> dict:
 # Two windows, not one: the window picks the story. Measured 2026-09-05,
 # `medium` read +1.2pp over 1M and +32.2pp over 12M -- showing either alone
 # invites the reader to over-update on an arbitrary framing. See
-# sector_momentum-notes/specs/2026-09-05-strategy-track-record-chip-design.md.
+# notes/specs/2026-09-05-strategy-track-record-chip-design.md.
 _TRACK_WINDOW_DAYS = {"m1": 30, "m12": 365}
 
 # backtests/summary.json refreshes only on a manual `python3 backtest.py`.

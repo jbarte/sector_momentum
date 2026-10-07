@@ -25,7 +25,7 @@ var SMStopDistance = (function () {
   // Two segments, so the midpoint (p = 0.5) is a dark, theme-aware neutral
   // (var(--fg1)) rather than the muddy brown a direct var(--up)->var(--down)
   // mix produces in this palette -- see the design spec's colour table
-  // (sector_momentum-notes/specs/2026-09-11-stop-distance-indicator-design.md).
+  // (notes/specs/2026-09-11-stop-distance-indicator-design.md).
   // Colour is redundant encoding, never the sole signal: the number beside
   // the bar (stops.js's decorate()) carries the same information in
   // greyscale or for a colour-blind reader.

@@ -57,3 +57,10 @@ backups/
 # was safe.
 /horizon_sweep.md
 /ucits_tracking.md
+
+# Design notes: specs, plans and research (brainstorming / writing-plans
+# output). LOCAL ONLY, never committed: this repo is public (free-tier Pages),
+# and these hold design reasoning that was deliberately kept private -- see
+# notes/specs/2026-07-20-public-repo-privacy-audit-design.md. Until 2026-10-07
+# they lived in the private jbarte/sector_momentum-notes repo (now archived).
+/notes/

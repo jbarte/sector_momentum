@@ -1,6 +1,6 @@
 """The two context values the beginner deck reads must exist, on both pages,
 and must be genuinely live (not typed-out copies) -- see
-sector_momentum-notes/specs/2026-09-09-beginner-walkthrough-deck-design.md."""
+notes/specs/2026-09-09-beginner-walkthrough-deck-design.md."""
 import re
 from pathlib import Path
 

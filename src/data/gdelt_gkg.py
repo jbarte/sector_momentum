@@ -1,7 +1,7 @@
 """GDELT GKG bulk file access.
 
 GDELT's DOC 2.0 query API is rate limited with a stateful, long-window
-limiter (see sector_momentum-notes/specs/2026-08-16-gdelt-bulk-fetch-design.md):
+limiter (see notes/specs/2026-08-16-gdelt-bulk-fetch-design.md):
 sustained use leaves a client failing ~80% of requests even at the documented
 5s spacing. GDELT's own guidance is that high-volume users should take the
 bulk feed instead, which is plain static file hosting with no rate limit at

@@ -1349,7 +1349,7 @@ function applyHorizonBadges() {
   // (see its own comment), removing this guard would no longer bring that
   // bug back -- it would only make applyBandBoundaries()'s cheaper cut-row/
   // renderBuyBand() work run twice. Kept as a minor efficiency, not a
-  // correctness requirement. See sector_momentum-notes/specs/2026-08-25-
+  // correctness requirement. See notes/specs/2026-08-25-
   // mobile-render-coalescing-design.md.
   if (typeof applyFilters !== 'function') { applyBandBoundaries(); }
 

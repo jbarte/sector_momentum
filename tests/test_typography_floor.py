@@ -6,7 +6,7 @@ Static regex checks over the CSS source, not real browser rendering — this
 codebase's established convention (see test_market_context_chips.py,
 test_a11y_landmarks.py). Each selector's resolved px value uses the SAME
 reference context measured live in a browser during the design spec's
-investigation (sector_momentum-notes/specs/2026-08-15-sub-12px-typography-design.md):
+investigation (notes/specs/2026-08-15-sub-12px-typography-design.md):
 root/body font-size is a fixed 14px (_foundation.css.j2, no responsive
 override); .traj-badge's `em` is relative to its parent table cell, measured
 at exactly 12px; .chevron and the sort-direction arrows are `em` relative to
@@ -271,7 +271,7 @@ def test_chevron_rule_is_gone_with_its_element():
 
 def test_table_header_is_deliberately_exempt_from_the_floor():
     """Column headers dropped to 11px in the 2026-08-19 leaderboard restructure
-    (sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md).
+    (notes/specs/2026-08-18-leaderboard-redesign-design.md).
     They are uppercase, wide-tracked labels for columns whose CONTENT carries
     the reading weight — the redesign deliberately quiets the header so the row
     doesn't compete with it. Same category as .experimental-badge: below the floor on
@@ -321,7 +321,7 @@ def test_band_cut_eyebrow_is_deliberately_exempt_from_the_floor():
     same treatment as the table header and other quiet secondary labels this
     redesign introduced. Below the floor on purpose, pinned here rather than
     silently skipped. Design spec:
-    sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md."""
+    notes/specs/2026-08-18-leaderboard-redesign-design.md."""
     css = _css("_tables.css.j2")
     assert _resolved_px(_rule_font_size(css, ".band-cut-row .bcr-eyebrow")) < 12
 

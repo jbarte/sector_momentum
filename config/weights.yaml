@@ -81,7 +81,7 @@ costs:
 # CURRENT cells were picked on 2026-08-14 by `scripts/horizon_sweep.py`, run on
 # warm history at 70 and 100 bps over two windows (see the re-pick note below).
 #
-# The `2026-08-08-horizon-sweep-results-*.md` files in sector_momentum-notes are
+# The `2026-08-08-horizon-sweep-results-*.md` files in notes/specs/ are
 # the ORIGINAL selection, at 0 and 10 bps, for a three-preset lineup that no
 # longer exists. They are history, not the justification for these cells — do
 # not re-derive from them. The sweep is reproducible in one command:
@@ -218,7 +218,7 @@ costs:
 # FRACTIONAL BAND MIGRATION, 2026-08-30 — `buffer` (an absolute rank count) is replaced by
 # `buffer_frac` (a fraction of the scored universe), so a preset's selectivity stays stable
 # as the theme universe grows instead of silently drifting every time a theme is added or
-# removed. See sector_momentum-notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
+# removed. See notes/specs/2026-08-30-fractional-hysteresis-band-design.md.
 #
 # The two values below were chosen so exit_rank is UNCHANGED at today's 18-theme universe —
 # this migration is a no-op on rollout day; only future universe growth diverges from what
@@ -233,7 +233,7 @@ costs:
 # measured 16.9). Removed entirely — the chip now reads trades_per_year/
 # median_holding_days live from backtests/summary.json (the same source the
 # Backtest tab already used), so there is nothing here left to go stale. See
-# sector_momentum-notes/specs/2026-08-31-long-churn-honesty-design.md.
+# notes/specs/2026-08-31-long-churn-honesty-design.md.
 horizons:
   default: medium
   presets:
@@ -278,6 +278,6 @@ horizons:
 # fires ~15% less often, and sits a grid step further from that cliff — which
 # matters because the LIVE rule runs on star dates, not the model entry dates
 # the sweep measured. See
-# sector_momentum-notes/specs/2026-09-07-live-trailing-stop-loss-design.md.
+# notes/specs/2026-09-07-live-trailing-stop-loss-design.md.
 stops:
   trailing_frac: 0.12

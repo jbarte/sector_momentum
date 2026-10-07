@@ -1362,7 +1362,7 @@ def test_old_band_edge_classes_are_gone():
     """The invisible border-cut mechanism (toggling a class on the boundary
     row) is replaced entirely by inserted rows — see test_inserts_a_row_not_a_class
     below. Stage 2 of the leaderboard redesign
-    (sector_momentum-notes/specs/2026-08-18-leaderboard-redesign-design.md,
+    (notes/specs/2026-08-18-leaderboard-redesign-design.md,
     Screen 1 point 7)."""
     js = _apply_band_boundaries_js()
     assert "band-edge-buy" not in js

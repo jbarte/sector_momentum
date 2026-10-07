@@ -1,7 +1,7 @@
 """The badge-muting UI: whether a preset's Enter/Exit badges read as
 "actionable now" or "informational since the last review" — the fix for "the
 daily-signal mismatch" (see BACKLOG.md, and
-sector_momentum-notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md
+notes/specs/2026-08-07-rebalance-horizon-hysteresis-design.md
 for the original problem statement).
 
 `Rescore.reviewStatus` is a pure function (dates in, due/mute decision out) so

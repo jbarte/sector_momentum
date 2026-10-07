@@ -5,7 +5,7 @@ Enter/Exit band natively from v_recent_scores rows, which makes it another
 implementation of rules that live here in Python. This module runs the REAL
 Python functions over synthetic inputs and publishes their answers as
 docs/band-fixture.json; the app's tests assert it agrees, so the two cannot
-drift silently. Spec: sector_momentum-notes/specs/2026-09-17-ios-board-app-design.md.
+drift silently. Spec: notes/specs/2026-09-17-ios-board-app-design.md.
 
 Three sections:
 
