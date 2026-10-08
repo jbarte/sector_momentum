@@ -31,7 +31,7 @@ correlation to mean anything) these report None rather than a noisy number.
 
     python3 scripts/ucits_tracking_monitor.py
     python3 scripts/ucits_tracking_monitor.py --out /tmp/ucits_tracking.md
-    python3 scripts/ucits_tracking_monitor.py --recent-weeks 13   # recent window
+    python3 scripts/ucits_tracking_monitor.py --recent-weeks 52   # recent window (>= 26)
 
 Shipping has no UCITS equivalent (see themes.yaml) and is absent from the
 report, not a zero row — there is nothing to compare it against.
@@ -286,8 +286,13 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--out", default="ucits_tracking.md")
     p.add_argument("--recent-weeks", type=int, default=RECENT_WEEKS,
                    help="weeks in the recent correlation/tracking-error window "
-                        f"(default {RECENT_WEEKS})")
-    return p.parse_args()
+                        f"(default {RECENT_WEEKS}; at least {MIN_JOINT_WEEKS})")
+    args = p.parse_args()
+    # Below MIN_JOINT_WEEKS every recent cell would silently read "—": the
+    # floor still applies after the cut. Refuse rather than lower the floor.
+    if args.recent_weeks < MIN_JOINT_WEEKS:
+        p.error(f"--recent-weeks must be at least {MIN_JOINT_WEEKS} (MIN_JOINT_WEEKS)")
+    return args
 
 
 def _load_prices(pairs: list[dict]) -> tuple[dict[str, pd.Series], pd.Series | None]:

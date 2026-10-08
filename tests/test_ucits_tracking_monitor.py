@@ -450,7 +450,15 @@ def test_report_shows_both_windows(tmp_path):
 
 
 def test_recent_weeks_is_a_cli_option(monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["ucits_tracking_monitor.py", "--recent-weeks", "13"])
-    assert _parse_args().recent_weeks == 13
+    monkeypatch.setattr(sys, "argv", ["ucits_tracking_monitor.py", "--recent-weeks", "52"])
+    assert _parse_args().recent_weeks == 52
     monkeypatch.setattr(sys, "argv", ["ucits_tracking_monitor.py"])
     assert _parse_args().recent_weeks == RECENT_WEEKS
+
+
+def test_a_recent_window_below_the_minimum_is_refused(monkeypatch):
+    """Found in review: with --recent-weeks 13 the MIN_JOINT_WEEKS floor still
+    applies after the cut, so every recent cell would silently read "—"."""
+    monkeypatch.setattr(sys, "argv", ["ucits_tracking_monitor.py", "--recent-weeks", "13"])
+    with pytest.raises(SystemExit):
+        _parse_args()
