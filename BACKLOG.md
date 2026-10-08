@@ -168,7 +168,7 @@ still requires the forward-return test above before it earns a place in the
 ranking. Re-measure once ~3 months of clean daily scans exist.
 
 **2. It never worked signed in, and that is fixable.** `makeLeaderboardReadOnly()`
-([`auth.js:147`](dashboard/assets/auth.js)) hides the cogwheel and disables
+([`auth.js`](dashboard/assets/auth.js)) hides the cogwheel and disables
 column sorting for signed-in readers, because the signed-in path replaces the
 baked rows with fresh ones from `v_recent_scores`, and the client-side rescore
 reads `RESCORE_DATA` — a per-scan history baked at build time and keyed by
@@ -219,9 +219,11 @@ key needed any more — i18n was removed entirely, 2026-09-13, see Done.)
 
 ## iOS app follow-ups (jbarte/etf-momentum-ios)
 
-The board app shipped in its own repo: v1 (etf-momentum-ios#1, 2026-09-27)
-and magic-link sign-in (#2, 2026-09-28), built on the config block and parity
-fixture this repo publishes (see Done, 2026-09-19). What is left:
+The board app shipped in its own repo: v1 (etf-momentum-ios#1, 2026-09-27),
+magic-link sign-in (#2, 2026-09-28) and the theme detail screen, a rank-history
+chart against the Buy/Exit lines (#6, 2026-10-07), built on the config block
+and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
+`v_recent_scores` window (Done, 2026-09-28). What is left:
 
 - **Install on a physical iPhone — blocked (tried 2026-10-02); developing in
   the simulator instead.** Jonas's own free Personal Team has hit Apple's
@@ -460,6 +462,13 @@ reads the `<h1>` — which now already says the right thing.
 - Pages URL moves to `jbarte.github.io/etf_momentum/`. GitHub redirects the old
   paths, but the **Supabase Auth Site URL and redirect allowlist must be updated
   first** or magic-link sign-in breaks for everyone, including you.
+- **The iOS app hardcodes the Pages URL** (`jbarte.github.io/sector_momentum/`
+  in etf-momentum-ios: `Sources/FeedClient/LiveKey.swift` for `data.json`, and
+  `scripts/check-fixture.sh` / `scripts/update-fixture.sh` for
+  `band-fixture.json`, plus its README). Change those in the same step, and
+  don't rely on a redirect: a build already installed on a device keeps the old
+  URL until it is rebuilt. Also re-check the app's `etfmomentum://login-callback`
+  redirect and the web's Site URL allowlist together.
 - **Design notes** are now a local, gitignored `notes/` folder (the
   `sector_momentum-notes` repo was archived 2026-10-07), so nothing there
   needs renaming.
@@ -601,25 +610,6 @@ Not worth fixing by baking the latest panels — that would leak gated data into
 the public HTML and defeat content gating. The real fix, if it ever becomes
 annoying, is a gated client-side breakdown fetch (its own spec/plan).
 
-## Symbol-based Trends sentiment — Phase 2 (US constituents)
-
-**Parked 2026-06-26 after Phase 1 validation.** Adding constituent tickers
-(more, lower-volume, more-ambiguous terms) makes ticker-collision
-contamination worse, not better. Key findings kept for the record:
-
-- Mechanism works for liquid US ETFs (full 13/13 coverage on `XLK/VGT` etc.);
-  EU `.DE` tickers are dead on Trends (0/13).
-- Ambiguous tickers dominate the cross-sectional z (`VOX` → Vox Media z +4.16,
-  `LOGS` → the English word z +1.27). Blocklisting is whack-a-mole; the real
-  fixes are entity mids (since shipped for sectors, 2026-07-04) or the FinBERT
-  pivot (since shipped, 2026-07-17).
-- If ever revived: needs top-N liquidity ranking (no market-cap source in
-  `fetch_sp500_constituents()`), aggregation weighting, and the Trends
-  day-cache (since shipped, 2026-07-07).
-
-Phase 1 design + plan: `notes/{specs,plans}/2026-06-26-symbol-trends-*`
-(local design notes, not in git).
-
 ## Streamlit live drill-down
 
 Optional interactive drill-down UI. Carried from early planning; the static
@@ -642,6 +632,18 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **UCITS monitor reports a recent 26-week window and runs monthly
+  (2026-10-08, `feature/ucits-recent-window`).** Shipped from the "UCITS monitor"
+  item, which stays Queued for its remaining part (the label-disagreement flag).
+  `scripts/ucits_tracking_monitor.py` measured correlation and tracking error
+  from 2023-01-01 on, so consecutive monthly runs shared ~190 of ~196 weeks and
+  could not show whether a weak pair's gap was recent. It now also reports the
+  last `RECENT_WEEKS` (26) joint weeks (`corr 26w` / `track err 26w`,
+  `--recent-weeks N`, refused below `MIN_JOINT_WEEKS`). First reading: Defense
+  0.61 full window but 0.75 recent, nearer its own `close` group, which is
+  evidence against relabeling it. The monitor now runs as a monthly scheduled
+  Claude task on the 7th (first 2026-11-07). No labels changed.
 
 - **Rotation-chart tails are drawn from distinct scans
   (2026-10-02, `fix/rrg-distinct-tails`).** The RRG tab built each theme's
