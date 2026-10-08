@@ -72,16 +72,38 @@ weeks, so Defense's stability is expected, and on its own it's weak
 confirmation. A trailing-window cut (e.g. the last 26 weeks) would show
 whether the gap is recent or long-standing.
 
+**Recent window added 2026-10-08 (`feature/ucits-recent-window`).** The
+monitor now also reports correlation and tracking error over the last
+`RECENT_WEEKS` (26) joint weeks (`corr 26w` / `track err 26w`, and
+`--recent-weeks N`). Unlike the cumulative window, a month moves ~4 of
+those 26 weeks, so monthly runs now carry new information. **First reading,
+data as of 2026-10-07:**
+
+| | full window | last 26 weeks |
+|---|---|---|
+| Defense (ITA/DFEN) | 0.61 | **0.75** |
+| `close` median | 0.84 | 0.845 |
+| `partial` median | 0.54 | 0.48 |
+
+**Defense's gap is old, not recent.** Over the last 26 weeks it is clearly
+nearer its own group (|0.75 − 0.845| = 0.10 vs |0.75 − 0.48| = 0.27), so the
+weak full-window number comes from earlier in the window. This is evidence
+*against* relabeling it `partial`. AI & Robotics reads 0.76 recent (0.73
+full). Uranium & Nuclear is 0.81 recent on 55 weeks of history, so it is
+still one to watch.
+
 **Not acted on yet, deliberately.** A rule like "flag a `close` pair scoring
 below the `partial` median" would fire on Defense, which has now read
 anomalous on three runs. Those runs overlap heavily, so this is still closer
-to one measurement than three. Relabeling a theme's tracking quality is a config change with real
+to one measurement than three, and the recent window now points the other
+way. Relabeling a theme's tracking quality is a config change with real
 consequences (it changes what a reader expects to be able to buy) and
-deserves more than that before acting. Re-run genuinely monthly (the monitor
-has no schedule yet — see the sibling gap on the restore drill's cadence,
-though this doesn't need CI, a manual run is fine, next one due ~2026-11-07)
-for a few real cycles, then revisit Defense specifically — AI & Robotics no
-longer looks like it belongs in the same sentence.
+deserves more than that before acting. The monitor now runs monthly as a
+scheduled Claude task on the 7th (first one 2026-11-07), and each run records
+both windows here. Revisit Defense once the **recent** window has a few
+cycles: a flag rule, if one is built, should key off `corr 26w`, not the
+cumulative number. AI & Robotics no longer looks like it belongs in the
+same sentence.
 
 ## Restore the sentiment blend control — and make it work when signed in
 

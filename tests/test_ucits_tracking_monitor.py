@@ -24,6 +24,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.ucits_tracking_monitor import (
+    RECENT_WEEKS,
+    _parse_args,
+    _write,
     assumed_currency,
     fx_adjust_to_usd,
     resolve_yf_ticker,
@@ -368,3 +371,94 @@ def test_tracking_report_refuses_to_fx_adjust_an_unrecognized_exchange(caplog):
     assert rows[0]["correlation"] is None
     assert rows[0]["tracking_error"] is None
     assert "not recognized as EUR" in caplog.text
+
+
+# --- recent window --------------------------------------------------------
+# The long window always starts at FETCH_START (2023-01-01), so consecutive
+# monthly runs share ~190 of ~196 weeks: a long-window correlation can barely
+# move between runs, and cannot say whether a gap is recent or long-standing.
+# The recent window reads only the last RECENT_WEEKS joint weeks.
+
+def _pair_that_decouples(total_weeks=196, recent=26):
+    """Two series that track each other closely for all but the last `recent`
+    weeks, then move independently -- a fund whose tracking broke recently."""
+    idx = pd.bdate_range(end="2026-08-28", periods=total_weeks * 5, freq="B")
+    rng = np.random.default_rng(7)
+    # Multiplicative (log-return) walks, so percentage moves stay the same size
+    # throughout: an additive walk can drift near zero, and its late weeks'
+    # huge percentage returns would swamp the correlation.
+    shared = rng.normal(0, 0.01, len(idx))
+    own = rng.normal(0, 0.01, len(idx))
+    cut = len(idx) - recent * 5
+    a = pd.Series(100 * np.exp(np.cumsum(shared)), index=idx)
+    b = pd.Series(100 * np.exp(np.cumsum(np.concatenate([shared[:cut], own[cut:]]))), index=idx)
+    return a, b
+
+
+def test_recent_window_reads_only_the_last_weeks():
+    a, b = _pair_that_decouples()
+    full = tracking_stats(a, b)
+    recent = tracking_stats(a, b, last_weeks=26)
+    assert full["n_weeks"] > 100
+    assert recent["n_weeks"] == 26
+    # the break is invisible in the long window, obvious in the recent one
+    assert full["correlation"] > 0.7
+    assert recent["correlation"] < 0.5
+
+
+def test_recent_window_shorter_than_the_minimum_is_none():
+    a, b = _correlated_pair(60)
+    stats = tracking_stats(a, b, last_weeks=10, min_weeks=26)
+    assert stats["correlation"] is None and stats["n_weeks"] == 10
+
+
+def test_tracking_report_adds_recent_columns_with_fx():
+    a, b = _pair_that_decouples()
+    fx = pd.Series(1.0, index=a.index)
+    pairs = [{"theme": "Defense", "us_ticker": "ITA", "ucits_ticker": "DFEN",
+              "yf_ticker": "DFEN.DE", "match": "close"}]
+    row = tracking_report(pairs, {"ITA": a, "DFEN.DE": b}, as_of=a.index[-1], fx=fx)[0]
+    assert row["recent_n_weeks"] == RECENT_WEEKS
+    assert row["recent_correlation"] < row["correlation"]
+    assert row["recent_tracking_error"] > row["tracking_error"]
+
+
+def test_tracking_report_recent_columns_are_none_without_fx():
+    pairs = [{"theme": "AI", "us_ticker": "BOTZ", "ucits_ticker": "XAIX",
+              "yf_ticker": "XAIX.DE", "match": "close"}]
+    row = tracking_report(pairs, {"BOTZ": _grown(0.2), "XAIX.DE": _grown(0.15)},
+                          as_of=pd.Timestamp("2026-08-28"))[0]
+    assert row["recent_correlation"] is None
+    assert row["recent_tracking_error"] is None
+    assert row["recent_n_weeks"] == 0
+
+
+def test_report_shows_both_windows(tmp_path):
+    a, b = _pair_that_decouples()
+    fx = pd.Series(1.0, index=a.index)
+    pairs = [{"theme": "Defense", "us_ticker": "ITA", "ucits_ticker": "DFEN",
+              "yf_ticker": "DFEN.DE", "match": "close"}]
+    rows = tracking_report(pairs, {"ITA": a, "DFEN.DE": b}, as_of=a.index[-1], fx=fx)
+    out = tmp_path / "ucits_tracking.md"
+    _write(rows, a.index[-1], out)
+    text = out.read_text()
+    header = next(line for line in text.splitlines() if line.startswith("| match"))
+    assert f"corr {RECENT_WEEKS}w" in header and f"track err {RECENT_WEEKS}w" in header
+    defense = next(line for line in text.splitlines() if "| Defense |" in line)
+    # every header column has a cell
+    assert defense.count("|") == header.count("|")
+
+
+def test_recent_weeks_is_a_cli_option(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["ucits_tracking_monitor.py", "--recent-weeks", "52"])
+    assert _parse_args().recent_weeks == 52
+    monkeypatch.setattr(sys, "argv", ["ucits_tracking_monitor.py"])
+    assert _parse_args().recent_weeks == RECENT_WEEKS
+
+
+def test_a_recent_window_below_the_minimum_is_refused(monkeypatch):
+    """Found in review: with --recent-weeks 13 the MIN_JOINT_WEEKS floor still
+    applies after the cut, so every recent cell would silently read "—"."""
+    monkeypatch.setattr(sys, "argv", ["ucits_tracking_monitor.py", "--recent-weeks", "13"])
+    with pytest.raises(SystemExit):
+        _parse_args()
