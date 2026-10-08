@@ -31,6 +31,7 @@ correlation to mean anything) these report None rather than a noisy number.
 
     python3 scripts/ucits_tracking_monitor.py
     python3 scripts/ucits_tracking_monitor.py --out /tmp/ucits_tracking.md
+    python3 scripts/ucits_tracking_monitor.py --recent-weeks 13   # recent window
 
 Shipping has no UCITS equivalent (see themes.yaml) and is absent from the
 report, not a zero row — there is nothing to compare it against.
@@ -67,6 +68,14 @@ FX_TICKER = "EURUSD=X"  # USD per 1 EUR. Every UCITS entry shipped today is
 #: that IPO'd a few weeks ago, not enough on its own to trust a borderline
 #: correlation.
 MIN_JOINT_WEEKS = 26
+
+#: The RECENT window, reported beside the full one. The full window always
+#: starts at FETCH_START, so consecutive monthly runs share ~190 of ~196 weeks:
+#: a long-window correlation can barely move between runs, and cannot say
+#: whether a weak pair's gap is recent or long-standing. The last 26 weeks can
+#: -- a month moves ~4 of them -- and 26 is MIN_JOINT_WEEKS, the shortest window
+#: this module already trusts.
+RECENT_WEEKS = 26
 
 
 #: Currency implied by a Yahoo exchange suffix, for the ones this module has
@@ -180,7 +189,8 @@ def weekly_returns(series: pd.Series) -> pd.Series:
 
 
 def tracking_stats(us: pd.Series, uc_usd: pd.Series,
-                   min_weeks: int = MIN_JOINT_WEEKS) -> dict:
+                   min_weeks: int = MIN_JOINT_WEEKS,
+                   last_weeks: int | None = None) -> dict:
     """Weekly-return correlation and annualized tracking error between two
     USD-denominated series (the caller FX-adjusts before calling this).
 
@@ -190,9 +200,14 @@ def tracking_stats(us: pd.Series, uc_usd: pd.Series,
     `min_weeks`, both fields are None rather than a number computed from too
     few points to trust; `n_weeks` is always returned so the report can show
     the reader why.
+
+    `last_weeks`, when given, keeps only the most recent that-many joint weekly
+    returns (see RECENT_WEEKS); `min_weeks` still applies to what is left.
     """
     a, b = weekly_returns(us), weekly_returns(uc_usd)
     joint = pd.concat([a, b], axis=1, join="inner").dropna()
+    if last_weeks is not None:
+        joint = joint.tail(last_weeks)
     n = len(joint)
     if n < min_weeks:
         return {"correlation": None, "tracking_error": None, "n_weeks": n}
@@ -210,7 +225,8 @@ def tracking_stats(us: pd.Series, uc_usd: pd.Series,
 
 
 def tracking_report(pairs: list[dict], prices: dict[str, pd.Series],
-                    as_of: pd.Timestamp, fx: pd.Series | None = None) -> list[dict]:
+                    as_of: pd.Timestamp, fx: pd.Series | None = None,
+                    recent_weeks: int = RECENT_WEEKS) -> list[dict]:
     """One row per pair: trailing returns in each listing's own currency, the
     FX-adjusted difference (UCITS - US), and weekly-return correlation /
     tracking error.
@@ -256,8 +272,11 @@ def tracking_report(pairs: list[dict], prices: dict[str, pd.Series],
                                     else None)
         if us is not None and uc_usd is not None and pair_fx is not None:
             row.update(tracking_stats(us, uc_usd))
+            recent = tracking_stats(us, uc_usd, last_weeks=recent_weeks)
         else:
             row.update({"correlation": None, "tracking_error": None, "n_weeks": 0})
+            recent = {"correlation": None, "tracking_error": None, "n_weeks": 0}
+        row.update({f"recent_{k}": v for k, v in recent.items()})
         rows.append(row)
     return rows
 
@@ -265,6 +284,9 @@ def tracking_report(pairs: list[dict], prices: dict[str, pd.Series],
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out", default="ucits_tracking.md")
+    p.add_argument("--recent-weeks", type=int, default=RECENT_WEEKS,
+                   help="weeks in the recent correlation/tracking-error window "
+                        f"(default {RECENT_WEEKS})")
     return p.parse_args()
 
 
@@ -303,13 +325,14 @@ def main() -> int:
         logger.error("No price data fetched for any pair.")
         return 1
 
-    rows = tracking_report(pairs, prices, as_of, fx=fx)
-    _write(rows, as_of, Path(args.out), fx_adjusted=fx is not None)
+    rows = tracking_report(pairs, prices, as_of, fx=fx, recent_weeks=args.recent_weeks)
+    _write(rows, as_of, Path(args.out), fx_adjusted=fx is not None,
+           recent_weeks=args.recent_weeks)
     return 0
 
 
 def _write(rows: list[dict], as_of: pd.Timestamp, out: Path,
-          fx_adjusted: bool = True) -> None:
+          fx_adjusted: bool = True, recent_weeks: int = RECENT_WEEKS) -> None:
     def fmt(v):
         return "—" if v is None else f"{100 * v:+.1f}%"
 
@@ -329,7 +352,11 @@ def _write(rows: list[dict], as_of: pd.Timestamp, out: Path,
     corr_note = (
         "- `corr`/`track err` are weekly-return correlation and annualized "
         f"tracking error (FX-adjusted). `—` below {MIN_JOINT_WEEKS} weeks of "
-        "joint history — a fund too newly listed for either to mean anything."
+        "joint history — a fund too newly listed for either to mean anything. "
+        f"`corr {recent_weeks}w`/`track err {recent_weeks}w` are the same over the "
+        f"last {recent_weeks} joint weeks only: the full window starts at "
+        f"{FETCH_START} and barely moves between monthly runs, the recent one "
+        "shows whether a gap is new or long-standing."
         if fx_adjusted else
         "- `corr`/`track err` require an FX-adjusted common currency and are "
         "empty this run (FX fetch failed)."
@@ -344,8 +371,8 @@ def _write(rows: list[dict], as_of: pd.Timestamp, out: Path,
         "",
         "| match | theme | US | UCITS | US 3m | UCITS 3m | diff 3m | "
         "US 6m | UCITS 6m | diff 6m | US 1y | UCITS 1y | diff 1y | "
-        "corr | track err | weeks |",
-        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        f"corr | track err | weeks | corr {recent_weeks}w | track err {recent_weeks}w |",
+        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for r in sorted(rows, key=lambda r: (r["match"], r["theme"])):
         lines.append(
@@ -354,7 +381,8 @@ def _write(rows: list[dict], as_of: pd.Timestamp, out: Path,
             f"{fmt(r['us_6m'])} | {fmt(r['ucits_6m'])} | {fmt(r['diff_6m'])} | "
             f"{fmt(r['us_1y'])} | {fmt(r['ucits_1y'])} | {fmt(r['diff_1y'])} | "
             f"{fmt_corr(r['correlation'])} | {fmt(r['tracking_error'])} | "
-            f"{r['n_weeks']} |"
+            f"{r['n_weeks']} | {fmt_corr(r['recent_correlation'])} | "
+            f"{fmt(r['recent_tracking_error'])} |"
         )
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     logger.info("Wrote %s (%d pairs)", out, len(rows))
