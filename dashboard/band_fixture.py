@@ -7,7 +7,7 @@ Python functions over synthetic inputs and publishes their answers as
 docs/band-fixture.json; the app's tests assert it agrees, so the two cannot
 drift silently. Spec: notes/specs/2026-09-17-ios-board-app-design.md.
 
-Three sections:
+Four sections:
 
 - ``band``   -- ``_compute_setup`` and ``Horizon.exit_rank`` for every
   configured horizon at several universe sizes, including half-ranks either
@@ -20,11 +20,18 @@ Three sections:
   ``_compute_rank_trajectories``, including the weekend replay: Sat/Sun/Mon
   scans repeat Friday's close, and the delta must be taken against the
   previous DISTINCT scan or it reads "—".
+- ``book``   -- ``strategy.book_actions`` (the Python reference for what a review
+  asks of the reader's book) over a 18-theme universe, for every configured
+  horizon: empty and healthy books, a holding inside the hold range that new
+  leaders must not displace, the sell line from both sides, unbuyable themes,
+  over-held books, a held theme missing from the scan, and tied ranks. Each case
+  also carries ``ranks`` (aligned with ``ranked``) so a client can build its
+  board from them and check that tied themes keep their order.
 
 Not pinned here: the holdings-aware Enter/Hold/Exit badge (rescore.js
-badgeFor/badgeForRank) and the rule that an unbuyable theme never shows Enter.
-Both are layered on top of the plain band this fixture pins, and the app's v1
-deliberately renders only the plain band.
+badgeFor/badgeForRank) and the review calendar (rescore.js reviewStatus), which
+have no Python reference; the iOS app ports them from the JS tests. The book
+rule above is the one that says what to buy and sell, so it is the one pinned.
 
 Deterministic and synthetic: no timestamps, no database rows. It is rebuilt
 daily with the dashboard but only changes when a rule or a preset does -- which
@@ -37,11 +44,12 @@ import pandas as pd
 
 from dashboard.rows import (MAX_DUPLICATE_RUN, _build_leaderboard_rows,
                             _compute_rank_trajectories, _compute_setup)
+from src.backtest.strategy import book_actions
 
 #: Bump only when the SHAPE of the file changes (a key added, renamed or
-#: removed). The bytes change whenever a rule or a horizon preset moves, and
+#: removed). Version 2 added the `book` section. The bytes change whenever a rule or a horizon preset moves, and
 #: that is not a version change -- it is the signal the consumer's CI reacts to.
-FIXTURE_VERSION = 1
+FIXTURE_VERSION = 2
 
 #: Sizes the universe has actually had (10, 13, 18, 20 themes) plus both ends.
 UNIVERSE_SIZES = (5, 10, 13, 18, 20, 25)
@@ -181,6 +189,46 @@ def _board_cases() -> list[dict]:
     ]
 
 
+_BOOK_UNIVERSE = 18   # the universe size the exit rank is resolved against
+
+
+def _book_case(name: str, h, ranked, held, unbuyable=(), ranks=None) -> dict:
+    held, unbuyable = sorted(held), sorted(unbuyable)
+    return {
+        "name": f"{h.key}: {name}", "horizon": h.key,
+        "top_n": h.top_n, "buffer_frac": h.buffer_frac,
+        "ranked": ranked,
+        "ranks": ranks if ranks is not None else [float(i + 1) for i in range(len(ranked))],
+        "held": held, "unbuyable": unbuyable,
+        "expected": book_actions(ranked, held, h.top_n, h.buffer_frac, unbuyable),
+    }
+
+
+def _book_cases(horizon_list) -> list[dict]:
+    ranked = [f"R{i}" for i in range(1, _BOOK_UNIVERSE + 1)]     # R1 best .. R18 worst
+    cases = []
+    for h in horizon_list:
+        top_n, exit_rank = h.top_n, h.exit_rank(_BOOK_UNIVERSE)
+        top, band = ranked[:top_n], ranked[top_n:exit_rank]       # buy band; hold range
+        # The pair straddling top_n shares a half rank: R{top_n} and R{top_n+1}.
+        tied = [float(i + 1) for i in range(_BOOK_UNIVERSE)]
+        tied[top_n - 1] = tied[top_n] = top_n + 0.5
+        cases += [
+            _book_case("empty book fills the top slots", h, ranked, []),
+            _book_case("healthy book changes nothing", h, ranked, top),
+            _book_case("hold range is not displaced by new leaders", h, ranked, band[:top_n]),
+            _book_case("past the sell line", h, ranked, top[:-1] + [ranked[exit_rank]]),
+            _book_case("on the sell line", h, ranked, top[:-1] + [ranked[exit_rank - 1]]),
+            _book_case("unbuyable wins a freed slot", h, ranked, ["R1", "R3"], ["R2"]),
+            _book_case("unbuyable already held", h, ranked, top, ["R2"]),
+            _book_case("over-held by one", h, ranked, top + band[:1]),
+            _book_case("over-held by two", h, ranked, top + band[:2]),
+            _book_case("held theme missing from the scan", h, ranked, ["GONE", "R1"]),
+            _book_case("tied ranks keep the board's order", h, ranked, top + band[:1], ranks=tied),
+        ]
+    return cases
+
+
 def _series_case(ranks: list[float]) -> dict:
     # Composites differ per scan so no scan collapses into its neighbour.
     scans = [(i + 1, [("Alpha", r, round(1.0 + i * 0.01, 6))]) for i, r in enumerate(ranks)]
@@ -203,4 +251,5 @@ def build_band_fixture(horizon_list) -> dict:
         "band": _band_cases(horizon_list),
         "series": _series_cases(),
         "boards": _board_cases(),
+        "book": _book_cases(horizon_list),
     }

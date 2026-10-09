@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dashboard.band_fixture import UNIVERSE_SIZES, build_band_fixture
 from dashboard.rows import HISTORY_SCANS, MAX_DUPLICATE_RUN
+from src.backtest.strategy import book_actions
 from src.horizons import horizons
 
 ROOT = Path(__file__).parent.parent
@@ -159,3 +160,90 @@ def test_build_publishes_the_fixture_and_the_config():
     assert "build_config_block(_themes_cfg, cohort_list, horizon_list," in src
     assert "config=config_block" in src
     assert src.index("build_config_block(") < src.index("# 6b")
+
+
+# --- the `book` section ---------------------------------------------------
+
+_BOOK_SCENARIOS = [
+    "empty book fills the top slots",
+    "healthy book changes nothing",
+    "hold range is not displaced by new leaders",
+    "past the sell line",
+    "on the sell line",
+    "unbuyable wins a freed slot",
+    "unbuyable already held",
+    "over-held by one",
+    "over-held by two",
+    "held theme missing from the scan",
+    "tied ranks keep the board's order",
+]
+
+
+def _book():
+    return _fx()["book"]
+
+
+def test_fixture_version_marks_the_book_section():
+    """The shape changed (a `book` key was added), so the version moved. The
+    iOS app asserts it, which is how a shape change gets noticed."""
+    assert _fx()["fixture_version"] == 2
+
+
+def test_book_covers_every_scenario_for_every_preset():
+    assert {c["name"] for c in _book()} == {
+        f"{h.key}: {s}" for h in horizons() for s in _BOOK_SCENARIOS}
+    assert len(_book()) == len(_BOOK_SCENARIOS) * len(horizons())
+
+
+def test_book_cases_use_the_configured_presets():
+    by_key = {h.key: h for h in horizons()}
+    for c in _book():
+        h = by_key[c["horizon"]]
+        assert (c["top_n"], c["buffer_frac"]) == (h.top_n, h.buffer_frac), c["name"]
+
+
+def test_book_expected_is_the_python_references_output():
+    for c in _book():
+        assert c["expected"] == book_actions(
+            c["ranked"], c["held"], c["top_n"], c["buffer_frac"], c["unbuyable"]), c["name"]
+
+
+def test_book_cases_are_well_formed():
+    keys = {"picks", "buys", "sells", "blocked", "surplus", "free_slots", "over_held"}
+    for c in _book():
+        assert len(c["ranks"]) == len(c["ranked"]), c["name"]
+        assert c["ranks"] == sorted(c["ranks"]), c["name"]       # best first
+        assert c["held"] == sorted(c["held"]), c["name"]
+        assert c["unbuyable"] == sorted(c["unbuyable"]), c["name"]
+        assert set(c["expected"]) == keys, c["name"]
+
+
+def test_book_pins_that_the_hold_range_is_not_displaced():
+    """The "can't hold 8" case, from the fixture's side: a full book inside
+    the hold range buys nothing and sells nothing."""
+    cases = [c for c in _book() if "hold range is not displaced" in c["name"]]
+    assert len(cases) == len(horizons())
+    for c in cases:
+        assert c["expected"]["buys"] == [] and c["expected"]["sells"] == [], c["name"]
+        assert c["expected"]["free_slots"] == 0, c["name"]
+
+
+def test_book_pins_the_sell_line_from_both_sides():
+    """One rank apart: on the exit rank a holding is kept, one past it is sold.
+    A port using < where Python uses <= (or the reverse) fails one of the two."""
+    for h in horizons():
+        on = next(c for c in _book() if c["name"] == f"{h.key}: on the sell line")
+        past = next(c for c in _book() if c["name"] == f"{h.key}: past the sell line")
+        assert on["expected"]["sells"] == []
+        assert len(past["expected"]["sells"]) == 1
+
+
+def test_book_tie_case_has_tied_ranks_and_an_order_dependent_surplus():
+    """The over-held surplus is the LAST kept holding in board order. With the
+    pair straddling top_n tied, a port that reorders ties names the wrong one."""
+    ties = [c for c in _book() if "tied ranks keep" in c["name"]]
+    assert len(ties) == len(horizons())
+    for c in ties:
+        assert len(set(c["ranks"])) < len(c["ranks"]), c["name"]
+        assert c["expected"]["over_held"] == 1, c["name"]
+        assert c["expected"]["surplus"] == [c["ranked"][c["top_n"]]], c["name"]
