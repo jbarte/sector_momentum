@@ -99,3 +99,34 @@ def test_holding_past_the_sell_line_is_sold():
     js = _js_select_book(_RANKED, {"R1", "R3", "R5", "R12"}, set())
     assert js["sells"] == ["R12"]
     assert len(js["buys"]) == 1
+
+
+def _js_select_book_many(cases):
+    """selectBook for every fixture case in ONE Node process."""
+    script = f"""
+      const R = require({str(_RESCORE_JS)!r});
+      const cases = {json.dumps(cases)};
+      console.log(JSON.stringify(cases.map(c => R.selectBook(
+        c.ranked, c.held, {{top_n: c.top_n, buffer_frac: c.buffer_frac}}, c.unbuyable))));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, f"node failed: {res.stderr}"
+    return json.loads(res.stdout)
+
+
+_JS_TO_FIXTURE_KEYS = {"freeSlots": "free_slots", "overHeld": "over_held"}
+
+
+def test_js_select_book_matches_the_published_fixture():
+    """The fixture's `book` section is what the iOS app is tested against, and
+    its expectations come from strategy.book_actions. The web must agree with
+    them too, or the app and the website would drift apart while each one still
+    matched its own copy of the rule."""
+    from dashboard.band_fixture import build_band_fixture
+    from src.horizons import horizons
+    cases = build_band_fixture(horizons())["book"]
+    results = _js_select_book_many(cases)
+    assert len(results) == len(cases)
+    for case, js in zip(cases, results):
+        got = {_JS_TO_FIXTURE_KEYS.get(k, k): v for k, v in js.items()}
+        assert got == case["expected"], case["name"]
