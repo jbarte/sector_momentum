@@ -66,6 +66,56 @@ def _select(ranked_index, prev: set[str], top_n: int, buffer_frac: float) -> lis
     return sorted(keep, key=lambda sk: rank_of[sk])
 
 
+def book_actions(
+    ranked_keys: list[str],
+    held,
+    top_n: int,
+    buffer_frac: float,
+    unbuyable=(),
+) -> dict:
+    """What a review asks of the reader's book: sells, buys, and the rest.
+
+    The Python reference for the OUTPUTS of rescore.js `selectBook()` and the
+    iOS app's `selectBook`; `_select` stays the reference for WHO is kept, and
+    this builds on it rather than restating it. Published as the `book` section
+    of band-fixture.json (dashboard/band_fixture.py). Known cosmetic difference:
+    when two or more held names are missing from the scan, `sells` breaks that
+    tie by name here, while rescore.js keeps the order they were held in.
+
+    `ranked_keys` is best-first (the board's row order). `held` and `unbuyable`
+    are names; their order and any duplicates never change the answer.
+
+    - `picks`     the book after the review, unbuyable names excluded
+    - `buys`      kept names the reader does not yet hold, unbuyable excluded
+    - `sells`     held names that did not survive: past the exit rank, or absent
+                  from this scan. Rank order, unranked names last, then by name.
+    - `blocked`   unbuyable names that are kept, whether or not the reader holds
+                  them: the slot stays EMPTY and nothing is passed down
+                  (simulate()'s rule). A held one is neither a pick nor a sell.
+    - `surplus`   when over-held, the worst-ranked holdings first. Nothing
+                  trims an over-held book; this only names what would.
+    - `free_slots`  slots free BEFORE refilling (top_n minus holdings kept)
+    - `over_held`   holdings kept beyond top_n
+    """
+    held = list(dict.fromkeys(held))              # first occurrence wins
+    held_set, unbuy = set(held), set(unbuyable)
+    rank_of = {k: i for i, k in enumerate(ranked_keys)}
+    chosen = _select(ranked_keys, held_set, top_n, buffer_frac)   # rank order
+    chosen_set = set(chosen)
+    kept_held = [k for k in chosen if k in held_set]
+    over = max(0, len(kept_held) - top_n)
+    return {
+        "picks": [k for k in chosen if k not in unbuy],
+        "buys": [k for k in chosen if k not in held_set and k not in unbuy],
+        "sells": sorted((k for k in held if k not in chosen_set),
+                        key=lambda k: (rank_of.get(k, 10 ** 9), k)),
+        "blocked": [k for k in chosen if k in unbuy],
+        "surplus": kept_held[len(kept_held) - over:][::-1] if over else [],
+        "free_slots": max(0, top_n - len(kept_held)),
+        "over_held": over,
+    }
+
+
 def simulate(
     score_by_date: dict[pd.Timestamp, pd.DataFrame],
     fwd_returns: pd.DataFrame,
