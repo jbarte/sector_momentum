@@ -21,7 +21,7 @@ Four sections:
   scans repeat Friday's close, and the delta must be taken against the
   previous DISTINCT scan or it reads "—".
 - ``book``   -- ``strategy.book_actions`` (the Python reference for what a review
-  asks of the reader's book) over a 18-theme universe, for every configured
+  asks of the reader's book) over an 18-theme universe, for every configured
   horizon: empty and healthy books, a holding inside the hold range that new
   leaders must not displace, the sell line from both sides, unbuyable themes,
   over-held books, a held theme missing from the scan, and tied ranks. Each case
@@ -47,8 +47,9 @@ from dashboard.rows import (MAX_DUPLICATE_RUN, _build_leaderboard_rows,
 from src.backtest.strategy import book_actions
 
 #: Bump only when the SHAPE of the file changes (a key added, renamed or
-#: removed). Version 2 added the `book` section. The bytes change whenever a rule or a horizon preset moves, and
+#: removed). The bytes change whenever a rule or a horizon preset moves, and
 #: that is not a version change -- it is the signal the consumer's CI reacts to.
+#: History: 1 = band, series, boards; 2 = added `book`.
 FIXTURE_VERSION = 2
 
 #: Sizes the universe has actually had (10, 13, 18, 20 themes) plus both ends.
@@ -209,6 +210,11 @@ def _book_cases(horizon_list) -> list[dict]:
     cases = []
     for h in horizon_list:
         top_n, exit_rank = h.top_n, h.exit_rank(_BOOK_UNIVERSE)
+        if not (top_n < exit_rank < _BOOK_UNIVERSE and exit_rank - top_n >= top_n):
+            raise ValueError(
+                f"horizon {h.key!r} (top_n={top_n}, exit rank {exit_rank} of "
+                f"{_BOOK_UNIVERSE}) leaves no hold range wide enough for the book "
+                f"scenarios; widen _BOOK_UNIVERSE or rework _book_cases")
         top, band = ranked[:top_n], ranked[top_n:exit_rank]       # buy band; hold range
         # The pair straddling top_n shares a half rank: R{top_n} and R{top_n+1}.
         tied = [float(i + 1) for i in range(_BOOK_UNIVERSE)]

@@ -247,3 +247,14 @@ def test_book_tie_case_has_tied_ranks_and_an_order_dependent_surplus():
         assert len(set(c["ranks"])) < len(c["ranks"]), c["name"]
         assert c["expected"]["over_held"] == 1, c["name"]
         assert c["expected"]["surplus"] == [c["ranked"][c["top_n"]]], c["name"]
+
+
+def test_book_builder_fails_loudly_when_a_preset_leaves_no_hold_range():
+    """A wide buffer would otherwise surface as an IndexError in the daily
+    build; the builder says which preset and why instead."""
+    import dataclasses
+    import pytest
+    from dashboard.band_fixture import _book_cases
+    wide = dataclasses.replace(horizons()[0], buffer_frac=5.0)
+    with pytest.raises(ValueError, match="no hold range wide enough"):
+        _book_cases([wide])

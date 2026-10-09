@@ -248,8 +248,9 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
   `notes/specs/2026-10-08-ios-holdings-review-design.md`: star themes (shared
   with the web's `positions` table), Hold/Enter/Exit badges, and a review card
   (Sell / Buy / "Slot stays empty", book size, due date). Honours the web's book
-  lock but does not manage it. The upstream fixture shipped in this PR (see
-  Done); the app work is `notes/plans/2026-10-08-ios-holdings-review.md`.
+  lock but does not manage it. The upstream fixture shipped (Done, 2026-10-08,
+  `feature/book-fixture`); the app work is
+  `notes/plans/2026-10-08-ios-holdings-review.md`.
 
 ---
 
@@ -647,7 +648,8 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   on `_select`. `band-fixture.json` gains a `book` section of 22 cases
   (11 scenarios × the 2 presets, including "a holding inside the hold range is
   not displaced by new leaders", the sell line from both sides, unbuyable
-  themes, over-held books and tied ranks) and `FIXTURE_VERSION` is now 2. The
+  themes, over-held books, and tied ranks that a client checks its own board
+  order against) and `FIXTURE_VERSION` is now 2. The
   Node parity test makes `rescore.js selectBook` match every case. The app
   asserts the version, so its CI is red until its own PR lands.
 

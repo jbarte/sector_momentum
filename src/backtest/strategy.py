@@ -78,7 +78,9 @@ def book_actions(
     The Python reference for the OUTPUTS of rescore.js `selectBook()` and the
     iOS app's `selectBook`; `_select` stays the reference for WHO is kept, and
     this builds on it rather than restating it. Published as the `book` section
-    of band-fixture.json (dashboard/band_fixture.py).
+    of band-fixture.json (dashboard/band_fixture.py). Known cosmetic difference:
+    when two or more held names are missing from the scan, `sells` breaks that
+    tie by name here, while rescore.js keeps the order they were held in.
 
     `ranked_keys` is best-first (the board's row order). `held` and `unbuyable`
     are names; their order and any duplicates never change the answer.
@@ -87,8 +89,9 @@ def book_actions(
     - `buys`      kept names the reader does not yet hold, unbuyable excluded
     - `sells`     held names that did not survive: past the exit rank, or absent
                   from this scan. Rank order, unranked names last, then by name.
-    - `blocked`   unbuyable names that win a slot: the slot stays EMPTY, nothing
-                  is passed down (simulate()'s rule)
+    - `blocked`   unbuyable names that are kept, whether or not the reader holds
+                  them: the slot stays EMPTY and nothing is passed down
+                  (simulate()'s rule). A held one is neither a pick nor a sell.
     - `surplus`   when over-held, the worst-ranked holdings first. Nothing
                   trims an over-held book; this only names what would.
     - `free_slots`  slots free BEFORE refilling (top_n minus holdings kept)
