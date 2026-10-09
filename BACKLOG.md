@@ -244,6 +244,12 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 - **Rule changes stay Python-first:** a change to the band/delta/trend rules
   (`dashboard/rows.py`, `src/horizons.py`) regenerates `band-fixture.json`,
   and the iOS repo's daily CI goes red until the Swift side is ported.
+- **Holdings and the review panel — in progress (2026-10-08).** Spec
+  `notes/specs/2026-10-08-ios-holdings-review-design.md`: star themes (shared
+  with the web's `positions` table), Hold/Enter/Exit badges, and a review card
+  (Sell / Buy / "Slot stays empty", book size, due date). Honours the web's book
+  lock but does not manage it. The upstream fixture shipped in this PR (see
+  Done); the app work is `notes/plans/2026-10-08-ios-holdings-review.md`.
 
 ---
 
@@ -632,6 +638,18 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **The book rule is published as a parity fixture (2026-10-08,
+  `feature/book-fixture`).** Groundwork for the iOS holdings and review panel
+  (spec `notes/specs/2026-10-08-ios-holdings-review-design.md`). New
+  `strategy.book_actions` is the Python reference for what a review asks of the
+  reader's book (sells, buys, blocked, surplus, free slots, over-held), built
+  on `_select`. `band-fixture.json` gains a `book` section of 22 cases
+  (11 scenarios × the 2 presets, including "a holding inside the hold range is
+  not displaced by new leaders", the sell line from both sides, unbuyable
+  themes, over-held books and tied ranks) and `FIXTURE_VERSION` is now 2. The
+  Node parity test makes `rescore.js selectBook` match every case. The app
+  asserts the version, so its CI is red until its own PR lands.
 
 - **UCITS monitor reports a recent 26-week window and runs monthly
   (2026-10-08, `feature/ucits-recent-window`).** Shipped from the "UCITS monitor"
