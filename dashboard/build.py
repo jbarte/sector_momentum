@@ -595,6 +595,16 @@ def main() -> None:
     theme_src = _ASSETS_DIR / "theme.js"
     if theme_src.exists():
         shutil.copy2(theme_src, docs_assets / "theme.js")
+    # Home-screen icon, favicon and manifest (see _head_icons.html.j2). The
+    # manifest sits at the site root next to index.html; its icon paths are
+    # relative to it. Directory copy, not a name list: scripts/make_home_icons.py
+    # owns what is in icons/.
+    icons_src = _ASSETS_DIR / "icons"
+    if icons_src.is_dir():
+        shutil.copytree(icons_src, docs_assets / "icons", dirs_exist_ok=True)
+    manifest_src = _ASSETS_DIR / "manifest.webmanifest"
+    if manifest_src.exists():
+        shutil.copy2(manifest_src, out_dir / "manifest.webmanifest")
     rescore_src = _ASSETS_DIR / "rescore.js"
     if rescore_src.exists():
         shutil.copy2(rescore_src, docs_assets / "rescore.js")
