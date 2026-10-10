@@ -1,0 +1,13 @@
+{# Home-screen icon, tab favicon and manifest, shared by every page's <head>.
+   Paths are relative like the rest of the site (it is served from a
+   project-pages subpath). Deliberately NO apple-mobile-web-app-capable: an iOS
+   standalone web app keeps its own storage, separate from Safari, so the
+   emailed sign-in link (which opens in Safari) could never sign the reader in
+   there. Without it, the home-screen icon is a shortcut into Safari and keeps
+   the sign-in the reader already has. See tests/test_home_screen_icon.py. #}
+<link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<meta name="apple-mobile-web-app-title" content="Momentum"/>
+<meta name="theme-color" content="#f1ecdf" media="(prefers-color-scheme: light)"/>
+<meta name="theme-color" content="#17150F" media="(prefers-color-scheme: dark)"/>

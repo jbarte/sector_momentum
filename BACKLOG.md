@@ -235,7 +235,11 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
   (use a throwaway bundle ID such as `…etfmomentum.dev`, since a bundle ID
   registered there belongs to that team), or a paid membership — which would
   also unlock push notifications below. Meanwhile the website works on the
-  phone (Add to Home Screen).
+  phone (Add to Home Screen, with its own icon since 2026-10-10).
+- **The app has no icon of its own.** `App/ETFMomentum/Assets.xcassets/AppIcon.appiconset`
+  is empty, so the simulator and any install show a blank tile. Reuse the
+  website's artwork (`scripts/make_home_icons.py` here draws it; a 1024 px
+  square is one `png(1024)` call away).
 - **Push notifications** (the original motive) need a paid Apple Developer
   account, so they are out of v1 — revisit only if that changes.
 - **Custom SMTP for Supabase auth (optional).** The built-in sender allows a
@@ -633,6 +637,19 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **The site has a home-screen icon, a favicon and a manifest (2026-10-10,
+  `feature/home-screen-icon`).** "Add to Home Screen" gave a generic screenshot
+  tile; it now gets a touch icon (four rising bars, the leader in sand, on the
+  dashboard's ink) labelled "Momentum", and the browser tab gets an SVG favicon.
+  `scripts/make_home_icons.py` draws it with the standard library only, so no
+  imaging dependency; a test regenerates it and fails if the committed files
+  are stale. Both pages include `_head_icons.html.j2`; `build.py` copies
+  `dashboard/assets/icons/` and `manifest.webmanifest` into `docs/`. Deliberately
+  **not** a standalone web app (`display: browser`, no
+  `apple-mobile-web-app-capable`): an iOS standalone app has its own storage,
+  separate from Safari, so the emailed sign-in link (opened in Safari) could
+  never sign the reader in there. No offline support or push.
 
 - **iOS holdings, Hold/Enter/Exit badges and the review card (2026-10-10,
   etf-momentum-ios#7).** The app can now answer "it's review day, what do I
