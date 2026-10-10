@@ -14,6 +14,7 @@ import importlib.util
 import json
 import re
 import struct
+import zlib
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -40,11 +41,29 @@ def _site_file(url: str) -> Path:
     return ASSETS / url.removeprefix("assets/")
 
 
-def test_committed_icons_are_exactly_what_the_generator_draws(tmp_path):
+def _png_pixels(path: Path) -> tuple[bytes, bytes]:
+    """(IHDR, inflated pixel rows). The compressed IDAT bytes depend on the
+    local zlib build (Mac vs the Ubuntu CI image), so staleness is judged on
+    what the image *is*, never on how it happens to be compressed."""
+    data, pos, ihdr, idat = path.read_bytes(), 8, b"", b""
+    while pos < len(data):
+        (length,) = struct.unpack(">I", data[pos:pos + 4])
+        tag, body = data[pos + 4:pos + 8], data[pos + 8:pos + 8 + length]
+        if tag == b"IHDR":
+            ihdr = body
+        elif tag == b"IDAT":
+            idat += body
+        pos += 12 + length
+    return ihdr, zlib.decompress(idat)
+
+
+def test_committed_icons_are_what_the_generator_draws(tmp_path):
     make_home_icons.write_all(tmp_path)
-    for name in ("favicon.svg", *make_home_icons.PNG_SIZES):
-        assert (ICONS / name).read_bytes() == (tmp_path / name).read_bytes(), (
-            f"{name} is stale: re-run `python3 scripts/make_home_icons.py` and commit")
+    stale = f"{{}} is stale: re-run `python3 scripts/make_home_icons.py` and commit"
+    assert (ICONS / "favicon.svg").read_bytes() == (tmp_path / "favicon.svg").read_bytes(), \
+        stale.format("favicon.svg")
+    for name in make_home_icons.PNG_SIZES:
+        assert _png_pixels(ICONS / name) == _png_pixels(tmp_path / name), stale.format(name)
 
 
 def test_png_icons_have_the_sizes_their_names_and_the_manifest_promise():
@@ -96,3 +115,6 @@ def test_build_copies_the_icons_and_the_manifest_into_docs():
     src = (ROOT / "dashboard" / "build.py").read_text()
     assert re.search(r'copytree\(\s*icons_src,\s*docs_assets\s*/\s*"icons"', src)
     assert re.search(r'copy2\(\s*manifest_src,\s*out_dir\s*/\s*"manifest.webmanifest"', src)
+    # The pages link these unconditionally, so a missing source must fail the
+    # build, not be skipped: no exists()/is_dir() guard around either copy.
+    assert "icons_src.is_dir()" not in src and "manifest_src.exists()" not in src
