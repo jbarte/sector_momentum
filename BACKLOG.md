@@ -236,10 +236,6 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
   registered there belongs to that team), or a paid membership — which would
   also unlock push notifications below. Meanwhile the website works on the
   phone (Add to Home Screen, with its own icon since 2026-10-10).
-- **The app has no icon of its own.** `App/ETFMomentum/Assets.xcassets/AppIcon.appiconset`
-  is empty, so the simulator and any install show a blank tile. Reuse the
-  website's artwork (`scripts/make_home_icons.py` here draws it; a 1024 px
-  square is one `png(1024)` call away).
 - **Push notifications** (the original motive) need a paid Apple Developer
   account, so they are out of v1 — revisit only if that changes.
 - **Custom SMTP for Supabase auth (optional).** The built-in sender allows a
@@ -637,6 +633,12 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **The iOS app has an icon and a short home-screen name (2026-10-10,
+  etf-momentum-ios#8).** The icon slot was empty; it now carries the website's
+  home-screen artwork (rendered at 1024 px by `scripts/make_home_icons.py`, so
+  the two stay in sync) and the label reads "Momentum" instead of the cut-off
+  "ETFMomen…".
 
 - **The site has a home-screen icon, a favicon and a manifest (2026-10-10,
   `feature/home-screen-icon`).** "Add to Home Screen" gave a generic screenshot
