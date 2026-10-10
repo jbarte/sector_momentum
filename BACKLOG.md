@@ -220,8 +220,9 @@ key needed any more — i18n was removed entirely, 2026-09-13, see Done.)
 ## iOS app follow-ups (jbarte/etf-momentum-ios)
 
 The board app shipped in its own repo: v1 (etf-momentum-ios#1, 2026-09-27),
-magic-link sign-in (#2, 2026-09-28) and the theme detail screen, a rank-history
-chart against the Buy/Exit lines (#6, 2026-10-07), built on the config block
+magic-link sign-in (#2, 2026-09-28), the theme detail screen, a rank-history
+chart against the Buy/Exit lines (#6, 2026-10-07), and holdings with the review
+card (#7, 2026-10-10), built on the config block
 and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 `v_recent_scores` window (Done, 2026-09-28). What is left:
 
@@ -244,13 +245,6 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 - **Rule changes stay Python-first:** a change to the band/delta/trend rules
   (`dashboard/rows.py`, `src/horizons.py`) regenerates `band-fixture.json`,
   and the iOS repo's daily CI goes red until the Swift side is ported.
-- **Holdings and the review panel — in progress (2026-10-08).** Spec
-  `notes/specs/2026-10-08-ios-holdings-review-design.md`: star themes (shared
-  with the web's `positions` table), Hold/Enter/Exit badges, and a review card
-  (Sell / Buy / "Slot stays empty", book size, due date). Honours the web's book
-  lock but does not manage it. The upstream fixture shipped (Done, 2026-10-08,
-  `feature/book-fixture`); the app work is
-  `notes/plans/2026-10-08-ios-holdings-review.md`.
 
 ---
 
@@ -639,6 +633,23 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **iOS holdings, Hold/Enter/Exit badges and the review card (2026-10-10,
+  etf-momentum-ios#7).** The app can now answer "it's review day, what do I
+  buy and sell?". Stars (leading swipe, or the detail screen's toolbar) read and
+  write the web's `positions` table; Hold/Enter/Exit badges follow what is held;
+  a review card tops the board with Sell / Buy / "Slot stays empty", the book
+  line, the lock date and Done ✓. The book lock is read, never created or
+  overridden. The book rule is tested against the `book` fixture section
+  (sector_momentum#322); the badge and review calendar are ported from
+  `rescore.js` with its test cases. Spec
+  `notes/specs/2026-10-08-ios-holdings-review-design.md`. Decisions: a failed
+  holdings fetch means unknown (never an empty book); Done ✓ only when due and
+  holdings are known; star edits run one at a time and a refresh waits for a
+  write in flight. Left open: the web's "Book: n / target — refills at the next
+  review" wording counts the book after the review's refills, which reads oddly
+  for an under-held book (fix web and app together if it is a bug); the review
+  Done ✓ is per device and does not sync with the web's.
 
 - **The book rule is published as a parity fixture (2026-10-08,
   `feature/book-fixture`).** Groundwork for the iOS holdings and review panel
