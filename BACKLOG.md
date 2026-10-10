@@ -385,7 +385,7 @@ assumption was made and corrected on this exact identifier three separate
 times — 2026-09-07 (twice, same day), and again 2026-09-15 when Part B's own
 scoping found the "three producers" it was queued under was itself wrong.
 (A)'s execution also found a real trap in scope-adjacent code
-(`scripts/signal_correlation.py`'s stale SQL string — see Done) despite the
+(the stale SQL string in `scripts/signal_correlation.py`, since deleted — see Done) despite the
 careful two-part split.
 
 If the DB columns are ever renamed, `region` → `cohort` and `gics_sector` →
@@ -633,6 +633,16 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **`scripts/signal_correlation.py` deleted (2026-10-10).** The one-off signal
+  redundancy audit from 2026-07-20 (it dropped `above_200dma`) had been dead
+  since the sector-era rename: it queried `sector_signals` / `sector_key`, which
+  no longer exist (the table is `signals`, keyed by `region` / `gics_sector`),
+  and still listed the dropped signal. Its findings live on in the queued
+  "Composite structure — 4.2 effective signals of 8" item and the
+  2026-07-20 Done entry; the script's output was never saved. If a signal is
+  ever added to Level, redo the correlation check then (see that item), against
+  the current `signals` table and the signal list in `config/weights.yaml`.
 
 - **The iOS app has an icon and a short home-screen name (2026-10-10,
   etf-momentum-ios#8).** The icon slot was empty; it now carries the website's

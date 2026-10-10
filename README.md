@@ -115,7 +115,6 @@ config/
 
 scripts/
   horizon_sweep.py       # cadence x top_n x buffer sweep -> the preset frontier
-  signal_correlation.py  # signal redundancy audit
   *.sql                  # one-off Postgres migrations
 
 src/
