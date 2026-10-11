@@ -634,6 +634,20 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **The browser chrome colour follows the manual theme toggle; the icon copy is
+  tested by running it (2026-10-11, `fix/theme-color-follows-toggle`).**
+  Follow-up to the home-screen icon (2026-10-10). The two `theme-color` tags
+  followed only the OS, so a light OS with Dark picked by hand gave a light
+  address bar under a dark page; `theme.js` now rewrites both tags on every
+  choice and at load (`themeColorFor`, pinned to `--canvas`). The build's icon
+  and manifest copy moved into `_copy_site_icons`, tested by running it (and by
+  asserting a missing source fails the build) instead of grepping `build.py`.
+  **Not done, deliberately:** content-hash cache-busting of the icons. The
+  existing `asset_url` machinery is JS-only and its coverage test demands a
+  literal `docs_assets / "name"` per asset; the touch icon is read once when
+  the shortcut is added and the favicon rarely changes, so a redesign can wait
+  out a cache.
+
 - **The review panel's "Book: n / target" line says what you hold
   (2026-10-11, `fix/review-book-line`).** It printed the book *after* the
   review's planned buys (`book.picks.length`), so a reader holding 1 of 4 saw

@@ -40,6 +40,29 @@
     return resolveTheme(attr, osIsDark());
   }
 
+  // The browser chrome colour (mobile address bar, status bar). The page head
+  // ships two media-conditioned <meta name="theme-color"> tags that follow the
+  // OS, which is right on Auto; a reader who picks Light or Dark by hand needs
+  // both to say that colour, or the bar stays the OS's while the page is not.
+  // Mirrors --canvas in _foundation.css.j2 (light, dark) -- keep in step.
+  var THEME_COLOR = { light: "#f1ecdf", dark: "#17150F" };
+
+  // Pure: the colour one theme-color tag should carry. An explicit choice wins
+  // for every tag; on Auto each tag keeps the colour of the scheme it is for.
+  function themeColorFor(attr, tagIsForDark) {
+    if (attr === "light" || attr === "dark") { return THEME_COLOR[attr]; }
+    return tagIsForDark ? THEME_COLOR.dark : THEME_COLOR.light;
+  }
+
+  function syncThemeColor() {
+    var attr = document.documentElement.getAttribute("data-theme");
+    var tags = document.querySelectorAll('meta[name="theme-color"]');
+    Array.prototype.forEach.call(tags, function (m) {
+      var forDark = (m.getAttribute("media") || "").indexOf("dark") !== -1;
+      m.setAttribute("content", themeColorFor(attr, forDark));
+    });
+  }
+
   function updateControlUI(choice) {
     var pressed = pressedStateFor(choice);
     var buttons = document.querySelectorAll(".theme-toggle .theme-btn");
@@ -59,10 +82,12 @@
       choice = "auto";
     }
     updateControlUI(choice);
+    syncThemeColor();
     document.dispatchEvent(new CustomEvent("sm:theme-changed"));
   }
 
   function initControl() {
+    syncThemeColor();   // a stored explicit choice was applied before first paint
     var buttons = document.querySelectorAll(".theme-toggle .theme-btn");
     if (!buttons.length) { return; }
     var stored = "auto";
@@ -149,7 +174,7 @@
     return Plotly.newPlot(el, themed.data, themed.layout, {responsive: true, displayModeBar: true});
   }
 
-  var api = { resolveTheme: resolveTheme, get: get, set: set,
+  var api = { resolveTheme: resolveTheme, get: get, set: set, themeColorFor: themeColorFor,
               initControl: initControl, pressedStateFor: pressedStateFor,
               smPlot: smPlot, recolor: recolor };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }

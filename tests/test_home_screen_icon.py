@@ -17,6 +17,7 @@ import struct
 import zlib
 from pathlib import Path
 
+import pytest
 from jinja2 import Environment, FileSystemLoader
 
 ROOT = Path(__file__).parent.parent
@@ -111,10 +112,29 @@ def test_every_page_head_includes_the_icons():
         assert '{% include "_head_icons.html.j2" %}' in head, f"{name} has no icon links"
 
 
-def test_build_copies_the_icons_and_the_manifest_into_docs():
-    src = (ROOT / "dashboard" / "build.py").read_text()
-    assert re.search(r'copytree\(\s*icons_src,\s*docs_assets\s*/\s*"icons"', src)
-    assert re.search(r'copy2\(\s*manifest_src,\s*out_dir\s*/\s*"manifest.webmanifest"', src)
-    # The pages link these unconditionally, so a missing source must fail the
-    # build, not be skipped: no exists()/is_dir() guard around either copy.
-    assert "icons_src.is_dir()" not in src and "manifest_src.exists()" not in src
+def test_build_copies_the_icons_and_the_manifest_into_the_site(tmp_path):
+    """Runs the real copy step (dashboard.build._copy_site_icons) into a temp
+    site, instead of grepping build.py's text."""
+    from dashboard.build import _copy_site_icons
+    docs_assets = tmp_path / "assets"
+    docs_assets.mkdir()
+    _copy_site_icons(docs_assets, tmp_path)
+    for name in ("favicon.svg", *make_home_icons.PNG_SIZES):
+        assert (docs_assets / "icons" / name).read_bytes() == (ICONS / name).read_bytes(), name
+    assert (tmp_path / "manifest.webmanifest").read_bytes() == \
+        (ASSETS / "manifest.webmanifest").read_bytes()
+
+
+def test_a_missing_icon_source_fails_the_build_instead_of_shipping_a_404(tmp_path):
+    from dashboard.build import _copy_site_icons
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "manifest.webmanifest").write_text("{}")          # icons/ is missing
+    docs_assets = tmp_path / "out" / "assets"
+    docs_assets.mkdir(parents=True)
+    with pytest.raises(FileNotFoundError):
+        _copy_site_icons(docs_assets, tmp_path / "out", assets_dir=src)
+    (src / "icons").mkdir()
+    (src / "manifest.webmanifest").unlink()                  # now the manifest is missing
+    with pytest.raises(FileNotFoundError):
+        _copy_site_icons(docs_assets, tmp_path / "out", assets_dir=src)
