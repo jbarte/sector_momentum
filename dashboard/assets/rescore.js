@@ -320,22 +320,32 @@
   }
 
   // The review panel's "Book: n / target" line. It states what the reader HOLDS
-  // now (`held`, of the themes on the board), never the book after the review's
-  // planned buys: that printed "Book: 4 / 4 — refills at the next review" for a
-  // reader holding 1, and promised a refill for a slot an unbuyable theme keeps
-  // empty. `book` is selectBook()'s result; only freeSlots, overHeld, buys and
-  // blocked are read. Pure, so tests/test_book_line.py can pin every case and the
+  // now (`heldKeys`: the held themes on the board), never the book after the
+  // review's planned buys: that printed "Book: 4 / 4 — refills at the next
+  // review" for a reader holding 1, and promised a refill for a slot an
+  // unbuyable theme keeps empty. Free slots are target - held (what is empty
+  // TODAY); a held theme that has fallen below the exit line is still held until
+  // the review sells it. `book` is selectBook()'s result; only overHeld and
+  // blocked are read. Pure, so tests/test_book_line.py pins every case and the
   // iOS app can mirror it (the two panels must not disagree).
   //   kind: "over" (nothing trims an over-held book), "under" (free slots while
-  //   no review is due), or "" -- when a review IS due the Sell/Buy lines already
-  //   say what changes, so the count gets no suffix.
-  function bookLine(book, held, target, due) {
-    var text = "Book: " + held + " / " + target;
+  //   no review is due), or "" -- when a review IS due the Sell/Buy lines
+  //   already say what changes, so the count gets no suffix.
+  function bookLine(book, heldKeys, target, due) {
+    var held = heldKeys || [];
+    var text = "Book: " + held.length + " / " + target;
     if (book.overHeld > 0) {
       return { text: text + " — too many; nothing trims this automatically", kind: "over" };
     }
-    if (book.freeSlots > 0 && !due) {
-      var free = book.freeSlots, fill = book.buys.length, empty = Math.max(0, free - fill);
+    var free = Math.max(0, target - held.length);
+    if (free > 0 && !due) {
+      var isHeld = {};
+      held.forEach(function (k) { isHeld[k] = true; });
+      // An unbuyable theme that wins a slot it does not already hold leaves
+      // that slot empty (simulate()'s rule); a HELD unbuyable theme occupies
+      // its slot, so it never counts here.
+      var blockedFree = (book.blocked || []).filter(function (k) { return !isHeld[k]; }).length;
+      var empty = Math.min(free, blockedFree), fill = free - empty;
       var slots = free + " free slot" + (free === 1 ? "" : "s");
       var tail;
       if (empty === 0) {
@@ -344,8 +354,8 @@
         tail = "but " + (free === 1 ? "it is" : "they are") + " not buyable, so "
           + (free === 1 ? "it stays" : "they stay") + " empty";
       } else {
-        tail = fill + " fill at the next review, " + empty + " stay"
-          + (empty === 1 ? "s" : "") + " empty (not buyable)";
+        tail = fill + (fill === 1 ? " fills" : " fill") + " at the next review, "
+          + empty + (empty === 1 ? " stays" : " stay") + " empty (not buyable)";
       }
       return { text: text + " — " + slots + ", " + tail, kind: "under" };
     }

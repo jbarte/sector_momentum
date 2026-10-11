@@ -1236,9 +1236,11 @@ function applyHorizonBadges() {
     _bookState = window.Rescore.selectBook(_rankedKeys, _heldKeys, h, _unbuyableKeys);
   }
   window.SM_BOOK_STATE = _bookState;   // read by the review panel (Task 3)
-  // How many themes on the board the reader holds, for the panel's "Book: n /
-  // target" line (Rescore.bookLine): what they HOLD, not the post-review book.
-  window.SM_BOOK_HELD = _bookState ? _heldKeys.length : 0;
+  // The held themes travel WITH the book state (one object, so they cannot get
+  // out of step): the panel's "Book: n / target" line (Rescore.bookLine) counts
+  // what the reader HOLDS, not the post-review book. selectBook's own result is
+  // left as the parity tests see it; this is added after.
+  if (_bookState) { _bookState.held = _heldKeys; }
   // Over-held books are never trimmed by the strategy itself, so the surplus
   // has to be visible or it runs indefinitely. Cleared first: the surplus
   // moves as ranks move, and a stale mark is worse than none.
@@ -1612,8 +1614,11 @@ function renderReviewPanel() {
   }
 
   // Book count. Over-held is the consequential one: nothing trims it.
-  var line = window.Rescore.bookLine(
-    book, window.SM_BOOK_HELD || 0, currentHorizon().top_n, status.due);
+  var heldKeys = book.held || [];
+  var target = currentHorizon().top_n;
+  var line = (window.Rescore && window.Rescore.bookLine)
+    ? window.Rescore.bookLine(book, heldKeys, target, status.due)
+    : { text: 'Book' + ': ' + heldKeys.length + ' / ' + target, kind: '' };
   countEl.textContent = line.text;
   countEl.className = 'rp-count';
   if (line.kind) { countEl.classList.add(line.kind); }

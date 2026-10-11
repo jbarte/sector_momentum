@@ -243,11 +243,11 @@ def test_review_panel_book_line_states_what_is_held_not_the_post_review_book(pag
     review". Drives the real page: with 1 held, 3 fillable free slots, no
     review due, the line must say 1 held and that 3 slots fill later. The pure
     rule is pinned in tests/test_book_line.py; this proves the panel is wired
-    to it (SM_BOOK_HELD in, Rescore.bookLine out)."""
+    to it (book.held in, Rescore.bookLine out)."""
     page.evaluate(
         "() => { window.SM_BOOK_STATE = { picks: ['a','b','c','d'], "
         "buys: ['b','c','d'], sells: [], blocked: [], surplus: [], "
-        "freeSlots: 3, overHeld: 0 }; window.SM_BOOK_HELD = 1; }"
+        "freeSlots: 3, overHeld: 0, held: ['a'] }; }"
     )
     page.evaluate("() => window.renderReviewPanel()")
     text, cls = _rp_count(page)
@@ -259,10 +259,20 @@ def test_review_panel_book_line_states_what_is_held_not_the_post_review_book(pag
 def test_review_panel_book_line_does_not_promise_a_refill_for_an_unbuyable_slot(page):
     page.evaluate(
         "() => { window.SM_BOOK_STATE = { picks: ['a','b','c'], buys: [], "
-        "sells: [], blocked: ['x'], surplus: [], freeSlots: 1, overHeld: 0 }; "
-        "window.SM_BOOK_HELD = 3; }"
+        "sells: [], blocked: ['x'], surplus: [], freeSlots: 1, overHeld: 0, "
+        "held: ['a','b','c'] }; }"
     )
     page.evaluate("() => window.renderReviewPanel()")
     text, _ = _rp_count(page)
     assert "not buyable, so it stays empty" in text, text
     assert "fills at the next review" not in text, text
+
+
+def test_book_state_carries_the_held_themes_from_applyHorizonBadges():
+    """The browser tests above set book.held by hand; the only place it is
+    really computed is applyHorizonBadges(). Pin that it is attached to the
+    SAME object the panel reads, not a second global that can fall out of step."""
+    from tests.test_dashboard_js import _TEMPLATE
+    src = _TEMPLATE.read_text()
+    assert "_bookState.held = _heldKeys" in src
+    assert "SM_BOOK_HELD" not in src
