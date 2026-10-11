@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -284,6 +285,21 @@ def register_asset_url(env, asset_versions=None) -> None:
         return f"assets/{name}?v={v}" if v else f"assets/{name}"
 
     env.globals["asset_url"] = asset_url
+
+
+def _copy_site_icons(docs_assets: Path, out_dir: Path, assets_dir: Path | None = None) -> None:
+    """Copy the home-screen icon set and the manifest into the built site.
+
+    Every page links these unconditionally (_head_icons.html.j2), so a missing
+    source must FAIL the build rather than ship a site whose icon 404s: no
+    exists()/is_dir() guard here, unlike the optional script copies. The icons
+    go under assets/icons/, the manifest at the site root next to index.html
+    (its icon paths are relative to it). A directory copy, not a name list:
+    scripts/make_home_icons.py owns what is in icons/.
+    """
+    src = Path(assets_dir) if assets_dir is not None else _ASSETS_DIR
+    shutil.copytree(src / "icons", docs_assets / "icons", dirs_exist_ok=True)
+    shutil.copy2(src / "manifest.webmanifest", out_dir / "manifest.webmanifest")
 
 
 def _asset_versions(assets_dir: Path, names) -> dict[str, str]:
@@ -595,16 +611,7 @@ def main() -> None:
     theme_src = _ASSETS_DIR / "theme.js"
     if theme_src.exists():
         shutil.copy2(theme_src, docs_assets / "theme.js")
-    # Home-screen icon, favicon and manifest (see _head_icons.html.j2). The
-    # manifest sits at the site root next to index.html; its icon paths are
-    # relative to it. Directory copy, not a name list: scripts/make_home_icons.py
-    # owns what is in icons/.
-    # Unguarded on purpose: every page links these unconditionally, so a missing
-    # source must fail the build rather than ship a site whose icon 404s.
-    icons_src = _ASSETS_DIR / "icons"
-    shutil.copytree(icons_src, docs_assets / "icons", dirs_exist_ok=True)
-    manifest_src = _ASSETS_DIR / "manifest.webmanifest"
-    shutil.copy2(manifest_src, out_dir / "manifest.webmanifest")
+    _copy_site_icons(docs_assets, out_dir)
     rescore_src = _ASSETS_DIR / "rescore.js"
     if rescore_src.exists():
         shutil.copy2(rescore_src, docs_assets / "rescore.js")

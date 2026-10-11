@@ -276,3 +276,27 @@ def test_book_state_carries_the_held_themes_from_applyHorizonBadges():
     src = _TEMPLATE.read_text()
     assert "_bookState.held = _heldKeys" in src
     assert "SM_BOOK_HELD" not in src
+
+
+def _theme_color_tags(page):
+    return page.evaluate(
+        "() => Array.prototype.map.call(document.querySelectorAll('meta[name=\"theme-color\"]'), "
+        "m => [m.getAttribute('media'), m.getAttribute('content')])"
+    )
+
+
+def test_the_browser_chrome_colour_follows_the_manual_theme_toggle(page):
+    """Click the real Light/Dark/Auto control and read the theme-color tags.
+    On Auto each tag keeps its own scheme's colour; an explicit choice makes
+    both say that colour (a light OS + a hand-picked Dark used to leave a light
+    address bar under a dark page)."""
+    light, dark = "#f1ecdf", "#17150F"
+    by_media = lambda tags: {("dark" in (m or "")): c for m, c in tags}   # noqa: E731
+    assert by_media(_theme_color_tags(page)) == {False: light, True: dark}
+
+    page.click('.theme-toggle .theme-btn[data-theme-choice="dark"]')
+    assert {c for _, c in _theme_color_tags(page)} == {dark}
+    page.click('.theme-toggle .theme-btn[data-theme-choice="light"]')
+    assert {c for _, c in _theme_color_tags(page)} == {light}
+    page.click('.theme-toggle .theme-btn[data-theme-choice="auto"]')
+    assert by_media(_theme_color_tags(page)) == {False: light, True: dark}
