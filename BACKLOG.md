@@ -242,11 +242,6 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
   few emails an hour and locks the email templates, which is why the app signs
   in by link rather than a typed code (`{{ .Token }}` needs an editable
   template). Worth it only if the rate limit bites.
-- **Mirror the review panel's book line (follow-up to 2026-10-11).** The
-  website's "Book: n / target" line now states what you hold (see Done);
-  `ReviewCard`'s `bookLine` in the app still prints the post-review count and
-  must follow, using the cases in `tests/test_book_line.py`. The two panels must
-  not disagree.
 - **Rule changes stay Python-first:** a change to the band/delta/trend rules
   (`dashboard/rows.py`, `src/horizons.py`) regenerates `band-fixture.json`,
   and the iOS repo's daily CI goes red until the Swift side is ported.
@@ -654,7 +649,8 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   rule is the pure `Rescore.bookLine` in `rescore.js` (pinned by
   `tests/test_book_line.py`, plus a browser test that the panel is wired to it).
   Display only: no change to the buy/sell rule or the fixture. The iOS app
-  mirrors it in a follow-up PR (etf-momentum-ios `ReviewCard`).
+  mirrors it (etf-momentum-ios#9, `bookLineText`, with the same cases), so the
+  two panels agree.
 
 - **`scripts/signal_correlation.py` deleted (2026-10-10).** The one-off signal
   redundancy audit from 2026-07-20 (it dropped `above_200dma`) had been dead
