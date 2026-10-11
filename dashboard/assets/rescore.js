@@ -319,6 +319,39 @@
     };
   }
 
+  // The review panel's "Book: n / target" line. It states what the reader HOLDS
+  // now (`held`, of the themes on the board), never the book after the review's
+  // planned buys: that printed "Book: 4 / 4 — refills at the next review" for a
+  // reader holding 1, and promised a refill for a slot an unbuyable theme keeps
+  // empty. `book` is selectBook()'s result; only freeSlots, overHeld, buys and
+  // blocked are read. Pure, so tests/test_book_line.py can pin every case and the
+  // iOS app can mirror it (the two panels must not disagree).
+  //   kind: "over" (nothing trims an over-held book), "under" (free slots while
+  //   no review is due), or "" -- when a review IS due the Sell/Buy lines already
+  //   say what changes, so the count gets no suffix.
+  function bookLine(book, held, target, due) {
+    var text = "Book: " + held + " / " + target;
+    if (book.overHeld > 0) {
+      return { text: text + " — too many; nothing trims this automatically", kind: "over" };
+    }
+    if (book.freeSlots > 0 && !due) {
+      var free = book.freeSlots, fill = book.buys.length, empty = Math.max(0, free - fill);
+      var slots = free + " free slot" + (free === 1 ? "" : "s");
+      var tail;
+      if (empty === 0) {
+        tail = (free === 1 ? "it fills" : "they fill") + " at the next review";
+      } else if (fill === 0) {
+        tail = "but " + (free === 1 ? "it is" : "they are") + " not buyable, so "
+          + (free === 1 ? "it stays" : "they stay") + " empty";
+      } else {
+        tail = fill + " fill at the next review, " + empty + " stay"
+          + (empty === 1 ? "s" : "") + " empty (not buyable)";
+      }
+      return { text: text + " — " + slots + ", " + tail, kind: "under" };
+    }
+    return { text: text, kind: "" };
+  }
+
   // Mirror dashboard/rows.py's MAX_DUPLICATE_RUN and _TRAJECTORY_SCANS.
   var MAX_DUPLICATE_RUN = 7;
   var TRAJECTORY_SCANS = 5;
@@ -644,6 +677,7 @@
   var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
               inBuyBand: inBuyBand, exitRank: exitRank,
               badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
+              bookLine: bookLine,
               trajectoryLabel: trajectoryLabel, rescore: rescore,
               trajBadgeInner: trajBadgeInner, trajBadgeHTML: trajBadgeHTML,
               latestRowMeta: latestRowMeta, todaysRead: todaysRead, DRIFT_EPS: DRIFT_EPS,

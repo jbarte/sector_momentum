@@ -634,6 +634,21 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **The review panel's "Book: n / target" line says what you hold
+  (2026-10-11, `fix/review-book-line`).** It printed the book *after* the
+  review's planned buys (`book.picks.length`), so a reader holding 1 of 4 saw
+  "Book: 4 / 4 — refills at the next review", and a slot held empty by an
+  unbuyable theme (Shipping, not in the EU) still promised a refill. The count is
+  now the number of themes held, and between reviews the suffix says how many
+  slots are free and whether they fill ("3 free slots, they fill at the next
+  review") or stay empty ("1 free slot, but it is not buyable, so it stays
+  empty"). When a review is due the Sell/Buy lines speak and the count has no
+  suffix; over-held still says "too many; nothing trims this automatically". The
+  rule is the pure `Rescore.bookLine` in `rescore.js` (pinned by
+  `tests/test_book_line.py`, plus a browser test that the panel is wired to it).
+  Display only: no change to the buy/sell rule or the fixture. The iOS app
+  mirrors it in a follow-up PR (etf-momentum-ios `ReviewCard`).
+
 - **`scripts/signal_correlation.py` deleted (2026-10-10).** The one-off signal
   redundancy audit from 2026-07-20 (it dropped `above_200dma`) had been dead
   since the sector-era rename: it queried `sector_signals` / `sector_key`, which
