@@ -108,7 +108,7 @@
     _upgraded = true;
     sb.from("v_recent_scores")
       .select("scan_id, run_at, region, gics_sector, level_score, change_score, "
-            + "data_score, sentiment_score, composite, rank")
+            + "data_score, composite, rank")
       .order("scan_id", { ascending: true })
       .order("region", { ascending: true })
       .order("rank", { ascending: true })
