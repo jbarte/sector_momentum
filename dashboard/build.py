@@ -55,7 +55,6 @@ from dashboard.figures import (                      # noqa: E402, F401
     _build_drilldown_data,
     _build_history_figure,
     _build_movers_figure,
-    _build_rescore_data,
     _build_rrg_figure,
     _build_scan_history_data,
     _build_sentiment_scatter_figure,
@@ -92,28 +91,6 @@ from dashboard.gating import LAG_DAYS, apply_leaderboard_lag  # noqa: E402
 from dashboard.validation import (                    # noqa: E402, F401
     build_validation_context as _validation_ctx,
 )
-
-
-# Sentiment is ALPHA: the FinBERT/GDELT output has not been validated well
-# enough to let it move the board. While this is False:
-#
-#   - the "Ranking" cogwheel — the control that blends sentiment into the
-#     composite client-side — is NOT RENDERED, rather than hidden. The wiring in
-#     index.html.j2 early-returns when the control is absent, so a reader who
-#     once enabled it cannot have it silently re-applied from localStorage on the
-#     next visit. CSS hiding alone would leave that path live.
-#   - the leaderboard's Sentiment column is GONE, not hidden — the 2026-08-19
-#     6-column restructure removed the cell outright and renumbered every
-#     positional reference after it (sortTable() indices, data-col, colspans).
-#     Restoring the column now costs more than undoing a CSS rule: a new
-#     `<th>`, a cell added back to all three row-builders (dashboard/rows.py,
-#     auth.js's renderLatestRows(), scan-history.js), an i18n key, and
-#     renumbering sortTable()/data-col plus every colspan that counts columns.
-#
-# The STORED composite has never included sentiment — scan.py passes
-# blend_sentiment=False — so this governs presentation and the client-side blend
-# only. See BACKLOG for what restoring it involves.
-SENTIMENT_RANKING_ENABLED = False
 
 # ---------------------------------------------------------------------------
 # Plotly bundle management
@@ -730,7 +707,6 @@ def main() -> None:
         "todays_read": todays_read(theme_rows),
         "cohort_list": cohort_list,
         "horizon_list": horizon_list,
-        "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
         "round_trip_bps": _round_trip_bps,
         "default_horizon_top_n": _default_horizon.top_n,
         "trailing_stop_pct": round(trailing_stop_frac() * 100),
@@ -788,9 +764,6 @@ def main() -> None:
         "trailing_stop_pct": round(trailing_stop_frac() * 100),
         "trailing_stop_frac": trailing_stop_frac(),
         "chart_dark_json": _json.dumps(build_chart_dark_map()),
-        # Was relying on an undefined Jinja variable being falsy here. Explicit
-        # now — the CSS that hides the sentiment column reads it.
-        "sentiment_ranking_enabled": SENTIMENT_RANKING_ENABLED,
         # The empty state states this number out loud. Sourced from the
         # constant that actually drives the gate rather than written into
         # the copy — a hardcoded "7" goes quietly wrong the day LAG_DAYS

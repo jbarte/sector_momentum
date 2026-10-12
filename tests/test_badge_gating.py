@@ -58,7 +58,6 @@ def _render_index(**overrides) -> str:
         scan_date="2026-08-10", leaderboard_rows=_rows(), cohort_list=[],
         cohorts_json=json.dumps([]), cohort_charts_json=json.dumps({}),
         sentiment_scatter_json=json.dumps({"data": [], "layout": {}}),
-        rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
         backtest_json=json.dumps({}), backtest_metrics=[], has_backtest=False,

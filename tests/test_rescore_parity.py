@@ -1,5 +1,6 @@
-"""Parity test: rescore.js (run under Node) must match a Python reference
-using scipy.rankdata and the same OLS slope as _compute_rank_trajectories."""
+"""Parity tests: rescore.js (run under Node) must match the Python rules it
+mirrors -- the latest-row trajectory/delta/band read, the exit rank, and the buy
+band (same OLS slope as _compute_rank_trajectories)."""
 import json
 import shutil
 import subprocess
@@ -7,7 +8,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.stats import rankdata
 
 from src.horizons import default_horizon
 from dashboard.rows import TRAJECTORY_WORDS
@@ -20,48 +20,6 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 _RESCORE_JS = _PROJECT_ROOT / "dashboard" / "assets" / "rescore.js"
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
-
-
-def _py_reference(data, W):
-    sectors = data["sectors"]
-    n = len(data["scans"])
-    region_groups = {}
-    for k in sectors:
-        region = k.split("|")[0]
-        region_groups.setdefault(region, []).append(k)
-    comp_by_scan, rank_by_scan = [], []
-    for s in range(n):
-        comp_map = {k: (1 - W) * data["data"][k][s] + W * data["sentiment"][k][s]
-                    for k in sectors}
-        rank_map = {}
-        for region, group in region_groups.items():
-            vals = np.array([comp_map[k] for k in group])
-            ranks = rankdata(-vals, method="average")
-            for k, r in zip(group, ranks):
-                rank_map[k] = r
-        comp_by_scan.append(comp_map)
-        rank_by_scan.append(rank_map)
-    last = n - 1
-    prev = last - 1 if n >= 2 else None
-    out = {}
-    for k in sectors:
-        rank_now = rank_by_scan[last][k]
-        comp_now = comp_by_scan[last][k]
-        d_rank = (rank_by_scan[prev][k] - rank_now) if prev is not None else 0.0
-        d_comp = (comp_now - comp_by_scan[prev][k]) if prev is not None else 0.0
-        start = max(0, n - 5)
-        series = [rank_by_scan[s][k] for s in range(start, n)]
-        slope = _ols(series)
-        state = _traj(slope)[1]
-        out[k] = {
-            "rank": rank_now, "composite": comp_now,
-            "delta_rank": d_rank, "delta_composite": d_comp,
-            "setup": None,
-            "trajectory_label": _traj(slope)[0],
-            "trajectory_state": state,
-            "trajectory_word": TRAJECTORY_WORDS.get(state, "flat"),
-        }
-    return out
 
 
 def _ols(values):
@@ -85,78 +43,6 @@ def _traj(slope):
     if slope < 1.5:
         return "↓", "down"
     return "↓↓", "strong_down"
-
-
-def _run_js(data, W):
-    script = f"""
-        const R = require({json.dumps(str(_RESCORE_JS))});
-        const data = {json.dumps(data)};
-        process.stdout.write(JSON.stringify(R.rescore(data, {W})));
-    """
-    res = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
-    return json.loads(res.stdout)
-
-
-def _make_data(n_scans, sectors, seed):
-    rng = np.random.default_rng(seed)
-    return {
-        "scans": [{"scan_id": i + 1, "run_at": f"2026-06-{i+1:02d}T00:00:00"} for i in range(n_scans)],
-        "sectors": sectors,
-        "data": {k: rng.normal(size=n_scans).round(4).tolist() for k in sectors},
-        "sentiment": {k: rng.normal(size=n_scans).round(4).tolist() for k in sectors},
-    }
-
-
-@pytest.mark.parametrize("W", [0.0, 0.30, 1.0])
-@pytest.mark.parametrize("seed", [1, 7, 42])
-def test_rescore_parity_random(W, seed):
-    sectors = [f"US|S{i}" for i in range(6)] + [f"EU|S{i}" for i in range(6)]
-    data = _make_data(8, sectors, seed)
-    js = _run_js(data, W)
-    py = _py_reference(data, W)
-    for k in sectors:
-        assert js[k]["rank"] == pytest.approx(py[k]["rank"], abs=1e-6)
-        assert js[k]["composite"] == pytest.approx(py[k]["composite"], abs=1e-6)
-        assert js[k]["delta_rank"] == pytest.approx(py[k]["delta_rank"], abs=1e-6)
-        assert js[k]["delta_composite"] == pytest.approx(py[k]["delta_composite"], abs=1e-6)
-        assert js[k]["setup"] == py[k]["setup"]
-        assert js[k]["trajectory_label"] == py[k]["trajectory_label"]
-        assert js[k]["trajectory_state"] == py[k]["trajectory_state"]
-        assert js[k]["trajectory_word"] == py[k]["trajectory_word"], (
-            "rescore()'s returned object must carry trajectory_word — this is "
-            "the field a signed-in client-side re-render needs to draw the "
-            "full <span class=\'traj-word\'> badge, matching every other "
-            "trajectory builder (dashboard/rows.py, auth.js's renderLatestRows)"
-        )
-
-
-def test_rescore_parity_ties():
-    # All-equal data -> all ranks tie to the average (n+1)/2
-    sectors = ["US|A", "US|B", "US|C", "US|D"]
-    data = {
-        "scans": [{"scan_id": 1, "run_at": "2026-06-01T00:00:00"}],
-        "sectors": sectors,
-        "data": {k: [1.0] for k in sectors},
-        "sentiment": {k: [0.0] for k in sectors},
-    }
-    js = _run_js(data, 0.30)
-    for k in sectors:
-        assert js[k]["rank"] == pytest.approx(2.5, abs=1e-6)  # (1+2+3+4)/4
-
-
-def test_rescore_w0_equals_data_only_order():
-    # At W=0 the ranking equals ranking by data_score alone.
-    sectors = ["US|A", "US|B", "US|C"]
-    data = {
-        "scans": [{"scan_id": 1, "run_at": "2026-06-01T00:00:00"}],
-        "sectors": sectors,
-        "data": {"US|A": [2.0], "US|B": [1.0], "US|C": [3.0]},
-        "sentiment": {"US|A": [9.0], "US|B": [9.0], "US|C": [-9.0]},  # ignored at W=0
-    }
-    js = _run_js(data, 0.0)
-    assert js["US|C"]["rank"] == 1.0  # highest data
-    assert js["US|A"]["rank"] == 2.0
-    assert js["US|B"]["rank"] == 3.0
 
 
 def _run_js_meta(recent_rows):
@@ -333,7 +219,7 @@ def test_in_buy_band_handles_the_shipped_horizon():
 
 
 def test_in_buy_band_accepts_average_ranks():
-    """rankAverage yields .5 ranks on ties, and the badge must not flicker on
+    """Tied themes get average (.5) ranks, and the badge must not flicker on
     them — 4.5 is outside a top_n of 4, inside a top_n of 5."""
     assert _run_js_in_buy_band([[4.5, 4], [4.5, 5]]) == [False, True]
 

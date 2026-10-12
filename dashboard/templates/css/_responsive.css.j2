@@ -316,8 +316,8 @@
   .filter-chip,
   /* .control-chip/.more-filters summary are new (desktop controls-row chip
      curation) and were missing here in whole-branch review — every
-     sibling control in the same row (.filter-chip, .rank-settings
-     summary) already gets this treatment. */
+     sibling control in the same row (.filter-chip) already gets this
+     treatment. */
   .control-chip,
   .more-filters summary,
   .segment-btn,
@@ -344,16 +344,6 @@
   .pill-button,
   .horizon-btn { min-height: 44px; min-width: 44px; }
 
-  /* A 13px checkbox is the smallest control on the page. Enlarge the box and
-     give its label a full-height hit area rather than only the glyph. */
-  /* A native checkbox clamps `width` under appearance:auto, so set both the
-     box and a min-width, and give the wrapping label the 44px hit area — the
-     label is what a thumb actually lands on. */
-  #sentiment-toggle { width: 22px; min-width: 22px; height: 22px; min-height: 22px; }
-  #sentiment-weight { min-height: 44px; }
-  .sentiment-control label,
-  .rank-settings label { display: inline-flex; align-items: center; min-height: 44px; }
-
   /* Disclosure summaries are tap targets too. */
   .health-panel > summary { min-height: 44px; display: flex; align-items: center; }
 
@@ -371,15 +361,12 @@
 /* from _tables.css.j2 */
 @media (max-width: 700px) { .breakdown-grid { grid-template-columns: 1fr; } }
 
-/* The ranking and More-filters popovers both anchor to .horizon-row (the
-   merged Controls row, since the desktop controls-row-chip-curation work
-   retired .utility-row) and span it below 600px, instead of running off
-   the side. */
+/* The More-filters popover anchors to .horizon-row (the merged Controls row,
+   since the desktop controls-row-chip-curation work retired .utility-row) and
+   spans it below 600px, instead of running off the side. */
 @media (max-width: 600px) {
   .horizon-row { position: relative; }
-  .rank-settings,
   .more-filters { position: static; }
-  .rank-settings .sentiment-control,
   .more-filters .filter-bar {
     left: 0;
     right: 0;

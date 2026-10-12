@@ -116,7 +116,6 @@ def _render_badge_suffix_html(tmp_path):
         cohorts_json=json.dumps([{"region": "THEME", "label": "Themes"}]),
         **_horizon_ctx_far_future(), cohort_charts_json=json.dumps({}),
         sentiment_scatter_json=_make_mock_plotly_json(),
-        rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=json.dumps(scan_history),
         scan_index=scan_index, active_scan_id=1,
         signals_list=[], plotly_bundle="assets/plotly.min.js",
@@ -300,3 +299,15 @@ def test_the_browser_chrome_colour_follows_the_manual_theme_toggle(page):
     assert {c for _, c in _theme_color_tags(page)} == {light}
     page.click('.theme-toggle .theme-btn[data-theme-choice="auto"]')
     assert by_media(_theme_color_tags(page)) == {False: light, True: dark}
+
+
+def test_a_saved_blend_preference_from_the_discontinued_control_is_cleared(page):
+    """Readers who once enabled the (removed) sentiment blend still hold its
+    localStorage keys; the page clears them on load rather than leaving a stale
+    preference lying around for any future reuse of the names."""
+    page.evaluate("() => { localStorage.setItem('sentimentEnabled', 'true'); "
+                  "localStorage.setItem('sentimentWeight', '30'); }")
+    page.reload()
+    left = page.evaluate("() => [localStorage.getItem('sentimentEnabled'), "
+                         "localStorage.getItem('sentimentWeight')]")
+    assert left == [None, None]

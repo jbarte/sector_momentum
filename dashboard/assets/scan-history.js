@@ -11,8 +11,6 @@
   var originalTbody = tbody.innerHTML;
   var banner = document.getElementById("scan-history-banner");
   var bannerText = banner ? banner.querySelector(".scan-history-text") : null;
-  var sentimentToggle = document.getElementById("sentiment-toggle");
-  var sentimentControl = document.getElementById("sentiment-control");
   var latestScanId = SCAN_HISTORY.scans[0].id;
 
   // renderScanLeaderboard() below builds row HTML by string concatenation
@@ -93,7 +91,7 @@
         var sc = e.scores;
         var sector = e.key.split("|")[1];
         // The reader's ACTIVE horizon, not HORIZON_DEFAULT: the selector stays
-        // live in this view (only the sentiment toggle is disabled), and a
+        // live in this view, and a
         // reader on Long would otherwise see past scans marked top-4. Falls back
         // to inBuyBand's own HORIZON_DEFAULT default if the page's inline script
         // has not defined currentHorizon yet.
@@ -222,8 +220,6 @@
       var prefix = "Viewing scan #";
       bannerText.textContent = prefix + scanId;
     }
-    if (sentimentToggle) sentimentToggle.disabled = true;
-    if (sentimentControl) sentimentControl.style.opacity = "0.4";
     // Past-scan rows are rebuilt without filter data attributes.
     if (typeof window.setFilterBarVisible === "function") window.setFilterBarVisible(false);
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
@@ -238,13 +234,6 @@
     if (typeof applyHorizonBadges === "function") { applyHorizonBadges(); }
     updateShowingBadge(latestScanId);
     if (banner) banner.style.display = "none";
-    if (sentimentToggle) {
-      sentimentToggle.disabled = false;
-      if (sentimentToggle.checked) {
-        sentimentToggle.dispatchEvent(new Event("change"));
-      }
-    }
-    if (sentimentControl) sentimentControl.style.opacity = "";
     if (typeof switchTab === "function") switchTab("leaderboard", document.querySelector('.tab-btn'));
     // The original tbody (with filter data attributes) is back, so show the bar
     // and re-apply whatever filter state was active before.
