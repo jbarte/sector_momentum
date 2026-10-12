@@ -132,9 +132,6 @@
 
   function makeLeaderboardReadOnly() {
     window._leaderboardUpgraded = true;
-    // Hide the sentiment/rank settings gear (its toggle can't work on upgraded rows).
-    var settings = document.querySelector("#tab-leaderboard .rank-settings");
-    if (settings) settings.style.display = "none";
     // Neutralize the sortable column headers (sortTable() also guards on the flag).
     var ths = document.querySelectorAll("#tab-leaderboard thead th[onclick]");
     ths.forEach(function (th) {
@@ -332,9 +329,9 @@
   });
 
   /* upgradeLeaderboard() has no inverse: it replaces the baked (lagged) rows
-   * with live ones, hides the rank-settings gear, disables sorting and sets
-   * window._leaderboardUpgraded, which the template's sort/rescore paths also
-   * read. Unwinding that by hand means restoring six pieces of state plus
+   * with live ones, disables sorting and sets
+   * window._leaderboardUpgraded, which the template's sort path also
+   * read. Unwinding that by hand means restoring five pieces of state plus
    * whatever listened to sm:leaderboard-upgraded — so instead, sign-out reloads
    * the baked page, which IS the gated state. positions.js and alert-prefs.js
    * clear themselves on SIGNED_OUT; the leaderboard was the only leak.

@@ -192,7 +192,6 @@ def test_rendered_js_assets_all_carry_a_cache_busting_query(tmp_path):
         cohorts_json=_json.dumps([]), **_horizon_ctx(),
         cohort_charts_json=_json.dumps({}),
         sentiment_scatter_json=_make_mock_plotly_json(),
-        rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[],
         backtest_json=_json.dumps({}), backtest_metrics=[], has_backtest=False,

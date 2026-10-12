@@ -131,18 +131,17 @@ Stored as `sentiment_score`, rendered on `docs/sentiment.html`, and **excluded
 from the canonical composite** (`blend_sentiment=False`). Unavailable source
 leaves it NULL for that scan.
 
-**Sentiment is ALPHA (2026-08-14) and currently moves nothing.** Its output has
-not been validated, so `SENTIMENT_RANKING_ENABLED` in `dashboard/build.py` is
-`False`, which means: the "Ranking" cogwheel that blended sentiment into the
-composite client-side is **not rendered** (absent, not hidden — the wiring
-early-returns on a missing control, so a stale `localStorage` preference cannot
-silently re-apply the blend), the leaderboard's Sentiment column was removed
-outright by the 2026-08-19 6-column restructure (not merely hidden by CSS),
-and the page carries an `experimental` badge (labelled `alpha` until
+**Sentiment is experimental and moves nothing.** Its output was measured
+(2026-08-22) and found to score the topic's vocabulary rather than the news, so
+it is never blended into the ranking, on the web or in the iOS app. The
+"Ranking" cogwheel that once blended it into the composite in the reader's
+browser was **discontinued and removed on 2026-10-12** — control, flag, styling,
+and the client-side re-scoring engine with its baked per-scan history, all gone
+(`tests/test_sentiment_alpha_gate.py` keeps it that way). The leaderboard's
+Sentiment column was removed by the 2026-08-19 6-column restructure, and the
+sentiment page carries an `experimental` badge (labelled `alpha` until
 2026-09-05 -- renamed because in a momentum dashboard "alpha" also means
-excess return). The stored composite was never
-affected either way. Restoring it is one flag, but blocked on validating the
-pipeline — see BACKLOG.
+excess return). The stored composite was never affected either way.
 
 ---
 

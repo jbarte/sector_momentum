@@ -100,7 +100,6 @@ def _render_leaderboard_html(tmp_path):
         cohorts_json=json.dumps([{"region": "THEME", "label": "Themes"}]),
         **_horizon_ctx(), cohort_charts_json=json.dumps({}),
         sentiment_scatter_json=_make_mock_plotly_json(),
-        rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=json.dumps(scan_history),
         scan_index=scan_index, active_scan_id=2,
         signals_list=[], plotly_bundle="assets/plotly.min.js",

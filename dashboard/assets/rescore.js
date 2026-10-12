@@ -1,31 +1,9 @@
-// Pure client-side rescoring for the leaderboard sentiment toggle.
-// No DOM access. Mirrors src/scoring.py rank semantics and
-// dashboard/build.py:_compute_rank_trajectories OLS thresholds.
+// Pure client-side board rules: the rank band (Enter/Hold/Exit), the book rule,
+// the review calendar, and the trajectory read of a rank series.
+// No DOM access. Mirrors dashboard/rows.py and src/horizons.py; its ports are
+// pinned by the tests/test_*parity*.py files and the published band fixture.
 (function (root) {
   "use strict";
-
-  // Descending rank: highest value -> rank 1. Average tie-break,
-  // mirroring scipy.rankdata(-x, method="average").
-  function rankAverage(values) {
-    var n = values.length;
-    var idx = values.map(function (v, i) { return i; });
-    // Sort indices by value DESCENDING
-    idx.sort(function (a, b) { return values[b] - values[a]; });
-    var ranks = new Array(n);
-    var i = 0;
-    while (i < n) {
-      var j = i;
-      // Group ties (equal values)
-      while (j + 1 < n && values[idx[j + 1]] === values[idx[i]]) { j++; }
-      // Positions i..j (0-based) -> 1-based ranks i+1..j+1; average them
-      var avg = 0;
-      for (var k = i; k <= j; k++) { avg += k + 1; }
-      avg = avg / (j - i + 1);
-      for (var m = i; m <= j; m++) { ranks[idx[m]] = avg; }
-      i = j + 1;
-    }
-    return ranks;
-  }
 
   // Least-squares slope over x = 0..n-1. Returns 0 for n < 2.
   function olsSlope(values) {
@@ -54,81 +32,6 @@
     if (slope < 0.3)   { return { label: "→",  state: "flat",        word: TRAJECTORY_WORDS.flat }; }
     if (slope < 1.5)   { return { label: "↓",  state: "down",        word: TRAJECTORY_WORDS.down }; }
     return { label: "↓↓", state: "strong_down", word: TRAJECTORY_WORDS.strong_down };
-  }
-
-  // data = {scans:[{scan_id,run_at}], sectors:[key], data:{key:[..]}, sentiment:{key:[..]}}
-  // Returns per-sector result for the LATEST scan.
-  function rescore(data, W) {
-    var sectors = data.sectors;
-    var nScans = data.scans.length;
-    var out = {};
-    if (nScans === 0) {
-      sectors.forEach(function (s) {
-        out[s] = { rank: null, composite: 0, delta_rank: 0, delta_composite: 0,
-                   setup: null, trajectory_label: "→", trajectory_state: "flat",
-                   trajectory_word: TRAJECTORY_WORDS.flat };
-      });
-      return out;
-    }
-
-    // Split sectors by region for per-region ranking
-    var regionGroups = {};
-    sectors.forEach(function (key) {
-      var region = key.split("|")[0];
-      if (!regionGroups[region]) { regionGroups[region] = []; }
-      regionGroups[region].push(key);
-    });
-
-    // composite[scanIdx] = {sector: value}; ranks[scanIdx] = {sector: rank}
-    var compositeByScan = [];
-    var rankByScan = [];
-    for (var s = 0; s < nScans; s++) {
-      var cMap = {};
-      sectors.forEach(function (key) {
-        var d = data.data[key][s];
-        var sent = data.sentiment[key][s];
-        cMap[key] = (1 - W) * d + W * sent;
-      });
-      var rMap = {};
-      Object.keys(regionGroups).forEach(function (region) {
-        var group = regionGroups[region];
-        var vals = group.map(function (key) { return cMap[key]; });
-        var ranks = rankAverage(vals);
-        group.forEach(function (key, i) { rMap[key] = ranks[i]; });
-      });
-      compositeByScan.push(cMap);
-      rankByScan.push(rMap);
-    }
-
-    var last = nScans - 1;
-    var prev = nScans >= 2 ? last - 1 : null;
-
-    sectors.forEach(function (key) {
-      var rankNow = rankByScan[last][key];
-      var compNow = compositeByScan[last][key];
-      var dRank = 0, dComp = 0;
-      if (prev !== null) {
-        dRank = rankByScan[prev][key] - rankNow;          // + = climbed
-        dComp = compNow - compositeByScan[prev][key];
-      }
-      // Trajectory: OLS slope over last up-to-5 scans' ranks
-      var start = Math.max(0, nScans - 5);
-      var rankSeries = [];
-      for (var s2 = start; s2 < nScans; s2++) { rankSeries.push(rankByScan[s2][key]); }
-      var traj = trajectoryLabel(olsSlope(rankSeries));
-
-      out[key] = {
-        rank: rankNow,
-        composite: compNow,
-        delta_rank: dRank,
-        delta_composite: dComp,
-        setup: null,
-        trajectory_label: traj.label,
-        trajectory_state: traj.state,
-        trajectory_word: traj.word
-      };
-    });
-    return out;
   }
 
   // The ONE place exit_rank is computed in JS. buffer_frac is a FRACTION of
@@ -684,11 +587,11 @@
       + 'title="Rank slope over last 3–5 scans">' + trajBadgeInner(label, word, state) + '</span>';
   }
 
-  var api = { rankAverage: rankAverage, olsSlope: olsSlope, setupForRank: setupForRank,
+  var api = { olsSlope: olsSlope, setupForRank: setupForRank,
               inBuyBand: inBuyBand, exitRank: exitRank,
               badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
               bookLine: bookLine,
-              trajectoryLabel: trajectoryLabel, rescore: rescore,
+              trajectoryLabel: trajectoryLabel,
               trajBadgeInner: trajBadgeInner, trajBadgeHTML: trajBadgeHTML,
               latestRowMeta: latestRowMeta, todaysRead: todaysRead, DRIFT_EPS: DRIFT_EPS,
               compositeBar: compositeBar, levelChangeBars: levelChangeBars, signedFmt: signedFmt,

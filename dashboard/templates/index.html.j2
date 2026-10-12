@@ -232,9 +232,8 @@
           need no changes — only their position moved. -#}
       <button type="button" class="filter-clear" id="filter-clear" hidden>Clear</button>
       <span class="filter-count" id="filter-count"></span>
-      {#- Native <details>, matching .rank-settings right beside it — same
-          popover positioning (_sentiment.css.j2), same mobile full-width
-          override (_responsive.css.j2), no new toggle JS needed. -#}
+      {#- Native <details>: popover positioning (_tables.css.j2), mobile
+          full-width override (_responsive.css.j2), no toggle JS needed. -#}
       <details class="more-filters">
         <summary>More filters</summary>
         <div class="filter-bar" id="leaderboard-filter-bar">
@@ -260,27 +259,6 @@
         </div>
       </details>
     </div>
-    {#- Visible text rather than aria-label on a bare glyph: an aria-label would
-        override the visible name for AT, and a control that silently re-ranks
-        the board should say so on its face. -#}
-    {#- Sentiment is experimental, so the control that blends it into the ranking is not
-        rendered at all (build.SENTIMENT_RANKING_ENABLED). Not merely hidden: the
-        wiring below early-returns when the control is absent, which is what
-        stops a reader who once enabled it from having it silently re-applied
-        from localStorage. A `display:none` would leave that path live. -#}
-    {% if sentiment_ranking_enabled %}
-    <details class="rank-settings">
-      <summary><span class="rs-glyph" aria-hidden="true">⚙</span><span>Ranking</span></summary>
-      <div id="sentiment-control" class="sentiment-control">
-        <label>
-          <input type="checkbox" id="sentiment-toggle"> <span>Include sentiment in ranking</span>
-        </label>
-        <span class="sw-weight">
-          <span>Weight:</span> <input type="number" id="sentiment-weight" min="0" max="100" step="1" value="30" disabled>%
-        </span>
-      </div>
-    </details>
-    {% endif %}
     <button type="button" class="tab-guide-btn" data-guide="guide_body_leaderboard">How to read this tab</button>
   </div>
   <div id="scan-history-banner" style="display:none">
@@ -1757,7 +1735,6 @@ window.CHART_DARK = CHART_DARK;
 // never merged onto one figure — see the cohort-select-row comment above.
 var COHORT_CHARTS = {{ cohort_charts_json | js_json }};
 var activeCohort = COHORT_REGIONS.length ? COHORT_REGIONS[0] : null;
-var RESCORE_DATA = {{ rescore_data_json | js_json }};
 var SCAN_HISTORY = {{ scan_history_json | js_json }};
 var BACKTEST_DATA = {{ backtest_json | js_json }};
 {% if correlation_fig_json %}
@@ -2157,129 +2134,6 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
 // BACKLOG.md Done entry on the nested-interactive-content fix that drove
 // it) removed the gap itself, not just this workaround for it: a native
 // button already fires 'click' on Enter/Space with no JS at all.
-
-// ----- Sentiment toggle wiring -----
-(function () {
-  var LS_ENABLED = "sentimentEnabled", LS_WEIGHT = "sentimentWeight";
-  var toggle = document.getElementById("sentiment-toggle");
-  var weightInput = document.getElementById("sentiment-weight");
-  var table = document.getElementById("leaderboard-table");
-  var weightWrap = weightInput ? weightInput.closest(".sw-weight") : null;
-  if (!toggle || !weightInput || !table || typeof Rescore === "undefined") { return; }
-
-  function fmt(n, d) { return (n === null || n === undefined) ? "—" : Number(n).toFixed(d); }
-
-  function updateTrees(scored, W) {
-    var dataPct = Math.round((1 - W) * 100), sentPct = Math.round(W * 100);
-    Object.keys(scored).forEach(function (key) {
-      var sel = '.score-tree[data-theme-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]';
-      document.querySelectorAll(sel).forEach(function (tree) {
-        var cv = tree.querySelector(".st-composite-val");
-        if (cv) { cv.textContent = fmt(scored[key].composite, 3); }
-        var dwt = tree.querySelector(".st-data-wt"); if (dwt) { dwt.textContent = "(" + dataPct + "%)"; }
-        var swt = tree.querySelector(".st-sent-wt"); if (swt) { swt.textContent = "(" + sentPct + "%)"; }
-      });
-    });
-  }
-
-  // Update the visible leaderboard rows' cells from `scored`.
-  function updateRows(rows, scored) {
-    rows.forEach(function (tr) {
-      var r = scored[tr.getAttribute("data-theme-key")];
-      if (!r) { return; }
-      var badge = tr.querySelector(".rank-cell .rank-badge");
-      // The highlight is applyHorizonBadges()'s to write (it runs at the end
-      // of this function and knows the active horizon); only the number here.
-      if (badge) { badge.textContent = r.rank; }
-      var compCell = tr.querySelector(".composite-cell");
-      if (compCell) { compCell.textContent = fmt(r.composite, 3); }
-      var deltaCell = tr.querySelector(".delta-cell");
-      if (deltaCell) {
-        var arrow = r.delta_rank > 0 ? "▲" : (r.delta_rank < 0 ? "▼" : "");
-        var cls = r.delta_rank > 0 ? "up" : (r.delta_rank < 0 ? "down" : "");
-        var dtxt = r.delta_rank === 0 ? "—" : (r.delta_rank > 0 ? "+" : "") + r.delta_rank.toFixed(1);
-        deltaCell.innerHTML = '<span class="arrow ' + cls + '">' + arrow + '</span> ' + dtxt;
-      }
-      var traj = tr.querySelector(".traj-badge");
-      if (traj) {
-        traj.className = "traj-badge traj-" + r.trajectory_state;
-        // The two-span structure (Rescore.trajBadgeInner), not textContent —
-        // textContent replaces both children with one bare glyph, destroying
-        // the word and the tooltip. See BACKLOG.md, "Rescore path flattens
-        // the Trend badge to a bare glyph".
-        traj.innerHTML = Rescore.trajBadgeInner(r.trajectory_label, r.trajectory_word, r.trajectory_state);
-      }
-      // The Trend filter (_matchesTrend) reads data-trend, not the badge's own
-      // class — found in code review of the fix above: the badge repaint had
-      // no matching update here, so a reader with a Trend filter active could
-      // see a rescored badge disagree with what the filter shows or hides.
-      tr.dataset.trend = r.trajectory_state || "";
-      // Rescoring changes the rank, and the rank is what the badge is derived
-      // from — so data-rank has to move with it or the next badge pass (and the
-      // Top 5 filter) would still be reading pre-rescore ranks.
-      tr.dataset.rank = r.rank;
-    });
-    // Badges are not patched here. This path used to carry its own rule — the
-    // trajectory + change-score heuristic that _compute_setup replaced with the
-    // rank band — so toggling the sentiment weight silently re-badged the board
-    // by a rule no other path had used since. One writer now.
-    applyHorizonBadges();
-  }
-
-  function sortVisibleByRank(rows, scored, tbody) {
-    rows.sort(function (a, b) {
-      var ra = scored[a.getAttribute("data-theme-key")];
-      var rb = scored[b.getAttribute("data-theme-key")];
-      return (ra ? ra.rank : 1e9) - (rb ? rb.rank : 1e9);
-    });
-    rows.forEach(function (tr) {
-      tbody.appendChild(tr);
-      var sid = tr.getAttribute("data-theme-id");
-      var bd = sid ? document.getElementById("bd-" + sid) : null;
-      if (bd) { tbody.appendChild(bd); }
-    });
-  }
-
-  function applyRanking() {
-    if (window._leaderboardUpgraded) return;
-    var enabled = toggle.checked;
-    var weight = Math.min(100, Math.max(0, parseInt(weightInput.value, 10) || 0));
-    var W = enabled ? weight / 100 : 0;
-    try {
-      localStorage.setItem(LS_ENABLED, enabled ? "true" : "false");
-      localStorage.setItem(LS_WEIGHT, String(weight));
-    } catch (e) {}
-    weightInput.disabled = !enabled;
-    if (weightWrap) { weightWrap.setAttribute("data-disabled", String(!enabled)); }
-
-    var scored = Rescore.rescore(RESCORE_DATA, W);
-    updateTrees(scored, W);
-
-    var tbody = table.querySelector("tbody");
-    var rows = Array.prototype.slice.call(
-      tbody.querySelectorAll('tr.leaderboard-row'));
-    updateRows(rows, scored);
-    sortVisibleByRank(rows, scored, tbody);
-    // AFTER the re-sort, not before: updateRows() -> applyHorizonBadges() has
-    // already drawn the cuts once, but against the pre-rescore DOM order. The
-    // rows then move underneath them, so without this pass the lines sit on the
-    // wrong themes until some unrelated event happens to redraw them.
-    if (typeof applyBandBoundaries === 'function') { applyBandBoundaries(); }
-  }
-
-  // Init from persisted state.
-  var enabled0 = false, weight0 = 30;
-  try {
-    enabled0 = localStorage.getItem(LS_ENABLED) === "true";
-    var w = parseInt(localStorage.getItem(LS_WEIGHT), 10);
-    if (!isNaN(w)) { weight0 = Math.min(100, Math.max(0, w)); }
-  } catch (e) {}
-  toggle.checked = enabled0;
-  weightInput.value = weight0;
-  toggle.addEventListener("change", applyRanking);
-  weightInput.addEventListener("input", applyRanking);
-  if (enabled0) { applyRanking(); }
-})();
 
 // Delegated click handler for leaderboard row expansion
 document.getElementById('leaderboard-table')?.addEventListener('click', function(e) {

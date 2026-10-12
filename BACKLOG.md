@@ -105,117 +105,19 @@ cycles: a flag rule, if one is built, should key off `corr 26w`, not the
 cumulative number. AI & Robotics no longer looks like it belongs in the
 same sentence.
 
-## Restore the sentiment blend control — and make it work when signed in
+## Signed-in readers cannot sort the leaderboard
 
-The "Ranking" cogwheel (`⚙ Ranking`, a `<details>` holding "Include sentiment in
-ranking" plus a weight %) blended sentiment into the composite client-side and
-re-ranked the board. **Withdrawn 2026-08-14** while sentiment is alpha — see
-Done. Restoring it is one flag, `SENTIMENT_RANKING_ENABLED` in
-`dashboard/build.py`, but two things should be settled first.
-
-**1. Validate the sentiment pipeline.** This is the blocker and the reason the
-control went away. Until there is a reason to believe a positive polarity
-reading means something, letting it move the ranking is worse than not showing
-it. Nothing below matters until this is answered.
-
-**Measured 2026-08-22 (scans 164–169, 6 clean days, 18 themes, 107 readings).
-The answer so far is negative, and it changes what "restoring the control"
-should even mean.**
-
-`news_polarity` decomposes into a large fixed per-theme level plus daily noise:
-
-| measurement | result | interpretation |
-|---|---|---|
-| raw lag-1 autocorrelation | **0.299** (0.734 for themes with ≥50 articles/day) | looks strongly persistent |
-| lag-1 after removing each theme's own mean | **−0.245** (−0.083 for ≥50 articles) | the persistence was *not* dynamics |
-| pure-noise benchmark for this panel shape (18×6, simulated 20k draws) | mean **−0.200**, 95% range −0.388 to −0.005 | observed values sit at the 33rd and 88th percentile — **inside the noise band** |
-| per-theme mean polarity, 138–152 vs 164–169 | **r = 0.707**, ρ = 0.696 (n=17, p ≈ 0.002) | the level is stable across two unrelated news periods |
-| polarity vs composite rank | ρ = −0.189, Pearson 0.120 | negligible |
-
-The two periods compared in that fourth row are **non-overlapping and separated
-by eleven days of dead pipeline** (2026-07-22→08-05 vs 08-17→08-22). A theme's
-average tone survived a complete change of news at r = 0.71. Meanwhile its
-day-to-day movement is statistically indistinguishable from random.
-
-**So FinBERT is largely scoring the vocabulary of the topic, not the news.**
-Cybersecurity reads −0.095 in the first period and −0.104 in the second while
-sitting 4th on the board with a positive composite — security headlines are
-made of "breach", "attack", "threat" whatever the sector is doing. Data Centers
-(−0.02 → −0.09) and Blockchain (−0.08 → −0.02) behave the same way.
-
-Blending *raw* polarity into the composite would therefore apply a near-permanent
-per-theme handicap that has nothing to do with performance — worse than noise,
-because it is a **consistent** bias rather than one that averages out.
-
-Two further problems visible in the same data:
-
-- **Coverage is wildly uneven.** Article counts run 2–630/day. Eight of 18
-  themes average under 20/day (Shipping 6, Food & Beverage 10, Healthcare
-  Providers 10). Their day-to-day sd (0.19–0.29) exceeds the entire
-  cross-sectional spread of the well-covered themes (sd ≈ 0.10), so the
-  thinnest themes contribute the loudest swings. This is the estimator
-  asymmetry the GDELT item flags, now quantified.
-- **Predictive power is still unmeasured**, and cannot be measured yet: six
-  scan-days give no usable forward-return window. That test needs months, and
-  it is the only one that can actually justify the feature.
-
-**Revised recommendation.** Do not restore the control as a raw-polarity blend.
-If it is restored at all, the candidate signal is the **deviation from each
-theme's own trailing baseline** (a fixed-effects correction that removes the
-topical constant), gated on a minimum article count to suppress the thin
-themes. That is a different feature from the one that was withdrawn, and it
-still requires the forward-return test above before it earns a place in the
-ranking. Re-measure once ~3 months of clean daily scans exist.
-
-**2. It never worked signed in, and that is fixable.** `makeLeaderboardReadOnly()`
-([`auth.js`](dashboard/assets/auth.js)) hides the cogwheel and disables
-column sorting for signed-in readers, because the signed-in path replaces the
-baked rows with fresh ones from `v_recent_scores`, and the client-side rescore
-reads `RESCORE_DATA` — a per-scan history baked at build time and keyed by
-`data-theme-key`, which the rebuilt rows do not carry.
-
-But that query already selects what the blend needs:
-
-```
-level_score, change_score, data_score, sentiment_score, composite, rank
-```
-
-The composite is `(1 − W)·data + W·sentiment`, so the slider's whole job can be
-done from the two scores already on each rebuilt row — no baked history required.
-It needs `Rescore.rescore()`'s arithmetic sourced from the row instead of from
-`RESCORE_DATA`, then a re-rank. Signing in currently trades the slider and
-sorting for badges and fresh data, and it need not.
-
-**Sorting needs more than the missing attribute, found during backlog-sync
-(2026-09-16):** `sortTable()` (`index.html.j2`) bails out immediately on
-`window._leaderboardUpgraded` — a flag `makeLeaderboardReadOnly()` sets for
-every signed-in reader (`auth.js:129-145`, in place since 2026-07-21, well
-before this item was last edited). Adding `data-theme-key` to the rebuilt
-rows is necessary but not sufficient; the guard itself also has to be
-relaxed (or the sort re-enabled once the row-rebuild path can support it)
-for sorting to actually work signed in.
-
-**Two things to honour when it returns:**
-
-- **The band cut lines follow the ranking**, so they must be redrawn after any
-  re-rank. Already wired on the guest path — `applyRanking()` calls
-  `applyBandBoundaries()` after `sortVisibleByRank()` — so the signed-in path
-  needs the same call, not a new mechanism.
-- **The stored composite must stay pure.** `scan.py` passes
-  `blend_sentiment=False` and that should not change: the blend is a reader's
-  view, not a change to what is persisted, backtested or alerted on.
-  `tests/test_sentiment_alpha_gate.py` pins this.
-
-**Also queued with it:** the leaderboard's Sentiment column is not merely
-hidden anymore — the 2026-08-19 6-column restructure (Stage 1 of the
-leaderboard redesign, see Done) removed it outright, and `_sentiment.css.j2`'s
-old `display:none` block is gone with it. Restoring the column now means
-re-adding a `<th>`, a cell in **all three** row-builders (`dashboard/rows.py`,
-`renderLatestRows()` in `auth.js`, and the row loop in `scan-history.js`), and
-renumbering every `sortTable()`/`data-col` index and `colspan` that counts
-columns — meaningfully more work than the one CSS block this used to be.
-Also drop the `alpha` badge from the Sentiment nav and page note. (No i18n
-key needed any more — i18n was removed entirely, 2026-09-13, see Done.)
+Split out of the discontinued "restore the sentiment blend control" item
+(2026-10-12), because the gap is real and independent of it. When a reader
+signs in, `upgradeLeaderboard()` (`auth.js`) replaces the baked rows with fresh
+ones from `v_recent_scores`, and `makeLeaderboardReadOnly()` sets
+`window._leaderboardUpgraded`, which makes `sortTable()` (`index.html.j2`) bail
+out and strips the sortable headers' cursor and `tabindex`. Signing in trades
+column sorting for badges and fresh data. Sorting needs two things: the rebuilt
+rows have to carry the attribute `sortTable()` groups by (`data-theme-key`), and
+the `_leaderboardUpgraded` guard has to be relaxed or removed. Filtering already
+works signed in. Whether signed-in sorting is wanted at all is undecided; delete
+this item if not.
 
 ## iOS app follow-ups (jbarte/etf-momentum-ios)
 
@@ -634,6 +536,29 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **The sentiment blend control is discontinued and removed (2026-10-12,
+  `refactor/remove-sentiment-blend-control`).** Decision: sentiment is not to
+  influence the ranking in any form, on the web or in the iOS app, so the "restore
+  the sentiment blend control" item is closed rather than parked. Sentiment itself
+  is untouched: it is still measured and shown on its own experimental page, and
+  the stored composite is still pure price data (`scan.py` passes
+  `blend_sentiment=False`). Removed from the web: the switched-off
+  `SENTIMENT_RANKING_ENABLED` flag; the "⚙ Ranking" markup, its styling and the
+  page script that wired it; the client-side re-scoring engine (`Rescore.rescore`,
+  `rankAverage`) and the per-scan history baked for it (`RESCORE_DATA`,
+  `_build_rescore_data`), roughly 3 KB per page; the toggle handling in
+  `auth.js` and `scan-history.js`; the "Sentiment (0%)" branch of each theme's
+  breakdown tree. Their tests went too (the `rescore()` parity tests, the
+  trend-badge-after-rescore tests, the flag-gate tests); `test_sentiment_alpha_gate.py`
+  now pins the opposite: nothing of the control exists, and the stored composite
+  stays pure. The earlier measurement that led here (2026-08-22: the polarity
+  scores the topic's vocabulary, not the news; its day-to-day moves sit inside
+  the noise band) is still recorded in `ARCHITECTURE.md` § Sentiment. The 17 Nov
+  re-measure task was disabled, its only purpose being to decide this. iOS has no
+  control; its unused `sentimentScore` field goes in a separate PR. Not touched:
+  the Sentiment page, the GDELT/FinBERT pipeline, the `sentiment_score` columns.
+  The signed-in sorting gap this item bundled with is now its own item.
+
 - **The browser chrome colour follows the manual theme toggle; the icon copy is
   tested by running it (2026-10-11, `fix/theme-color-follows-toggle`).**
   Follow-up to the home-screen icon (2026-10-10). The two `theme-color` tags
@@ -849,7 +774,8 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   the current rule. With 6 scans it has at most 5 replays, so the guard never
   fires there. The dormant sentiment-toggle `Rescore.rescore()` also still
   compares raw scans. It reads `RESCORE_DATA` and its control is withdrawn
-  (see Queued, "Restore the sentiment blend control").
+  (since discontinued and removed, 2026-10-12: see the Done entry "The sentiment
+  blend control is discontinued and removed").
 
 - **Past scans leave the scan line alone — dead header-date code removed
   (2026-09-18, `fix/scan-history-dead-header-date`).** `scan-history.js`
@@ -1831,7 +1757,8 @@ inline in `auth.js`.
 
 Still dormant: `sentiment_ranking_enabled` is `False` in production, so this
 fix has no live effect until *Restore the sentiment blend control* (still
-declined pending its own forward-return validation) ships. Diffed a build
+declined pending its own forward-return validation) ships. [That control was
+discontinued and removed on 2026-10-12, so this fix and its code went with it.] Diffed a build
 before/after against `main`: the only differences are the changed `updateRows`
 source itself (now dead code on this path) and the cache-busting hashes that
 follow from it — every server-rendered row's `.traj-badge` markup is

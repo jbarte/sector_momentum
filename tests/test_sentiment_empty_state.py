@@ -53,7 +53,6 @@ def _render(**overrides) -> str:
         horizons_json="[]",
         horizon_default_json="{}",
         round_trip_bps=10,
-        sentiment_ranking_enabled=False,
         sentiment_signal_rows=[],
     )
     ctx.update(overrides)

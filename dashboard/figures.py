@@ -745,42 +745,6 @@ def _live_horizon_stats(backtests_dir: str, today: date | None = None) -> dict[s
     return stats
 
 
-def _build_rescore_data(history_df) -> dict:
-    """Per-scan x per-sector data_score and sentiment_score arrays for the
-    client-side leaderboard rescoring."""
-    if history_df.empty:
-        return {"scans": [], "sectors": [], "data": {}, "sentiment": {}}
-
-    df = history_df.copy()
-    df["theme_key"] = df["region"] + "|" + df["gics_sector"]
-
-    scan_ids = sorted(df["scan_id"].unique().tolist())
-    scans_meta = []
-    for sid in scan_ids:
-        run_at = df[df["scan_id"] == sid]["run_at"].iloc[0]
-        scans_meta.append({"scan_id": int(sid), "run_at": str(run_at)})
-
-    sectors = sorted(df["theme_key"].unique().tolist())
-
-    def _series(col: str) -> dict:
-        result = {}
-        for key in sectors:
-            sk = df[df["theme_key"] == key].groupby("scan_id")[col].first()
-            vals = []
-            for sid in scan_ids:
-                fv = _safe_float(sk.get(sid))
-                vals.append(fv if fv is not None else 0.0)
-            result[key] = vals
-        return result
-
-    return {
-        "scans": scans_meta,
-        "sectors": sectors,
-        "data": _series("data_score"),
-        "sentiment": _series("sentiment_score"),
-    }
-
-
 def _build_scan_history_data(all_scores_df) -> dict:
     """Per-scan scores for every sector, for the client-side scan-history viewer."""
     if all_scores_df.empty:
@@ -842,13 +806,11 @@ def build_sectors_context(shared: dict) -> dict:
     import json as _json
 
     signals_list = _DRILLDOWN_SIGNALS
-    rescore_data_json = _json.dumps(_build_rescore_data(shared["history_df"]))
     scan_history_json = _json.dumps(_build_scan_history_data(shared["all_scores_df"]))
     bt = _build_backtest_context(str(shared["project_root"] / "backtests"))
 
     return {
         "signals_list": signals_list,
-        "rescore_data_json": rescore_data_json,
         "scan_history_json": scan_history_json,
         "backtest_json": bt["backtest_json"],
         "backtest_metrics": bt["backtest_metrics"],

@@ -257,7 +257,6 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
-            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
@@ -277,36 +276,7 @@ def test_rendered_template_has_no_empty_js_vars(tmp_path):
     )
 
 
-def test_build_rescore_data_shape():
-    import pandas as pd
-    from dashboard.build import _build_rescore_data
-
-    rows = []
-    for scan_id, run_at in [(1, "2026-06-22T00:00:00"), (2, "2026-06-23T00:00:00")]:
-        for region, sector, dscore, sscore in [
-            ("US", "Technology", 0.6, 0.2),
-            ("EU", "Energy", -0.3, float("nan")),  # NaN sentiment -> 0.0
-        ]:
-            rows.append({
-                "scan_id": scan_id, "run_at": run_at, "region": region,
-                "gics_sector": sector, "data_score": dscore, "sentiment_score": sscore,
-            })
-    df = pd.DataFrame(rows)
-
-    out = _build_rescore_data(df)
-
-    assert [s["scan_id"] for s in out["scans"]] == [1, 2]
-    assert set(out["sectors"]) == {"US|Technology", "EU|Energy"}
-    # arrays aligned to scans length
-    for key in out["sectors"]:
-        assert len(out["data"][key]) == 2
-        assert len(out["sentiment"][key]) == 2
-    # NaN sentiment coerced to 0.0
-    assert out["sentiment"]["EU|Energy"] == [0.0, 0.0]
-    assert out["data"]["US|Technology"] == [0.6, 0.6]
-
-
-def test_rendered_template_includes_rescore_data_and_control(tmp_path):
+def test_rendered_template_loads_rescore_js_and_carries_no_blend_control(tmp_path):
     out = tmp_path / "index.html"
     _render(
         template_path=_TEMPLATE,
@@ -316,7 +286,6 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
-            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps({"scans": [], "scores": {}}),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
@@ -328,16 +297,14 @@ def test_rendered_template_includes_rescore_data_and_control(tmp_path):
         ),
     )
     html = out.read_text()
-    assert "var RESCORE_DATA =" in html
     assert 'assets/rescore.js' in html
-    # The blend control is gated on sentiment_ranking_enabled, which this context
-    # does not set — so it renders absent, and Undefined is falsy. RESCORE_DATA
-    # and rescore.js stay unconditional: the sentiment slider is only one of
-    # their consumers (the badge rules and the trajectory maths are the others),
-    # so gating the control must not strip the data or the module.
-    # tests/test_sentiment_alpha_gate.py covers both directions of the flag.
+    # The sentiment blend control was discontinued (2026-10-12): no control, no
+    # baked per-scan history for a client-side re-score. rescore.js itself stays
+    # for the badge, band and book rules and the trajectory read.
+    assert "RESCORE_DATA" not in html
     assert 'id="sentiment-toggle"' not in html
     assert 'id="sentiment-weight"' not in html
+    assert "rank-settings" not in html
     # no empty JS var assignments
     assert not re.compile(r"var\s+\w+\s*=\s*;").findall(html)
 
@@ -361,7 +328,6 @@ def test_history_tab_has_scan_index(tmp_path):
         scan_date="2026-06-02 06:00 UTC", active_scan_id=2, scan_index=scan_index,
         leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
         cohort_list=[], cohorts_json=_json.dumps([]), **_horizon_ctx(_json.dumps), cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
-        rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
     ))
@@ -399,7 +365,6 @@ def test_built_html_has_no_composite_toggle(tmp_path):
         has_any_rows=any(rs for _, rs in grouped_rows),
         cohorts_json=_json.dumps([]), **_horizon_ctx(_json.dumps),
         cohort_charts_json=_json.dumps({}), sentiment_scatter_json="{}",
-        rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
     ))
@@ -455,7 +420,6 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
         cohorts_json=_json.dumps([]), **_horizon_ctx(_json.dumps),
         cohort_charts_json=_json.dumps({}),
         sentiment_scatter_json=_make_mock_plotly_json(),
-        rescore_data_json=_json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
         scan_history_json=_json.dumps({"scans": [], "scores": {}}),
         signals_list=[], plotly_bundle="assets/plotly.min.js",
         backtest_json=_json.dumps({}), backtest_metrics=[], has_backtest=False,
@@ -681,7 +645,6 @@ def test_scan_history_json_in_rendered_output(tmp_path):
             leaderboard_rows=[], us_leaderboard_rows=[], eu_leaderboard_rows=[],
             cohort_list=[], cohorts_json=json.dumps([]), **_horizon_ctx(), cohort_charts_json=json.dumps({}),
             sentiment_scatter_json=_make_mock_plotly_json(),
-            rescore_data_json=json.dumps({"scans": [], "sectors": [], "data": {}, "sentiment": {}}),
             scan_history_json=json.dumps(scan_history),
             signals_list=[],
             plotly_bundle="assets/plotly.min.js",
@@ -2887,8 +2850,8 @@ def test_control_chips_share_data_attributes_with_the_full_set():
 
 def test_full_filter_set_moved_into_a_details_disclosure():
     """The nine-chip #leaderboard-filter-bar is unmodified in shape — only
-    relocated inside a <details class="more-filters">, the same native
-    pattern .rank-settings already uses one control over."""
+    relocated inside a <details class="more-filters">, a native disclosure
+    with no toggle script."""
     text = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
     details_start = text.index('class="more-filters"')
     details_block_start = text.rindex("<details", 0, details_start)
@@ -2902,7 +2865,7 @@ def test_full_filter_set_moved_into_a_details_disclosure():
 def test_horizon_row_and_utility_row_are_merged():
     """One "Controls row" per the spec, not two separate rows, on the
     LEADERBOARD tab specifically — its former .utility-row's children
-    (filter bar, rank-settings, guide button) now live inside .horizon-row
+    (filter bar, guide button) now live inside .horizon-row
     alongside the horizon control.
 
     Does NOT assert `.utility-row` is gone from the whole document: RRG,
@@ -3097,34 +3060,26 @@ def test_filter_bar_mobile_scroll_hack_is_gone():
 
 
 def test_more_filters_gets_the_mobile_popover_treatment():
-    """Same static/full-width override .rank-settings already gets at
-    600px (_responsive.css.j2) — .more-filters is the same kind of control
-    in the same row and must not run off the side of a 375px screen.
+    """.more-filters must not run off the side of a 375px screen: below 600px
+    it goes static and its popover spans the Controls row (_responsive.css.j2).
 
-    Matches on the specific selector pair rather than delimiting the whole
-    @media block: this file has several separate `@media (max-width:
-    600px)` blocks, and a non-greedy regex trying to bound just one of
-    them matched clean across a block boundary into an unrelated
-    `@media (pointer: coarse)` block instead (caught live — it found
-    `.rank-settings label`, a different rule, before ever finding this
-    block's own closing brace)."""
+    Matches on the specific selectors rather than delimiting the whole @media
+    block: this file has several separate `@media (max-width: 600px)` blocks,
+    and a non-greedy regex trying to bound just one of them once matched clean
+    across a block boundary into an unrelated `@media (pointer: coarse)` block."""
     css = (Path(__file__).parent.parent / "dashboard/templates/css"
            / "_responsive.css.j2").read_text()
-    assert re.search(
-        r"\.rank-settings,\s*\n\s*\.more-filters\s*\{\s*position:\s*static;",
-        css
-    ), "expected `.rank-settings,\\n  .more-filters { position: static; }`"
-    assert re.search(
-        r"\.rank-settings \.sentiment-control,\s*\n\s*\.more-filters \.filter-bar\s*\{",
-        css
-    ), "expected the popover-positioning rule to cover both .more-filters and .rank-settings"
+    assert re.search(r"\.more-filters\s*\{\s*position:\s*static;", css), (
+        "expected `.more-filters { position: static; }` in the 600px block")
+    assert re.search(r"\.more-filters \.filter-bar\s*\{", css), (
+        "expected the popover-positioning rule for `.more-filters .filter-bar`")
+    assert "rank-settings" not in css
 
 
 def test_horizon_row_is_the_new_popover_anchor():
-    """.utility-row { position: relative } anchored .rank-settings's
-    popover (_sentiment.css.j2's `position: absolute; right: 0`) before
-    Task 1 deleted .utility-row from the markup — the anchor must move to
-    .horizon-row, the row .rank-settings now lives inside, or the popover
+    """.utility-row { position: relative } anchored the Controls-row popovers
+    before Task 1 deleted .utility-row from the markup — the anchor must move
+    to .horizon-row, the row the .more-filters popover lives inside, or it
     positions against the wrong ancestor."""
     css = (Path(__file__).parent.parent / "dashboard/templates/css"
            / "_responsive.css.j2").read_text()
@@ -3165,10 +3120,8 @@ def test_control_chips_is_right_aligned():
 
 def test_control_chip_and_more_filters_get_touch_targets():
     """Found in whole-branch review: every sibling control in the same row
-    (.filter-chip, .rank-settings summary) already gets the 44px
-    pointer:coarse bump — the new .control-chip and .more-filters summary
-    did not, despite the latter's own comment calling it "the same family"
-    as .rank-settings."""
+    (.filter-chip) already gets the 44px pointer:coarse bump — the new
+    .control-chip and .more-filters summary did not."""
     css = (Path(__file__).parent.parent / "dashboard/templates/css"
            / "_responsive.css.j2").read_text()
     css_no_comments = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)

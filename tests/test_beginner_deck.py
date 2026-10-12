@@ -129,7 +129,7 @@ def test_footer_link_sits_beside_methodology_link():
 def test_index_page_includes_the_deck_partial():
     html = _render("index.html.j2", leaderboard_rows=[], scan_date="2026-01-01",
                     active_scan_id=1, todays_read="", cohort_list=[], horizon_list=[],
-                    sentiment_ranking_enabled=False, round_trip_bps=100,
+                    round_trip_bps=100,
                     horizons_json="[]", horizon_default_json="{}", cohorts_json="{}",
                     unbuyable_json="{}", theme_tickers_json="{}", chart_dark_json="{}",
                     has_any_rows=False, badges_gated=False, asset_versions={},
@@ -140,7 +140,7 @@ def test_index_page_includes_the_deck_partial():
 def test_sentiment_page_includes_the_deck_partial():
     html = _render("sentiment.html.j2", scan_date="2026-01-01", active_scan_id=1,
                     asset_versions={}, round_trip_bps=100, chart_dark_json="{}",
-                    sentiment_ranking_enabled=False, lag_days=7,
+                    lag_days=7,
                     horizons_json="[]", horizon_default_json="{}", auth=False)
     assert 'id="beginner-deck-modal"' in html
 
