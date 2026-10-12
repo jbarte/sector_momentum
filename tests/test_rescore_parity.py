@@ -219,7 +219,7 @@ def test_in_buy_band_handles_the_shipped_horizon():
 
 
 def test_in_buy_band_accepts_average_ranks():
-    """rankAverage yields .5 ranks on ties, and the badge must not flicker on
+    """Tied themes get average (.5) ranks, and the badge must not flicker on
     them — 4.5 is outside a top_n of 4, inside a top_n of 5."""
     assert _run_js_in_buy_band([[4.5, 4], [4.5, 5]]) == [False, True]
 

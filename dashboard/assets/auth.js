@@ -331,7 +331,7 @@
   /* upgradeLeaderboard() has no inverse: it replaces the baked (lagged) rows
    * with live ones, disables sorting and sets
    * window._leaderboardUpgraded, which the template's sort path also
-   * read. Unwinding that by hand means restoring five pieces of state plus
+   * read. Unwinding that by hand means restoring several pieces of state plus
    * whatever listened to sm:leaderboard-upgraded — so instead, sign-out reloads
    * the baked page, which IS the gated state. positions.js and alert-prefs.js
    * clear themselves on SIGNED_OUT; the leaderboard was the only leak.

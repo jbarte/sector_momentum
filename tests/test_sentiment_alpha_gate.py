@@ -47,7 +47,7 @@ def test_the_blend_control_and_its_flag_no_longer_exist():
     assert sources, "no dashboard sources found -- did the layout move?"
     forbidden = ("sentiment-toggle", "sentiment-weight", "sentiment-control",
                  "rank-settings", "sentiment_ranking_enabled", "RESCORE_DATA",
-                 "rescore_data_json", "_build_rescore_data")
+                 "rescore_data_json", "_build_rescore_data", "Sentiment toggle")
     for path in sources:
         text = path.read_text()
         for needle in forbidden:

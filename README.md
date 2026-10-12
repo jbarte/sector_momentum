@@ -50,7 +50,7 @@ anything you own that is still inside the band, `Exit` once it leaves.
 A **sentiment** score (FinBERT over GDELT headlines) is computed and shown on
 its own page, but it is **experimental and moves nothing** — it is excluded from the
 composite and from the ranking, and the control that used to blend it into the
-ranking was withdrawn in August 2026 pending validation.
+ranking was removed for good in October 2026.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline, or the
 **Methodology** link in the dashboard footer for the reader-facing version.

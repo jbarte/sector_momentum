@@ -270,8 +270,8 @@
     <table id="leaderboard-table">
       <thead>
         <tr>
-          {#- "Data" was dropped 2026-08-12 (with sentiment weighted 0 by default
-              the composite IS the data score); "Sentiment" was dropped 2026-08-19
+          {#- "Data" was dropped 2026-08-12 (the composite IS the data score);
+              "Sentiment" was dropped 2026-08-19
               with the 6-column restructure — sentiment is experimental and excluded from
               the ranking, so the column was "—" in every row. Level and Change
               merged into one stacked-bar cell in the same change. -#}
@@ -601,10 +601,10 @@ function _leaderboardRowForKey(key) {
 }
 
 // The single writer of every leaderboard badge — the horizon switch, the
-// signed-in rebuild, the sentiment rescore and the holdings toggle all end up
-// here. They used to each emit their own badge markup, and they had already
-// drifted: the rescore path was still using the pre-band trajectory heuristic
-// that _compute_setup replaced.
+// signed-in rebuild and the holdings toggle all end up here. They used to each
+// emit their own badge markup, and they had already drifted (a since-removed
+// rescore path was still using the pre-band trajectory heuristic that
+// _compute_setup replaced).
 //
 // Two inputs beyond the row's own data-rank:
 //   BADGES_GATED   the badge is the signed-in tier; guests get data-setup=""
@@ -626,7 +626,7 @@ function badgesVisible() {
 //
 // Attached to the LAST QUALIFYING VISIBLE ROW rather than to a fixed rank, for
 // two reasons:
-//   - ranks tie (rankAverage yields 4.5), so `rank === top_n` can match nothing;
+//   - ranks tie (average ranks like 4.5), so `rank === top_n` can match nothing;
 //   - filters hide rows, and a line anchored to a hidden row would vanish.
 // Reading "everything above this line is inside the band" stays true under any
 // filter, which a fixed-rank line would not.
@@ -2134,6 +2134,14 @@ document.getElementById('leaderboard-table')?.addEventListener('keydown', functi
 // BACKLOG.md Done entry on the nested-interactive-content fix that drove
 // it) removed the gap itself, not just this workaround for it: a native
 // button already fires 'click' on Enter/Space with no JS at all.
+
+// The discontinued sentiment blend control saved its state in localStorage. Clear
+// it so a stale preference can never be picked up if anything ever reuses these
+// key names. Safe to delete once no reader can still hold them.
+try {
+  localStorage.removeItem("sentimentEnabled");
+  localStorage.removeItem("sentimentWeight");
+} catch (e) {}
 
 // Delegated click handler for leaderboard row expansion
 document.getElementById('leaderboard-table')?.addEventListener('click', function(e) {
