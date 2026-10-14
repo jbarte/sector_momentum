@@ -536,6 +536,16 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 
 # Done
 
+- **The iOS app can lock and unlock the book (2026-10-14, etf-momentum-ios #11).**
+  The review card has the website's "Lock book until the review" switch, writing
+  the same `book_locks` row the same way `book-lock.js` does (lock = upsert on
+  `user_id` with `unlocked_at` explicitly null; unlock = stamp `unlocked_at` on the
+  in-force row). "Done ✓" in the app also locks until the next review, as on the
+  web; the Done ✓ record itself stays per device and does not sync. Friction and
+  a record, not enforcement. The write path was checked against `book-lock.js`,
+  the table and supabase-swift's request building, not executed against the live
+  database. Follow-up layout pass on the card: etf-momentum-ios #12.
+
 - **The sentiment blend control is discontinued and removed (2026-10-12,
   `refactor/remove-sentiment-blend-control`).** Decision: sentiment is not to
   influence the ranking in any form, on the web or in the iOS app, so the "restore
