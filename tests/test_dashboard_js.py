@@ -4660,3 +4660,70 @@ def test_bar_is_suppressed_entirely_when_the_stop_frac_config_is_missing():
         "signalling 'far from its stop' for a position whose real proximity "
         "is unknown"
     )
+
+
+# ---------------------------------------------------------------------------
+# Signed-in readers can sort the leaderboard. The live upgrade used to switch
+# sorting off (window._leaderboardUpgraded + stripped header affordances) on the
+# stated ground that the rebuilt rows lack data-theme-key. sortTable() never read
+# that attribute: it orders by each row's cells and keeps the breakdown panel
+# (data-theme-id) under its row, both of which the rebuilt rows carry.
+# ---------------------------------------------------------------------------
+
+def test_the_signed_in_upgrade_no_longer_disables_sorting():
+    root = Path(__file__).parent.parent / "dashboard"
+    for path in [*root.rglob("*.js"), *root.rglob("*.j2")]:
+        text = path.read_text()
+        assert "_leaderboardUpgraded" not in text, (
+            f"{path.name} still refers to the flag that used to turn sorting off")
+        assert "makeLeaderboardReadOnly" not in text, path.name
+    tpl = (root / "templates/index.html.j2").read_text()
+    body = tpl[tpl.index("function sortTable("):tpl.index("function _applyLeaderboardSort(")]
+    assert "return;" not in body, "sortTable() bails out again before it sorts"
+
+
+@_needs_node
+def test_the_upgrade_keeps_the_headers_sortable_and_restores_the_readers_sort():
+    """Runs the real auth.js upgrade against a stub DOM: the sortable headers are
+    left alone, and the page's sort/filter state is re-applied to the new rows."""
+    rescore = Path(__file__).parent.parent / "dashboard/assets/rescore.js"
+    out = _run_gate_modal_scenario(f"""
+        var calls = [], appended = [];
+        var th = makeEl("th");
+        th.style = {{cursor: ""}};
+        th.getAttribute = function () {{ return "0"; }};
+        th.removeAttribute = function (n) {{ calls.push("removeAttribute:" + n); }};
+        var tbody = makeEl("tbody");
+        tbody.appendChild = function (el) {{ appended.push(el); }};
+        document.querySelector = function (sel) {{
+          return sel === "#leaderboard-table tbody" ? tbody : null;
+        }};
+        document.querySelectorAll = function (sel) {{
+          return sel.indexOf("th[onclick]") !== -1 ? [th] : [];
+        }};
+        document.createElement = function () {{
+          return {{dataset: {{}}, setAttribute: function () {{}}, innerHTML: ""}};
+        }};
+        window.Rescore = global.Rescore = require({json.dumps(str(rescore))});
+        window.COHORTS = [{{region: "THEME", label: "Themes"}}];
+        window.applyFilters = function () {{ calls.push("applyFilters"); }};
+        window.reapplyLeaderboardSort = function () {{ calls.push("reapplyLeaderboardSort"); }};
+        sb.from = function () {{
+          var q = {{select: function () {{ return q; }}, order: function () {{ return q; }},
+                   then: function (f) {{ f({{data: [
+            {{scan_id: 1, run_at: "2026-10-14T00:00:00Z", region: "THEME", gics_sector: "Defense",
+              level_score: 1, change_score: 0.5, data_score: 0, composite: 1.2, rank: 1}},
+            {{scan_id: 1, run_at: "2026-10-14T00:00:00Z", region: "THEME", gics_sector: "Biotech",
+              level_score: -1, change_score: 0.1, data_score: 0, composite: -0.4, rank: 2}}
+          ], error: null}}); return q; }}}};
+          return q;
+        }};
+        authCallback("SIGNED_IN", {{user: {{email: "a@b.c"}}}});
+        console.log(JSON.stringify({{calls: calls, rows: appended.length,
+                                    cursor: th.style.cursor, flag: window._leaderboardUpgraded}}));
+    """)
+    assert out["rows"] == 2, "the live rows were not rebuilt"
+    assert out["calls"] == ["applyFilters", "reapplyLeaderboardSort"], (
+        f"expected filters then the reader's sort to be re-applied, got {out['calls']}")
+    assert out["cursor"] == "", "the sortable headers were restyled as inert"
+    assert "flag" not in out, "a read-only flag was set"   # undefined is dropped by JSON

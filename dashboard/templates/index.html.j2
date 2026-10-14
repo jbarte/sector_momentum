@@ -2048,18 +2048,25 @@ window.clearFilters = clearFilters;
 window.setFilterBarVisible = setFilterBarVisible;
 
 function sortTable(col) {
-  if (window._leaderboardUpgraded) return;
-  var table   = document.getElementById('leaderboard-table');
-  var tbody   = table.querySelector('tbody');
-  var headers = table.querySelectorAll('thead th');
-  var rows = Array.from(tbody.querySelectorAll('tr.leaderboard-row'));
-
   if (_sortCol === col) {
     _sortDir *= -1;
   } else {
     _sortCol = col;
     _sortDir = 1;
   }
+  _applyLeaderboardSort();
+}
+
+// Re-orders the leaderboard by the current _sortCol/_sortDir. Split from
+// sortTable() so the signed-in rebuild (auth.js renderLatestRows(), which emits
+// rows in rank order) can put a sort the reader already chose back, instead of
+// leaving the header arrow pointing at an order the rows no longer have.
+function _applyLeaderboardSort() {
+  var col     = _sortCol;
+  var table   = document.getElementById('leaderboard-table');
+  var tbody   = table.querySelector('tbody');
+  var headers = table.querySelectorAll('thead th');
+  var rows = Array.from(tbody.querySelectorAll('tr.leaderboard-row'));
 
   headers.forEach(function(h, i) {
     h.classList.remove('sort-asc', 'sort-desc');
@@ -2113,6 +2120,14 @@ function sortTable(col) {
   // no longer by rank.
   if (typeof applyBandBoundaries === 'function') { applyBandBoundaries(); }
 }
+
+// Called once the signed-in rows replace the baked ones. The default order
+// (# ascending) is exactly what the rebuild emits, so only a sort the reader
+// already picked needs reapplying.
+window.reapplyLeaderboardSort = function () {
+  if (_sortCol === 0 && _sortDir === 1) return;
+  _applyLeaderboardSort();
+};
 
 // Keyboard support for interactive table elements
 document.getElementById('leaderboard-table')?.addEventListener('keydown', function(e) {
