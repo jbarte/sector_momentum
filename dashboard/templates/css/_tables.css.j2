@@ -605,9 +605,7 @@ tbody td:nth-child(n+4) {
 .stop-cell .stop-chip { margin-left: 0; }
 /* Not sortable (no onclick/data-col on the th), so it must not advertise
    itself as clickable. Without this it inherits the sortable headers'
-   cursor/hover, and after sign-in makeLeaderboardReadOnly() strips those
-   from the real sortable headers via th[onclick] -- leaving this the only
-   header still rendering as clickable, which is precisely backwards. */
+   cursor/hover and would look like one more column you can sort by. */
 #leaderboard-table thead th.col-stop {
   cursor: default;
 }

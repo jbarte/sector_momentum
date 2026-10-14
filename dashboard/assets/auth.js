@@ -121,27 +121,24 @@
         var latest = res.data.filter(function (r) { return r.scan_id === maxScan; });
         renderLatestRows(tbody, latest, meta);
         markLive();
-        makeLeaderboardReadOnly();
+        reapplyFilters();
         // The live rows ride on the event so the page can rewrite the facts
         // it baked from the gated scan (applyTodaysRead) without a second
         // v_recent_scores query. Listeners that don't need them ignore detail.
         document.dispatchEvent(new CustomEvent("sm:leaderboard-upgraded",
           { detail: { rows: latest } }));
+        // After the listeners: applyHorizonBadges() writes the band classes the
+        // sort's band-boundary pass reads.
+        if (typeof window.reapplyLeaderboardSort === "function") window.reapplyLeaderboardSort();
       });
   }
 
-  function makeLeaderboardReadOnly() {
-    window._leaderboardUpgraded = true;
-    // Neutralize the sortable column headers (sortTable() also guards on the flag).
-    var ths = document.querySelectorAll("#tab-leaderboard thead th[onclick]");
-    ths.forEach(function (th) {
-      th.style.cursor = "default";
-      th.removeAttribute("tabindex");
-    });
-    // Filtering stays available: renderLatestRows emits the same filter data
-    // attributes as the static build. Re-apply any active filters to the
-    // freshly rebuilt rows. (Sorting stays disabled above — sortTable groups by
-    // data-theme-key, which these rows don't carry.)
+  /* The rebuilt rows replace the baked ones, so the active filters are applied
+   * to them again. Sorting stays available signed in: it only needs the cells and
+   * data-theme-id that renderLatestRows() emits, not data-theme-key. (A sort the
+   * reader picked before the live rows arrived is put back after the
+   * sm:leaderboard-upgraded listeners have run -- see below.) */
+  function reapplyFilters() {
     if (typeof window.applyFilters === "function") window.applyFilters();
   }
 
@@ -329,10 +326,8 @@
   });
 
   /* upgradeLeaderboard() has no inverse: it replaces the baked (lagged) rows
-   * with live ones, disables sorting and sets
-   * window._leaderboardUpgraded, which the template's sort path also
-   * read. Unwinding that by hand means restoring several pieces of state plus
-   * whatever listened to sm:leaderboard-upgraded — so instead, sign-out reloads
+   * with live ones. Unwinding that by hand means restoring several pieces of
+   * state plus whatever listened to sm:leaderboard-upgraded — so instead, sign-out reloads
    * the baked page, which IS the gated state. positions.js and alert-prefs.js
    * clear themselves on SIGNED_OUT; the leaderboard was the only leak.
    *

@@ -105,20 +105,6 @@ cycles: a flag rule, if one is built, should key off `corr 26w`, not the
 cumulative number. AI & Robotics no longer looks like it belongs in the
 same sentence.
 
-## Signed-in readers cannot sort the leaderboard
-
-Split out of the discontinued "restore the sentiment blend control" item
-(2026-10-12), because the gap is real and independent of it. When a reader
-signs in, `upgradeLeaderboard()` (`auth.js`) replaces the baked rows with fresh
-ones from `v_recent_scores`, and `makeLeaderboardReadOnly()` sets
-`window._leaderboardUpgraded`, which makes `sortTable()` (`index.html.j2`) bail
-out and strips the sortable headers' cursor and `tabindex`. Signing in trades
-column sorting for badges and fresh data. Sorting needs two things: the rebuilt
-rows have to carry the attribute `sortTable()` groups by (`data-theme-key`), and
-the `_leaderboardUpgraded` guard has to be relaxed or removed. Filtering already
-works signed in. Whether signed-in sorting is wanted at all is undecided; delete
-this item if not.
-
 ## iOS app follow-ups (jbarte/etf-momentum-ios)
 
 The board app shipped in its own repo: v1 (etf-momentum-ios#1, 2026-09-27),
@@ -535,6 +521,25 @@ speculatively — the caching layer already absorbs most single-day hiccups.
 ---
 
 # Done
+
+- **Signed-in readers can sort the leaderboard again (2026-10-14,
+  `fix/signed-in-leaderboard-sorting`).** Signing in swapped the baked rows for
+  live ones and switched column sorting off (`window._leaderboardUpgraded`,
+  headers stripped of cursor and `tabindex`), on the stated ground that the rebuilt
+  rows lack `data-theme-key`. That was not the reason: `sortTable()` orders by each
+  row's cells and keeps the drill-down panel under its row via `data-theme-id`,
+  all of which the rebuilt rows carry, so the fix was removing the guard, not
+  adding the attribute. `sortTable()` is split so the upgrade can call
+  `reapplyLeaderboardSort()`: a sort chosen before the live rows arrive is put back
+  on them (they are emitted in rank order), alongside the active filters. Checked
+  in a browser against the real `auth.js` upgrade with canned rows (every sortable
+  column both ways, panels stay under their rows); tests in `test_dashboard_js.py`.
+  Sorting is by displayed value, as it always was for guests, so two themes that
+  both show +0.85 may sit in either order. Review found two things the old guard
+  had been hiding from signed-in readers, both fixed here: the Theme column sorted
+  by the whole cell text, so the star toggle's glyph split held themes from the
+  rest (it now sorts by the theme's name); and "—" placeholders were compared as
+  text against numbers, which is not an ordering (they now group at one end).
 
 - **The iOS app can lock and unlock the book (2026-10-14, etf-momentum-ios #11).**
   The review card has the website's "Lock book until the review" switch, writing
