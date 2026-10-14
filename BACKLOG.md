@@ -535,7 +535,11 @@ speculatively — the caching layer already absorbs most single-day hiccups.
   in a browser against the real `auth.js` upgrade with canned rows (every sortable
   column both ways, panels stay under their rows); tests in `test_dashboard_js.py`.
   Sorting is by displayed value, as it always was for guests, so two themes that
-  both show +0.85 may sit in either order.
+  both show +0.85 may sit in either order. Review found two things the old guard
+  had been hiding from signed-in readers, both fixed here: the Theme column sorted
+  by the whole cell text, so the star toggle's glyph split held themes from the
+  rest (it now sorts by the theme's name); and "—" placeholders were compared as
+  text against numbers, which is not an ordering (they now group at one end).
 
 - **The iOS app can lock and unlock the book (2026-10-14, etf-momentum-ios #11).**
   The review card has the website's "Lock book until the review" switch, writing

@@ -1890,6 +1890,7 @@ function toggleBreakdown(id) {
 
 // ----- Sortable table -----
 var _sortCol = 0, _sortDir = 1; // dir: 1=asc, -1=desc
+var _sortChosen = false;        // the reader has clicked a header
 
 // ----- Leaderboard filtering -----
 // Visibility-only: filters decide which rows show, sortTable decides order.
@@ -2048,6 +2049,7 @@ window.clearFilters = clearFilters;
 window.setFilterBarVisible = setFilterBarVisible;
 
 function sortTable(col) {
+  _sortChosen = true;
   if (_sortCol === col) {
     _sortDir *= -1;
   } else {
@@ -2088,6 +2090,17 @@ function _applyLeaderboardSort() {
       return (isNaN(aVal) ? -1 : 1) * _sortDir;
     }
 
+    // Theme (col 1) sorts by the name alone. The cell also holds the ticker,
+    // badges and, for a signed-in reader, the star toggle (positions.js), whose
+    // glyph would otherwise sort held themes apart from the rest.
+    if (col === 1) {
+      var aName = aCell ? aCell.querySelector('.theme-name') : null;
+      var bName = bCell ? bCell.querySelector('.theme-name') : null;
+      var aTheme = (aName || aCell || {}).innerText || '';
+      var bTheme = (bName || bCell || {}).innerText || '';
+      return aTheme.trim().localeCompare(bTheme.trim()) * _sortDir;
+    }
+
     var aText = aCell ? aCell.innerText.trim() : '';
     var bText = bCell ? bCell.innerText.trim() : '';
 
@@ -2101,6 +2114,10 @@ function _applyLeaderboardSort() {
     var bNum = parseFloat(bText.replace(/[+,−]/g, function(m) { return m === '−' ? '-' : ''; }));
 
     if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * _sortDir;
+    // A value and a placeholder ("—") are not comparable as text: mixing the two
+    // rules made the order depend on which pair the sort happened to compare.
+    // Placeholders go together at the low end instead, a consistent order.
+    if (!isNaN(aNum) !== !isNaN(bNum)) return (isNaN(aNum) ? -1 : 1) * _sortDir;
     return aText.localeCompare(bText) * _sortDir;
   });
 
@@ -2121,12 +2138,10 @@ function _applyLeaderboardSort() {
   if (typeof applyBandBoundaries === 'function') { applyBandBoundaries(); }
 }
 
-// Called once the signed-in rows replace the baked ones. The default order
-// (# ascending) is exactly what the rebuild emits, so only a sort the reader
-// already picked needs reapplying.
+// Called once the signed-in rows replace the baked ones. A reader who has not
+// clicked a header has no sort to restore, and the rebuild's own order stands.
 window.reapplyLeaderboardSort = function () {
-  if (_sortCol === 0 && _sortDir === 1) return;
-  _applyLeaderboardSort();
+  if (_sortChosen) _applyLeaderboardSort();
 };
 
 // Keyboard support for interactive table elements

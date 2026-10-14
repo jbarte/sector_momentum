@@ -121,23 +121,25 @@
         var latest = res.data.filter(function (r) { return r.scan_id === maxScan; });
         renderLatestRows(tbody, latest, meta);
         markLive();
-        reapplyReaderState();
+        reapplyFilters();
         // The live rows ride on the event so the page can rewrite the facts
         // it baked from the gated scan (applyTodaysRead) without a second
         // v_recent_scores query. Listeners that don't need them ignore detail.
         document.dispatchEvent(new CustomEvent("sm:leaderboard-upgraded",
           { detail: { rows: latest } }));
+        // After the listeners: applyHorizonBadges() writes the band classes the
+        // sort's band-boundary pass reads.
+        if (typeof window.reapplyLeaderboardSort === "function") window.reapplyLeaderboardSort();
       });
   }
 
-  /* The rebuilt rows replace the baked ones, so whatever the reader already did
-   * to the old rows has to be put back on the new ones: the active filters, and
-   * a column sort they picked before the live rows arrived. Sorting stays
-   * available signed in -- it only needs the cells and data-theme-id that
-   * renderLatestRows() emits, not data-theme-key. */
-  function reapplyReaderState() {
+  /* The rebuilt rows replace the baked ones, so the active filters are applied
+   * to them again. Sorting stays available signed in: it only needs the cells and
+   * data-theme-id that renderLatestRows() emits, not data-theme-key. (A sort the
+   * reader picked before the live rows arrived is put back after the
+   * sm:leaderboard-upgraded listeners have run -- see below.) */
+  function reapplyFilters() {
     if (typeof window.applyFilters === "function") window.applyFilters();
-    if (typeof window.reapplyLeaderboardSort === "function") window.reapplyLeaderboardSort();
   }
 
   function renderLatestRows(tbody, rows, meta) {

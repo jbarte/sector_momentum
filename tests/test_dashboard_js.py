@@ -4682,6 +4682,102 @@ def test_the_signed_in_upgrade_no_longer_disables_sorting():
     assert "return;" not in body, "sortTable() bails out again before it sorts"
 
 
+def _real_sort_scenario(rows_js: str, driver_js: str) -> dict:
+    """Runs the template's real sortTable/_applyLeaderboardSort/reapply code over
+    stub rows (cells with innerText, as the browser would give them)."""
+    tpl = (Path(__file__).parent.parent / "dashboard/templates/index.html.j2").read_text()
+    code = tpl[tpl.index("function sortTable("):tpl.index("// Keyboard support for interactive table elements")]
+    script = f"""
+      var _sortCol = 0, _sortDir = 1, _sortChosen = false;
+      function mkCell(text, attrs) {{
+        var name = (attrs && attrs.name) ? {{innerText: attrs.name}} : null;
+        return {{innerText: text, dataset: (attrs && attrs.data) || {{}},
+                querySelector: function () {{ return name; }}}};
+      }}
+      function mkRow(id, cells) {{
+        return {{dataset: {{themeId: id}}, cells: cells,
+                querySelectorAll: function () {{ return cells; }}}};
+      }}
+      var rows = {rows_js};
+      var tbody = {{
+        order: rows.slice(),
+        querySelectorAll: function () {{ return this.order.slice(); }},
+        appendChild: function (el) {{ this.order = this.order.filter(function (r) {{ return r !== el; }}).concat([el]); }},
+      }};
+      var headers = [0, 1, 2, 3, 4].map(function () {{
+        var cls = new Set();
+        return {{classList: {{add: function (c) {{ cls.add(c); }}, remove: function () {{ cls.clear(); }}, has: function (c) {{ return cls.has(c); }}}}}};
+      }});
+      global.document = {{getElementById: function (id) {{
+        if (id === 'leaderboard-table') return {{querySelector: function () {{ return tbody; }},
+                                               querySelectorAll: function () {{ return headers; }}}};
+        return null;
+      }}}};
+      global.window = {{}};
+      {code}
+      var ids = function () {{ return tbody.order.map(function (r) {{ return r.dataset.themeId; }}); }};
+      {driver_js}
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    return json.loads(res.stdout)
+
+
+@_needs_node
+def test_theme_sort_ignores_the_star_toggle_in_the_theme_cell():
+    """A signed-in reader's Theme cell starts with the position toggle (★/☆).
+    Sorting by the cell's text put held themes apart from the rest."""
+    out = _real_sort_scenario(
+        """[
+          mkRow("c", [mkCell("3"), mkCell("★ Cybersecurity CIBR", {name: "Cybersecurity"})]),
+          mkRow("a", [mkCell("1"), mkCell("☆ AgTech AGRO", {name: "AgTech"})]),
+          mkRow("b", [mkCell("2"), mkCell("★ Biotech XBI", {name: "Biotech"})]),
+        ]""",
+        "sortTable(1); var asc = ids(); sortTable(1);"
+        "console.log(JSON.stringify({asc: asc, desc: ids()}));")
+    assert out["asc"] == ["a", "b", "c"], "the star glyph leaked into the Theme sort"
+    assert out["desc"] == ["c", "b", "a"]
+
+
+@_needs_node
+def test_a_column_mixing_values_and_placeholders_sorts_consistently():
+    """Rank delta cells read "—" when there is no delta. Comparing numbers
+    numerically but a number against "—" as text is not an ordering, so the
+    result depended on which pairs the sort compared."""
+    cells = [("n1", "+1.0"), ("d1", "—"), ("n2", "-2.0"), ("d2", "—"), ("n3", "+3.0")]
+    rows = ",".join(f'mkRow("{i}", [mkCell("1"), mkCell("x"), mkCell("0"), mkCell("0"), mkCell("{t}")])'
+                    for i, t in cells)
+    out = _real_sort_scenario(
+        f"[{rows}]",
+        "sortTable(4); var asc = ids(); sortTable(4);"
+        "console.log(JSON.stringify({asc: asc, desc: ids()}));")
+    assert out["asc"][:2] in (["d1", "d2"], ["d2", "d1"]), "placeholders are not grouped"
+    assert out["asc"][2:] == ["n2", "n1", "n3"]
+    assert out["desc"][:3] == ["n3", "n1", "n2"]
+
+
+@_needs_node
+def test_the_readers_chosen_sort_is_restored_but_an_untouched_board_is_left_alone():
+    rows = """[
+      mkRow("a", [mkCell("1"), mkCell("x"), mkCell("0.5")]),
+      mkRow("b", [mkCell("2"), mkCell("x"), mkCell("1.5")]),
+    ]"""
+    out = _real_sort_scenario(rows, """
+      var untouched = ids();
+      window.reapplyLeaderboardSort();          // no header clicked: nothing to restore
+      var afterNoClick = ids();
+      sortTable(2); sortTable(2);               // the reader sorts Composite descending
+      tbody.order = tbody.order.slice().reverse();   // the rebuild re-emits rank order
+      var rebuilt = ids();
+      window.reapplyLeaderboardSort();
+      console.log(JSON.stringify({untouched: untouched, afterNoClick: afterNoClick,
+                                  rebuilt: rebuilt, restored: ids()}));
+    """)
+    assert out["afterNoClick"] == out["untouched"]
+    assert out["restored"] == ["b", "a"], "the reader's Composite sort was not put back"
+    assert out["rebuilt"] != out["restored"]
+
+
 @_needs_node
 def test_the_upgrade_keeps_the_headers_sortable_and_restores_the_readers_sort():
     """Runs the real auth.js upgrade against a stub DOM: the sortable headers are
