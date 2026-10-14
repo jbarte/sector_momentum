@@ -56,15 +56,6 @@ discriminator and is always `THEME` — it reads as legacy but is load-bearing,
 since retired sector rows are still in those tables and `region` is the filter
 that keeps them out of every read.
 
-- Entry point: `scan.py`
-- Dashboard build: `dashboard/build.py` → `docs/`
-- Config: `config/` — `themes.yaml` (the scoring universe + UCITS equivalents),
-  `weights.yaml` (pillar split, signal params, horizon presets, trading cost),
-  `universe.yaml` (scan-wide settings)
-- CI: `.github/workflows/scan.yml` (daily scan → deploys dashboard as a Pages
-  artifact), `.github/workflows/build-docs.yml` (rebuilds and redeploys the
-  Pages artifact on push to `main` when dashboard source changes)
-
 ## Generated artifacts — `docs/` is not committed
 
 `docs/` (the published GitHub Pages dashboard, incl. `docs/reports/`) is a **build
@@ -260,15 +251,7 @@ Code is denied direct `op`, `env`, `printenv` and `.env` reads
 they must never gain a form that prints a secret. Your own shell is
 unrestricted.
 
-```bash
-make build          # Rebuild dashboard from existing DB
-make scan           # Run a full scan — WRITES to the live database
-make restore        # Restore latest backup — DESTRUCTIVE
-make restore-list   # List available Storage backups without restoring
-make restore-local  # Restore from a local backup dir — DESTRUCTIVE. Usage: DIR=<dir>
-make test           # Run tests (no secrets needed; DB-backed tests skip)
-make help           # List targets
-```
+Run `make help` for the targets; `make scan` and the `restore*` targets write to or overwrite the live database.
 
 `op run` passes plain values through unchanged, so these work whether
 `.env` holds literal values or `op://` references — see *Secrets* above.
