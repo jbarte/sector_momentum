@@ -596,3 +596,26 @@ class TestRrgHistoryGating:
         assert "get_rrg_history" in block, (
             "dashboard/build.py never imports get_rrg_history"
         )
+
+
+class TestFallbackPriceDisplay(_FooterRenderHelper):
+    """The Prices row names the Tiingo fallback only on a scan that used it:
+    every scan row from before the column existed has no value, and a normal
+    scan has 0, so the line must stay out of the way in both cases."""
+
+    def _prices_row(self, html: str) -> str:
+        return html.split("Prices</span>", 1)[1].split("</div>", 1)[0]
+
+    def test_named_when_the_fallback_supplied_tickers(self):
+        html = self._render(self._base_health(prices_fallback=3))
+        assert "Tiingo fallback 3" in self._prices_row(html)
+
+    def test_absent_on_a_normal_scan_and_on_rows_that_predate_the_column(self):
+        for h in (self._base_health(prices_fallback=0), self._base_health()):
+            assert "Tiingo" not in self._prices_row(self._render(h))
+
+
+def test_scan_persists_the_fallback_count_as_prices_fallback():
+    """scan.py reads the fetch's "tiingo" source count into the health dict."""
+    text = (Path(__file__).parent.parent / "scan.py").read_text()
+    assert '"prices_fallback": price_stats.get("tiingo", 0)' in text

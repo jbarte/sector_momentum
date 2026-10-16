@@ -164,13 +164,14 @@ then fixes anything already shipped or stale via a `chore:` PR.
 ## Secrets
 
 `.env` is gitignored; `.env.example` is the tracked, secret-free template.
-Three variables, and they are not equally sensitive:
+Four variables, and they are not equally sensitive:
 
 | Variable | Sensitivity |
 |---|---|
 | `SUPABASE_SERVICE_KEY` | **Highest.** Service-role key; bypasses RLS and writes the private `db-backups` bucket. |
 | `DATABASE_URL` | **High.** Contains the Postgres password. |
 | `SUPABASE_PUBLISHABLE_KEY` | **Not secret.** The anon key, already baked into the public dashboard HTML; protected by RLS at the database, not by being hidden. |
+| `TIINGO_API_KEY` | **Medium, optional.** Personal Tiingo token for the price fallback (free tier, 50 requests an hour, personal use only). Sent in a header and never logged; CI logs are public. Unset = yfinance only. |
 
 A local `.env` without `SUPABASE_SERVICE_KEY` still runs scans and builds,
 but the pre-scan Storage backup degrades and `make restore` fails outright.

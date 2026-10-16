@@ -537,7 +537,7 @@ def test_fetch_prices_populates_stats_out(mock_fresh, mock_fetch, tmp_path):
 
     assert "XLK" in result
     assert "XLF" in result
-    assert stats == {"cache": 1, "yfinance": 1}
+    assert stats == {"cache": 1, "yfinance": 1, "tiingo": 0}
 
 
 @patch("src.data.prices._fetch_single")

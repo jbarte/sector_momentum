@@ -308,6 +308,7 @@ def _persist_scan(conn, run_at, long_signals_df, scored_with_deltas,
         # schema stability with 41+ scans of history; always 0 going forward.
         "prices_stooq": price_stats.get("stooq", 0),
         "prices_yfinance": price_stats.get("yfinance", 0),
+        "prices_fallback": price_stats.get("tiingo", 0),
         "prices_failed": prices_failed,
         "sectors_expected": sectors_expected,
         "sectors_produced": sectors_produced,

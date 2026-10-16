@@ -8,6 +8,7 @@
       <span class="health-label">Prices</span>
       <span class="health-values">
         yfinance {{ health.prices_yfinance or 0 }}
+        {%- if health.prices_fallback %} &middot; Tiingo fallback {{ health.prices_fallback }}{% endif %}
         &middot; cache {{ health.prices_cache or 0 }}
         &middot; failed <span class="badge-{{ health_badges.prices or 'unknown' }}">{{ health.prices_failed or 0 }}</span>
         {#- Guarded on prices_asof itself, not `is not none`: scan rows from

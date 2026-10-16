@@ -99,7 +99,7 @@ _INIT_DB_LOCK_KEY_SQL = "SELECT pg_advisory_xact_lock(hashtext('sector_momentum.
 # the readers/writers above expect.
 _HEALTH_COLUMNS = [
     "duration_s", "prices_total", "prices_cache", "prices_stooq",
-    "prices_yfinance", "prices_failed", "sectors_expected",
+    "prices_yfinance", "prices_fallback", "prices_failed", "sectors_expected",
     "sectors_produced", "finbert_scored", "finbert_total",
     "gdelt_articles", "prices_asof", "asof_spread_days",
     "asof_dropped_count", "dropped_themes",
@@ -173,6 +173,10 @@ def init_db() -> psycopg2.extensions.connection:
                 ("prices_cache", "INTEGER"),
                 ("prices_stooq", "INTEGER"),
                 ("prices_yfinance", "INTEGER"),
+                # Tickers the Tiingo fallback supplied because yfinance could
+                # not (src/data/prices.py). Non-zero means Yahoo was down for
+                # those tickers on this scan.
+                ("prices_fallback", "INTEGER"),
                 ("prices_failed", "INTEGER"),
                 ("sectors_expected", "INTEGER"),
                 ("sectors_produced", "INTEGER"),

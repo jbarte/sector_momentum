@@ -51,14 +51,22 @@ across cohorts, so anything that pools two cohorts into one ranking is a bug.
 
 | Need | Source | Notes |
 |---|---|---|
-| Daily price/volume | **yfinance** | `src/data/prices.py`; parquet cache per ticker, aggressive freshness rules |
+| Daily price/volume | **yfinance**, with **Tiingo** as a fallback | `src/data/prices.py`; parquet cache per ticker, aggressive freshness rules. Tiingo is asked per ticker only after yfinance returned nothing for it, and only when `TIINGO_API_KEY` is set |
 | News sentiment | **GDELT** headlines + **ProsusAI/finbert** | `src/data/news_sentiment.py`; per-theme keyword queries, signed polarity z-scored across themes. **Info-only** |
 | Macro context (unused) | FRED (stub, unwired) | `src/data/macro.py`; `fetch_fred()` is an unfinished Phase-1 stub that always returns `{}` and is never called from `scan.py` or anywhere else. The dashboard chips that once rendered FRED data (`dashboard/macro.py`) were deleted along with the SPY/VIX header chips; only `tests/test_macro.py` still imports this module. |
 
-**Single source of price truth.** stooq was the second leg of a two-source
-fallback until 2026-08-09, when it was retired: its CSV endpoint now requires
-solving a JavaScript proof-of-work challenge that no HTTP client can pass. That
-makes yfinance a single point of failure — see BACKLOG.
+**Price fallback.** stooq was the first second source and was retired on
+2026-08-09: its CSV endpoint now requires solving a JavaScript proof-of-work
+challenge that no HTTP client can pass. **Tiingo** replaced it as insurance
+against a Yahoo outage or API break (the scored universe is US-listed, so a
+US-only provider covers it). It returns split- and dividend-adjusted OHLCV,
+the same shape as yfinance's `auto_adjust=True`, so a ticker's cache file is
+the same whichever source filled it. Two limits to keep in mind: Tiingo's free
+tier is **personal use only**, so prices from it are never published (scores
+derived from them are fine; the price cache is gitignored); and it allows 50
+requests an hour, so a 429 stops fallback calls for the rest of the run. A
+scan that used it records the count as `prices_fallback` in scan health and
+the dashboard footer names it.
 
 **Removed sources:** Reddit/PRAW, Finnhub, StockTwits, Google Trends,
 S&P 500 constituent breadth (all removed; the breadth signal has no constituent

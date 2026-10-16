@@ -48,6 +48,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
         run: python dashboard/build.py
 
       - name: Upload Pages artifact

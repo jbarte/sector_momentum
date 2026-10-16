@@ -504,23 +504,33 @@ annoying, is a gated client-side breakdown fetch (its own spec/plan).
 Optional interactive drill-down UI. Carried from early planning; the static
 dashboard's drill-down tab covers most of the need.
 
-## Price fetch is a single point of failure (yfinance-only)
-
-Decided 2026-08-09, when stooq was removed (see Done): yfinance had already
-been carrying 100% of live fetches for weeks, so removing the dead stooq path
-changed nothing in practice — but it did remove the *fallback*. A yfinance
-outage or breaking API change now fails every ticker on that run instead of
-falling through to a second source.
-
-Not acted on now — replacing it means picking a provider (Alpha Vantage,
-Twelve Data, IEX, Polygon, etc.), most of which need an API key and carry
-their own rate limits, so it is its own integration + test surface, not a
-same-day fix. Reopen this if yfinance actually fails a scan, rather than
-speculatively — the caching layer already absorbs most single-day hiccups.
-
 ---
 
 # Done
+
+- **Price fetch has a second source: Tiingo (2026-10-16,
+  `feature/price-fallback-tiingo`).** Insurance, not a response to an outage
+  (the item said to reopen it if yfinance failed a scan; Jonas chose to build it
+  anyway). `_fetch_single` tries yfinance, then Tiingo for that ticker only if
+  yfinance returned nothing, and only when `TIINGO_API_KEY` is set; unset, the
+  behaviour is unchanged. Provider chosen for the 18 US-listed scored ETFs
+  (a US-only provider covers it): Tiingo gives adjusted OHLCV in the same shape as
+  `auto_adjust=True`, and its free tier (50 requests an hour, 1,000 a day) fits a
+  full 18-ticker fallback run. Passed over: Alpha Vantage (25 calls a day and 100
+  days of history on the free key) and Twelve Data (adjusted prices not
+  confirmed on free). Guards: `end` stays exclusive (Tiingo's docs do not say
+  whether `endDate` is inclusive, so the request asks for the day before and
+  later bars are dropped); the token goes in a header and a failure logs its
+  exception type only, because requests' message carries the URL and this
+  repo's CI logs are public; a 429 stops fallback calls for the rest of the run.
+  **Licence:** Tiingo's free tier is personal use only, so prices from it are
+  never published, only scores derived from them (the cache is gitignored). A
+  scan that used it records `prices_fallback` (new INTEGER column, added by
+  `init_db`) and the footer shows "Tiingo fallback N" only then. Needs
+  `TIINGO_API_KEY` as a GitHub Actions secret and in the 1Password
+  Environment; wired into `scan.yml` and `build-docs.yml`. Not exercised
+  against the live Tiingo API from here; the first real use is the next time
+  yfinance fails a ticker, so a one-off check with the real key is worthwhile.
 
 - **Signed-in readers can sort the leaderboard again (2026-10-14,
   `fix/signed-in-leaderboard-sorting`).** Signing in swapped the baked rows for
