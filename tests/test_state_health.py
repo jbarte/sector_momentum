@@ -7,7 +7,7 @@ import pytest
 
 HEALTH_COLUMNS = [
     "duration_s", "prices_total", "prices_cache", "prices_stooq",
-    "prices_yfinance", "prices_failed", "sectors_expected",
+    "prices_yfinance", "prices_fallback", "prices_failed", "sectors_expected",
     "sectors_produced", "finbert_scored", "finbert_total", "gdelt_articles",
     "prices_asof", "asof_spread_days", "asof_dropped_count", "dropped_themes",
 ]

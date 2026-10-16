@@ -425,7 +425,7 @@ def test_fetch_prices_clamps_a_future_end_at_the_chokepoint():
 
     seen = {}
 
-    def _fake_fetch(ticker, start, end):
+    def _fake_fetch(ticker, start, end, fallback=False):
         seen["end"] = end
         return None, None
 

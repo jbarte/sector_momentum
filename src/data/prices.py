@@ -2,11 +2,19 @@
 Price data loader.
 
 Fetches daily OHLCV price data for a list of tickers via yfinance — a fragile
-free source, so aggressive caching minimises live fetches.
+free source, so aggressive caching minimises live fetches. Tiingo is the
+fallback: tried per ticker, only after yfinance returned nothing for it, only
+when TIINGO_API_KEY is set, and only for a caller that asks for it
+(`fetch_prices(..., fallback=True)`; the daily scan does, nothing else does).
+Insurance against a Yahoo outage or API break, not a second opinion; unset or
+not asked for, behaviour is exactly yfinance-only. Tiingo carries US listings
+only and allows 50 requests an hour, which is why the scored universe's scan
+is the one caller — see `_fetch_tiingo` for the licence limit on what may be
+published from it.
 
-stooq was the second leg of a two-source fallback until 2026-08-09, when it
-was retired: stooq's CSV endpoint has required solving a JavaScript
-proof-of-work challenge since at least 2026-07-21 (confirmed by direct probe —
+stooq was the first second source and was retired on 2026-08-09: its CSV
+endpoint has required solving a JavaScript proof-of-work challenge since at
+least 2026-07-21 (confirmed by direct probe —
 every request returns either an HTTP 404 for the plain `requests` user-agent
 or a `noscript` challenge page for any other, never CSV data). No header or
 URL fix gets past that; see BACKLOG.md Done for the investigation. yfinance
@@ -38,10 +46,13 @@ when every ticker came from the same source.
 
 import json
 import logging
+import math
 import os
+import time
 from datetime import date, timedelta
 
 import pandas as pd
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -269,14 +280,129 @@ def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
     return df
 
 
-def _fetch_single(ticker: str, start: str, end: str) -> tuple[str | None, pd.DataFrame | None]:
-    """Fetch one ticker via yfinance. Returns ("yfinance", DataFrame) or (None, None).
+_TIINGO_URL = "https://api.tiingo.com/tiingo/daily/{ticker}/prices"
 
-    yfinance is the only source — see the module docstring for why stooq was
-    retired. The (source, df) return shape is kept, rather than collapsing to
-    just a DataFrame, so a second source can be reintroduced without touching
-    every caller.
+# How long the fallback stays off after Tiingo said it is rate limiting (HTTP
+# 429): the free tier is 50 requests an hour. A deadline on the monotonic clock
+# rather than a flag cleared per fetch_prices() call, because one job calls
+# fetch_prices several times and each call would otherwise ask once more.
+_RATE_LIMIT_PAUSE_S = 3600.0
+_tiingo_off_until = 0.0     # time.monotonic() deadline; math.inf after an auth error
+
+
+class _TiingoRateLimited(Exception):
+    """Tiingo answered 429: stop calling it for a while."""
+
+
+class _TiingoRejectedKey(Exception):
+    """Tiingo answered 401/403: the token is wrong or revoked, so every further
+    request this process would make is wasted."""
+
+
+def _tiingo_key() -> str | None:
+    key = os.environ.get("TIINGO_API_KEY", "").strip()
+    return key or None
+
+
+def _fetch_tiingo(ticker: str, start: str, end: str, key: str) -> pd.DataFrame | None:
+    """Daily split- and dividend-adjusted OHLCV from Tiingo, shaped like the
+    yfinance result (auto_adjust=True): Close/Open/High/Low/Volume.
+
+    The licence matters here: Tiingo's free tier is "Internal Use Only" (personal
+    use). Scores derived from these prices are published on the dashboard; the
+    prices themselves must never be — not in docs/, not in data.json, not in any
+    committed file. The price cache is gitignored, which keeps it that way.
+
+    `end` is EXCLUSIVE in this module. Tiingo's docs do not say whether its
+    `endDate` is inclusive, so the request asks for the day before and any bar
+    dated on or after `end` is dropped here regardless.
+
+    The token travels in a header, never the URL, and a failure is reported by
+    its type and status only: this repo and its CI logs are public, and
+    requests' own exception text carries the request URL.
+
+    Returns None when Tiingo has no usable data for the ticker. Raises
+    `_TiingoRateLimited` on HTTP 429 and `_TiingoRejectedKey` on 401/403.
     """
+    last_day = (pd.Timestamp(end) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    resp = requests.get(
+        _TIINGO_URL.format(ticker=ticker.replace(".", "-")),
+        params={"startDate": start, "endDate": last_day, "format": "json"},
+        headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
+        timeout=30,
+    )
+    if resp.status_code == 429:
+        raise _TiingoRateLimited()
+    if resp.status_code in (401, 403):
+        raise _TiingoRejectedKey()
+    if resp.status_code != 200:
+        logger.warning("Tiingo returned HTTP %s for %s", resp.status_code, ticker)
+        return None
+    rows = resp.json()
+    if not isinstance(rows, list) or not rows:
+        return None
+    frame = pd.DataFrame(rows)
+    wanted = {"adjClose": "Close", "adjOpen": "Open", "adjHigh": "High",
+              "adjLow": "Low", "adjVolume": "Volume"}
+    if "date" not in frame.columns or "adjClose" not in frame.columns:
+        return None
+    frame = frame.rename(columns=wanted)
+    frame.index = pd.to_datetime(frame["date"], utc=True).dt.tz_convert(None).dt.normalize()
+    frame = frame[[c for c in _OHLCV_COLS if c in frame.columns]]
+    frame = frame.loc[frame.index < pd.Timestamp(end)].sort_index(ascending=True)
+    if frame.empty or frame["Close"].isna().all():
+        return None
+    return frame
+
+
+def _fetch_fallback(ticker: str, start: str, end: str) -> tuple[str | None, pd.DataFrame | None]:
+    """Tiingo, for a ticker yfinance could not supply. Never raises."""
+    global _tiingo_off_until
+    key = _tiingo_key()
+    if key is None or time.monotonic() < _tiingo_off_until:
+        return None, None
+    try:
+        df = _fetch_tiingo(ticker, start, end, key)
+    except _TiingoRateLimited:
+        _tiingo_off_until = time.monotonic() + _RATE_LIMIT_PAUSE_S
+        logger.warning("Tiingo is rate limiting (HTTP 429) — fallback paused for an hour")
+        return None, None
+    except _TiingoRejectedKey:
+        _tiingo_off_until = math.inf
+        logger.warning("Tiingo rejected TIINGO_API_KEY (HTTP 401/403) — fallback "
+                       "disabled for this run; check the token")
+        return None, None
+    except Exception as exc:
+        # Type only: the message of a requests error includes the request URL.
+        logger.warning("Failed to fetch %s via Tiingo: %s", ticker, type(exc).__name__)
+        return None, None
+    if df is None:
+        logger.warning("Tiingo had no usable data for ticker %s", ticker)
+        return None, None
+    # Tiingo's newest bar can lag Yahoo's. A short series is still returned (the
+    # cohort alignment step copes with mixed as-of dates), but say so.
+    expected = _expected_latest_close((pd.Timestamp(end) - pd.Timedelta(days=1)).date())
+    if df.index.max().date() < expected:
+        logger.warning("Tiingo's newest bar for %s is %s, expected %s",
+                       ticker, df.index.max().date(), expected)
+    return "tiingo", df
+
+
+def _fetch_single(ticker: str, start: str, end: str,
+                  fallback: bool = False) -> tuple[str | None, pd.DataFrame | None]:
+    """Fetch one ticker: yfinance first, then (if `fallback`) Tiingo.
+
+    Returns (source, DataFrame) with source "yfinance" or "tiingo", or
+    (None, None) when nothing could supply it.
+    """
+    source, df = _fetch_primary(ticker, start, end)
+    if df is not None or not fallback:
+        return source, df
+    return _fetch_fallback(ticker, start, end)
+
+
+def _fetch_primary(ticker: str, start: str, end: str) -> tuple[str | None, pd.DataFrame | None]:
+    """The yfinance leg of `_fetch_single`."""
     try:
         df = _fetch_yfinance(ticker, start, end)
         if df is None or df.empty:
@@ -303,6 +429,7 @@ def fetch_prices(
     end: str,
     cache_dir: str = "data/cache",
     stats_out: dict[str, int] | None = None,
+    fallback: bool = False,
 ) -> dict[str, pd.DataFrame]:
     """
     Returns a dict mapping ticker -> DataFrame with columns:
@@ -311,6 +438,11 @@ def fetch_prices(
 
     Tickers that fail to fetch are logged and omitted from the returned dict
     (soft failure — never raises).
+
+    `fallback=True` lets a ticker yfinance cannot supply be tried on Tiingo (when
+    TIINGO_API_KEY is set). Opt-in: Tiingo covers US listings only and allows 50
+    requests an hour, so only the scan of the scored universe uses it; the
+    UCITS monitor's exchange-suffixed tickers and the dashboard builds do not.
 
     `end` is clamped to today here rather than trusted from the caller. It is
     EXCLUSIVE and is the one thing keeping an in-progress session out of the
@@ -324,7 +456,7 @@ def fetch_prices(
     end = capped_end(end)
     os.makedirs(cache_dir, exist_ok=True)
     result: dict[str, pd.DataFrame] = {}
-    source_counts: dict[str, int] = {"cache": 0, "yfinance": 0}
+    source_counts: dict[str, int] = {"cache": 0, "yfinance": 0, "tiingo": 0}
     live_attempted = 0
 
     for ticker in tickers:
@@ -352,7 +484,7 @@ def fetch_prices(
                 logger.warning("Cache processing failed for %s: %s — re-fetching", ticker, exc)
 
         live_attempted += 1
-        source, df = _fetch_single(ticker, start, end)
+        source, df = _fetch_single(ticker, start, end, fallback=fallback)
         if df is None:
             logger.warning("Skipping %s — fetch failed", ticker)
             continue
@@ -377,12 +509,15 @@ def fetch_prices(
 
     total = len(tickers)
     logger.info(
-        "Price sources: yfinance %d/%d, cache %d/%d",
-        source_counts["yfinance"], total, source_counts["cache"], total,
+        "Price sources: yfinance %d/%d, tiingo %d/%d, cache %d/%d",
+        source_counts["yfinance"], total, source_counts["tiingo"], total,
+        source_counts["cache"], total,
     )
     if live_attempted > 0 and source_counts["yfinance"] == 0:
         logger.warning(
-            "yfinance: 0/%d succeeded — source may be down", live_attempted,
+            "yfinance: 0/%d succeeded — source may be down%s", live_attempted,
+            f"; {source_counts['tiingo']} came from the Tiingo fallback"
+            if source_counts["tiingo"] else "",
         )
 
     if stats_out is not None:

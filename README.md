@@ -64,6 +64,7 @@ Copy `.env.example` to `.env` and fill in:
 | `DATABASE_URL` | Supabase Postgres connection string (direct, port 5432) |
 | `SUPABASE_SERVICE_KEY` | Service-role key for the private `db-backups` Storage bucket. Optional for local dev — backups degrade gracefully without it |
 | `SUPABASE_PUBLISHABLE_KEY` | Browser-side login. Publishable by design — the data is protected by RLS/grants, not key secrecy. **Unset means the whole signed-in tier silently disappears**: no sign-in, no Enter/Hold/Exit badges, no held-position stars, no alerts. `dashboard/build.py` logs nothing when it is simply absent, so a dashboard that looks merely feature-poor is usually this |
+| `TIINGO_API_KEY` | Optional. Price fallback used for a ticker only when yfinance returns nothing for it. Unset means yfinance only. Free tier is personal-use, so the prices it returns are never published |
 
 ## Dev commands
 
@@ -118,7 +119,7 @@ scripts/
   *.sql                  # one-off Postgres migrations
 
 src/
-  data/prices.py         # yfinance fetch, parquet cache, cohort as-of alignment
+  data/prices.py         # yfinance fetch (Tiingo fallback), parquet cache, cohort as-of alignment
   data/news_sentiment.py # GDELT headlines -> FinBERT polarity (info-only)
   data/macro.py          # FRED macro context (not wired into scoring)
   signals/               # momentum, relative strength (RRG), technical

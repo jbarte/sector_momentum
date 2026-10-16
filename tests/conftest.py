@@ -53,3 +53,18 @@ def _no_live_gdelt_downloads(monkeypatch):
             "instead of relying on the real network. See "
             "tests/conftest.py:_no_live_gdelt_downloads."
         )
+
+
+@pytest.fixture(autouse=True)
+def _no_tiingo_key(monkeypatch):
+    """No test runs with a Tiingo key in its environment.
+
+    With TIINGO_API_KEY set (the developer's 1Password-mounted .env), any test
+    where yfinance is stubbed to fail would fall through to a live Tiingo
+    request and spend the free tier's 50-an-hour allowance. The fallback's own
+    tests set a fake key and stub `requests.get` explicitly.
+    """
+    monkeypatch.delenv("TIINGO_API_KEY", raising=False)
+    import src.data.prices as _prices
+
+    monkeypatch.setattr(_prices, "_tiingo_off_until", 0.0)
