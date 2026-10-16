@@ -422,6 +422,7 @@ def run(args: argparse.Namespace) -> int:
         start=str(start_date),
         end=str(end_date),
         stats_out=_price_stats,
+        fallback=True,   # Tiingo for a ticker yfinance can't supply; see prices.py
     )
     logger.info("Received price data for %d / %d tickers", len(prices), len(unique_tickers))
     # prices_failed counts fetch failures only; the alignment step below can

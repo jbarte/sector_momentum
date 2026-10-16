@@ -121,7 +121,8 @@ def _make_minimal_scored():
     )
 
 
-def _run_minimal_scan(monkeypatch, extra_argv=None, prior_health=None, health_check_error=None):
+def _run_minimal_scan(monkeypatch, extra_argv=None, prior_health=None, health_check_error=None,
+                      fetch_kwargs=None):
     """
     Invoke scan.run() with all external dependencies stubbed out.
     Returns the exit code (or None if run() returns None).
@@ -130,6 +131,8 @@ def _run_minimal_scan(monkeypatch, extra_argv=None, prior_health=None, health_ch
     prior_health: value get_latest_health() returns (default None — no
     prior scan). health_check_error: if set, get_latest_health() raises
     this instead of returning prior_health.
+
+    fetch_kwargs: a list; each fetch_prices() call appends its keyword args.
     """
     import sys
     import pandas as pd
@@ -160,7 +163,12 @@ def _run_minimal_scan(monkeypatch, extra_argv=None, prior_health=None, health_ch
     from unittest.mock import MagicMock
     fake_conn = MagicMock()
 
-    monkeypatch.setattr("scan.fetch_prices", lambda *a, **k: prices)
+    def _fake_fetch_prices(*a, **k):
+        if fetch_kwargs is not None:
+            fetch_kwargs.append(k)
+        return prices
+
+    monkeypatch.setattr("scan.fetch_prices", _fake_fetch_prices)
     monkeypatch.setattr("scan._load_config", lambda path: (
         _make_minimal_themes_cfg() if "themes" in path
         else _make_minimal_scan_cfg() if "universe" in path
@@ -176,7 +184,7 @@ def _run_minimal_scan(monkeypatch, extra_argv=None, prior_health=None, health_ch
     import src.state as _state_mod
     import src.report as _report_mod
 
-    monkeypatch.setattr(_prices_mod, "fetch_prices", lambda *a, **k: prices)
+    monkeypatch.setattr(_prices_mod, "fetch_prices", _fake_fetch_prices)
     monkeypatch.setattr(_scoring_mod, "score_all", lambda *a, **k: scored)
     def _fake_zscore(wide_df, *a, **k):
         z = pd.DataFrame(
@@ -693,3 +701,33 @@ def test_persist_scan_includes_dropped_themes_in_health(monkeypatch):
     )
     assert scan_id == 42
     assert captured["health"]["dropped_themes"] == {"Shipping": "prices_failed"}
+
+
+def test_the_scan_is_the_caller_that_asks_for_the_price_fallback(monkeypatch):
+    """Tiingo covers US listings only and allows 50 requests an hour, so only
+    the scan of the scored universe opts in (fetch_prices(..., fallback=True));
+    the dashboard builds and the UCITS monitor do not."""
+    calls = []
+    _run_minimal_scan(monkeypatch, fetch_kwargs=calls)
+    assert calls and all(k.get("fallback") is True for k in calls)
+
+
+def test_persist_scan_carries_the_fallback_count_into_the_health_dict(monkeypatch):
+    from datetime import datetime, timezone
+    import src.state as _state_mod
+
+    captured = {}
+    monkeypatch.setattr(_state_mod, "save_scan", lambda **kw: captured.update(kw["health"]) or 1)
+    _persist_scan(
+        conn=object(),
+        run_at=datetime(2026, 10, 16, 6, 0, tzinfo=timezone.utc),
+        long_signals_df=pd.DataFrame(), scored_with_deltas=pd.DataFrame(),
+        sentiment_signals_df=pd.DataFrame(),
+        finbert_health={"finbert_scored": 0, "finbert_total": 0, "gdelt_articles": 0},
+        t0=0.0,
+        price_stats={"cache": 10, "yfinance": 5, "tiingo": 3},
+        prices_total=18, prices_failed=0, sectors_expected=18, sectors_produced=18,
+        dropped_themes={},
+    )
+    assert captured["prices_fallback"] == 3
+    assert captured["prices_yfinance"] == 5

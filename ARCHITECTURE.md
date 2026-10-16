@@ -51,7 +51,7 @@ across cohorts, so anything that pools two cohorts into one ranking is a bug.
 
 | Need | Source | Notes |
 |---|---|---|
-| Daily price/volume | **yfinance**, with **Tiingo** as a fallback | `src/data/prices.py`; parquet cache per ticker, aggressive freshness rules. Tiingo is asked per ticker only after yfinance returned nothing for it, and only when `TIINGO_API_KEY` is set |
+| Daily price/volume | **yfinance**, with **Tiingo** as a fallback | `src/data/prices.py`; parquet cache per ticker, aggressive freshness rules. Tiingo is asked per ticker only after yfinance returned nothing for it, only when `TIINGO_API_KEY` is set, and only by the scan (`fetch_prices(..., fallback=True)`) |
 | News sentiment | **GDELT** headlines + **ProsusAI/finbert** | `src/data/news_sentiment.py`; per-theme keyword queries, signed polarity z-scored across themes. **Info-only** |
 | Macro context (unused) | FRED (stub, unwired) | `src/data/macro.py`; `fetch_fred()` is an unfinished Phase-1 stub that always returns `{}` and is never called from `scan.py` or anywhere else. The dashboard chips that once rendered FRED data (`dashboard/macro.py`) were deleted along with the SPY/VIX header chips; only `tests/test_macro.py` still imports this module. |
 
@@ -64,7 +64,8 @@ the same shape as yfinance's `auto_adjust=True`, so a ticker's cache file is
 the same whichever source filled it. Two limits to keep in mind: Tiingo's free
 tier is **personal use only**, so prices from it are never published (scores
 derived from them are fine; the price cache is gitignored); and it allows 50
-requests an hour, so a 429 stops fallback calls for the rest of the run. A
+requests an hour, so only the scan opts in, a 429 pauses fallback calls for an
+hour, and a 401/403 turns them off for the process. A
 scan that used it records the count as `prices_fallback` in scan health and
 the dashboard footer names it.
 

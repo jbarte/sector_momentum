@@ -526,11 +526,16 @@ dashboard's drill-down tab covers most of the need.
   **Licence:** Tiingo's free tier is personal use only, so prices from it are
   never published, only scores derived from them (the cache is gitignored). A
   scan that used it records `prices_fallback` (new INTEGER column, added by
-  `init_db`) and the footer shows "Tiingo fallback N" only then. Needs
-  `TIINGO_API_KEY` as a GitHub Actions secret and in the 1Password
-  Environment; wired into `scan.yml` and `build-docs.yml`. Not exercised
-  against the live Tiingo API from here; the first real use is the next time
-  yfinance fails a ticker, so a one-off check with the real key is worthwhile.
+  `init_db`) and the footer shows "Tiingo fallback N" only then. Opt-in per
+  caller (`fetch_prices(..., fallback=True)`): only the scan's fetch asks, so the
+  dashboard builds (no price cache in `build-docs.yml`, every deploy would
+  refetch) and the UCITS monitor's non-US tickers never spend the 50-an-hour
+  allowance. A 429 pauses the fallback for an hour across `fetch_prices` calls;
+  a 401/403 turns it off for the process. Needs `TIINGO_API_KEY` as a GitHub
+  Actions secret (set 2026-10-16) and in the 1Password Environment; wired into
+  `scan.yml`'s scan step only. Not exercised against the live Tiingo API from
+  here; the first real use is the next time yfinance fails a ticker, so a
+  one-off check with the real key is worthwhile.
 
 - **Signed-in readers can sort the leaderboard again (2026-10-14,
   `fix/signed-in-leaderboard-sorting`).** Signing in swapped the baked rows for

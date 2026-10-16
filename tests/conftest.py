@@ -65,3 +65,6 @@ def _no_tiingo_key(monkeypatch):
     tests set a fake key and stub `requests.get` explicitly.
     """
     monkeypatch.delenv("TIINGO_API_KEY", raising=False)
+    import src.data.prices as _prices
+
+    monkeypatch.setattr(_prices, "_tiingo_off_until", 0.0)
