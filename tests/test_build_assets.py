@@ -55,9 +55,17 @@ def _copied_assets() -> set[str]:
     call sites, regardless of what condition (if any) gates each one. The
     theme.js bug was "copied under no condition at all", not "copied under
     the wrong condition" — this test targets that simpler, actually-occurred
-    failure mode."""
+    failure mode.
+
+    The fonts are the one folder copied by glob (`_copy_fonts(docs_assets)`,
+    every *.woff2 in dashboard/assets/fonts/), so they count as copied when
+    that call is present and the file exists in source."""
     text = _BUILD_PY.read_text()
-    return set(re.findall(r'docs_assets\s*/\s*"([^"]+)"', text))
+    copied = set(re.findall(r'docs_assets\s*/\s*"([^"]+)"', text))
+    if re.search(r"^\s*_copy_fonts\(docs_assets\)", text, re.M):
+        fonts = _PROJECT_ROOT / "dashboard" / "assets" / "fonts"
+        copied |= {f"fonts/{p.name}" for p in fonts.glob("*.woff2")}
+    return copied
 
 
 def test_every_referenced_asset_is_copied_by_build_py():

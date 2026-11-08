@@ -279,6 +279,28 @@ def _copy_site_icons(docs_assets: Path, out_dir: Path, assets_dir: Path | None =
     shutil.copy2(src / "manifest.webmanifest", out_dir / "manifest.webmanifest")
 
 
+def _copy_fonts(docs_assets: Path, assets_dir: Path | None = None) -> None:
+    """Copy the self-hosted web fonts, and FONTS.md with their licence, to
+    assets/fonts/.
+
+    Every page's stylesheet points its @font-face rules here, so like the
+    icons this has no exists() guard: a missing folder fails the build instead
+    of shipping a site that silently falls back to system fonts. FONTS.md goes
+    along because the OFL asks for the licence to travel with the fonts.
+
+    Only *.woff2 and FONTS.md, not the whole folder, so a stray .DS_Store or a
+    leftover download is never published. The destination is emptied first:
+    a font renamed or removed in source must not linger in a local docs/ that
+    then disagrees with CI's fresh build.
+    """
+    src = Path(assets_dir) if assets_dir is not None else _ASSETS_DIR
+    dest = docs_assets / "fonts"
+    shutil.rmtree(dest, ignore_errors=True)
+    dest.mkdir(parents=True)
+    for f in [*sorted((src / "fonts").glob("*.woff2")), src / "fonts" / "FONTS.md"]:
+        shutil.copy2(f, dest / f.name)
+
+
 def _asset_versions(assets_dir: Path, names) -> dict[str, str]:
     """Short content hash per asset, for cache-busting their URLs.
 
@@ -589,6 +611,7 @@ def main() -> None:
     if theme_src.exists():
         shutil.copy2(theme_src, docs_assets / "theme.js")
     _copy_site_icons(docs_assets, out_dir)
+    _copy_fonts(docs_assets)
     rescore_src = _ASSETS_DIR / "rescore.js"
     if rescore_src.exists():
         shutil.copy2(rescore_src, docs_assets / "rescore.js")
@@ -623,8 +646,12 @@ def main() -> None:
     # Hash whatever actually landed in docs/assets/ — derived from the
     # directory rather than a hardcoded name list, so it can never drift out
     # of step with the copy block above.
+    # Fonts too: their @font-face and preload URLs go through asset_url(), so
+    # a font replaced under the same file name is not served stale from cache.
     asset_versions = _asset_versions(
-        docs_assets, sorted(f.name for f in docs_assets.glob("*.js")))
+        docs_assets,
+        sorted(f.name for f in docs_assets.glob("*.js"))
+        + sorted(f"fonts/{f.name}" for f in docs_assets.glob("fonts/*.woff2")))
 
 
     # ------------------------------------------------------------------
