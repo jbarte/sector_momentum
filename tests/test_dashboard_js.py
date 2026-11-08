@@ -2714,7 +2714,8 @@ def test_switch_horizon_keeps_the_toggle_buttons_in_sync():
                 break
         i += 1
     fn_body = _strip_line_comments(text[idx:i + 1])
-    assert "updateHorizonToggleUI(key)" in fn_body
+    # A reader's own switch passes `true` so the thumb glides; init and re-measures jump.
+    assert re.search(r"updateHorizonToggleUI\(key(, true)?\)", fn_body)
 
 
 def test_horizon_label_has_no_trailing_colon():
@@ -4712,7 +4713,7 @@ def _real_sort_scenario(rows_js: str, driver_js: str) -> dict:
         if (id === 'leaderboard-table') return {{querySelector: function () {{ return tbody; }},
                                                querySelectorAll: function () {{ return headers; }}}};
         return null;
-      }}}};
+      }}, documentElement: {{classList: {{remove: function () {{}}}}}}}};   // sortTable() ends the first-paint intro
       global.window = {{}};
       {code}
       var ids = function () {{ return tbody.order.map(function (r) {{ return r.dataset.themeId; }}); }};

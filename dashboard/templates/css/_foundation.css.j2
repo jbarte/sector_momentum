@@ -224,3 +224,13 @@ html, body {
    They were dead here: _chrome.css.j2 loads afterwards and re-declares
    .card / .tab-panel unconditionally, and a media query adds no specificity,
    so the desktop values won even at 375px. */
+
+/* One switch for everything that moves (spec 2026-11-08 § 3). The three older
+   reduced-motion rules stay: they also set illustrations' final state. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

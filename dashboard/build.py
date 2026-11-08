@@ -621,6 +621,9 @@ def main() -> None:
     rescore_src = _ASSETS_DIR / "rescore.js"
     if rescore_src.exists():
         shutil.copy2(rescore_src, docs_assets / "rescore.js")
+    motion_src = _ASSETS_DIR / "motion.js"
+    if motion_src.exists():
+        shutil.copy2(motion_src, docs_assets / "motion.js")
     scan_hist_src = _ASSETS_DIR / "scan-history.js"
     if scan_hist_src.exists():
         shutil.copy2(scan_hist_src, docs_assets / "scan-history.js")

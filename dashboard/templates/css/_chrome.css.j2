@@ -42,8 +42,10 @@
   padding: 3px 12px;
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-standard),
-              border-color var(--duration-fast) var(--ease-standard);
+              border-color var(--duration-fast) var(--ease-standard),
+              transform 100ms var(--ease-standard);
 }
+.pill-button:active { transform: scale(.97); }
 .pill-button:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
 .auth-root { position: relative; display: inline-flex; align-items: center; gap: 8px; }
 .auth-root .pill-button { white-space: nowrap; }
@@ -224,8 +226,10 @@
   padding: 11px 16px;
   white-space: nowrap;
   transition: color var(--duration-fast) var(--ease-standard),
-              border-color var(--duration-fast) var(--ease-standard);
+              border-color var(--duration-fast) var(--ease-standard),
+              transform 100ms var(--ease-standard);
 }
+.tab-btn:active { transform: scale(.97); }
 .tab-btn:hover { color: var(--fg2); }
 .tab-btn.active {
   color: var(--brand-strong);

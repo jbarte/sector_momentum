@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="first-paint">
 <head>
 {% include "_theme_init.html.j2" %}
 <meta charset="UTF-8"/>
@@ -9,6 +9,7 @@
 {% include "_font_preload.html.j2" %}
 <script src="{{ asset_url('plotly.min.js') }}"></script>
 <script src="{{ asset_url('rescore.js') }}"></script>
+<script src="{{ asset_url('motion.js') }}"></script>
 <script src="{{ asset_url('theme.js') }}"></script>
 <style>
 {% include "_style.html.j2" %}
@@ -191,6 +192,7 @@
         onchange) — display:none removes it from both sight and the
         accessibility tree, so it is never a second, competing control. -#}
     <div class="horizon-toggle" role="group" aria-label="Horizon">
+      <span class="horizon-thumb" aria-hidden="true"></span>
       {% for h in horizon_list %}
       <button type="button" class="horizon-btn" data-horizon-choice="{{ h.key }}" aria-pressed="false">{{ h.label }}</button>
       {% endfor %}
@@ -300,7 +302,7 @@
             data-change="{{ row._raw_change if row._raw_change is not none else '' }}"
             data-level="{{ row._raw_level if row._raw_level is not none else '' }}"
             data-rank="{{ row.rank }}"
-            tabindex="0" aria-expanded="false">
+            tabindex="0" aria-expanded="false"{% if loop.index0 < 10 %} style="--i:{{ loop.index0 }}"{% endif %}>
           <td class="rank-cell{% if row.in_buy_band %} in-band-rail{% endif %}">
             <span class="rank-badge{% if row.in_buy_band %} in-buy-band{% endif %}{% if row.rank == 1 %} rank-1{% endif %}">{{ row.rank }}</span>
           </td>
@@ -1297,6 +1299,10 @@ function applyHorizonBadges() {
     // only the styling class changes. A reader who checks daily still sees
     // the correct call, just visually quiet until it is actually due.
     var isMuted = !reviewDue && (kind === 'entry' || kind === 'exit');
+    // What it looked like before this pass, to crossfade only a real change on a
+    // reader's own horizon switch (window._animateBadges). A badge created now
+    // has no before, and the signed-in data upgrade is never animated.
+    var badgeBefore = badge.isConnected && badge.textContent ? badge.className + '|' + badge.textContent : null;
     badge.className = 'setup-badge ' + kind + (isMuted ? ' muted' : '');
     // Self-describing suffix. The badge used to state only WHAT (Enter/Exit)
     // and relied on .muted to convey WHEN -- a signal only detectable by
@@ -1313,6 +1319,10 @@ function applyHorizonBadges() {
       }
     }
     badge.textContent = BADGE_TEXT_EN[kind] + suffix;
+    if (window._animateBadges && badgeBefore !== null
+        && badgeBefore !== badge.className + '|' + badge.textContent && window.SMMotion) {
+      SMMotion.flash(badge, 'badge-in');
+    }
     // data-suffix is read only by tests (the DOM-driven regression suite for
     // this exact suffix) -- kept as a stable, cheap hook rather than having
     // each test re-derive the suffix text itself.
@@ -1429,15 +1439,24 @@ document.addEventListener('sm:leaderboard-upgraded', applyTodaysRead);
 // The selected horizon's cost, rendered beside the control. Only the numbers
 // are written here; the unit words are i18n-managed nodes and must not be
 // touched, or a language switch would blank them.
-function renderHorizonStats(key) {
+// animate is true only for the reader's own horizon switch: a changed number
+// then fades up so the change is noticed. Init and the signed-in re-render
+// (where the numbers may shift with the rebuilt board) set the text and stay still.
+function renderHorizonStats(key, animate) {
   var h = null;
   for (var i = 0; i < HORIZONS.length; i++) {
     if (HORIZONS[i].key === key) { h = HORIZONS[i]; break; }
   }
   if (!h) { return; }
+  function put(el, text) {
+    if (el.textContent === text) { return; }
+    var had = el.textContent !== '';
+    el.textContent = text;
+    if (animate && had && window.SMMotion) { SMMotion.flash(el, 'num-in'); }
+  }
   function set(id, value) {
     var el = document.getElementById(id);
-    if (el) { el.textContent = value; }
+    if (el) { put(el, String(value)); }
   }
   // The reader's actual, currently-rendered universe — not a build-time
   // constant, so this display stays correct for a signed-in rebuild whose
@@ -1463,8 +1482,8 @@ function renderHorizonStats(key) {
     var chip = document.getElementById(chipId);
     if (!el || !chip) { return; }
     chip.classList.remove('chip-up', 'chip-down');
-    if (pp == null) { el.textContent = '—'; return; }
-    el.textContent = (pp >= 0 ? '+' : '') + pp.toFixed(1) + 'pp';
+    if (pp == null) { put(el, '—'); return; }
+    put(el, (pp >= 0 ? '+' : '') + pp.toFixed(1) + 'pp');
     chip.classList.add(pp >= 0 ? 'chip-up' : 'chip-down');
   }
   setChip('tr-m1', 'tr-m1-chip', h.m1);
@@ -1511,6 +1530,9 @@ function renderReviewPanel() {
     ? function (iso) { return window.Rescore.shortDate(iso, lang); }
     : function (iso) { return iso || ''; };
 
+  // The done check from the last render, if any: kept (not rebuilt) so a later
+  // render does not restart a draw-in or cut it off part-way.
+  var keptCheck = headline.querySelector('.rp-check');
   var status = currentReviewStatus();
   var book = window.SM_BOOK_STATE;
   panel.hidden = false;
@@ -1550,7 +1572,14 @@ function renderReviewPanel() {
     // Done: a review date has come due and the reader marked it reviewed. (Not
     // merely "none due yet" -- that is dueDate === null, and nothing was done.)
     // The check is decoration; the headline's text is unchanged.
-    if (status.dueDate) { headline.insertBefore(_checkIcon(), headline.firstChild); }
+    if (status.dueDate) {
+      var check = keptCheck || _checkIcon();
+      // Drawn in only for the click that marked the review done, never for a
+      // check that was already there when the page loaded.
+      if (!keptCheck && window._rpDrawCheck) { check.classList.add('draw'); }
+      window._rpDrawCheck = false;
+      headline.insertBefore(check, headline.firstChild);
+    }
     var note = document.createElement('li');
     note.className = 'rp-note';
     note.textContent = 'No action until then.';
@@ -1608,9 +1637,11 @@ function renderReviewPanel() {
   var line = (window.Rescore && window.Rescore.bookLine)
     ? window.Rescore.bookLine(book, heldKeys, target, status.due)
     : { text: 'Book' + ': ' + heldKeys.length + ' / ' + target, kind: '' };
+  var countBefore = countEl.textContent;
   countEl.textContent = line.text;
   countEl.className = 'rp-count';
   if (line.kind) { countEl.classList.add(line.kind); }
+  if (countBefore && countBefore !== line.text && window.SMMotion) { SMMotion.flash(countEl, 'num-in'); }
   if (window.Rescore && window.Rescore.bookDots) {
     var dots = window.Rescore.bookDots(heldKeys.length, target);
     ['held', 'free', 'over'].forEach(function (kind) {
@@ -1645,10 +1676,30 @@ function _checkIcon() {
 // aria-pressed, called both on init and from switchHorizon() so a
 // programmatic call (a deep link, a test, the hidden <select>'s own
 // onchange) keeps the visible control in step, not only the state.
-function updateHorizonToggleUI(key) {
+function updateHorizonToggleUI(key, glide) {
   Array.prototype.forEach.call(document.querySelectorAll('.horizon-btn'), function (b) {
     b.setAttribute('aria-pressed', b.getAttribute('data-horizon-choice') === key ? 'true' : 'false');
   });
+  placeHorizonThumb(glide);
+}
+
+// The thumb under the pressed button. Placed AFTER aria-pressed changes: the
+// pressed label is bolder, so every button's offset and width are only final
+// once the state is. glide is true only for a reader's own switch; init, a
+// resize and the web font landing re-measure a changed layout, so they jump.
+function placeHorizonThumb(glide) {
+  var thumb = document.querySelector('.horizon-thumb');
+  var btn = document.querySelector('.horizon-btn[aria-pressed="true"]');
+  if (!thumb || !btn || !btn.offsetWidth) { return; }   // hidden: re-placed on resize
+  var box = { x: btn.offsetLeft, w: btn.offsetWidth };
+  if (!glide) { thumb.dataset.placed = ''; }
+  if (window.SMMotion) { SMMotion.glideTo(thumb, box, { sizeByWidth: true }); }
+  else { thumb.style.width = box.w + 'px'; thumb.style.transform = 'translateX(' + box.x + 'px)'; }
+}
+window.addEventListener('resize', function () { placeHorizonThumb(); });
+window.addEventListener('load', function () { placeHorizonThumb(); });
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(function () { placeHorizonThumb(); });
 }
 
 function initHorizonSelect() {
@@ -1672,6 +1723,7 @@ function initHorizonSelect() {
   var doneBtn = document.getElementById('review-done-btn');
   if (doneBtn) {
     doneBtn.addEventListener('click', function () {
+      window._rpDrawCheck = true;      // the next render draws the check in
       ackReview(currentHorizon().key);
       var next = currentReviewStatus().nextDate;
       // lock()'s `state` is only set inside its own .then() (fail-safe by
@@ -1726,10 +1778,13 @@ function switchHorizon(key) {
   // stats strip, the band lines and the alerts notice all describe another.
   var _sel = document.getElementById('horizon-select');
   if (_sel && _sel.value !== key) { _sel.value = key; }
-  updateHorizonToggleUI(key);
+  updateHorizonToggleUI(key, true);
   try { localStorage.setItem(_HORIZON_LS, key); } catch (e) { /* ignore */ }
-  renderHorizonStats(key);
-  applyHorizonBadges();
+  renderHorizonStats(key, true);
+  // Badges crossfade only for the reader's own switch. Every other pass (first
+  // load, holdings arriving, the signed-in rebuild) rewrites them in place.
+  window._animateBadges = true;
+  try { applyHorizonBadges(); } finally { window._animateBadges = false; }
   // A past scan's rows bake their band highlight at render time and are skipped
   // by applyHorizonBadges (no data-rank), so re-render to pick up the new band.
   if (window.SM_ACTIVE_SCAN_ID != null && typeof window.showScan === 'function') {
@@ -2087,6 +2142,21 @@ window.applyFilters = applyFilters;
 window.clearFilters = clearFilters;
 window.setFilterBarVisible = setFilterBarVisible;
 
+// The one-time fade-up of the top rows plays under html.first-paint. It comes off
+// once it has run, so a signed-in rebuild or a scan-history switch never replays
+// it. With JS off the class stays, and the rows simply end visible.
+setTimeout(function () { document.documentElement.classList.remove('first-paint'); }, 700);
+
+// The header hairline shows only while the header is actually stuck.
+(function () {
+  var s = document.querySelector('.sticky-sentinel');
+  var t = document.getElementById('leaderboard-table');
+  if (!s || !t || !('IntersectionObserver' in window)) return;
+  new IntersectionObserver(function (e) {
+    t.toggleAttribute('data-stuck', !e[0].isIntersecting);
+  }).observe(s);
+})();
+
 function sortTable(col) {
   _sortChosen = true;
   if (_sortCol === col) {
@@ -2095,7 +2165,30 @@ function sortTable(col) {
     _sortCol = col;
     _sortDir = 1;
   }
-  _applyLeaderboardSort();
+  // A reader's own sort ends the first-paint intro at once: an intro animation
+  // still running on the rows owns their transform, which shadows the glide on
+  // them (but not on their breakdown panels), so rows would jump while panels
+  // glide. It also cancels the intro, so it cannot affect the measurement below.
+  document.documentElement.classList.remove('first-paint');
+  // Only a reader's own sort glides. The signed-in rebuild putting a chosen sort
+  // back (reapplyLeaderboardSort) goes straight to _applyLeaderboardSort and so
+  // never animates rows the reader did not move. Without motion.js, or under
+  // reduced motion, flip() just runs the reorder.
+  if (window.SMMotion) {
+    // Each row's breakdown panel follows it in the DOM, so it moves too and has
+    // to glide with it: an open panel left out would jump to its final place
+    // while its row was still en route. Closed ones measure 0 before and after
+    // and are skipped.
+    var movers = [];
+    document.querySelectorAll('#leaderboard-table tbody tr.leaderboard-row').forEach(function (r) {
+      movers.push(r);
+      var bd = r.dataset.themeId && document.getElementById('bd-' + r.dataset.themeId);
+      if (bd) { movers.push(bd); }
+    });
+    SMMotion.flip(movers, _applyLeaderboardSort);
+  } else {
+    _applyLeaderboardSort();
+  }
 }
 
 // Re-orders the leaderboard by the current _sortCol/_sortDir. Split from
@@ -2184,16 +2277,6 @@ window.reapplyLeaderboardSort = function () {
 };
 
 // Keyboard support for interactive table elements
-// The header hairline shows only while the header is actually stuck.
-(function () {
-  var s = document.querySelector('.sticky-sentinel');
-  var t = document.getElementById('leaderboard-table');
-  if (!s || !t || !('IntersectionObserver' in window)) return;
-  new IntersectionObserver(function (e) {
-    t.toggleAttribute('data-stuck', !e[0].isIntersecting);
-  }).observe(s);
-})();
-
 document.getElementById('leaderboard-table')?.addEventListener('keydown', function(e) {
   if (e.key !== 'Enter' && e.key !== ' ') return;
   var t = e.target;
