@@ -291,13 +291,23 @@ def test_theme_ticker_is_deliberately_exempt_from_the_floor():
     assert _resolved_px(_rule_font_size(css, ".theme-ticker")) < 12
 
 
-def test_sort_direction_arrows_are_deliberately_exempt_from_the_floor():
-    """▲/▼ appended after a column header's own text via ::after — a
-    direction glyph, not a second piece of reading text. em is relative to
-    `thead th`'s OWN font-size, 11px since the 2026-08-19 restructure."""
+def test_sort_direction_indicator_is_a_chevron_icon_not_a_text_glyph():
+    """The sort indicator used to be a "▲"/"▼" appended as text, which put it
+    under the sub-12px floor and so needed an exemption here. It is now a
+    masked SVG chevron: an 8px icon box with no font-size, nothing for the
+    floor to apply to. Pinned so it cannot slide back to a text glyph (which
+    would reopen the floor question) without a deliberate edit to this test."""
     css = _css("_tables.css.j2")
-    assert _resolved_px(_rule_font_size(css, "thead th.sort-asc::after"), context_px=11) < 12
-    assert _resolved_px(_rule_font_size(css, "thead th.sort-desc::after"), context_px=11) < 12
+    base = re.search(r'thead th\[tabindex="0"\]::after\s*\{([^}]*)\}', css)
+    assert base, "chevron ::after rule not found"
+    body = base.group(1)
+    assert 'content: ""' in body and "mask" in body and "svg+xml" in body
+    assert "▲" not in css and "▼" not in css
+    # Direction is carried by the classes alone, never by new content.
+    for sel in ("thead th.sort-asc::after", "thead th.sort-desc::after"):
+        m = re.search(re.escape(sel) + r"[^{]*\{([^}]*)\}", css)
+        assert m, sel
+        assert "content" not in m.group(1), sel
 
 
 def test_experimental_badge_is_deliberately_exempt_from_the_floor():

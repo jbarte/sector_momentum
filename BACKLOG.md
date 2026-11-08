@@ -136,14 +136,6 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 
 ---
 
-## Dashboard polish 3: lighter leaderboard structure
-
-Needs polish 2. Plan `notes/plans/2026-11-08-polish-3-structure.md`. The
-leaderboard loses its own box; review-panel dots for the book count and a
-done check; chevron sort indicators; a sticky table header at ≥ 1024px
-(`.card` → `overflow: clip`); one tab-indicator element; edge fades on an
-overflowing tab bar.
-
 ## Dashboard polish 4: discreet motion
 
 Needs polish 3. Plan `notes/plans/2026-11-08-polish-4-motion.md`.
@@ -528,6 +520,66 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Dashboard polish 3: lighter leaderboard structure (2026-11-08,
+  `feature/polish-structure`).** The leaderboard loses its own box (border,
+  radius and background): rows sit on the card with hairlines and one hairline
+  under the header, the in-band rail stays. **Sticky header at 1024px and up**:
+  `.card` is `overflow: clip` (it is no longer a scroll container, which
+  sticking needs; Safari 16+), the leaderboard's wrapper releases its sideways
+  scroll there, and the header's hairline appears only once stuck (an
+  IntersectionObserver on a 1px sentinel sets `data-stuck`). **Sort chevron**:
+  the "▲/▼" text is a masked SVG chevron that takes the header colour, faint on
+  hover for unsorted columns, turned over for descending; its space is always
+  reserved so choosing a sort moves nothing. **Review panel**: "Book: 3 / 4"
+  gains a dot per slot (filled held, hollow free, red outline for each holding
+  past the limit), and a review that came due and was marked done shows a
+  check before its headline. **Tab bar**: one indicator element under the
+  active tab (its box is the tab's own offset, re-measured on switch, resize and
+  font load) and a fade on whichever edge of an overflowing bar is clipped. Both
+  rules are pure functions in `rescore.js` (`bookDots`, `indicatorBox`,
+  `overflowState`), tested under Node.
+
+  **Deviations from the plan, and why.** The sticky rules are in
+  `_responsive.css.j2`, not `_tables.css.j2` as planned: the existing
+  `test_no_responsive_overrides_left_earlier_in_the_cascade` forbids width
+  queries in partials that load before it, and caught this. The wrapper release
+  is scoped to the leaderboard's own wrapper (`.table-wrap:has(> #leaderboard-table)`),
+  because the scan index and validation tables share `.table-wrap` and a blanket
+  `overflow-x: visible` would clip them at 1024px. The mask gradients use
+  `black`, not `#000`: `test_no_hardcoded_hex_outside_foundation` caught it, and
+  a mask only reads alpha. The hover rule for the chevron excludes sorted
+  headers, since `:hover` outranks `.sort-asc` and would have dimmed the active
+  sort's chevron to 35%. `test_self_hosted_fonts` now exempts exactly
+  `http://www.w3.org/2000/svg` (an XML namespace the page never fetches; the
+  chevron data URI and the check icon both carry it), not the host. The dots
+  sit in a sibling of `#rp-count`, which keeps its id, class and text, because
+  existing tests and screen readers read it; the plan's `.rp-count-text` was
+  not needed. The plan's "done state" was not defined: it is read here as a
+  review date that has come due and been acknowledged, which is also the state
+  polish 4's "static if already done at load" implies.
+
+  **Found in code review:** the stuck-header hairline, as first written (a
+  `border-bottom-color` change), never painted. The table is `border-collapse`,
+  where a cell's border belongs to the table and stays behind when the cell
+  sticks, so the computed colour read right while no line appeared. The line is
+  now an inset `box-shadow`, which travels with the cell, pinned by
+  `test_the_stuck_line_is_a_shadow_because_collapsed_borders_do_not_travel`.
+  Source-level tests and computed styles could not have caught it; only
+  looking at the pixels did.
+
+  **What was and was not checked.** Tests: 1653 passed. Every new test was
+  sabotage-verified (17 variants, each failing only its own test), including
+  three that pass vacuously before the code exists. **Not checked against a
+  real build:** this fresh worktree has no `.env` mount, and `make build`
+  pointed at the main checkout's `.env` waited about two minutes and then had no
+  `DATABASE_URL` (1Password needed approval). The browser checks used the page
+  template rendered from 18 invented rows, in light and dark at 1280, 1024, 768
+  and 375px: box removal, sticky on and off at the 1024px boundary, sort
+  direction on the Composite column, the panel at 3/4, 4/4 and 5/4, tab
+  indicator alignment by click and arrow key, edge fades. Not looked at: the
+  scan-index and validation tables with real data, a signed-in rebuild, and
+  every sort column. Jonas should look at a real build.
 
 - **Dashboard polish 2: ivory palette and design tokens (2026-11-08,
   `feature/polish-tokens`).** The light card is ivory `#FAF7F0` instead of

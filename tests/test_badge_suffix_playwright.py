@@ -311,3 +311,83 @@ def test_a_saved_blend_preference_from_the_discontinued_control_is_cleared(page)
     left = page.evaluate("() => [localStorage.getItem('sentimentEnabled'), "
                          "localStorage.getItem('sentimentWeight')]")
     assert left == [None, None]
+
+
+# ---------------------------------------------------------------------------
+# The review panel's dots and done check (polish PR 3).
+# ---------------------------------------------------------------------------
+
+def _dot_classes(page):
+    return page.evaluate(
+        "() => Array.prototype.map.call(document.querySelectorAll('#rp-dots .rp-dot'), "
+        "d => d.className.replace('rp-dot', '').trim())"
+    )
+
+
+def _render_with_held(page, n_held):
+    page.evaluate(
+        "(n) => { var held = []; for (var i = 0; i < n; i++) { held.push('T' + i); } "
+        "window.SM_BOOK_STATE = { picks: [], buys: [], sells: [], blocked: [], "
+        "surplus: [], freeSlots: 0, overHeld: Math.max(0, n - currentHorizon().top_n), "
+        "held: held }; window.renderReviewPanel(); }",
+        n_held,
+    )
+    return page.evaluate("() => currentHorizon().top_n")
+
+
+def test_review_panel_draws_one_dot_per_slot_with_its_state(page):
+    target = _render_with_held(page, 3)
+    assert _dot_classes(page) == ["held"] * 3 + ["free"] * (target - 3)
+    _render_with_held(page, target)
+    assert _dot_classes(page) == ["held"] * target
+    _render_with_held(page, target + 1)
+    assert _dot_classes(page) == ["held"] * target + ["over"]
+
+
+def test_the_dots_are_hidden_from_screen_readers_and_the_text_stays(page):
+    target = _render_with_held(page, 3)
+    assert page.evaluate("() => document.getElementById('rp-dots').getAttribute('aria-hidden')") == "true"
+    text, _ = _rp_count(page)
+    assert text.startswith(f"Book: 3 / {target}"), text
+
+
+def test_the_dots_clear_when_there_is_no_book(page):
+    _render_with_held(page, 3)
+    page.evaluate("() => { window.SM_BOOK_STATE = null; window.renderReviewPanel(); }")
+    assert _dot_classes(page) == []
+
+
+def _set_review_status(page, due, due_date, next_date):
+    page.evaluate(
+        "([due, dueDate, nextDate]) => { window.currentReviewStatus = function () { "
+        "return { due: due, dueDate: dueDate, nextDate: nextDate }; }; }",
+        [due, due_date, next_date],
+    )
+
+
+def test_a_review_marked_done_shows_a_check_before_the_headline(page):
+    """Done = a review date has come due and been acknowledged: not due now, but
+    a due date exists. The check is decoration; the headline text is unchanged
+    and starts at its first character."""
+    _set_review_status(page, False, "2026-01-15", "2099-02-15")
+    _render_with_held(page, 3)
+    assert page.evaluate("() => !!document.querySelector('#rp-headline svg.rp-check')")
+    assert page.evaluate("() => document.querySelector('#rp-headline svg.rp-check')"
+                         ".getAttribute('aria-hidden')") == "true"
+    assert _rp_headline_text(page).startswith("Next review")
+
+
+def test_no_check_before_a_review_has_come_due_or_while_one_is_due(page):
+    _set_review_status(page, False, None, "2099-02-15")       # between reviews, none yet due
+    _render_with_held(page, 3)
+    assert not page.evaluate("() => !!document.querySelector('#rp-headline .rp-check')")
+    _set_review_status(page, True, "2026-01-15", "2099-02-15")  # due, not acknowledged
+    _render_with_held(page, 3)
+    assert not page.evaluate("() => !!document.querySelector('#rp-headline .rp-check')")
+
+
+def test_the_check_does_not_stack_across_re_renders(page):
+    _set_review_status(page, False, "2026-01-15", "2099-02-15")
+    _render_with_held(page, 3)
+    _render_with_held(page, 3)
+    assert page.evaluate("() => document.querySelectorAll('#rp-headline .rp-check').length") == 1

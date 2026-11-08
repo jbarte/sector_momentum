@@ -6,6 +6,7 @@ function switchTab(name, btn) {
   btn.classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.setAttribute('aria-selected', 'false'));
   btn.setAttribute('aria-selected', 'true');
+  placeIndicator();
 
   // Lazy-render Plotly charts on first activation
   if (name === 'rrg')       renderRRG();
@@ -27,3 +28,36 @@ document.querySelector('.tabs')?.addEventListener('keydown', function(e) {
   btns[next].focus();
   btns[next].click();
 });
+
+// ----- Active-tab indicator and overflow fades -----
+// One .tab-indicator element sits under the active tab (its underline moved off
+// the tab itself so there is a single thing to place). Its box is the active
+// tab's own offsetLeft/offsetWidth, painted as a 1px-wide element scaled to fit;
+// .tabs is its offsetParent, and it scrolls with the bar.
+function placeIndicator() {
+  var tabs = document.querySelector('.tabs');
+  var ind = tabs && tabs.querySelector('.tab-indicator');
+  var box = tabs && Rescore.indicatorBox(tabs.querySelector('.tab-btn.active'));
+  if (!ind || !box) return;
+  ind.style.transform = 'translateX(' + box.x + 'px) scaleX(' + box.w + ')';
+}
+
+// data-overflow names the clipped edge(s) so CSS can fade just those.
+function updateTabOverflow() {
+  var tabs = document.querySelector('.tabs');
+  if (!tabs) return;
+  var state = Rescore.overflowState(tabs.scrollLeft, tabs.clientWidth, tabs.scrollWidth);
+  if (state) { tabs.setAttribute('data-overflow', state); }
+  else { tabs.removeAttribute('data-overflow'); }
+}
+
+// Tab widths change when the web font swaps in and when the viewport resizes,
+// so the box is re-measured then, not only on a click.
+placeIndicator();
+updateTabOverflow();
+window.addEventListener('load', function () { placeIndicator(); updateTabOverflow(); });
+window.addEventListener('resize', function () { placeIndicator(); updateTabOverflow(); });
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(function () { placeIndicator(); updateTabOverflow(); });
+}
+document.querySelector('.tabs')?.addEventListener('scroll', updateTabOverflow, { passive: true });

@@ -95,3 +95,28 @@ def test_name_of_falls_back_to_theme_id():
     assert 'querySelector(\'.leaderboard-row[data-theme-key="\' + key + \'"]\')' not in name_of_body, (
         "nameOf() still has the raw single-selector query inline"
     )
+
+
+def test_book_count_is_drawn_as_dots_beside_the_text_not_instead_of_it():
+    """Polish PR 3: "Book: 4 / 4" gains a dot per slot. The text element keeps
+    its id, class and content (tests and screen readers read it), and the dots
+    are decoration: aria-hidden, so the count is announced once, not twice."""
+    panel = _PANEL.read_text()
+    assert re.search(r'<span class="rp-dots" id="rp-dots" aria-hidden="true"></span>', panel)
+    assert 'id="rp-count"' in panel, "the text carrier must stay"
+    # dots first, text second, in one wrapper so the footer's space-between
+    # does not pull them apart
+    assert re.search(r'class="rp-book">\s*<span class="rp-dots".*?</span>\s*<span class="rp-count"',
+                     panel, re.S)
+    js = _TPL.read_text()
+    assert "bookDots" in js, "renderReviewPanel never draws the dots"
+
+
+def test_dot_states_are_styled_with_tokens_not_literals():
+    css = (_ROOT / "dashboard/templates/css/_tables.css.j2").read_text()
+    for cls, token in ((".rp-dot.held", "--brand-strong"), (".rp-dot.free", "--zero-line"),
+                       (".rp-dot.over", "--down")):
+        m = re.search(re.escape(cls) + r"\s*\{([^}]*)\}", css)
+        assert m, f"{cls} rule missing"
+        assert f"var({token})" in m.group(1), (cls, m.group(1))
+    assert re.search(r"\.rp-check\s*\{[^}]*var\(--ok\)", css)

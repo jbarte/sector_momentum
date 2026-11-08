@@ -1,12 +1,7 @@
 /* =========================================================
    Leaderboard table
    ========================================================= */
-.table-wrap {
-  overflow-x: auto;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-soft);
-  background: var(--bg-inset);
-}
+.table-wrap { overflow-x: auto; }
 .scan-index { margin-bottom: 20px; }
 .scan-index .active-scan { background: color-mix(in srgb, var(--up) 12%, transparent); }
 .showing-badge { color: var(--up); font-weight: 600; font-size: 1em; white-space: nowrap; }
@@ -41,7 +36,8 @@ thead tr {
   border-bottom: none;
 }
 thead th {
-  padding: 0 12px 8px;
+  padding: 0 12px var(--space-2);
+  border-bottom: 1px solid var(--border-soft);
   text-align: left;
   color: var(--fg4);
   font-size: 11px;
@@ -53,8 +49,23 @@ thead th {
   white-space: nowrap;
 }
 thead th:hover { color: var(--fg2); }
-thead th.sort-asc::after  { content: " ▲"; font-size: 0.75em; }
-thead th.sort-desc::after { content: " ▼"; font-size: 0.75em; }
+/* Sort indicator: a chevron, drawn as a mask so it takes the header's colour.
+   Every sortable header reserves the space (opacity, not display) so choosing
+   a sort never shifts the column; unsorted ones show a faint one on hover.
+   Pointing up is ascending; descending turns it over. */
+thead th[tabindex="0"]::after {
+  content: ""; display: inline-block; width: 8px; height: 8px; margin-left: 4px;
+  background: currentColor; opacity: 0; vertical-align: 1px;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 5.5 4 3l2.5 2.5' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 5.5 4 3l2.5 2.5' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+thead th[tabindex="0"]:not(.sort-asc):not(.sort-desc):hover::after { opacity: .35; }
+thead th.sort-asc::after, thead th.sort-desc::after { opacity: 1; }
+thead th.sort-desc::after { transform: rotate(180deg); }
+/* The sticky header's hairline shows only while stuck: the IntersectionObserver
+   on .sticky-sentinel (index.html.j2) sets data-stuck on the table. The sticky
+   rules themselves are in _responsive.css.j2, where width queries live. */
+.sticky-sentinel { height: 1px; margin-bottom: -1px; pointer-events: none; }
 tbody td {
   padding: 10px 12px;
   vertical-align: middle;
@@ -907,6 +918,17 @@ tbody td:nth-child(n+4) {
 .rp-block-note.flash {
   animation: rp-block-flash .35s ease-out;
 }
+.rp-book { display: inline-flex; align-items: center; }
+/* The count, drawn: one dot per slot. Filled = held, hollow = free, red outline
+   = a holding past the limit. aria-hidden; the text beside it is the real label. */
+.rp-dots { display: inline-flex; gap: 4px; margin-right: var(--space-2); vertical-align: middle; }
+.rp-dots:empty { display: none; }
+.rp-dot { width: 8px; height: 8px; border-radius: 50%; }
+.rp-dot.held { background: var(--brand-strong); }
+.rp-dot.free { box-shadow: inset 0 0 0 1.5px var(--zero-line); }
+.rp-dot.over { box-shadow: inset 0 0 0 1.5px var(--down); }
+/* Review marked done: a tick before the headline. */
+.rp-check { width: 14px; height: 14px; margin-right: 6px; color: var(--ok); vertical-align: -2px; }
 .rp-count { font-size: 12px; color: var(--fg3); }
 /* Over-held is the state nothing corrects on its own, so it is the only
    count state that raises its voice. */
