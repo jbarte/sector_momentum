@@ -294,10 +294,16 @@ def _copy_fonts(docs_assets: Path, assets_dir: Path | None = None) -> None:
     then disagrees with CI's fresh build.
     """
     src = Path(assets_dir) if assets_dir is not None else _ASSETS_DIR
+    files = [*sorted((src / "fonts").glob("*.woff2")), src / "fonts" / "FONTS.md"]
+    # Validate before wiping: a missing source must not leave docs/ with
+    # fewer fonts than it had.
+    missing = [f.name for f in files if not f.is_file()]
+    if missing or len(files) < 2:
+        raise FileNotFoundError(f"font sources missing from {src / 'fonts'}: {missing or ['*.woff2']}")
     dest = docs_assets / "fonts"
     shutil.rmtree(dest, ignore_errors=True)
     dest.mkdir(parents=True)
-    for f in [*sorted((src / "fonts").glob("*.woff2")), src / "fonts" / "FONTS.md"]:
+    for f in files:
         shutil.copy2(f, dest / f.name)
 
 

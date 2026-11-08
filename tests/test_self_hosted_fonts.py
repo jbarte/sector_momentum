@@ -120,3 +120,22 @@ def test_nothing_the_page_loads_comes_from_a_third_party_host():
     links = {"ntfy.sh"}
     foreign = {h for h in hosts if not h.endswith(".supabase.co")} - links
     assert foreign == set(), sorted(foreign)
+
+
+def test_a_missing_font_source_fails_the_build_and_leaves_the_output_alone(tmp_path):
+    from dashboard.build import _copy_fonts
+
+    src = tmp_path / "src"
+    (src / "fonts").mkdir(parents=True)
+    (src / "fonts" / "a.woff2").write_bytes(b"x")          # FONTS.md is missing
+    out = tmp_path / "out"
+    (out / "fonts").mkdir(parents=True)
+    (out / "fonts" / "kept.woff2").write_bytes(b"old")
+
+    try:
+        _copy_fonts(out, assets_dir=src)
+    except FileNotFoundError as e:
+        assert "FONTS.md" in str(e)
+    else:
+        raise AssertionError("a missing FONTS.md must fail the build")
+    assert [p.name for p in (out / "fonts").iterdir()] == ["kept.woff2"]

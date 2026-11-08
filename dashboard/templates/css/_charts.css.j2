@@ -2,7 +2,9 @@
    Plotly chart containers
    ========================================================= */
 .chart-container {
-  background: var(--bg-inset);
+  /* The card colour, like the Plotly paper inside it, so nothing shows a
+     mismatched band before the chart paints. The plot area is the inset. */
+  background: var(--surface);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
   overflow: hidden;
