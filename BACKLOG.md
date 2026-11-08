@@ -105,6 +105,47 @@ cycles: a flag rule, if one is built, should key off `corr 26w`, not the
 cumulative number. AI & Robotics no longer looks like it belongs in the
 same sentence.
 
+**Monthly run 2026-11-07** (scheduled task; data as of 2026-11-06, 200
+weeks for the full-history pairs):
+
+| | full window | last 26 weeks |
+|---|---|---|
+| `exact` median | 0.93 | 0.94 |
+| `close` median | 0.855 | 0.845 |
+| `partial` median | 0.54 | **0.64** |
+| Defense (ITA/DFEN) corr | 0.61 | 0.77 |
+| Defense track err | 20.5% | 22.4% |
+
+**Defense's recent window still sits nearer its own group:** |0.77 − 0.845|
+= 0.075 vs |0.77 − 0.64| = 0.13. That's the second recent-window reading
+nearer `close`, so there's still no streak toward `partial`. Its recent
+correlation rose a little (0.75 → 0.77). The margin did shrink, though,
+from 0.10 vs 0.27 to 0.075 vs 0.13. The cause is the `partial` group's
+recent median rising 0.48 → 0.64, not anything Defense did. The full
+window is unchanged: still nearer `partial` (|0.61 − 0.855| = 0.245 vs
+|0.61 − 0.54| = 0.07).
+
+Uranium & Nuclear (URA/URNU) now has 72 joint weeks, up from 55. That's
+more than a month's worth, so Yahoo has evidently backfilled further. It
+reads 0.92 / 19.0% over the full window, and 0.94 / 13.4% over the last
+26 weeks. Its recent correlation moved **+0.13** (0.81 → 0.94), the only
+recorded pair to move more than 0.10. Its tracking error is still the
+highest in `exact` (the others are 8–10%), but the recent 13.4% is
+closing on them. QUTM has 75 joint weeks and reads 0.84 / 17.5% full and
+0.82 / 19.9% recent, little changed. AI & Robotics reads 0.74 full and
+0.73 recent (0.76 last month). Last month recorded only these three
+pairs' recent numbers, so the >0.10 check can't cover the rest. This
+run's full table is the baseline for next month. Run note: the first
+attempt failed to fetch `SC03.DE` (Food & Beverage). A re-run fetched it
+(0.50 full / 0.64 recent), and those are the numbers above. Without it
+the `partial` medians read 0.695 / 0.70, which would have made the
+Defense comparison misleading.
+
+The scheduled run edited this file but ended (the Mac slept mid-run) before it
+committed; the paragraph was recovered and committed on 2026-11-08. A re-run
+that day (data a day later) agreed: medians within 0.02 of the table above,
+Defense 0.61 full / 0.77 recent, same verdict.
+
 ## iOS app follow-ups (jbarte/etf-momentum-ios)
 
 The board app shipped in its own repo: v1 (etf-momentum-ios#1, 2026-09-27),
