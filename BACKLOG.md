@@ -136,6 +136,27 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 
 ---
 
+## Dashboard premium polish — PRs 2–5 remaining
+
+Spec (approved 2026-11-08): `notes/specs/2026-11-08-dashboard-premium-polish-design.md`;
+one plan per PR in `notes/plans/2026-11-08-polish-*.md`. PR 1 (self-hosted
+fonts) is in Done. What remains, in order, each its own PR:
+
+- **2. Tokens, type, colour:** the ivory light palette (card `#FAF7F0`
+  instead of white, canvas `#EFE9DC`), `--bg-raised` split into `--bg-inset`
+  (nested in the card) and `--bg-raised` (on top), radius / spacing / layered
+  shadow / motion scales, one uppercase-label style, chart backgrounds and
+  `theme-color` to match, review panel Sell/Buy text on the `-ink` tokens.
+- **3. Structure:** the leaderboard loses its own box, review panel dots and
+  done check, chevron sort indicators, sticky table header ≥ 1024px
+  (`.card` → `overflow: clip`), tab indicator element, edge fades on an
+  overflowing tab bar.
+- **4. Motion:** `dashboard/assets/motion.js`; gliding tab indicator and
+  horizon thumb, rows gliding on a user sort, number crossfades, press-down,
+  check draw-in, one first-paint fade-up; one global reduced-motion rule.
+- **5. iOS palette** (etf-momentum-ios): `Palette.swift` follows PR 2's values
+  and gains `inset`.
+
 # Parked
 
 ## Duplicate-date scans still write full score/signal rows — declined
@@ -508,6 +529,19 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Dashboard fonts are self-hosted (2026-11-08, `feature/polish-fonts`).**
+  PR 1 of the dashboard premium polish (spec
+  `notes/specs/2026-11-08-dashboard-premium-polish-design.md`; PRs 2–5 stay
+  Queued). The Google Fonts `@import` is replaced by `@font-face` rules for
+  latin woff2 files in `dashboard/assets/fonts/` (Fontsource 5.3.0: Familjen
+  Grotesk and Inter variable, JetBrains Mono 400/500; about 110 KB), so no third
+  party sees a reader's IP address. Upright only: no element uses Familjen
+  Grotesk italic, and Inter's italics were never loaded from Google either.
+  `build.py` copies the folder, `FONTS.md` with the OFL text included; both
+  pages preload Inter so it no longer waits behind the Plotly script.
+  `tests/test_self_hosted_fonts.py` fails if a template loads anything from a
+  host other than the project's Supabase. The web uses the OFL release of
+  JetBrains Mono; the iOS app still bundles the Apache-licensed 1.0.2.
 - **Price fetch has a second source: Tiingo (2026-10-16,
   `feature/price-fallback-tiingo`).** Insurance, not a response to an outage
   (the item said to reopen it if yfinance failed a scan; Jonas chose to build it

@@ -279,6 +279,19 @@ def _copy_site_icons(docs_assets: Path, out_dir: Path, assets_dir: Path | None =
     shutil.copy2(src / "manifest.webmanifest", out_dir / "manifest.webmanifest")
 
 
+def _copy_fonts(docs_assets: Path, assets_dir: Path | None = None) -> None:
+    """Copy the self-hosted web fonts, and FONTS.md with their licence, to
+    assets/fonts/.
+
+    Every page's stylesheet points its @font-face rules here, so like the
+    icons this has no exists() guard: a missing folder fails the build instead
+    of shipping a site that silently falls back to system fonts. FONTS.md goes
+    along because the OFL asks for the licence to travel with the fonts.
+    """
+    src = Path(assets_dir) if assets_dir is not None else _ASSETS_DIR
+    shutil.copytree(src / "fonts", docs_assets / "fonts", dirs_exist_ok=True)
+
+
 def _asset_versions(assets_dir: Path, names) -> dict[str, str]:
     """Short content hash per asset, for cache-busting their URLs.
 
@@ -589,6 +602,7 @@ def main() -> None:
     if theme_src.exists():
         shutil.copy2(theme_src, docs_assets / "theme.js")
     _copy_site_icons(docs_assets, out_dir)
+    _copy_fonts(docs_assets)
     rescore_src = _ASSETS_DIR / "rescore.js"
     if rescore_src.exists():
         shutil.copy2(rescore_src, docs_assets / "rescore.js")

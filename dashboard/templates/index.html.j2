@@ -6,6 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 {% include "_head_icons.html.j2" %}
 <title>ETF Momentum</title>
+{#- The body font starts downloading now rather than after the 1.4 MB Plotly
+    script below has been fetched and parsed. -#}
+<link rel="preload" href="assets/fonts/inter-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
 <script src="{{ asset_url('plotly.min.js') }}"></script>
 <script src="{{ asset_url('rescore.js') }}"></script>
 <script src="{{ asset_url('theme.js') }}"></script>
