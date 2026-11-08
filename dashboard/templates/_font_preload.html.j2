@@ -1,0 +1,9 @@
+{#- The self-hosted fonts start downloading now, rather than after the 1.4 MB
+    Plotly script that follows in <head> has been fetched and parsed. Same
+    asset_url() as the @font-face rules in css/_foundation.css.j2, so each
+    preload is the request the stylesheet makes, not a second download
+    (tests/test_self_hosted_fonts.py checks they match). -#}
+<link rel="preload" href="{{ asset_url('fonts/inter-latin-wght.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ asset_url('fonts/familjen-grotesk-latin-wght.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ asset_url('fonts/jetbrains-mono-latin-400.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ asset_url('fonts/jetbrains-mono-latin-500.woff2') }}" as="font" type="font/woff2" crossorigin>

@@ -1,31 +1,44 @@
 /* Self-hosted (dashboard/assets/fonts/, licences in FONTS.md there): no third
    party sees a reader's IP address, and no font request waits on another
-   origin. Latin subsets, upright only: no element sets italic in Familjen
-   Grotesk, and Inter's italics were never loaded from Google either. */
+   origin. URLs go through asset_url() for the content-hash cache-buster, and
+   _font_preload.html.j2 preloads the same URLs. Latin subsets, upright only:
+   no element sets italic in Familjen Grotesk, and Inter's italics were never
+   loaded from Google either. */
 @font-face {
   font-family: 'Familjen Grotesk';
-  src: url('assets/fonts/familjen-grotesk-latin-wght.woff2') format('woff2');
+  src: url("{{ asset_url('fonts/familjen-grotesk-latin-wght.woff2') }}") format('woff2');
   font-weight: 400 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Inter';
-  src: url('assets/fonts/inter-latin-wght.woff2') format('woff2');
+  src: url("{{ asset_url('fonts/inter-latin-wght.woff2') }}") format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
+/* Greek, for the Δ in the "Rank Δ" header: Google's Inter covered it, the
+   latin file does not. unicode-range makes a browser fetch this file only on a
+   page that draws a Greek character, so it is not preloaded either. */
+@font-face {
+  font-family: 'Inter';
+  src: url("{{ asset_url('fonts/inter-greek-wght.woff2') }}") format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('assets/fonts/jetbrains-mono-latin-400.woff2') format('woff2');
+  src: url("{{ asset_url('fonts/jetbrains-mono-latin-400.woff2') }}") format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('assets/fonts/jetbrains-mono-latin-500.woff2') format('woff2');
+  src: url("{{ asset_url('fonts/jetbrains-mono-latin-500.woff2') }}") format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;

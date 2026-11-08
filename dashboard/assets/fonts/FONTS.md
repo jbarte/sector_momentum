@@ -10,10 +10,12 @@ this file included, to `docs/assets/fonts/`.
 |---|---|---|---|
 | Titles, theme names, headings | Familjen Grotesk (variable, 400–700) | `familjen-grotesk-latin-wght.woff2` | `@fontsource-variable/familjen-grotesk@5.3.0` |
 | Body text | Inter (variable, 100–900) | `inter-latin-wght.woff2` | `@fontsource-variable/inter@5.3.0` |
+| Body text, Greek characters (the Δ in "Rank Δ") | Inter (variable, 100–900) | `inter-greek-wght.woff2` | `@fontsource-variable/inter@5.3.0` |
 | Numbers and tickers | JetBrains Mono 400 | `jetbrains-mono-latin-400.woff2` | `@fontsource/jetbrains-mono@5.3.0` |
 | Numbers and tickers | JetBrains Mono 500 | `jetbrains-mono-latin-500.woff2` | `@fontsource/jetbrains-mono@5.3.0` |
 
-Latin subsets only, upright only, downloaded 2026-11-08. All three are licensed
+Latin subsets only (plus Inter's Greek subset, fetched by a browser only on a page
+that draws a Greek character), upright only, downloaded 2026-11-08. All three are licensed
 under the SIL Open Font License 1.1 (text below). The iOS app bundles JetBrains
 Mono 1.0.2, which is Apache-licensed; the web uses the current OFL release.
 

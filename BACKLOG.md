@@ -136,26 +136,37 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 
 ---
 
-## Dashboard premium polish — PRs 2–5 remaining
+## Dashboard polish 2: ivory palette and design tokens
 
-Spec (approved 2026-11-08): `notes/specs/2026-11-08-dashboard-premium-polish-design.md`;
-one plan per PR in `notes/plans/2026-11-08-polish-*.md`. PR 1 (self-hosted
-fonts) is in Done. What remains, in order, each its own PR:
+Part of the dashboard premium polish (spec, approved 2026-11-08:
+`notes/specs/2026-11-08-dashboard-premium-polish-design.md`; plan
+`notes/plans/2026-11-08-polish-2-tokens.md`). Self-hosted fonts shipped
+first (Done). The light card becomes ivory `#FAF7F0` instead of white on a
+`#EFE9DC` canvas; `--bg-raised` splits into `--bg-inset` (nested in the card)
+and `--bg-raised` (on top); radius, spacing, layered-shadow and motion scales;
+one uppercase-label style; chart backgrounds and `theme-color` follow; the
+review panel's Sell/Buy text moves to the `-ink` tokens. No behaviour change.
 
-- **2. Tokens, type, colour:** the ivory light palette (card `#FAF7F0`
-  instead of white, canvas `#EFE9DC`), `--bg-raised` split into `--bg-inset`
-  (nested in the card) and `--bg-raised` (on top), radius / spacing / layered
-  shadow / motion scales, one uppercase-label style, chart backgrounds and
-  `theme-color` to match, review panel Sell/Buy text on the `-ink` tokens.
-- **3. Structure:** the leaderboard loses its own box, review panel dots and
-  done check, chevron sort indicators, sticky table header ≥ 1024px
-  (`.card` → `overflow: clip`), tab indicator element, edge fades on an
-  overflowing tab bar.
-- **4. Motion:** `dashboard/assets/motion.js`; gliding tab indicator and
-  horizon thumb, rows gliding on a user sort, number crossfades, press-down,
-  check draw-in, one first-paint fade-up; one global reduced-motion rule.
-- **5. iOS palette** (etf-momentum-ios): `Palette.swift` follows PR 2's values
-  and gains `inset`.
+## Dashboard polish 3: lighter leaderboard structure
+
+Needs polish 2. Plan `notes/plans/2026-11-08-polish-3-structure.md`. The
+leaderboard loses its own box; review-panel dots for the book count and a
+done check; chevron sort indicators; a sticky table header at ≥ 1024px
+(`.card` → `overflow: clip`); one tab-indicator element; edge fades on an
+overflowing tab bar.
+
+## Dashboard polish 4: discreet motion
+
+Needs polish 3. Plan `notes/plans/2026-11-08-polish-4-motion.md`.
+`dashboard/assets/motion.js`: gliding tab indicator and horizon thumb, rows
+gliding on a reader's own sort, number crossfades, press-down, check draw-in,
+one first-paint fade-up; one global reduced-motion rule.
+
+## Dashboard polish 5: iOS palette follows the web
+
+Needs polish 2 merged (values copied from the merged CSS). Plan
+`notes/plans/2026-11-08-polish-5-ios-palette.md`. In etf-momentum-ios:
+`Palette.swift` takes the new light values and gains `inset`.
 
 # Parked
 
@@ -531,7 +542,7 @@ dashboard's drill-down tab covers most of the need.
 
 - **Dashboard fonts are self-hosted (2026-11-08, `feature/polish-fonts`).**
   PR 1 of the dashboard premium polish (spec
-  `notes/specs/2026-11-08-dashboard-premium-polish-design.md`; PRs 2–5 stay
+  `notes/specs/2026-11-08-dashboard-premium-polish-design.md`; polish 2–5 stay
   Queued). The Google Fonts `@import` is replaced by `@font-face` rules for
   latin woff2 files in `dashboard/assets/fonts/` (Fontsource 5.3.0: Familjen
   Grotesk and Inter variable, JetBrains Mono 400/500; about 110 KB), so no third
