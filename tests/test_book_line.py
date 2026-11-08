@@ -118,3 +118,40 @@ def test_missing_held_keys_read_as_none_held():
     """
     out = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True).stdout)
     assert out["text"].startswith("Book: 0 / 4")
+
+
+# ---------------------------------------------------------------------------
+# bookDots: the same count, drawn. The panel shows a dot per slot beside the
+# "Book: n / target" text: filled = held, hollow = free, red outline = each
+# holding past the limit. The rule is pure so it is pinned here, not in CSS.
+# ---------------------------------------------------------------------------
+
+def _dots(held, target):
+    script = f"""
+      const R = require({str(_RESCORE_JS)!r});
+      console.log(JSON.stringify(R.bookDots({held}, {target})));
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, f"node failed: {res.stderr}"
+    return json.loads(res.stdout)
+
+
+def test_a_full_book_is_all_filled_dots():
+    assert _dots(4, 4) == {"held": 4, "free": 0, "over": 0}
+
+
+def test_free_slots_are_hollow_dots():
+    assert _dots(3, 4) == {"held": 3, "free": 1, "over": 0}
+    assert _dots(0, 4) == {"held": 0, "free": 4, "over": 0}
+
+
+def test_each_holding_past_the_limit_is_one_over_dot_and_the_limit_stays_filled():
+    assert _dots(5, 4) == {"held": 4, "free": 0, "over": 1}
+    assert _dots(7, 4) == {"held": 4, "free": 0, "over": 3}
+
+
+def test_the_dots_always_account_for_every_slot_and_every_holding():
+    for held in range(0, 9):
+        d = _dots(held, 4)
+        assert d["held"] + d["over"] == held
+        assert d["held"] + d["free"] == 4

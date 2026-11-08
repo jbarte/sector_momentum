@@ -112,9 +112,13 @@ def _page_sources():
 def test_nothing_the_page_loads_comes_from_a_third_party_host():
     # Case-insensitive, and protocol-relative `//host` counts too.
     url = re.compile(r"(?:https?:)?//([a-z0-9-]+(?:\.[a-z0-9-]+)+)", re.I)
+    # The XML namespace every inline SVG declares. It names a vocabulary and is
+    # never fetched, so it is not a third-party load; only this exact string is
+    # exempt, so a real www.w3.org URL would still be caught.
+    svg_namespace = "http://www.w3.org/2000/svg"
     hosts = set()
     for f in _page_sources():
-        hosts |= {h.lower() for h in url.findall(f.read_text())}
+        hosts |= {h.lower() for h in url.findall(f.read_text().replace(svg_namespace, ""))}
     # ntfy.sh is a link a signed-in reader clicks to open their alert topic
     # (alert-prefs.js), not something the page loads.
     links = {"ntfy.sh"}

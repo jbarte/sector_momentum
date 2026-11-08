@@ -155,6 +155,7 @@
   <button class="tab-btn" onclick="switchTab('history', this)" role="tab" aria-selected="false" aria-controls="tab-history">History</button>
   <button class="tab-btn" onclick="switchTab('backtest', this)" role="tab" aria-selected="false" aria-controls="tab-backtest">Backtest</button>
   <button class="tab-btn" onclick="switchTab('correlation', this)" role="tab" aria-selected="false" aria-controls="tab-correlation">Correlation</button>
+  <span class="tab-indicator" aria-hidden="true"></span>
 </div>
 
 <!-- Cohort selector — drives RRG / Drill-down / Movers / History / Backtest.
@@ -267,6 +268,7 @@
     <a href="javascript:void(0)" onclick="restoreLatest()">Back to latest</a>
   </div>
   {% include "_review_panel.html.j2" %}
+  <div class="sticky-sentinel" aria-hidden="true"></div>
   <div class="table-wrap">
     <table id="leaderboard-table">
       <thead>
@@ -1502,6 +1504,7 @@ function renderReviewPanel() {
   var headline = document.getElementById('rp-headline');
   var actions = document.getElementById('rp-actions');
   var countEl = document.getElementById('rp-count');
+  var dotsEl = document.getElementById('rp-dots');
   var doneBtn = document.getElementById('review-done-btn');
   var lang = 'en';
   var sd = (window.Rescore && window.Rescore.shortDate)
@@ -1512,6 +1515,9 @@ function renderReviewPanel() {
   var book = window.SM_BOOK_STATE;
   panel.hidden = false;
   actions.innerHTML = '';
+  // Cleared with the rest: the early returns below (stale calendar, guest) show
+  // no book, so they must not keep the previous render's dots.
+  dotsEl.textContent = '';
   // Default hidden -- unhidden below only once a real book exists to mark
   // reviewed. Both early returns below (stale calendar, guest) leave it at
   // this default rather than whatever a previous render left it as.
@@ -1541,6 +1547,10 @@ function renderReviewPanel() {
 
   if (!status.due) {
     headline.textContent = 'Next review' + ' · ' + sd(status.nextDate);
+    // Done: a review date has come due and the reader marked it reviewed. (Not
+    // merely "none due yet" -- that is dueDate === null, and nothing was done.)
+    // The check is decoration; the headline's text is unchanged.
+    if (status.dueDate) { headline.insertBefore(_checkIcon(), headline.firstChild); }
     var note = document.createElement('li');
     note.className = 'rp-note';
     note.textContent = 'No action until then.';
@@ -1601,6 +1611,34 @@ function renderReviewPanel() {
   countEl.textContent = line.text;
   countEl.className = 'rp-count';
   if (line.kind) { countEl.classList.add(line.kind); }
+  if (window.Rescore && window.Rescore.bookDots) {
+    var dots = window.Rescore.bookDots(heldKeys.length, target);
+    ['held', 'free', 'over'].forEach(function (kind) {
+      for (var i = 0; i < dots[kind]; i++) {
+        var dot = document.createElement('span');
+        dot.className = 'rp-dot ' + kind;
+        dotsEl.appendChild(dot);
+      }
+    });
+  }
+}
+
+// The review-done check: a stroked tick, drawn inline so it takes its colour
+// from CSS (.rp-check) and needs no request.
+function _checkIcon() {
+  var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'rp-check');
+  svg.setAttribute('viewBox', '0 0 14 14');
+  svg.setAttribute('aria-hidden', 'true');
+  var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M3 7.5 6 10.5 11 4');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.75');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(path);
+  return svg;
 }
 
 // Mirrors theme.js's updateControlUI(): reflect `key` on every button's
@@ -2146,6 +2184,16 @@ window.reapplyLeaderboardSort = function () {
 };
 
 // Keyboard support for interactive table elements
+// The header hairline shows only while the header is actually stuck.
+(function () {
+  var s = document.querySelector('.sticky-sentinel');
+  var t = document.getElementById('leaderboard-table');
+  if (!s || !t || !('IntersectionObserver' in window)) return;
+  new IntersectionObserver(function (e) {
+    t.toggleAttribute('data-stuck', !e[0].isIntersecting);
+  }).observe(s);
+})();
+
 document.getElementById('leaderboard-table')?.addEventListener('keydown', function(e) {
   if (e.key !== 'Enter' && e.key !== ' ') return;
   var t = e.target;

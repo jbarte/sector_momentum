@@ -376,3 +376,21 @@
     gap: 10px 16px;
   }
 }
+
+/* Sticky leaderboard header on wide screens. The wrapper's overflow-x is released
+   only for the leaderboard's own wrapper (the scan index and validation tables
+   share the class and still scroll sideways) because an overflowing wrapper would
+   become the header's scroll container and pin it to itself instead of the
+   viewport. Below 1024px the table may need that sideways scroll, so nothing
+   sticks. The hairline appears once stuck: _tables.css.j2 / index.html.j2 set
+   data-stuck from a sentinel. */
+@media (min-width: 1024px) {
+  .table-wrap:has(> #leaderboard-table) { overflow-x: visible; }
+  #leaderboard-table thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--surface);
+    border-bottom-color: transparent;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+  }
+  #leaderboard-table[data-stuck] thead th { border-bottom-color: var(--border-soft); }
+}

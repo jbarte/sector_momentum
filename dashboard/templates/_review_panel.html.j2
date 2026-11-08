@@ -11,7 +11,13 @@
   <div class="rp-headline" id="rp-headline"></div>
   <ul class="rp-actions" id="rp-actions"></ul>
   <div class="rp-footer">
-    <span class="rp-count" id="rp-count"></span>
+    {#- The count, drawn: one dot per slot (renderReviewPanel). aria-hidden
+        because the text beside it already says the same thing; announcing
+        both would read the book twice. -#}
+    <span class="rp-book">
+      <span class="rp-dots" id="rp-dots" aria-hidden="true"></span>
+      <span class="rp-count" id="rp-count"></span>
+    </span>
     <label class="rp-lock" id="rp-lock-wrap" hidden>
       <input type="checkbox" id="rp-lock">
       <span>Lock book until the review</span>

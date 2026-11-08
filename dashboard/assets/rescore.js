@@ -265,6 +265,37 @@
     return { text: text, kind: "" };
   }
 
+  // The same count as bookLine, drawn: one dot per slot beside the text.
+  // held = filled, free = hollow, over = a red outline for each holding past
+  // the limit. The limit's own slots stay filled, so the dots always account
+  // for every slot and every holding (held + over = holdings, held + free =
+  // target). Pure so tests/test_book_line.py pins it; the panel only paints it.
+  function bookDots(heldCount, target) {
+    var held = Math.max(0, heldCount | 0), cap = Math.max(0, target | 0);
+    return { held: Math.min(held, cap), free: Math.max(0, cap - held),
+             over: Math.max(0, held - cap) };
+  }
+
+  // Tab bar. Where the single indicator sits under the active tab: the tab's
+  // own left edge and width, which the page paints as translateX(x) scaleX(w)
+  // on a 1px-wide element. null when there is no active tab, so the indicator
+  // stays where it was instead of collapsing.
+  function indicatorBox(btn) {
+    if (!btn) { return null; }
+    return { x: btn.offsetLeft, w: btn.offsetWidth };
+  }
+
+  // Which edges of an overflowing, horizontally scrolling bar are clipped:
+  // "start", "end", "both", or "" when it fits. scrollLeft/clientWidth/
+  // scrollWidth are rounded integers, so a 1px gap is rounding, not overflow;
+  // without the tolerance a bar that visibly fits (or has reached its end)
+  // would keep a fade over its last tab.
+  function overflowState(scrollLeft, clientWidth, scrollWidth) {
+    var start = scrollLeft > 1;
+    var end = scrollLeft + clientWidth < scrollWidth - 1;
+    return start && end ? "both" : (start ? "start" : (end ? "end" : ""));
+  }
+
   // Mirror dashboard/rows.py's MAX_DUPLICATE_RUN and _TRAJECTORY_SCANS.
   var MAX_DUPLICATE_RUN = 7;
   var TRAJECTORY_SCANS = 5;
@@ -590,7 +621,8 @@
   var api = { olsSlope: olsSlope, setupForRank: setupForRank,
               inBuyBand: inBuyBand, exitRank: exitRank,
               badgeForRank: badgeForRank, badgeFor: badgeFor, selectBook: selectBook,
-              bookLine: bookLine,
+              bookLine: bookLine, bookDots: bookDots,
+              indicatorBox: indicatorBox, overflowState: overflowState,
               trajectoryLabel: trajectoryLabel,
               trajBadgeInner: trajBadgeInner, trajBadgeHTML: trajBadgeHTML,
               latestRowMeta: latestRowMeta, todaysRead: todaysRead, DRIFT_EPS: DRIFT_EPS,
