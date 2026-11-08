@@ -136,12 +136,6 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 
 ---
 
-## Dashboard polish 5: iOS palette follows the web
-
-Needs polish 2 merged (values copied from the merged CSS). Plan
-`notes/plans/2026-11-08-polish-5-ios-palette.md`. In etf-momentum-ios:
-`Palette.swift` takes the new light values and gains `inset`.
-
 # Parked
 
 ## Duplicate-date scans still write full score/signal rows — declined
@@ -513,6 +507,18 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Dashboard polish 5: iOS palette follows the web (2026-11-08,
+  jbarte/etf-momentum-ios `feature/ivory-palette`, PR 18).** `Palette.swift` took
+  the merged polish 2 light values (canvas `EFE9DC`, surface `FAF7F0`, raised
+  `FDFBF6`) and gained `Tone.inset` (`F4EFE4` light, `262218` dark); dark did not
+  move. `PaletteTests` pin the values, order the card layers by lightness and
+  check text contrast on all four backgrounds. **Deviation:** the plan's task 2
+  (move nested surfaces from `raised` to `inset`) had nothing to move: the app's
+  only `raised` use is the horizon pill, which sits on top of its track, and every
+  other fill is `sunken` or a tint. Checked in the simulator on stub data, light
+  and dark; not checked on real data, iPad or large Dynamic Type. This closes the
+  five-part dashboard polish (1 fonts, 2 tokens, 3 structure, 4 motion, 5 iOS).
 
 - **Dashboard polish 4: discreet motion (2026-11-08, `feature/polish-motion`).**
   New `dashboard/assets/motion.js` (`window.SMMotion`: `allowed`, `flip`,
