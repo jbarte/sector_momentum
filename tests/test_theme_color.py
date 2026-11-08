@@ -30,7 +30,7 @@ def _color(attr, for_dark):
     return json.loads(res.stdout)
 
 
-LIGHT, DARK = "#f1ecdf", "#17150F"
+LIGHT, DARK = "#efe9dc", "#17150F"
 
 
 def test_on_auto_each_tag_keeps_the_colour_of_its_own_scheme():
@@ -48,7 +48,7 @@ def test_the_colours_are_the_canvas_tokens_in_the_stylesheet():
     """Hardcoded in theme.js; pin them to --canvas so a palette change cannot
     leave the address bar behind."""
     css = (ROOT / "dashboard" / "templates" / "css" / "_foundation.css.j2").read_text()
-    assert f"--canvas:      {LIGHT}" in css.replace("#F1ECDF", LIGHT)
+    assert f"--canvas:      {LIGHT}" in css.replace("#EFE9DC", LIGHT)
     assert f"--canvas:       {DARK}" in css
     partial = (ROOT / "dashboard" / "templates" / "_head_icons.html.j2").read_text()
     assert LIGHT in partial and DARK in partial

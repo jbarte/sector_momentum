@@ -4,8 +4,8 @@
 .command-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 28px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-7);
   flex-wrap: wrap;
 }
 .command-bar h1 {
@@ -13,7 +13,7 @@
   font-size: 16px;
   font-weight: 600;
   color: var(--fg1);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--ls-heading);
   line-height: 1;
   white-space: nowrap;
 }
@@ -34,7 +34,7 @@
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--ls-badge);
   color: var(--fg3);
   background: transparent;
   border: 1px solid var(--border);
@@ -61,12 +61,12 @@
   padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-3);
 }
 .auth-form[hidden] { display: none; }
 .auth-form input[type="email"] {
-  background: var(--bg-raised);
+  background: var(--bg-inset);
   color: var(--fg1);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -102,18 +102,18 @@
    ========================================================= */
 .card {
   background: var(--surface);
-  border-radius: 10px;
-  box-shadow: var(--shadow-card);
-  margin: 16px 28px 24px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  margin: var(--space-4) var(--space-7) var(--space-6);
   overflow: hidden;
 }
 .card > .tabs {
   background: var(--surface);
   border-bottom: 1px solid var(--border-soft);
-  padding: 0 20px;
-  border-radius: 10px 10px 0 0;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
-.card > .tab-panel { padding: 20px 24px; }
+.card > .tab-panel { padding: var(--space-6); }
 
 /* =========================================================
    Segment toggle (Sectors ⇄ Sentiment) — top-level page switcher,
@@ -151,7 +151,7 @@
   background: var(--bg-raised);
   color: var(--brand-strong);
   font-weight: 600;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-1);
   cursor: default;
 }
 
@@ -189,7 +189,7 @@
   background: var(--bg-raised);
   color: var(--brand-strong);
   font-weight: 600;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-1);
   cursor: default;
 }
 .theme-btn:focus-visible {
@@ -202,7 +202,7 @@
    ========================================================= */
 .tabs {
   display: flex;
-  background: var(--bg-raised);
+  background: var(--bg-inset);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   padding: 0 24px;
@@ -231,7 +231,7 @@
 /* =========================================================
    Tab content panels
    ========================================================= */
-.tab-panel { display: none; padding: 24px 28px; }
+.tab-panel { display: none; padding: var(--space-6); }
 .tab-panel.active { display: block; }
 
 /* =========================================================
@@ -241,7 +241,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 28px;
+  padding: 14px var(--space-7);
   margin-top: 8px;
   border-top: 1px solid var(--border-soft);
   font-size: 12px;
@@ -264,9 +264,9 @@
   gap: 12px;
   padding: 10px 16px;
   margin: 0 0 12px;
-  background: var(--bg-raised);
+  background: var(--bg-inset);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   color: var(--fg2);
 }
@@ -304,8 +304,8 @@
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
   padding: 28px 26px;
   text-align: center;
 }
@@ -357,8 +357,8 @@
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
   padding: 28px 30px;
   text-align: left;
 }
@@ -373,7 +373,7 @@
 .beginner-deck-nav button {
   padding: 8px 18px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--fg1);
   cursor: pointer;
@@ -412,9 +412,9 @@
    banner up to overlap that title instead of sitting inside its own card. */
 .beginner-deck-illo-band {
   overflow: hidden;
-  background: linear-gradient(160deg, var(--bg-raised) 0%, var(--bg-sunken) 100%);
+  background: linear-gradient(160deg, var(--bg-inset) 0%, var(--bg-sunken) 100%);
   border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin-bottom: 14px;
 }
 .beginner-deck-illo {
@@ -476,10 +476,10 @@
    ========================================================= */
 .modal-illo-band {
   overflow: hidden;
-  background: linear-gradient(160deg, var(--bg-raised) 0%, var(--bg-sunken) 100%);
+  background: linear-gradient(160deg, var(--bg-inset) 0%, var(--bg-sunken) 100%);
 }
-.methodology-modal .modal-illo-band { margin: -28px -30px 18px; border-radius: 14px 14px 0 0; }
-.gate-modal .modal-illo-band        { margin: -28px -26px 18px; border-radius: 14px 14px 0 0; }
+.methodology-modal .modal-illo-band { margin: -28px -30px 18px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.gate-modal .modal-illo-band        { margin: -28px -26px 18px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .modal-illo { display: block; width: 100%; height: 120px; }
 .gate-modal .modal-illo { height: 104px; }
 /* keep the methodology close button above the band */
@@ -545,7 +545,7 @@
 .alert-prefs-intro { margin: 0 0 12px; color: var(--fg2); }
 .alert-prefs-topic { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .alert-prefs-topic code {
-  background: var(--bg-raised);
+  background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 3px 8px;
@@ -611,10 +611,10 @@ thead th[tabindex="0"]:focus-visible {
   display: inline-block;
   margin-left: 5px;
   padding: 0 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--ls-badge);
   text-transform: uppercase;
   color: var(--fg4);
   background: var(--bg-sunken);
@@ -648,11 +648,11 @@ thead th[tabindex="0"]:focus-visible {
   border-bottom: 1px solid var(--border);
 }
 .strip-cell { background: var(--bg); padding: 18px 24px; }
-#cell-todays-read { padding-left: 28px; padding-right: 28px; }
+#cell-todays-read { padding-left: var(--space-7); padding-right: var(--space-7); }
 
 .strip-eyebrow {
   font-size: 11px;
-  letter-spacing: .10em;
+  letter-spacing: var(--ls-label);
   text-transform: uppercase;
   color: var(--fg4);
   margin: 0 0 9px;
@@ -676,7 +676,7 @@ button.strip-eyebrow:focus-visible { outline: 2px solid var(--brand-strong); out
   font-family: var(--font-display);
   font-size: 19px;
   line-height: 1.35;
-  letter-spacing: -.01em;
+  letter-spacing: var(--ls-heading);
   color: var(--fg1);
   text-wrap: pretty;
   margin: 0;

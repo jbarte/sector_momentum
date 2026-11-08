@@ -174,12 +174,12 @@ def test_control_reflects_stored_choice_on_load():
 _FOUNDATION = _PROJECT_ROOT / "dashboard" / "templates" / "css" / "_foundation.css.j2"
 
 _SEMANTIC_TOKENS = [
-    "--canvas", "--surface", "--bg-raised", "--bg-sunken",
+    "--canvas", "--surface", "--bg-inset", "--bg-raised", "--bg-sunken",
     "--fg1", "--fg2", "--fg3", "--fg4", "--fg5",
     "--border", "--border-soft", "--border-hair",
     "--up", "--down", "--up-ink", "--down-ink", "--zero-line", "--brand-strong",
     "--ok", "--warn", "--err",
-    "--shadow-xs", "--shadow-sm", "--shadow-card",
+    "--shadow-1", "--shadow-2", "--shadow-3",
 ]
 
 
@@ -216,7 +216,9 @@ def test_dark_tokens_are_three_way_consistent():
 
     def _value(block, name):
         m = re.search(re.escape(name) + r"\s*:\s*([^;]+);", block)
-        return m.group(1).strip() if m else None
+        # Whitespace collapsed: the layered shadows span lines, and the two
+        # dark blocks indent their continuation lines differently.
+        return " ".join(m.group(1).split()) if m else None
 
     for name in _SEMANTIC_TOKENS:
         v_attr = _value(dark_attr, name)
@@ -268,10 +270,11 @@ def test_no_raw_ramp_references_outside_foundation():
 
 # Hardcoded hex values for the tokens `.rank-badge.in-buy-band` resolves against, in
 # both themes. These MUST be kept in sync with `_foundation.css.j2` if
-# `--bg-raised` or `--up` ever change — a CSS-parsing test would track the
-# source of truth automatically and be more robust, but is out of scope for
-# this one-line fix.
-_BG_RAISED_LIGHT = "#FAF7F0"
+# `--bg-inset` or `--up` ever change (test_light_palette_constants_match_the_
+# stylesheet pins the inset value). The badges sit on `--bg-inset`: the leaderboard
+# box uses it, and it is the darker of the two light backdrops (card `--surface`
+# is the other), so a tint that passes here also passes on the card.
+_BG_INSET_LIGHT = "#F4EFE4"
 _BG_RAISED_DARK = "#262218"
 _UP_LIGHT = "#5A6F49"
 _UP_DARK = "#A9C48E"
@@ -303,7 +306,7 @@ def test_rank_badge_in_buy_band_contrast_meets_wcag_aa():
     the table's real container background, --bg-raised) must clear the 4.5:1
     WCAG AA minimum for normal-size text, in both themes."""
     pct = _rank_badge_in_buy_band_tint_pct()
-    light_bg = _mix_over(_UP_LIGHT, pct, _BG_RAISED_LIGHT)
+    light_bg = _mix_over(_UP_LIGHT, pct, _BG_INSET_LIGHT)
     dark_bg = _mix_over(_UP_DARK, pct, _BG_RAISED_DARK)
 
     light_ratio = _contrast_ratio(_UP_INK_LIGHT, light_bg)
@@ -333,7 +336,7 @@ _FG4_DARK = "#A59A80"
 # third time.
 _BORDER_SOFT_LIGHT = "#EDE6D6"
 _BORDER_SOFT_DARK = "#2A2619"
-_SURFACE_LIGHT = "#FFFFFF"
+_SURFACE_LIGHT = "#FAF7F0"
 
 
 def _traj_flat_background_is_border_hair() -> None:
@@ -434,7 +437,7 @@ def _assert_badge_contrast(name: str, fg_light: str, fg_dark: str, pct: int) -> 
     """Shared assertion body for the five same-idiom badge contrast tests
     below: text (fully opaque `fg_*`) on its own colour tinted over
     `--bg-raised`, in both themes."""
-    light_bg = _mix_over(fg_light, pct, _BG_RAISED_LIGHT)
+    light_bg = _mix_over(fg_light, pct, _BG_INSET_LIGHT)
     dark_bg = _mix_over(fg_dark, pct, _BG_RAISED_DARK)
     light_ratio = _contrast_ratio(fg_light, light_bg)
     dark_ratio = _contrast_ratio(fg_dark, dark_bg)
@@ -463,7 +466,7 @@ def _assert_ink_badge_contrast(name, tint_light, tint_dark, ink_light, ink_dark,
     (--up-ink/--down-ink) differs from the colour their background tint is
     mixed from (--up/--down) in light mode — introduced by the 2026-08-18
     leaderboard redesign's trend-badge ink unification."""
-    light_bg = _mix_over(tint_light, pct, _BG_RAISED_LIGHT)
+    light_bg = _mix_over(tint_light, pct, _BG_INSET_LIGHT)
     dark_bg = _mix_over(tint_dark, pct, _BG_RAISED_DARK)
     light_ratio = _contrast_ratio(ink_light, light_bg)
     dark_ratio = _contrast_ratio(ink_dark, dark_bg)
@@ -491,9 +494,13 @@ def test_traj_strong_up_contrast_meets_wcag_aa():
 
 def test_setup_badge_entry_contrast_meets_wcag_aa():
     """Same pre-existing failure pattern as traj-strong_up (same `--up`
-    colour, 12% tint, 4.43:1 light). Dropped to 10% to match."""
+    colour, 12% tint, 4.43:1 light). Dropped to 10% to match. Text is
+    `--up-ink`, like the trend badges: on the ivory palette's inset backdrop
+    raw `--up` text fell to 4.25:1 (the ink variant exists for exactly this)."""
     pct = _tint_pct("_tables.css.j2", ".setup-badge.entry", "--up")
-    _assert_badge_contrast(".setup-badge.entry", _UP_LIGHT, _UP_DARK, pct)
+    _assert_ink_badge_contrast(
+        ".setup-badge.entry", _UP_LIGHT, _UP_DARK, _UP_INK_LIGHT, _UP_DARK, pct
+    )
 
 
 def test_traj_down_contrast_meets_wcag_aa():
@@ -520,26 +527,29 @@ def test_traj_strong_down_contrast_meets_wcag_aa():
 
 def test_setup_badge_exit_contrast_meets_wcag_aa():
     """Same `--down` ceiling again, at setup-badge.exit's original 12% tint
-    (4.07:1 light)."""
+    (4.07:1 light). Text is `--down-ink` (raw `--down` was 4.23:1 on the
+    inset backdrop)."""
     pct = _tint_pct("_tables.css.j2", ".setup-badge.exit", "--down")
-    _assert_badge_contrast(".setup-badge.exit", _DOWN_LIGHT, _DOWN_DARK, pct)
+    _assert_ink_badge_contrast(
+        ".setup-badge.exit", _DOWN_LIGHT, _DOWN_DARK, _DOWN_INK_LIGHT, _DOWN_DARK, pct
+    )
 
 
 def test_muted_badges_have_more_contrast_margin_than_active_ones():
     """`.muted` drops the tinted background to fully transparent (0% tint) —
-    text renders straight on --bg-raised. Tinting toward the text's own
+    text renders straight on --bg-inset. Tinting toward the text's own
     colour always REDUCES contrast (established by every fix above: dropping
     tint pct raised the ratio each time), so 0% tint must beat every active
     tint pct already verified. Regression guard: if a future change gives
     `.muted` its own background colour instead of `transparent`, this is the
     test that would catch a contrast regression the active-state tests can't
     see, since they never exercise the muted rule at all."""
-    assert _contrast_ratio(_UP_LIGHT, _BG_RAISED_LIGHT) >= 4.5
-    assert _contrast_ratio(_UP_LIGHT, _BG_RAISED_LIGHT) > _contrast_ratio(
-        _UP_LIGHT, _mix_over(_UP_LIGHT, _tint_pct("_tables.css.j2", ".setup-badge.entry", "--up"), _BG_RAISED_LIGHT))
-    assert _contrast_ratio(_DOWN_LIGHT, _BG_RAISED_LIGHT) >= 4.5
-    assert _contrast_ratio(_DOWN_LIGHT, _BG_RAISED_LIGHT) > _contrast_ratio(
-        _DOWN_LIGHT, _mix_over(_DOWN_LIGHT, _tint_pct("_tables.css.j2", ".setup-badge.exit", "--down"), _BG_RAISED_LIGHT))
+    assert _contrast_ratio(_UP_INK_LIGHT, _BG_INSET_LIGHT) >= 4.5
+    assert _contrast_ratio(_UP_INK_LIGHT, _BG_INSET_LIGHT) > _contrast_ratio(
+        _UP_INK_LIGHT, _mix_over(_UP_LIGHT, _tint_pct("_tables.css.j2", ".setup-badge.entry", "--up"), _BG_INSET_LIGHT))
+    assert _contrast_ratio(_DOWN_INK_LIGHT, _BG_INSET_LIGHT) >= 4.5
+    assert _contrast_ratio(_DOWN_INK_LIGHT, _BG_INSET_LIGHT) > _contrast_ratio(
+        _DOWN_INK_LIGHT, _mix_over(_DOWN_LIGHT, _tint_pct("_tables.css.j2", ".setup-badge.exit", "--down"), _BG_INSET_LIGHT))
     text = _CSS_DIR.joinpath("_tables.css.j2").read_text()
     assert re.search(r"\.setup-badge\.entry\.muted,\s*\n\s*\.setup-badge\.exit\.muted\s*\{\s*background:\s*transparent;",
                       text), ".muted rule no longer sets background: transparent — update this test's assumption"
@@ -548,7 +558,7 @@ def test_muted_badges_have_more_contrast_margin_than_active_ones():
 # Hardcoded hex for `--canvas`, in both themes — the container `--ok`/`--warn`/
 # `--err` render directly against (`.health-panel` sets no background of its
 # own, so it inherits `body`'s `--bg` == `--canvas`).
-_CANVAS_LIGHT = "#f1ecdf"
+_CANVAS_LIGHT = "#efe9dc"
 _CANVAS_DARK = "#17150F"
 
 
@@ -955,3 +965,68 @@ def test_no_responsive_overrides_left_earlier_in_the_cascade():
         "width-based media queries before _responsive.css.j2 may be dead: "
         + ", ".join(offenders)
     )
+
+
+# --- Ivory light palette (spec 2026-11-08-dashboard-premium-polish § 1) -----
+#
+# The card is ivory instead of white. Surfaces, light theme. Hand-synced with
+# `_foundation.css.j2`, which test_light_palette_constants_match_the_stylesheet
+# below reads back so a drift fails here instead of quietly changing a ratio.
+_LIGHT_SURFACES = {
+    "canvas": "#EFE9DC",   # the page behind the card
+    "surface": "#FAF7F0",  # the card
+    "inset": "#F4EFE4",    # boxes nested in the card
+    "raised": "#FDFBF6",   # things that sit on top of the card
+}
+_LIGHT_TEXT = {
+    "fg1": "#1F1C15", "fg2": "#3E392B", "fg3": "#5E5742", "fg4": "#6F674F",
+    "brand-strong": "#5A6F49", "up-ink": "#3F4F34", "down-ink": "#8E4B31",
+    "ok": "#267539", "warn": "#9F5209", "err": "#B23A2E",
+}
+
+
+def test_light_text_tokens_meet_wcag_aa_on_every_light_surface():
+    for fg, fg_hex in _LIGHT_TEXT.items():
+        for bg, bg_hex in _LIGHT_SURFACES.items():
+            ratio = _contrast_ratio(fg_hex, bg_hex)
+            assert ratio >= 4.5, f"--{fg} on {bg} ({bg_hex}) is {ratio:.2f}:1, below AA"
+
+
+def test_light_palette_constants_match_the_stylesheet():
+    light = _block(_FOUNDATION.read_text(), ":root {")
+    for token, hex_value in [
+        ("--canvas", _LIGHT_SURFACES["canvas"]),
+        ("--surface", _LIGHT_SURFACES["surface"]),
+        ("--bg-inset", _LIGHT_SURFACES["inset"]),
+        ("--bg-raised", _LIGHT_SURFACES["raised"]),
+    ]:
+        assert re.search(re.escape(token) + r":\s*" + hex_value + r"\s*;", light, re.I), (
+            f"{token} is not {hex_value} in :root"
+        )
+    for name, hex_value in _LIGHT_TEXT.items():
+        assert hex_value.lower() in light.lower(), f"--{name} {hex_value} not in :root"
+
+
+def test_bg_inset_is_in_all_three_dark_blocks_with_the_old_dark_raised_value():
+    text = _FOUNDATION.read_text()
+    dark_attr = _block(text, ':root[data-theme="dark"] {')
+    media_start = text.index("@media (prefers-color-scheme: dark)")
+    dark_media = _block(_block(text[media_start:], "{"), "{")
+    for name, block in (("[data-theme=dark]", dark_attr), ("@media", dark_media)):
+        assert re.search(r"--bg-inset:\s*#262218\s*;", block), name
+
+
+def test_chart_backdrops_follow_the_card():
+    """Plotly's paper is the card and its plot area is the inset colour, in
+    light and (through the dark map) in dark, so a chart sits in the card
+    instead of in a beige box of its own."""
+    from dashboard.figures import CHART_DARK, _base_layout
+
+    layout = _base_layout()
+    assert layout["paper_bgcolor"] == _LIGHT_SURFACES["surface"]
+    assert layout["plot_bgcolor"] == _LIGHT_SURFACES["inset"]
+    assert layout["legend"]["bgcolor"] == _LIGHT_SURFACES["surface"]
+    assert CHART_DARK[_LIGHT_SURFACES["surface"]] == "#201D15"   # dark --surface
+    assert CHART_DARK[_LIGHT_SURFACES["inset"]] == "#262218"     # dark --bg-inset
+    # The retired light backdrop must not linger as a dead key.
+    assert "#F5F0E6" not in CHART_DARK
