@@ -50,6 +50,20 @@ niche ETFs (AI & robotics, semiconductors, uranium, space, gold miners, …) →
 data-pillar signals → composite score → Supabase/Postgres snapshots → static
 dashboard (GitHub Pages).
 
+**The web app is the main product. The iOS app (jbarte/etf-momentum-ios,
+private) follows it and should reflect its functionality.** What the dashboard
+does for a reader (the board, ranks and badges, stars, the review and the book
+lock), the app should do too, and when the two differ the web is right. So:
+
+- When a feature ships here, ask whether the app needs a matching change, and
+  if it does and isn't built in the same sitting, record it under *iOS app
+  follow-ups* in `BACKLOG.md` rather than leaving it to be remembered.
+- Rules and values the app copies (the Enter/Exit band, `selectBook`, badges,
+  the palette in `_foundation.css.j2`, the fonts) change **here first**, then
+  get ported. Never the other way round.
+- A web-only feature (the backtest, the charts) may be skipped on iOS on
+  purpose; say so in the backlog, so the gap reads as a decision.
+
 The US/EU **sector** cohorts this started as were retired on 2026-08-05; themes
 are now the only cohort. `region` survives in the schema as the cohort
 discriminator and is always `THEME` — it reads as legacy but is load-bearing,
