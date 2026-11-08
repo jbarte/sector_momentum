@@ -4713,7 +4713,7 @@ def _real_sort_scenario(rows_js: str, driver_js: str) -> dict:
         if (id === 'leaderboard-table') return {{querySelector: function () {{ return tbody; }},
                                                querySelectorAll: function () {{ return headers; }}}};
         return null;
-      }}}};
+      }}, documentElement: {{classList: {{remove: function () {{}}}}}}}};   // sortTable() ends the first-paint intro
       global.window = {{}};
       {code}
       var ids = function () {{ return tbody.order.map(function (r) {{ return r.dataset.themeId; }}); }};

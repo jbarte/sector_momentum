@@ -558,7 +558,17 @@ dashboard's drill-down tab covers most of the need.
   tests slice the template at it, and my first move of it silently pulled the
   sticky-header observer into their Node harness.
 
-  **What was and was not checked.** Tests: see the PR. All 22 new and changed
+  **Found in code review.** Sorting with a breakdown panel open made the panel
+  jump to its final place while its row was still gliding (measured 249px above
+  its own row, 40ms in): the panel follows its row in the DOM but was not in the
+  flip list. It is now. Reproducing it in the test harness then showed a second
+  problem: a sort within the first 700ms of load, while `html.first-paint` is
+  still on, had the intro animation (fill-mode `both`) own the rows' `transform`
+  and shadow the glide on rows but not on panels. A reader's own sort now ends
+  the intro at once, and the intro uses `backwards` so it never holds the final
+  frame.
+
+  **What was and was not checked.** Tests: see the PR. All 25 new and changed
   rules were sabotage-verified, each failing only its own test. In the browser
   (the same invented-rows page as polish 3, no real build): sort glides all 18
   rows and leaves no inline styles behind; the thumb and tab indicator glide and

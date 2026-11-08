@@ -2165,14 +2165,27 @@ function sortTable(col) {
     _sortCol = col;
     _sortDir = 1;
   }
+  // A reader's own sort ends the first-paint intro at once: an intro animation
+  // still running on the rows owns their transform, which shadows the glide on
+  // them (but not on their breakdown panels), so rows would jump while panels
+  // glide. It also cancels the intro, so it cannot affect the measurement below.
+  document.documentElement.classList.remove('first-paint');
   // Only a reader's own sort glides. The signed-in rebuild putting a chosen sort
   // back (reapplyLeaderboardSort) goes straight to _applyLeaderboardSort and so
   // never animates rows the reader did not move. Without motion.js, or under
   // reduced motion, flip() just runs the reorder.
   if (window.SMMotion) {
-    SMMotion.flip(
-      Array.from(document.querySelectorAll('#leaderboard-table tbody tr.leaderboard-row')),
-      _applyLeaderboardSort);
+    // Each row's breakdown panel follows it in the DOM, so it moves too and has
+    // to glide with it: an open panel left out would jump to its final place
+    // while its row was still en route. Closed ones measure 0 before and after
+    // and are skipped.
+    var movers = [];
+    document.querySelectorAll('#leaderboard-table tbody tr.leaderboard-row').forEach(function (r) {
+      movers.push(r);
+      var bd = r.dataset.themeId && document.getElementById('bd-' + r.dataset.themeId);
+      if (bd) { movers.push(bd); }
+    });
+    SMMotion.flip(movers, _applyLeaderboardSort);
   } else {
     _applyLeaderboardSort();
   }

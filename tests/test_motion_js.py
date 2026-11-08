@@ -396,7 +396,9 @@ def test_first_paint_fades_the_top_ten_rows_up_and_only_under_the_class():
     m = re.search(r'\.first-paint #leaderboard-table tbody tr\.leaderboard-row\[style\*="--i"\]\s*\{([^}]*)\}', css)
     assert m, "first-paint rule missing, or it no longer keys on --i (top ten rows only)"
     body = m.group(1)
-    assert "animation: rows-in var(--duration-slow) var(--ease-glide) both" in body
+    # backwards, not both: the animation must not keep ownership of transform after
+    # it ends, or it shadows the row glide for as long as the class stays on
+    assert "animation: rows-in var(--duration-slow) var(--ease-glide) backwards" in body
     assert "animation-delay: calc(var(--i, 0) * 20ms)" in body
     # nothing hides a row outside the animation: with JS off the class never
     # comes off, and the rows must still end visible

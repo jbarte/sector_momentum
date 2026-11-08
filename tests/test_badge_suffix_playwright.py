@@ -490,7 +490,10 @@ def _first_rank(page):
 
 def test_a_readers_own_sort_glides_the_rows_through_flip_once(page):
     page.evaluate(_SPY_FLIP)
-    rows = page.evaluate("() => document.querySelectorAll('#leaderboard-table tbody tr.leaderboard-row').length")
+    # Each row travels with its breakdown row (see the test below), so flip is
+    # given both.
+    rows = page.evaluate("() => document.querySelectorAll('#leaderboard-table tbody tr.leaderboard-row, "
+                         "#leaderboard-table tbody tr.breakdown-row').length")
     before = _first_rank(page)
     # The table starts on rank, ascending, so one more click flips it to descending.
     page.evaluate("() => sortTable(0)")
@@ -655,3 +658,34 @@ def test_only_the_rows_that_carry_an_index_take_part_in_the_first_paint_fade(pag
         "return { hasIndex: el.style.getPropertyValue('--i') !== '', withI: withI, withoutI: withoutI }; }"
     )
     assert out == {"hasIndex": True, "withI": "rows-in", "withoutI": "none"}
+
+
+def test_an_open_breakdown_panel_glides_with_its_row_instead_of_jumping(page):
+    """Each breakdown row follows its leaderboard row in the DOM, so a sort moves
+    it too. Gliding only the row left an open panel jumping to its final place
+    while its row was still en route: measured 249px above its own row mid-glide."""
+    page.evaluate(
+        "() => { var row = document.querySelector('#leaderboard-table tr.leaderboard-row[data-rank=\"1\"]'); "
+        "var bd = document.getElementById('bd-' + row.dataset.themeId); "
+        "bd.style.display = 'table-row'; bd.style.height = '60px'; "
+        "window.__row = row; window.__bd = bd; }")
+    # Start from a settled page: the first-paint intro offsets rows (not panels)
+    # by a few px while it runs, which would skew the "before" reading.
+    page.evaluate("() => { document.documentElement.style.scrollBehavior = 'auto'; "
+                  "document.documentElement.classList.remove('first-paint'); }")
+    gap_before = page.evaluate("() => __bd.getBoundingClientRect().top - __row.getBoundingClientRect().top")
+    page.evaluate("() => sortTable(0)")               # starts ascending on rank: reverses the order
+    gap_during = page.evaluate("() => __bd.getBoundingClientRect().top - __row.getBoundingClientRect().top")
+    assert abs(gap_during - gap_before) < 1, (gap_before, gap_during)
+    page.wait_for_timeout(400)
+    gap_after = page.evaluate("() => __bd.getBoundingClientRect().top - __row.getBoundingClientRect().top")
+    assert abs(gap_after - gap_before) < 1, (gap_before, gap_after)
+
+
+def test_a_readers_own_sort_ends_the_first_paint_intro_at_once(page):
+    """An intro animation still running on the rows shadows the glide on them but
+    not on their breakdown panels, so a quick sort right after load would have
+    rows jump while panels glide. The sort ends the intro first."""
+    page.evaluate("() => document.documentElement.classList.add('first-paint')")
+    page.evaluate("() => sortTable(2)")
+    assert not page.evaluate("() => document.documentElement.classList.contains('first-paint')")
