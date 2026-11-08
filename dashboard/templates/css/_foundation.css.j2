@@ -77,7 +77,8 @@
   --terra-500: #A55A3C;
 
   --bg:           var(--canvas);
-  --bg-raised:    var(--beige-50);
+  --bg-inset:     #F4EFE4;   /* boxes nested inside the card */
+  --bg-raised:    #FDFBF6;   /* elements that sit on top of the card */
   --bg-sunken:    var(--beige-200);
   --fg1:          var(--beige-900);
   --fg2:          var(--beige-700);
@@ -101,25 +102,43 @@
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --radius-sm:   4px;
-  --radius-md:   8px;
+  /* Corner radii: chips, badges, inputs / panels nested in the card / the card. */
+  --radius-sm:   6px;
+  --radius-md:   10px;
   --radius-lg:   14px;
   --radius-pill: 999px;
 
-  --shadow-xs: 0 1px 2px rgba(62,57,43,0.06);
-  --shadow-sm: 0 1px 2px rgba(62,57,43,0.05), 0 2px 6px rgba(62,57,43,0.04);
-  --canvas:      #f1ecdf;
-  --surface:     #ffffff;
-  --shadow-card: 0 1px 5px rgba(60,55,40,0.10);
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 40px;
+
+  --canvas:      #EFE9DC;
+  --surface:     #FAF7F0;
+
+  /* 1: contact (an active pill). 2: the card. 3: popovers and modals. */
+  --shadow-1: 0 1px 2px rgba(60,55,40,0.12);
+  --shadow-2: 0 0 0 1px rgba(60,55,40,0.06), 0 1px 2px rgba(60,55,40,0.06),
+              0 8px 24px -12px rgba(60,55,40,0.18);
+  --shadow-3: 0 0 0 1px rgba(60,55,40,0.06), 0 4px 8px rgba(60,55,40,0.06),
+              0 16px 40px -8px rgba(60,55,40,0.22);
 
   --ease-standard: cubic-bezier(0.2,0.6,0.2,1);
+  --ease-glide:    cubic-bezier(0.16,1,0.3,1);   /* quick start, soft landing */
   --illo-soft:     cubic-bezier(0.33,0.9,0.36,1);
   --duration-fast: 140ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* The four letter-spacings: headings, labels (small uppercase), badges and
+     tickers. Body text has none. */
+  --ls-heading: -0.015em;
+  --ls-label:    0.08em;
+  --ls-badge:    0.04em;
 }
 
 :root[data-theme="dark"] {
   --canvas:       #17150F;
   --surface:      #201D15;
+  --bg-inset:     #262218;
   --bg-raised:    #262218;
   --bg-sunken:    #2A2619;
   --fg1:          #F0EADB;
@@ -140,9 +159,11 @@
   --warn:         #E0A85E;
   --err:          #E0836E;
 
-  --shadow-xs:   0 1px 2px rgba(0,0,0,0.35);
-  --shadow-sm:   0 1px 2px rgba(0,0,0,0.30), 0 2px 6px rgba(0,0,0,0.28);
-  --shadow-card: 0 1px 5px rgba(0,0,0,0.45);
+  --shadow-1:    0 1px 2px rgba(0,0,0,0.35);
+  --shadow-2:    0 0 0 1px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.30),
+                 0 8px 24px -12px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03);
+  --shadow-3:    0 0 0 1px rgba(0,0,0,0.30), 0 4px 8px rgba(0,0,0,0.30),
+                 0 16px 40px -8px rgba(0,0,0,0.60);
 }
 
 /* The Auto fallback. Its token VALUES must match the block above exactly
@@ -155,6 +176,7 @@
   :root:not([data-theme="light"]) {
     --canvas:       #17150F;
     --surface:      #201D15;
+    --bg-inset:     #262218;
     --bg-raised:    #262218;
     --bg-sunken:    #2A2619;
     --fg1:          #F0EADB;
@@ -175,9 +197,11 @@
     --warn:         #E0A85E;
     --err:          #E0836E;
 
-    --shadow-xs:   0 1px 2px rgba(0,0,0,0.35);
-    --shadow-sm:   0 1px 2px rgba(0,0,0,0.30), 0 2px 6px rgba(0,0,0,0.28);
-    --shadow-card: 0 1px 5px rgba(0,0,0,0.45);
+    --shadow-1:    0 1px 2px rgba(0,0,0,0.35);
+    --shadow-2:    0 0 0 1px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.30),
+                   0 8px 24px -12px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03);
+    --shadow-3:    0 0 0 1px rgba(0,0,0,0.30), 0 4px 8px rgba(0,0,0,0.30),
+                   0 16px 40px -8px rgba(0,0,0,0.60);
   }
 }
 

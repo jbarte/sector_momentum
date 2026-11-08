@@ -136,17 +136,6 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 
 ---
 
-## Dashboard polish 2: ivory palette and design tokens
-
-Part of the dashboard premium polish (spec, approved 2026-11-08:
-`notes/specs/2026-11-08-dashboard-premium-polish-design.md`; plan
-`notes/plans/2026-11-08-polish-2-tokens.md`). Self-hosted fonts shipped
-first (Done). The light card becomes ivory `#FAF7F0` instead of white on a
-`#EFE9DC` canvas; `--bg-raised` splits into `--bg-inset` (nested in the card)
-and `--bg-raised` (on top); radius, spacing, layered-shadow and motion scales;
-one uppercase-label style; chart backgrounds and `theme-color` follow; the
-review panel's Sell/Buy text moves to the `-ink` tokens. No behaviour change.
-
 ## Dashboard polish 3: lighter leaderboard structure
 
 Needs polish 2. Plan `notes/plans/2026-11-08-polish-3-structure.md`. The
@@ -540,6 +529,31 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Dashboard polish 2: ivory palette and design tokens (2026-11-08,
+  `feature/polish-tokens`).** The light card is ivory `#FAF7F0` instead of
+  white, on a canvas of `#EFE9DC`; nothing in the light theme is cold white now.
+  `--bg-raised` meant two opposite things, so it is split: `--bg-inset`
+  (`#F4EFE4`; dark `#262218`) for boxes nested in the card (16 uses) and
+  `--bg-raised` (`#FDFBF6`) for things on top of it (6 uses: the horizon and
+  theme thumbs, the sig tooltip, Done button, skip link). New scales: radii
+  6 / 10 / 14px (chips and inputs / panels / the card and modals), a 4px
+  spacing scale, three layered shadow levels (the card is a hairline ring plus a
+  contact and an ambient shadow; dark adds a faint top edge), motion durations
+  and a glide curve, and four letter-spacings (heading, label, badge, none).
+  Plotly's paper is the card and its plot area the inset colour, and the dark
+  chart map follows; `theme-color` follows the canvas. **Contrast:** every text
+  token is at least 4.5:1 on canvas, card, inset and raised
+  (`test_light_text_tokens_meet_wcag_aa_on_every_light_surface`). The inset
+  backdrop exposed two real misses, both `--up`/`--down` used as text (those are
+  fills; the `-ink` variants are the readable ones): the setup badges (4.25:1 and
+  4.23:1) and the review panel's Sell/Buy lines now use `--up-ink`/`--down-ink`,
+  as the trend badges already did. **Deviation from the spec:** the
+  uppercase labels keep their sizes (10 to 12px; several are deliberately under
+  12px, with exemption tests), and only weight, tracking and colour are
+  unified; table header cells keep weight 500, because bolder text widens dense
+  columns. The review headline is in the display font; table cells use tabular
+  figures. Checked in a real build in light, dark and at 375px, and on a chart
+  tab. polish 3 to 5 stay Queued; the iOS palette still needs these values.
 - **Dashboard fonts are self-hosted (2026-11-08, `feature/polish-fonts`).**
   PR 1 of the dashboard premium polish (spec
   `notes/specs/2026-11-08-dashboard-premium-polish-design.md`; polish 2–5 stay

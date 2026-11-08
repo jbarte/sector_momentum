@@ -289,7 +289,7 @@ def test_the_browser_chrome_colour_follows_the_manual_theme_toggle(page):
     On Auto each tag keeps its own scheme's colour; an explicit choice makes
     both say that colour (a light OS + a hand-picked Dark used to leave a light
     address bar under a dark page)."""
-    light, dark = "#f1ecdf", "#17150F"
+    light, dark = "#efe9dc", "#17150F"
     by_media = lambda tags: {("dark" in (m or "")): c for m, c in tags}   # noqa: E731
     assert by_media(_theme_color_tags(page)) == {False: light, True: dark}
 

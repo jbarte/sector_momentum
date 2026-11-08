@@ -45,7 +45,7 @@
   // OS, which is right on Auto; a reader who picks Light or Dark by hand needs
   // both to say that colour, or the bar stays the OS's while the page is not.
   // Mirrors --canvas in _foundation.css.j2 (light, dark) -- keep in step.
-  var THEME_COLOR = { light: "#f1ecdf", dark: "#17150F" };
+  var THEME_COLOR = { light: "#efe9dc", dark: "#17150F" };
 
   // Pure: the colour one theme-color tag should carry. An explicit choice wins
   // for every tag; on Auto each tag keeps the colour of the scheme it is for.
