@@ -118,8 +118,29 @@ def test_the_indicator_is_re_placed_on_every_event_that_moves_it():
     js = (_TPL / "_tabs.js.j2").read_text()
     assert "Rescore.indicatorBox" in js and "Rescore.overflowState" in js
     switch = re.search(r"function switchTab\(.*?\n\}", js, re.S).group(0)
-    assert "placeIndicator()" in switch
+    assert "placeIndicator(true)" in switch
     assert re.search(r"addEventListener\('resize',[^;]*placeIndicator", js, re.S)
     assert "document.fonts" in js and "placeIndicator" in js[js.index("document.fonts"):]
     # scroll updates the fades, and must not block scrolling
     assert re.search(r"addEventListener\('scroll',\s*updateTabOverflow,\s*\{\s*passive:\s*true\s*\}\)", js)
+
+
+def test_only_a_tab_switch_glides_every_other_re_measure_jumps():
+    """The indicator glides when the reader picks a tab. Page load, a resize and
+    the web font landing all re-measure a layout that changed under it, so it
+    jumps to the new box instead of sliding across."""
+    js = (_TPL / "_tabs.js.j2").read_text()
+    place = re.search(r"function placeIndicator\(glide\)\s*\{(.*?)\n\}", js, re.S).group(1)
+    assert "SMMotion.glideTo(ind, box)" in place
+    assert re.search(r"if \(!glide\)\s*\{?\s*ind\.dataset\.placed\s*=\s*''", place)
+    # nothing but switchTab passes true
+    assert len(re.findall(r"placeIndicator\(true\)", js)) == 1
+    for trigger in ("'load'", "'resize'", "document.fonts.ready"):
+        i = js.index(trigger)
+        assert "placeIndicator()" in js[i:i + 160], trigger
+
+
+def test_the_indicator_still_places_when_motion_js_did_not_load():
+    js = (_TPL / "_tabs.js.j2").read_text()
+    place = re.search(r"function placeIndicator\(glide\)\s*\{(.*?)\n\}", js, re.S).group(1)
+    assert "window.SMMotion" in place and "translateX(" in place

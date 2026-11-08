@@ -6,7 +6,7 @@ function switchTab(name, btn) {
   btn.classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.setAttribute('aria-selected', 'false'));
   btn.setAttribute('aria-selected', 'true');
-  placeIndicator();
+  placeIndicator(true);
 
   // Lazy-render Plotly charts on first activation
   if (name === 'rrg')       renderRRG();
@@ -34,12 +34,17 @@ document.querySelector('.tabs')?.addEventListener('keydown', function(e) {
 // the tab itself so there is a single thing to place). Its box is the active
 // tab's own offsetLeft/offsetWidth, painted as a 1px-wide element scaled to fit;
 // .tabs is its offsetParent, and it scrolls with the bar.
-function placeIndicator() {
+// glide is true only for a reader's own tab switch. Anything else (page load, a
+// resize, the web font landing) re-measures a layout that changed under the
+// indicator, so it jumps to the new box instead of sliding across.
+function placeIndicator(glide) {
   var tabs = document.querySelector('.tabs');
   var ind = tabs && tabs.querySelector('.tab-indicator');
   var box = tabs && Rescore.indicatorBox(tabs.querySelector('.tab-btn.active'));
   if (!ind || !box) return;
-  ind.style.transform = 'translateX(' + box.x + 'px) scaleX(' + box.w + ')';
+  if (!glide) { ind.dataset.placed = ''; }
+  if (window.SMMotion) { SMMotion.glideTo(ind, box); }
+  else { ind.style.transform = 'translateX(' + box.x + 'px) scaleX(' + box.w + ')'; }
 }
 
 // data-overflow names the clipped edge(s) so CSS can fade just those.

@@ -35,7 +35,7 @@ from src.horizons import (horizons as _horizons, default_horizon as _default_hor
 from tests.test_dashboard_js import _grouped_rows_for, _make_mock_plotly_json, _TEMPLATE
 
 _ASSETS_DIR = Path(__file__).parent.parent / "dashboard" / "assets"
-_REQUIRED_ASSETS = ["rescore.js", "theme.js", "scan-history.js"]
+_REQUIRED_ASSETS = ["rescore.js", "motion.js", "theme.js", "scan-history.js"]
 
 
 def _horizon_ctx_far_future(dumps=json.dumps):
@@ -391,3 +391,267 @@ def test_the_check_does_not_stack_across_re_renders(page):
     _render_with_held(page, 3)
     _render_with_held(page, 3)
     assert page.evaluate("() => document.querySelectorAll('#rp-headline .rp-check').length") == 1
+
+
+# ---------------------------------------------------------------------------
+# Gliding indicators (polish PR 4).
+# ---------------------------------------------------------------------------
+
+def _tab_indicator_state(page):
+    return page.evaluate(
+        "() => { var t = document.querySelector('.tabs'), i = t.querySelector('.tab-indicator'), "
+        "a = t.querySelector('.tab-btn.active'); var ri = i.getBoundingClientRect(), "
+        "ra = a.getBoundingClientRect(); return { left: ri.left, width: ri.width, "
+        "aLeft: ra.left, aWidth: ra.width, transition: i.style.transition }; }"
+    )
+
+
+def _horizon_thumb_state(page):
+    return page.evaluate(
+        "() => { var th = document.querySelector('.horizon-thumb'), "
+        "b = document.querySelector('.horizon-btn[aria-pressed=\"true\"]'); "
+        "var rt = th.getBoundingClientRect(), rb = b.getBoundingClientRect(); "
+        "return { left: rt.left, width: rt.width, bLeft: rb.left, bWidth: rb.width, "
+        "transition: th.style.transition }; }"
+    )
+
+
+def _settle(page):
+    page.wait_for_timeout(400)   # past --duration-base, so a glide has landed
+
+
+def _aligned(st, a, b):
+    return abs(st[a[0]] - st[b[0]]) < 1 and abs(st[a[1]] - st[b[1]]) < 1
+
+
+def test_the_tab_indicator_follows_the_active_tab_and_glides_there(page):
+    st = _tab_indicator_state(page)
+    assert _aligned(st, ("left", "width"), ("aLeft", "aWidth")), st
+    assert st["transition"] == "none", "the first placement must jump, not glide"
+    page.evaluate("() => document.querySelectorAll('.tab-btn')[2].click()")
+    mid = _tab_indicator_state(page)
+    assert "transform" in mid["transition"], mid
+    _settle(page)
+    assert _aligned(_tab_indicator_state(page), ("left", "width"), ("aLeft", "aWidth"))
+
+
+def test_the_horizon_thumb_sits_under_the_pressed_button_and_glides_between_buttons(page):
+    st = _horizon_thumb_state(page)
+    assert _aligned(st, ("left", "width"), ("bLeft", "bWidth")), st
+    assert st["transition"] == "none"
+    page.evaluate("() => switchHorizon('long')")
+    assert "transform" in _horizon_thumb_state(page)["transition"]
+    _settle(page)
+    st = _horizon_thumb_state(page)
+    assert _aligned(st, ("left", "width"), ("bLeft", "bWidth")), st
+    assert page.evaluate("() => document.querySelector('.horizon-btn[aria-pressed=\"true\"]')"
+                         ".getAttribute('data-horizon-choice')") == "long"
+
+
+def test_a_resize_re_measures_both_indicators_without_gliding(page):
+    page.evaluate("() => document.querySelectorAll('.tab-btn')[1].click()")
+    page.evaluate("() => switchHorizon('long')")
+    _settle(page)
+    page.set_viewport_size({"width": 1100, "height": 800})
+    page.evaluate("() => window.dispatchEvent(new Event('resize'))")
+    assert _tab_indicator_state(page)["transition"] == "none"
+    assert _horizon_thumb_state(page)["transition"] == "none"
+    _settle(page)
+    assert _aligned(_tab_indicator_state(page), ("left", "width"), ("aLeft", "aWidth"))
+    assert _aligned(_horizon_thumb_state(page), ("left", "width"), ("bLeft", "bWidth"))
+
+
+def test_reduced_motion_jumps_both_indicators_straight_to_the_end(page):
+    page.emulate_media(reduced_motion="reduce")
+    page.reload()
+    page.evaluate("() => document.querySelectorAll('.tab-btn')[3].click()")
+    page.evaluate("() => switchHorizon('long')")
+    assert _tab_indicator_state(page)["transition"] == "none"
+    assert _horizon_thumb_state(page)["transition"] == "none"
+    assert _aligned(_tab_indicator_state(page), ("left", "width"), ("aLeft", "aWidth"))
+    assert _aligned(_horizon_thumb_state(page), ("left", "width"), ("bLeft", "bWidth"))
+
+
+# ---------------------------------------------------------------------------
+# Row glide on a reader's own sort (polish PR 4).
+# ---------------------------------------------------------------------------
+
+_SPY_FLIP = (
+    "() => { window.__flips = []; var real = window.SMMotion.flip; "
+    "window.SMMotion.flip = function (rows, mutate) { window.__flips.push(rows.length); "
+    "return real(rows, mutate); }; }"
+)
+
+
+def _first_rank(page):
+    return page.evaluate(
+        "() => document.querySelector('#leaderboard-table tbody tr.leaderboard-row').dataset.rank")
+
+
+def test_a_readers_own_sort_glides_the_rows_through_flip_once(page):
+    page.evaluate(_SPY_FLIP)
+    rows = page.evaluate("() => document.querySelectorAll('#leaderboard-table tbody tr.leaderboard-row').length")
+    before = _first_rank(page)
+    # The table starts on rank, ascending, so one more click flips it to descending.
+    page.evaluate("() => sortTable(0)")
+    assert page.evaluate("() => window.__flips") == [rows]
+    assert _first_rank(page) != before, "the sort itself must still happen"
+    page.evaluate("() => sortTable(2)")
+    assert page.evaluate("() => window.__flips") == [rows, rows]
+
+
+def test_the_signed_in_rebuild_re_applying_a_sort_does_not_glide(page):
+    """reapplyLeaderboardSort puts back a sort the reader already chose after the
+    rows were rebuilt; animating rows the reader never moved would be noise."""
+    page.evaluate("() => sortTable(2)")
+    page.evaluate(_SPY_FLIP)
+    page.evaluate("() => window.reapplyLeaderboardSort()")
+    assert page.evaluate("() => window.__flips") == []
+
+
+def test_sorting_still_works_if_motion_js_did_not_load(page):
+    page.evaluate("() => { window.SMMotion = undefined; }")
+    before = _first_rank(page)
+    page.evaluate("() => sortTable(0)")           # starts ascending on rank; this flips it
+    assert _first_rank(page) != before
+
+
+# ---------------------------------------------------------------------------
+# Number and badge crossfades, check draw-in (polish PR 4).
+# ---------------------------------------------------------------------------
+
+_SPY_FLASH = (
+    "() => { window.__flashes = []; var real = window.SMMotion.flash; "
+    "window.SMMotion.flash = function (el, cls) { window.__flashes.push([el && (el.id || el.className), cls]); "
+    "return real(el, cls); }; }"
+)
+_STAT_IDS = ["hz-held", "hz-exit", "hz-hold", "hz-trades", "tr-m1", "tr-m12"]
+
+
+def _stat_texts(page):
+    return page.evaluate(
+        "(ids) => { var o = {}; ids.forEach(function (i) { var e = document.getElementById(i); "
+        "o[i] = e ? e.textContent : null; }); return o; }", _STAT_IDS)
+
+
+def test_nothing_crossfades_on_first_load(page):
+    assert page.evaluate("() => document.querySelectorAll('.num-in, .badge-in').length") == 0
+
+
+def test_a_horizon_switch_crossfades_exactly_the_numbers_that_changed(page):
+    before = _stat_texts(page)
+    page.evaluate(_SPY_FLASH)
+    page.evaluate("() => switchHorizon('long')")
+    after = _stat_texts(page)
+    changed = sorted(k for k in before if before[k] != after[k])
+    assert changed, "the fixture's horizons differ in top_n at least"
+    flashed = sorted(i for i, cls in page.evaluate("() => window.__flashes") if cls == "num-in" and i in _STAT_IDS)
+    assert flashed == changed, (flashed, changed)
+
+
+def test_re_rendering_the_same_horizon_flashes_nothing(page):
+    page.evaluate(_SPY_FLASH)
+    page.evaluate("() => renderHorizonStats(activeHorizon)")
+    page.evaluate("() => switchHorizon(activeHorizon)")
+    assert [f for f in page.evaluate("() => window.__flashes") if f[1] == "num-in"] == []
+
+
+def test_a_re_render_that_is_not_the_readers_switch_never_crossfades(page):
+    """The signed-in upgrade re-renders the stats from the rebuilt board; the
+    numbers may legitimately change then, and the spec says never to animate it."""
+    page.evaluate(_SPY_FLASH)
+    page.evaluate("() => { activeHorizon = 'long'; renderHorizonStats('long'); }")
+    assert [f for f in page.evaluate("() => window.__flashes") if f[1] == "num-in"] == []
+
+
+def test_the_review_count_crossfades_when_it_changes_and_not_when_it_does_not(page):
+    _render_with_held(page, 3)
+    page.evaluate(_SPY_FLASH)
+    _render_with_held(page, 3)
+    assert [f for f in page.evaluate("() => window.__flashes") if f[0] == "rp-count"] == []
+    _render_with_held(page, 2)
+    assert [f for f in page.evaluate("() => window.__flashes") if f[0] == "rp-count"] == [["rp-count", "num-in"]]
+
+
+_APPLY_AS_SWITCH = "() => { window._animateBadges = true; window.applyHorizonBadges(); window._animateBadges = false; }"
+
+
+def _badge_flashes(page):
+    return [f for f in page.evaluate("() => window.__flashes") if f[1] == "badge-in"]
+
+
+def test_a_badge_changed_by_a_horizon_switch_crossfades_and_nothing_else_does(page):
+    page.evaluate("() => window.applyHorizonBadges()")
+    page.evaluate(_SPY_FLASH)
+    page.evaluate(_APPLY_AS_SWITCH)                                    # nothing changed
+    assert _badge_flashes(page) == []
+    page.evaluate("() => { document.querySelector('.setup-badge').className = 'setup-badge exit'; }")
+    page.evaluate(_APPLY_AS_SWITCH)                                    # put back to entry: a change
+    assert len(_badge_flashes(page)) == 1
+    # the same change on any other pass (holdings arriving, the signed-in
+    # rebuild) is rewritten in place, never animated
+    page.evaluate("() => { document.querySelector('.setup-badge').className = 'setup-badge exit'; }")
+    page.evaluate(_SPY_FLASH)
+    page.evaluate("() => window.applyHorizonBadges()")
+    assert _badge_flashes(page) == []
+    # and a badge that did not exist is created, not crossfaded
+    page.evaluate("() => document.querySelector('.setup-badge').remove()")
+    page.evaluate(_APPLY_AS_SWITCH)
+    assert _badge_flashes(page) == []
+
+
+_DONE_STATE = (
+    "(startDone) => { window.__acked = !!startDone; "
+    "window.currentReviewStatus = function () { return window.__acked "
+    "? { due: false, dueDate: '2026-01-15', nextDate: '2099-02-15' } "
+    ": { due: true, dueDate: '2026-01-15', nextDate: '2099-02-15' }; }; "
+    "window.ackReview = function () { window.__acked = true; }; }"
+)
+
+
+def test_a_check_already_there_at_load_is_drawn_static(page):
+    page.evaluate(_DONE_STATE, True)
+    _render_with_held(page, 3)
+    assert page.evaluate("() => !!document.querySelector('#rp-headline .rp-check')")
+    assert not page.evaluate("() => !!document.querySelector('#rp-headline .rp-check.draw')")
+
+
+def test_marking_the_review_done_draws_the_check_in_once(page):
+    page.evaluate(_DONE_STATE, False)
+    _render_with_held(page, 3)
+    assert not page.evaluate("() => !!document.querySelector('#rp-headline .rp-check')")
+    page.evaluate("() => document.getElementById('review-done-btn').click()")
+    page.wait_for_timeout(50)
+    assert page.evaluate("() => !!document.querySelector('#rp-headline .rp-check.draw')")
+    # A later re-render (the lock write resolving, a rank change) must keep the
+    # same element, or the draw-in would restart or be cut off part-way.
+    page.evaluate("() => { window.__chk = document.querySelector('#rp-headline .rp-check'); }")
+    _render_with_held(page, 3)
+    assert page.evaluate("() => document.querySelector('#rp-headline .rp-check') === window.__chk")
+    # ...and a later render after the draw does not replay it.
+    page.evaluate("() => document.querySelector('#rp-headline .rp-check').classList.remove('draw')")
+    _render_with_held(page, 3)
+    assert not page.evaluate("() => !!document.querySelector('#rp-headline .rp-check.draw')")
+
+
+def test_the_first_paint_class_comes_off_after_the_fade_up_has_run(page):
+    """With JS off it never comes off and the rows just end visible; with JS on it
+    must, or a scan-history switch or a signed-in rebuild would replay the fade."""
+    page.wait_for_timeout(900)
+    assert not page.evaluate("() => document.documentElement.classList.contains('first-paint')")
+
+
+def test_only_the_rows_that_carry_an_index_take_part_in_the_first_paint_fade(page):
+    """The template sets --i on the top ten rows. The animation must key on that,
+    so a row without it never animates (found by counting running animations:
+    all 18 rows were fading up, not ten)."""
+    out = page.evaluate(
+        "() => { var rows = document.querySelectorAll('#leaderboard-table tr.leaderboard-row'); "
+        "var el = rows[0]; var cs = getComputedStyle(el); "
+        "var plain = document.createElement('tr'); plain.className = 'leaderboard-row'; "
+        "el.parentNode.appendChild(plain); document.documentElement.classList.add('first-paint'); "
+        "var withI = getComputedStyle(el).animationName, withoutI = getComputedStyle(plain).animationName; "
+        "document.documentElement.classList.remove('first-paint'); plain.remove(); "
+        "return { hasIndex: el.style.getPropertyValue('--i') !== '', withI: withI, withoutI: withoutI }; }"
+    )
+    assert out == {"hasIndex": True, "withI": "rows-in", "withoutI": "none"}

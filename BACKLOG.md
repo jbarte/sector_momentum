@@ -136,13 +136,6 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 
 ---
 
-## Dashboard polish 4: discreet motion
-
-Needs polish 3. Plan `notes/plans/2026-11-08-polish-4-motion.md`.
-`dashboard/assets/motion.js`: gliding tab indicator and horizon thumb, rows
-gliding on a reader's own sort, number crossfades, press-down, check draw-in,
-one first-paint fade-up; one global reduced-motion rule.
-
 ## Dashboard polish 5: iOS palette follows the web
 
 Needs polish 2 merged (values copied from the merged CSS). Plan
@@ -520,6 +513,63 @@ dashboard's drill-down tab covers most of the need.
 ---
 
 # Done
+
+- **Dashboard polish 4: discreet motion (2026-11-08, `feature/polish-motion`).**
+  New `dashboard/assets/motion.js` (`window.SMMotion`: `allowed`, `flip`,
+  `flash`, `glideTo`); every effect asks `allowed()` first, and one global
+  `prefers-reduced-motion` rule in `_foundation.css.j2` zeroes every duration
+  (the three older rules stay, since they also set illustrations' final state).
+  Only `transform`, `opacity` and the check's `stroke-dashoffset` animate; a test
+  fails if any new keyframe animates anything else. **What moves:** the tab
+  indicator and a new horizon thumb glide to the chosen button; rows glide to
+  their new places when the reader sorts a column (FLIP; the sort chevron turns
+  over); a horizon switch fades up each stat that changed and crossfades each
+  badge that changed; the review count fades up when it changes; buttons, chips
+  and tabs press down to `scale(.97)` over 100ms; the review check draws in once
+  when "Done" marks a review reviewed; the top ten rows fade up once on first
+  paint. **What deliberately stays still:** first load, a signed-in rebuild,
+  holdings arriving, `reapplyLeaderboardSort`, a resize or the web font landing
+  (the indicators jump to the new box), mobile cards, charts and theme switching.
+
+  **Deviations from the plan, and why.** (1) `flip` has two fixes the plan's
+  version lacked: it forces a style flush between setting the inverted position
+  and releasing it (without one the browser sees no change and never animates),
+  and it drops an in-flight transform before measuring, so a second sort
+  mid-glide animates from where the row is drawn rather than by a wrong distance;
+  it also ignores `transitionend` events that are not the row's own `transform`.
+  (2) The first-paint fade keys on `[style*="--i"]`, not `:nth-child(-n+10)`: each
+  row is followed by its breakdown row, so a position test would cover about five
+  rows. The template sets `--i` on exactly the first ten. Counting the running
+  animations caught the first draft animating all 18 (rows 11 up had no `--i`, so
+  they faded with no stagger). (3) Badges crossfade only on a reader's own
+  horizon switch, through a flag around that one call; the first version
+  crossfaded the baked badges on first load, because init rewrites `▲ Enter` to
+  `▲ Enter · Dec 31`. Stats animate only when `renderHorizonStats` is told to.
+  (4) The check element is kept across re-renders, so a later render neither
+  restarts nor cuts off the draw-in; a check already there at load is drawn
+  static. (5) `html.first-paint` is on `index.html.j2` only: the sentiment page
+  has no leaderboard for it to act on. (6) The horizon thumb is sized by `width`
+  and moved by `translateX`, as planned, so a width change between buttons jumps
+  while the position glides; the plan said two buttons, the repo's presets are
+  `medium` and `long`. (7) The edge-fade `mask` cannot transition, so it appears
+  and disappears at once; the plan said to drop it and say so, and this is that.
+  The stuck-header line already fades (`box-shadow`, from polish 3). (8) The
+  `// Keyboard support…` marker in `index.html.j2` stays where it was: existing
+  tests slice the template at it, and my first move of it silently pulled the
+  sticky-header observer into their Node harness.
+
+  **What was and was not checked.** Tests: see the PR. All 22 new and changed
+  rules were sabotage-verified, each failing only its own test. In the browser
+  (the same invented-rows page as polish 3, no real build): sort glides all 18
+  rows and leaves no inline styles behind; the thumb and tab indicator glide and
+  end aligned; zero layout shift across a sort, a horizon switch and a tab
+  switch; exactly the changed stats animate; the check's dash offset was
+  mid-draw 60ms after the click and 0 at the end; ten rows animate on first
+  paint and none after 700ms; at 375px no row animation runs. Reduced motion was
+  checked by stubbing `matchMedia` (the JS side: rows reorder with no transform,
+  indicators jump) and by a source test of the CSS rule; **it was not checked
+  with the operating system's real setting**, and Safari was not run. Layout
+  cost was measured by layout-shift entries, not a performance trace.
 
 - **Dashboard polish 3: lighter leaderboard structure (2026-11-08,
   `feature/polish-structure`).** The leaderboard loses its own box (border,
