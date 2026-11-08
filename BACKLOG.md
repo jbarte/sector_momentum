@@ -559,6 +559,15 @@ dashboard's drill-down tab covers most of the need.
   review date that has come due and been acknowledged, which is also the state
   polish 4's "static if already done at load" implies.
 
+  **Found in code review:** the stuck-header hairline, as first written (a
+  `border-bottom-color` change), never painted. The table is `border-collapse`,
+  where a cell's border belongs to the table and stays behind when the cell
+  sticks, so the computed colour read right while no line appeared. The line is
+  now an inset `box-shadow`, which travels with the cell, pinned by
+  `test_the_stuck_line_is_a_shadow_because_collapsed_borders_do_not_travel`.
+  Source-level tests and computed styles could not have caught it; only
+  looking at the pixels did.
+
   **What was and was not checked.** Tests: 1653 passed. Every new test was
   sabotage-verified (17 variants, each failing only its own test), including
   three that pass vacuously before the code exists. **Not checked against a

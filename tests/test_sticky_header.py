@@ -74,3 +74,14 @@ def test_the_stuck_hairline_follows_an_intersection_observer_on_the_sentinel():
     assert "IntersectionObserver" in html
     assert re.search(r"toggleAttribute\('data-stuck',\s*!", html)
     assert "#leaderboard-table[data-stuck] thead th" in _wide_css()
+
+
+def test_the_stuck_line_is_a_shadow_because_collapsed_borders_do_not_travel():
+    """#leaderboard-table is border-collapse, where a cell's border belongs to the
+    table and stays behind when the cell sticks: the computed colour reads right
+    and nothing paints (found by looking at pixels, 2026-11-08). The line that
+    marks a stuck header must be a box-shadow, which moves with the cell."""
+    block = _wide_block(_wide_css())
+    stuck = re.search(r"#leaderboard-table\[data-stuck\] thead th\s*\{([^}]*)\}", block).group(1)
+    assert "box-shadow" in stuck and "var(--border-soft)" in stuck
+    assert "border-bottom-color" not in stuck
