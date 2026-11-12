@@ -174,6 +174,15 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 - **Rule changes stay Python-first:** a change to the band/delta/trend rules
   (`dashboard/rows.py`, `src/horizons.py`) regenerates `band-fixture.json`,
   and the iOS repo's daily CI goes red until the Swift side is ported.
+- **Dashboard polish 3 and 4 are web-only by decision (2026-11-12).** The
+  polish spec (`notes/specs/2026-11-08-dashboard-premium-polish-design.md`)
+  scoped iOS to the palette, which shipped as polish 5. What has an app
+  counterpart is already there: the review card's book dots and its check, and
+  the horizon pill's 140ms glide (off under Reduce Motion). The rest has
+  nothing to attach to: the app has no sortable columns (so no chevrons or row
+  glide), no sticky table header, no tab bar (so no indicator or edge fades), and
+  system buttons already give press feedback. Revisit only if the app gains one
+  of those surfaces.
 
 ---
 
