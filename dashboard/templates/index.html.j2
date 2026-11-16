@@ -24,13 +24,43 @@
 {% include '_header.html.j2' %}
 
 {% if auth and lag_banner_date %}
-<div class="lag-banner" id="lag-banner" role="status">
+<div class="lag-banner" id="lag-banner" role="status" data-lag-date="{{ lag_banner_date }}">
   <span class="lag-banner-text">
-    <span>You're viewing data from</span>
-    <strong>{{ lag_banner_date }}</strong><span>. Sign in for the latest data and all features.</span>
+    {#- Two wordings, one visible at a time (_responsive.css.j2): the full sentence is
+        three lines on a phone, the short one is a single line. -#}
+    <span class="lag-long">
+      <span>You're viewing data from</span>
+      <strong>{{ lag_banner_date }}</strong><span>. Sign in for the latest data and all features.</span>
+    </span>
+    <span class="lag-short">Guest &middot; data from <strong>{{ lag_banner_date }}</strong></span>
   </span>
   <button type="button" class="lag-banner-btn" onclick="document.getElementById('auth-signin').click()">Sign in</button>
+  <button type="button" class="lag-banner-dismiss" id="lag-banner-dismiss" aria-label="Dismiss this notice">&times;</button>
 </div>
+<script>
+/* Dismissed until the data date changes (a new scan is news again). auth.js asks
+   SMLagBanner.dismissed() so resolving a guest session does not un-dismiss it. */
+window.SMLagBanner = (function () {
+  var KEY = "sm.lagBannerDismissed";
+  var banner = document.getElementById("lag-banner");
+  function dismissed() {
+    try { return !!banner && localStorage.getItem(KEY) === banner.getAttribute("data-lag-date"); }
+    catch (e) { return false; }
+  }
+  if (banner && dismissed()) { banner.hidden = true; }
+  var x = document.getElementById("lag-banner-dismiss");
+  if (x) {
+    x.addEventListener("click", function () {
+      banner.hidden = true;
+      // The focused button just left the page: hand focus to the header's Sign in.
+      var next = document.getElementById("auth-signin");
+      if (next && !next.hidden) { next.focus(); }
+      try { localStorage.setItem(KEY, banner.getAttribute("data-lag-date")); } catch (e) { /* ignore */ }
+    });
+  }
+  return { dismissed: dismissed };
+})();
+</script>
 {% endif %}
 
 {% if auth %}
@@ -453,7 +483,7 @@
   </div>
   <div class="chart-container" id="backtest-chart" style="height:420px"></div>
   {% if badge_scorecard %}
-  <h2 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">Badge scorecard</h2>
+  <h2 class="section-heading">Badge scorecard</h2>
   <p class="tab-note">5-day forward return after each badge appeared.</p>
   <div class="table-wrap">
     <table>

@@ -322,6 +322,83 @@
 }
 
 /* ---------------------------------------------------------
+   Phone first screen (spec 2026-11-16-phone-first-screen-and-opened-row)
+   ---------------------------------------------------------
+   Measured at 375x812 as a guest, the first theme row started 1,115px down the page:
+   header 189 + guest banner 114 + summary strip 309 + about 470 of tabs, horizon,
+   filters and review panel. This block is the compact version of each, and sits
+   after the older mobile blocks so it wins. */
+@media (max-width: 600px) {
+  /* Header: title with Sign in and the theme control, then the segment toggle, then
+     the scan date. The date shares the toggle's row when it fits and wraps under it
+     when it does not (the Sentiment badge makes the toggle too wide at 375px), and is
+     hidden while the guest banner is showing, because the banner already names the
+     data date. */
+  .command-bar {
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    position: relative;
+  }
+  .command-bar h1 { flex: 1 1 auto; }
+  .command-bar .segment-toggle { order: 2; }
+  .command-bar .mobile-scan-meta { order: 3; width: auto; margin-left: auto; }
+  body:has(.lag-banner:not([hidden])) .command-bar .mobile-scan-meta { display: none; }
+  /* The sign-in form spans the header instead of hanging off a button near its right
+     edge (it was 293px wide and ran off the left of the screen). */
+  .auth-root { position: static; }
+  .auth-form { left: var(--space-4); right: var(--space-4); top: calc(100% - var(--space-1)); }
+  .auth-form input[type="email"] { flex: 1; width: auto; min-width: 0; }
+
+  /* Guest banner: one line, the short wording, dismissable. */
+  .lag-banner {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+    margin: 0 var(--space-4) var(--space-2);
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+  }
+  .lag-long { display: none; }
+  .lag-short { display: inline; }
+  .lag-banner-text { flex: 1; min-width: 0; }
+
+  /* Summary strip: tighter cells, the buy band on one scrolling line, and the
+     benchmark chips beside their label instead of under it. */
+  /* minmax(0, 1fr) and min-width: 0: a grid track otherwise grows to its widest child,
+     and the scrolling buy-band line made the whole page 504px wide. */
+  .summary-strip { grid-template-columns: minmax(0, 1fr); }
+  .strip-cell { padding: var(--space-3) var(--space-4); min-width: 0; }
+  .strip-eyebrow { margin-bottom: var(--space-1); }
+  .band-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 calc(var(--space-4) * -1);
+    padding: 0 calc(var(--space-4) * 2) 0 var(--space-4);   /* right: clear of the 28px fade at full scroll */
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+  }
+  .band-pills::-webkit-scrollbar { display: none; }
+  .band-pill { flex: none; white-space: nowrap; }
+  #cell-track-record { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+  /* The label stays a 44px touch target on a touch screen, but takes about 16px of
+     layout: the target overlaps the cell's padding instead of adding to its height. */
+  #cell-track-record .strip-eyebrow { margin: -14px 0; }
+
+  /* Controls: the quick chips are the same filters that are inside More filters, so a
+     phone keeps one Filters control and puts "How to read this tab" beside it. */
+  .horizon-row { gap: var(--space-2) var(--space-3); }
+  .control-chips .control-chip { display: none; }
+  .control-chips { margin-left: 0; }   /* desktop pushes it right; here the guide link does */
+  .horizon-row > .tab-guide-btn { margin-left: auto; }
+  .horizon-note { font-size: 11px; }
+  .review-panel { padding: var(--space-2) var(--space-3); margin-bottom: var(--space-3); }
+  .rp-headline { font-size: 15px; }
+  .health-panel { margin-left: var(--space-4); margin-right: var(--space-4); }
+}
+
+/* ---------------------------------------------------------
    Touch targets
    ---------------------------------------------------------
    Pointer-coarse rather than a width query: a small window on a desktop still
@@ -337,6 +414,7 @@
   .more-filters summary,
   .segment-btn,
   .lag-banner-btn,
+  .lag-banner-dismiss,
   /* The track-record guide trigger. It inherited its 44px from
      `.context-chips { min-height: 44px }` while it lived in the header;
      that rule went with the SPY/VIX chips, leaving an ~15px-tall 11px

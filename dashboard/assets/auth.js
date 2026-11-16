@@ -81,7 +81,8 @@
     userBox.hidden = !signedIn;
     emailLabel.textContent = signedIn ? (session.user.email || "") : "";
     var lagBanner = document.getElementById("lag-banner");
-    if (lagBanner) lagBanner.hidden = signedIn;
+    // A guest who dismissed the notice for today's data keeps it dismissed.
+    if (lagBanner) lagBanner.hidden = signedIn || !!(window.SMLagBanner && window.SMLagBanner.dismissed());
     if (signedIn) {
       headerForm.hidden = true;
       showModal(false);

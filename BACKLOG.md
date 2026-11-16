@@ -183,8 +183,8 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
   glide), no sticky table header, no tab bar (so no indicator or edge fades), and
   system buttons already give press feedback. Revisit only if the app gains one
   of those surfaces.
-- **The 2026-11-16 UI audit fixes, the button and type system and the chart
-  polish are web-only by decision.** The app already uses native controls (so no
+- **The 2026-11-16 UI audit fixes, the button and type system, the chart
+  polish and the phone first screen are web-only by decision.** The app already uses native controls (so no
   primary/secondary button CSS), its own type, and has no RRG, Drill-down or
   correlation chart (its rank-history chart is a different chart). The one
   shared value, the primary button's solid green, is `--green-600`, which the
@@ -238,17 +238,18 @@ Still to do, in this order:
 
 A page-by-page audit of the live build (first visit, all seven tabs, Sentiment,
 every pop-up, 375px phone width, dark mode) found 28 things that were not
-premium. The 12 that were plain defects, the chart polish and the button and type system
-have shipped (all in Done). What remains, each its own PR:
+premium. The 12 that were plain defects, the chart polish, the button and type system
+and the phone first screen have shipped (all in Done). What remains, each its own PR:
 
-- **Phone header and the opened row:** the header takes about 300px before any
-  content; the row breakdown is a flat monospace block with tree-drawing
-  characters and no sign a row opens; on a phone the UCITS fund name still wraps to
-  five lines, and the ISIN (the unambiguous identifier of the UCITS fund to buy) is
-  hidden in an opened phone card to make room, so give it back when the UCITS table is restacked;
-  the Data Health panel is open by default and 14px off the page edge;
-  the Backtest table wraps to three lines at 1024px and its section headings are
-  13px.
+- **The opened row (part 4b of the phone/opened-row design,
+  `notes/specs/2026-11-16-phone-first-screen-and-opened-row-design.md`, decided with
+  Jonas):** the breakdown is a flat monospace block with drawn tree characters and
+  nothing on a closed row says it opens. Redo it, desktop and phone, as one card: the
+  composite as one line (Composite 1.060 = ½ Level 1.347 + ½ Change 0.772, from the
+  real weights), signal lists in sections with the page font and numbers in mono, a
+  chevron on each row, and the UCITS alternative as a stacked card (ticker and name,
+  then TER, ISIN and match) with the ISIN back on phones (hidden since the defect
+  fixes, to make room); on a phone the fund name currently wraps to five lines.
 - **Rank change text with the iOS app:** the leaderboard prints "▲ +5.0" (arrow
   and sign say the same thing, and ".0" on a whole number looks unfinished). The
   text is part of the iOS parity fixture (`delta_rank` in `band-fixture.json`, and
@@ -628,6 +629,31 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Phone first screen, guest banner, Data Health and the Backtest table
+  (2026-11-16, `feat/phone-first-screen`).** Part 4a of the phone/opened-row design
+  decided with Jonas (spec `notes/specs/2026-11-16-phone-first-screen-and-opened-row-design.md`;
+  the opened row is 4b, Queued). On a 375x812 phone as a guest the first theme row
+  started 1,115px down the page, so the first screen had no leaderboard. Measured with
+  the 44px touch-target rules on, it now starts at about 750px (about 715px signed in
+  or with the banner dismissed). The design mockup estimated about 500px but ignored
+  those touch targets. **Header:** the title, Sign in and theme control, then the
+  Themes/Sentiment toggle, then the scan date, which drops under the toggle when they
+  do not fit (the Sentiment badge made them overlap) and is hidden while the guest
+  banner is showing (the banner names the data date). The sign-in form spans the
+  header (it was 293px wide and ran off the left of the screen). **Guest banner:** one
+  line on a phone ("Guest · data from 2026-11-09"), with a dismiss control everywhere,
+  kept dismissed until the data date changes. **Summary strip:** tighter cells, the
+  buy band on one scrolling line (a grid track grew to its widest child and made the
+  page 504px wide until it was given `minmax(0, 1fr)`), the benchmark chips beside
+  their label. **Controls:** a phone keeps one More filters control beside "How to read
+  this tab"; the three quick chips are the same filters that are inside it.
+  **Data Health:** one line ("last scan 2026-11-09 15:58 UTC · 18/18 themes", the run
+  time a row inside the panel), aligned to the page edge, and no longer opened by a
+  near-complete sentiment run (80% or more scored; 16 of 18 is the usual state, and
+  sentiment is experimental and excluded from the ranking). A lower sentiment
+  coverage, a sentiment outage, failed prices, or missing themes still open it. **Backtest:** one line per cell and the nine columns fit 1024px (they
+  wrapped to three lines; the headers may wrap to two); the section headings share one
+  `.section-heading` class instead of three inline styles.
 - **Dashboard button and type system (2026-11-16, `feat/button-type-system`).**
   From the UI/UX audit; Jonas chose solid green for the primary button and darker
   small text. **Buttons:** there is now one primary (solid green `--solid`, white
