@@ -468,7 +468,7 @@ def _build_movers_figure(history_df) -> str:
     merged = latest.merge(prev, on=["region", "gics_sector"], how="inner")
     merged["delta_rank"] = merged["rank_prev"] - merged["rank_cur"]
     merged["label"] = merged["gics_sector"]   # themes are the only cohort: no "(THEME)" suffix
-    if (merged["delta_rank"] == 0).all():
+    if len(merged) and (merged["delta_rank"] == 0).all():
         # Nobody changed rank: an axis of -1..1 with no bars reads as broken.
         fig = go.Figure()
         fig.update_layout(**_base_layout(

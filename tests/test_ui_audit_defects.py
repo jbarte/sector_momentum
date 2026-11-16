@@ -144,6 +144,19 @@ def test_movers_says_so_when_nobody_changed_rank():
     assert fig["layout"]["xaxis"]["visible"] is False
 
 
+def test_movers_does_not_claim_nobody_moved_when_there_is_nothing_to_compare():
+    """Two scans with no theme in common merge to nothing; .all() on that is True."""
+    hist = _history({1: {"Space": 1}, 2: {"Biotech": 1}})
+    fig = json.loads(_build_movers_figure(hist))
+    assert not fig["layout"].get("annotations"), "no message about rank changes"
+
+
+def test_the_isin_header_is_hidden_by_class_not_by_position():
+    resp = _css("_responsive.css.j2")
+    assert ".card-breakdown .etf-isin-h" in resp and "nth-child(4)" not in resp
+    assert 'class="etf-isin-h"' in (_ROOT / "dashboard" / "breakdown.py").read_text()
+
+
 def test_charts_grow_their_margin_for_long_labels_and_axis_titles():
     layout = _base_layout()
     assert layout["xaxis"]["automargin"] is True and layout["yaxis"]["automargin"] is True
@@ -157,12 +170,16 @@ def test_charts_grow_their_margin_for_long_labels_and_axis_titles():
 
 def test_the_drilldown_menu_shows_the_theme_not_its_internal_key():
     page = (_TPL / "index.html.j2").read_text()
-    assert page.count("k.slice(k.indexOf('|') + 1)") == 1
+    assert page.count("function _themeOf(key)") == 1
+    assert "opt.textContent = _themeOf(k);" in page
+    assert "'No data for ' + _themeOf(key)" in page
     assert "opt.value = k;" in page, "the value stays REGION|theme: the figure lookup keys on it"
+    assert ".innerHTML =\n      '<p style" not in page, "the theme name is set as text, not parsed as HTML"
 
 
 def test_a_modal_returns_focus_even_where_a_click_does_not_focus_a_button():
     """Safari leaves document.activeElement on <body> after clicking a button."""
     modal = (_TPL / "_modal.js.j2").read_text()
-    assert "var lastPressed = null;" in modal
+    assert "var lastPressed = null, lastPressedAt = 0;" in modal
     assert "lastFocus = lastPressed;" in modal
+    assert "Date.now() - lastPressedAt < 1000" in modal, "a stale press must not take focus"

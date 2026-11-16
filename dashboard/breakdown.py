@@ -111,7 +111,7 @@ def _build_instruments_html(
         f'<table class="etf-table">'
         f"<thead><tr>"
         f'<th scope="col">Ticker</th><th scope="col">Name</th>'
-        f'<th scope="col">TER</th><th scope="col">ISIN</th>'
+        f'<th scope="col">TER</th><th scope="col" class="etf-isin-h">ISIN</th>'
         f'{match_header}<th scope="col"></th>'
         f"</tr></thead>"
         f"<tbody>{rows}</tbody>"

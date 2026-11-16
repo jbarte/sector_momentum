@@ -1893,6 +1893,12 @@ function renderDrilldown() {
 // Rebuilds the Drill-down sector <select> from the active cohort's own key
 // list. Cohorts don't share sector keys (US|Energy vs THEME|Space), so the
 // dropdown must be repopulated on every cohort switch rather than filtered.
+// Keys are REGION|theme; the reader sees the theme.
+function _themeOf(key) {
+  var i = key.indexOf('|');
+  return i >= 0 ? key.slice(i + 1) : key;
+}
+
 function _populateDrilldownSelect() {
   var sel = document.getElementById('sector-select');
   if (!sel) return;
@@ -1902,8 +1908,7 @@ function _populateDrilldownSelect() {
   keys.forEach(function (k) {
     var opt = document.createElement('option');
     opt.value = k;
-    // Keys are REGION|theme; the reader sees the theme.
-    opt.textContent = k.indexOf('|') >= 0 ? k.slice(k.indexOf('|') + 1) : k;
+    opt.textContent = _themeOf(k);
     sel.appendChild(opt);
   });
 }
@@ -1915,8 +1920,10 @@ function updateDrilldown() {
   var chart = COHORT_CHARTS[activeCohort];
   var fig = chart && chart.drilldown ? chart.drilldown[key] : null;
   if (!fig) {
-    document.getElementById('drilldown-chart').innerHTML =
-      '<p style="padding:24px;color:var(--fg4)">No data for ' + (key.indexOf('|') >= 0 ? key.slice(key.indexOf('|') + 1) : key) + '</p>';
+    var note = document.createElement('p');
+    note.style.cssText = 'padding:24px;color:var(--fg4)';
+    note.textContent = 'No data for ' + _themeOf(key);
+    document.getElementById('drilldown-chart').replaceChildren(note);
     return;
   }
   SMTheme.smPlot('drilldown-chart', fig);
