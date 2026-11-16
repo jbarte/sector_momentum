@@ -248,6 +248,65 @@ phone first screen and the opened row have shipped (all in Done). What remains:
 - **Not yet audited:** signed-in states (stars, the book lock, alerts, stops),
   keyboard focus rings, and wide screens.
 
+## Dashboard premium pass 2 (suggested 2026-11-16, nothing decided or built)
+
+Jonas asked for another pass at a premium feel after the 28-item audit shipped. The
+page is consistent now, so these are about character and hierarchy, not fixes. A
+before/after mockup of items 1 to 4 was drawn in the session (not saved as a file).
+Suggested order: 1 to 4 as one PR (they are one design), then 6, 7 and 9; **5 and 8
+are Jonas's call**, so ask before building either.
+
+**The leaderboard**
+
+1. **Rank-history sparkline per row.** A tiny line of each theme's rank over the
+   recent scans, so the trend badge is visible at a glance. Looks like no new data is
+   needed (the Drill-down figures already carry each theme's rank per scan); verify
+   that for the guest page and the signed-in rebuild before assuming it. Best single
+   upgrade, in the suggester's view.
+2. **A readable composite bar.** Today a box about 34px wide beside a small
+   monospace number. Make it a slim wider track with a centre line and a rounded
+   fill, the number in Inter semibold.
+3. **Rank badges with hierarchy.** Rank 1 solid green with white text, the rest of
+   the buy band a stronger green tint, everything else quiet. Today all 18 look
+   nearly alike.
+4. **The buy band as a zone.** A faint green wash with rounded corners behind the
+   in-band rows, so "what to buy" reads as one block instead of a thin side rail.
+
+**Tone and depth**
+
+5. **Fewer monospace numbers (taste call).** Most numbers are JetBrains Mono, which
+   reads as a developer tool. Move table numbers to Inter with tabular figures and
+   keep mono for tickers and ISINs. The biggest tone change here.
+6. **Real icons instead of text glyphs.** The arrows (→ ↑ ↑↑), the ☀ ☾ toggle, ⓘ, ×
+   and ↗ are font characters that render differently per device. One small SVG icon
+   set with a consistent stroke.
+7. **A soft light on the canvas.** A barely visible warm gradient at the top of the
+   page and a slightly deeper card shadow, so the card sits on the page. No colour
+   tokens change (keep both themes and the contrast tests).
+8. **A brass accent for what you own (needs Jonas's eye).** Stars and held rows in
+   a muted brass, so "mine" is a different colour family from "strong" (green) and
+   "weak" (terracotta). Not audited: it lives in the signed-in view, which the audit
+   could not reach.
+
+**Small features**
+
+9. **"Today's read" as a headline.** 18px today; 22 to 24px in the display font with
+   the scan date beside it.
+10. **Review countdown.** "Next review · Nov 30" is a mostly empty box: add "in 14
+    days" and a thin progress line across the review period.
+11. **Styled chart hover labels and RRG quadrants.** Hover boxes in the card's
+    colours instead of Plotly's default, and a faint tint on the Leading and Lagging
+    quadrants.
+12. **A small logomark** beside "ETF Momentum" in the header, from the favicon's bars.
+
+Constraints that apply to all of it: tokens only (no raw hex outside
+`_foundation.css.j2`), the type scale 10/11/12/13/14/15/16/18/20px plus any size
+added on purpose to the scale test, both themes, 24px targets, reduced motion. The
+"▲ +5.0" rank change text is the one item here that is also in the iOS parity
+fixture (see the audit item above): the mockup showed "↑ 5", which would be a web and
+iOS change together. Everything else is web-only (add to *iOS app follow-ups* when
+built, as the earlier polish was).
+
 # Parked
 
 ## Duplicate-date scans still write full score/signal rows — declined
