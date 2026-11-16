@@ -231,18 +231,9 @@ Still to do, in this order:
 
 A page-by-page audit of the live build (first visit, all seven tabs, Sentiment,
 every pop-up, 375px phone width, dark mode) found 28 things that were not
-premium. The 12 that were plain defects shipped as `fix/ui-audit-defects` and the chart
-polish as `feat/chart-polish` (both in Done). The rest, in the order to ship them,
-each its own PR:
+premium. The 12 that were plain defects, the chart polish and the button and type system
+have shipped (all in Done). What remains, each its own PR:
 
-- **One button and type system:** there are five button styles and no primary one
-  (the main action in a pop-up reads as the quietest control); pop-up headings are
-  Inter 700 while everything else is the display font at 600; nine font sizes
-  (12, 12.25 and 13px side by side); the email field is 28px tall beside a 23px
-  button; click targets of 15 to 23px (Sign in, footer links, "VS ACWI"); "How to
-  read this tab" is top right on most tabs and below the chart on two; "—" and
-  "–" mixed for empty cells; tickers and the LEVEL / CHANGE labels are 3.66:1
-  (under 4.5:1, deliberate today).
 - **Phone header and the opened row:** the header takes about 300px before any
   content; the row breakdown is a flat monospace block with tree-drawing
   characters and no sign a row opens; on a phone the UCITS fund name still wraps to
@@ -257,11 +248,6 @@ each its own PR:
   the app's `formatDelta`), so change both together: web first, then port.
 - **Not yet audited:** signed-in states (stars, the book lock, alerts, stops),
   keyboard focus rings, and wide screens.
-
-Decisions for Jonas before the type and button PR: solid green or dark outline for
-the primary button; and whether the small labels and tickers get darker to pass
-4.5:1 or stay deliberately quiet. (The heatmap's colours were not decided either;
-the chart PR used the palette, see Done, and reverting is one line.)
 
 # Parked
 
@@ -635,6 +621,24 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Dashboard button and type system (2026-11-16, `feat/button-type-system`).**
+  From the UI/UX audit; Jonas chose solid green for the primary button and darker
+  small text. **Buttons:** there is now one primary (solid green `--solid`, white
+  text 5.4:1, darker `--solid-hover`; the same in dark) for the one action a dialog
+  or form exists for (Send link, Next / Got it) and one secondary (the outline
+  pill, also the banner's Sign in and Back). The dialog buttons are pills like the
+  rest, and the sign-in field and its button are both 32px tall (they were 28px and
+  23px). **Type:** every `font-size` in the stylesheets is on one scale (10, 11, 12,
+  13, 14, 15, 16, 18, 20px): the 12.25, 12.6, 10.9, 13.3, 18.2, 19.6, 9, 17 and 19px
+  strays and four relative `em` sizes that rendered as 9.4 to 12.25px are gone, and a
+  test enforces it. Pop-up headings are the display font at 600 (they were Inter
+  700), and bold is 600 everywhere. **Targets:** the footer links (18px), the
+  "VS ACWI" label (15px), the Data Health summary (18px) and the header Sign in
+  (23px) are at least 24px. **Contrast:** tickers and the LEVEL / CHANGE labels
+  moved from `--fg5` (3.66:1, decoration only) to `--fg4` (4.9 to 5.3:1). **Layout:**
+  "How to read this tab" is top right on all seven tabs (Backtest and Correlation
+  had it below the chart). One audit item was not a defect: every empty value
+  already used "—", and the en dash appears only inside numeric ranges ("3–5 scans").
 - **Dashboard chart polish (2026-11-16, `feat/chart-polish`).** The charts, from
   the UI/UX audit. **Toolbar:** Plotly's always-on toolbar with its black logo
   square is now hidden until a chart is hovered or focused (it stays visible

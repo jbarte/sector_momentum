@@ -39,7 +39,11 @@
   background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  padding: 3px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;           /* the header's compact size: above the 24px target minimum */
+  padding: 0 var(--space-3);
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-standard),
               border-color var(--duration-fast) var(--ease-standard),
@@ -47,6 +51,24 @@
 }
 .pill-button:active { transform: scale(.97); }
 .pill-button:hover { color: var(--brand-strong); border-color: var(--brand-strong); }
+/* Buttons: ONE primary and ONE secondary. Primary (solid green) is the single
+   action a dialog or form exists for: Send link, Next / Got it. Everything else
+   is secondary (the outline above), or a quiet text link. Before, there were five
+   styles and the main action looked like the quietest control. */
+.btn-primary,
+.pill-button.auth-send,
+.beginner-deck-nav #beginner-deck-next {
+  background: var(--solid);
+  border-color: var(--solid);
+  color: var(--on-solid);
+}
+.btn-primary:hover,
+.pill-button.auth-send:hover,
+.beginner-deck-nav #beginner-deck-next:hover {
+  background: var(--solid-hover);
+  border-color: var(--solid-hover);
+  color: var(--on-solid);
+}
 .auth-root { position: relative; display: inline-flex; align-items: center; gap: 8px; }
 .auth-root .pill-button { white-space: nowrap; }
 /* Email form opens as a dropdown card anchored under the Sign in button, so
@@ -72,12 +94,15 @@
   color: var(--fg1);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 4px 8px;
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 13px;
   width: 14em;
 }
-.auth-status { color: var(--fg4); font-size: 0.875rem; max-width: 16em; }
+.auth-form .pill-button,
+.gate-modal .pill-button { min-height: var(--control-h); }
+.auth-status { color: var(--fg4); font-size: 12px; max-width: 16em; }
 .auth-status:empty { display: none; }
 
 /* =========================================================
@@ -290,7 +315,7 @@
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 0.875rem;
+  font-size: 12px;
   color: var(--fg2);
 }
 .lag-banner[hidden] { display: none; }
@@ -299,10 +324,12 @@
   border: 1px solid var(--brand-strong);
   color: var(--brand-strong);
   background: transparent;
-  border-radius: var(--radius-sm);
-  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
 .lag-banner-btn:hover { background: var(--brand-strong); color: var(--surface); }
@@ -332,8 +359,18 @@
   padding: 28px 26px;
   text-align: center;
 }
-.gate-modal h2 { margin: 0 0 8px; font-size: 1.3rem; color: var(--fg1); }
-.gate-modal p { margin: 0 0 18px; color: var(--fg2); font-size: 0.9rem; }
+/* Pop-up headings: the display font at 600, like every other heading (they were
+   Inter 700). */
+.gate-modal h2,
+.methodology-modal h2,
+.guide-modal h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: var(--ls-heading);
+  color: var(--fg1);
+}
+.gate-modal h2 { margin: 0 0 8px; font-size: 18px; }
+.gate-modal p { margin: 0 0 18px; color: var(--fg2); font-size: 13px; }
 /* Inside the modal the form is static (not the header dropdown), so reset the
    absolute positioning the .auth-form rule applies in the command bar. */
 .gate-modal-form {
@@ -351,7 +388,7 @@
   background: transparent;
   color: var(--fg4);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 12px;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -385,8 +422,8 @@
   padding: 28px 30px;
   text-align: left;
 }
-.methodology-modal h2 { margin: 0 0 14px; font-size: 1.3rem; color: var(--fg1); }
-.methodology-modal h3 { margin: 20px 0 6px; font-size: 1rem; color: var(--fg1); }
+.methodology-modal h2 { margin: 0 0 14px; font-size: 18px; }
+.methodology-modal h3 { margin: 20px 0 6px; font-family: var(--font-display); font-size: 15px; font-weight: 600; letter-spacing: var(--ls-heading); color: var(--fg1); }
 /* Every card occupies the same grid cell and a hidden one only turns invisible,
    so the dialog is as tall as its tallest card. Before, it grew and shrank
    (381, 423, 381, 444px) and the buttons moved under the pointer. */
@@ -399,11 +436,12 @@
   margin-top: 20px;
 }
 .beginner-deck-nav button {
-  padding: 8px 18px;
+  min-height: var(--control-h);
+  padding: 0 var(--space-5);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--fg1);
   cursor: pointer;
@@ -460,7 +498,7 @@
   .beginner-deck-illo { opacity: 1; transform: none; animation: none; }
 }
 .methodology-body p,
-.methodology-body li { color: var(--fg2); font-size: 0.9rem; line-height: 1.55; }
+.methodology-body li { color: var(--fg2); font-size: 13px; line-height: 1.55; }
 /* Both cross-links (beginner-deck-methodology-link in the deck's Card 4,
    methodology-to-deck-link in .methodology-body) are plain in-text <a>
    tags with no class of their own -- without this they render in the
@@ -495,7 +533,7 @@
   background: transparent;
   color: var(--fg4);
   font-family: inherit;
-  font-size: 1.4rem;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-standard),
@@ -511,7 +549,8 @@
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
-  padding: 0;
+  padding: var(--space-1) 0;
+  min-height: 24px;         /* it was an 18px-tall target */
 }
 
 /* =========================================================
@@ -582,7 +621,7 @@
    (max-width, centring margin, background, border) are gone with it; only the
    type scale is still the panel's own. */
 .alert-prefs {
-  font-size: 0.875rem;
+  font-size: 12px;
 }
 .alert-prefs[hidden] { display: none; }
 .alert-prefs-intro { margin: 0 0 12px; color: var(--fg2); }
@@ -592,12 +631,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 3px 8px;
-  font-size: 0.875rem;
+  font-size: 12px;
 }
 .alert-prefs-help { margin: 10px 0 0; color: var(--fg2); }
-.alert-prefs-warn { margin: 8px 0 0; color: var(--fg4); font-size: 0.875rem; }
+.alert-prefs-warn { margin: 8px 0 0; color: var(--fg4); font-size: 12px; }
 .alert-prefs-toggle { display: block; margin: 12px 0 8px; color: var(--fg2); }
-.alert-prefs-status { margin: 8px 0 0; color: var(--fg4); font-size: 0.875rem; }
+.alert-prefs-status { margin: 8px 0 0; color: var(--fg4); font-size: 12px; }
 .alert-prefs-status:empty { display: none; }
 
 /* =========================================================
@@ -655,7 +694,7 @@ thead th[tabindex="0"]:focus-visible {
   margin-left: 5px;
   padding: 0 4px;
   border-radius: var(--radius-sm);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: var(--ls-badge);
   text-transform: uppercase;
@@ -669,14 +708,14 @@ thead th[tabindex="0"]:focus-visible {
 /* Which band alerts run on. The agreement line is a quiet confirmation; the
    disagreement one has to be noticed, so it gets the warning colour and a rule
    rather than being another paragraph of grey. */
-.alerts-hz-note { margin: 0 0 12px; color: var(--fg4); font-size: 0.875rem; }
+.alerts-hz-note { margin: 0 0 12px; color: var(--fg4); font-size: 12px; }
 .alerts-hz-warn {
   margin: 0 0 12px;
   padding: 8px 10px;
   border-left: 3px solid var(--down);
   background: color-mix(in srgb, var(--down) 6%, transparent);
   color: var(--fg2);
-  font-size: 0.875rem;
+  font-size: 12px;
 }
 .alerts-hz-warn b { color: var(--fg1); }
 
@@ -708,7 +747,8 @@ button.strip-eyebrow {
   gap: 6px;
   background: none;
   border: 0;
-  padding: 0;
+  padding: var(--space-1) 0;
+  min-height: 24px;         /* it was a 15px-tall target */
   font-family: inherit;
   cursor: pointer;
 }
@@ -717,7 +757,7 @@ button.strip-eyebrow:focus-visible { outline: 2px solid var(--brand-strong); out
 
 .strip-headline {
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1.35;
   letter-spacing: var(--ls-heading);
   color: var(--fg1);

@@ -72,6 +72,7 @@
   --green-300: #A9BF95;
   --green-400: #8FA77A;
   --green-600: #5A6F49;
+  --green-700: #455636;
 
   --terra-400: #BF6F50;
   --terra-500: #A55A3C;
@@ -97,6 +98,18 @@
   --ok:    #267539;
   --warn:  #9F5209;
   --err:   #B23A2E;
+
+  /* The one primary button: white on solid green (5.4:1), darker on hover. Same in
+     both themes, like --green-600 itself. */
+  --solid:        var(--green-600);
+  --solid-hover:  var(--green-700);
+  --on-solid:     #FFFFFF;
+  --control-h:    32px;   /* a form control or dialog button */
+
+  /* The type scale. Every font-size in the stylesheets is one of: 10 micro labels,
+     11 small labels, 12 secondary text, 13 table and small body, 14 body, 15 theme
+     names, 16 headlines, 18 headings, 20 display. (tests/test_button_type_system.py
+     enforces it, so a stray 12.25px or 17px cannot creep back.) */
 
   --font-display: 'Familjen Grotesk', 'Helvetica Neue', system-ui, sans-serif;
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -221,6 +234,8 @@ html, body {
    13.3px Arial). Every button, field and select here is meant to read as the
    page's own type. */
 button, input, select, textarea { font-family: inherit; }
+/* Bold was 700 here and 600 everywhere else. */
+b, strong { font-weight: 600; }
 
 /* =========================================================
    Responsive
