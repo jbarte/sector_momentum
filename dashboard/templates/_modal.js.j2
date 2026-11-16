@@ -36,7 +36,8 @@ window.SMModal = window.SMModal || (function () {
   var lastPressed = null, lastPressedAt = 0;
   document.addEventListener('click', function (e) {
     var hit = e.target.closest ? e.target.closest('button, a[href], summary, [role="button"], [tabindex]') : null;
-    if (hit) { lastPressed = hit; lastPressedAt = Date.now(); }
+    // A press inside a dialog (its panel, its own buttons) is not a trigger.
+    if (hit && !hit.closest('[role="dialog"]')) { lastPressed = hit; lastPressedAt = Date.now(); }
   }, true);
 
   function bind(overlay, opts) {

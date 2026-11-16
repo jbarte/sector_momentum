@@ -114,7 +114,10 @@ def _build_heatmap_figure(
         z=z,
         x=labels,
         y=labels,
-        colorscale="RdBu_r",
+        # Palette stops only, so the dark-mode recolour can map every one: green
+        # (moving independently or opposite: a diversifier), the card's inset colour at
+        # zero, terracotta (moving together: overlap).
+        colorscale=[[0.0, "#5A6F49"], [0.5, "#F4EFE4"], [1.0, "#A55A3C"]],
         zmin=-1,
         zmax=1,
         hovertemplate="%{x} vs %{y}: %{z:.2f}<extra></extra>",

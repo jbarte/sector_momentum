@@ -116,6 +116,14 @@
     color: true, bgcolor: true, bordercolor: true, gridcolor: true,
     zerolinecolor: true, paper_bgcolor: true, plot_bgcolor: true,
   };
+  // A custom colorscale is [[position, "#hex"], ...]: the hex is recoloured, the
+  // position is not. (Named scales like "RdBu_r" are plain strings and pass through.)
+  function _recolorScale(scale, darkMap) {
+    return scale.map(function (stop) {
+      return (Array.isArray(stop) && typeof stop[1] === "string" && darkMap[stop[1]])
+        ? [stop[0], darkMap[stop[1]]] : stop;
+    });
+  }
   // Keys whose VALUE is itself an object worth recursing into, even though
   // the key name itself carries no colour (e.g. `line: {...}` isn't a
   // colour, but `line.color` is).
@@ -146,6 +154,8 @@
       var value = node[key];
       if (COLOUR_KEYS[key]) {
         out[key] = _recolorValue(value, darkMap);
+      } else if (key === "colorscale" && Array.isArray(value)) {
+        out[key] = _recolorScale(value, darkMap);
       } else if (CONTAINER_KEYS[key] && value && typeof value === "object") {
         out[key] = _walk(value, darkMap);
       } else if (key === "data" || key === "layout" || key === "shapes" || key === "annotations") {
@@ -171,7 +181,12 @@
 
   function smPlot(el, fig) {
     var themed = recolor(fig, root.CHART_DARK || {}, get() === "dark");
-    return Plotly.newPlot(el, themed.data, themed.layout, {responsive: true, displayModeBar: true});
+    // Read-only charts: no Plotly logo, and no box or lasso select (nothing here is
+    // selectable); zoom, pan, reset and save-as-image stay.
+    return Plotly.newPlot(el, themed.data, themed.layout, {
+      responsive: true, displayModeBar: true, displaylogo: false,
+      modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"],
+    });
   }
 
   var api = { resolveTheme: resolveTheme, get: get, set: set, themeColorFor: themeColorFor,

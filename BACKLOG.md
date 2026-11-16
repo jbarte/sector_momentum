@@ -231,13 +231,10 @@ Still to do, in this order:
 
 A page-by-page audit of the live build (first visit, all seven tabs, Sentiment,
 every pop-up, 375px phone width, dark mode) found 28 things that were not
-premium. The 12 that were plain defects shipped as `fix/ui-audit-defects` (Done).
-The rest, in the order to ship them, each its own PR:
+premium. The 12 that were plain defects shipped as `fix/ui-audit-defects` and the chart
+polish as `feat/chart-polish` (both in Done). The rest, in the order to ship them,
+each its own PR:
 
-- **Charts:** Plotly's toolbar is always on and shows a black logo square; a
-  legend with a single entry ("THEME"); the Drill-down plots rank (1 to 18) and
-  scores (about -1 to 1) on one axis, so the scores are flat lines; the
-  Correlation heatmap's red and blue are the only colours outside the palette.
 - **One button and type system:** there are five button styles and no primary one
   (the main action in a pop-up reads as the quietest control); pop-up headings are
   Inter 700 while everything else is the display font at 600; nine font sizes
@@ -249,7 +246,9 @@ The rest, in the order to ship them, each its own PR:
 - **Phone header and the opened row:** the header takes about 300px before any
   content; the row breakdown is a flat monospace block with tree-drawing
   characters and no sign a row opens; on a phone the UCITS fund name still wraps to
-  five lines; the Data Health panel is open by default and 14px off the page edge;
+  five lines, and the ISIN (the unambiguous identifier of the UCITS fund to buy) is
+  hidden in an opened phone card to make room, so give it back when the UCITS table is restacked;
+  the Data Health panel is open by default and 14px off the page edge;
   the Backtest table wraps to three lines at 1024px and its section headings are
   13px.
 - **Rank change text with the iOS app:** the leaderboard prints "▲ +5.0" (arrow
@@ -260,9 +259,9 @@ The rest, in the order to ship them, each its own PR:
   keyboard focus rings, and wide screens.
 
 Decisions for Jonas before the type and button PR: solid green or dark outline for
-the primary button; whether the small labels and tickers get darker to pass 4.5:1
-or stay deliberately quiet; and whether the heatmap moves to the palette's
-terracotta and green.
+the primary button; and whether the small labels and tickers get darker to pass
+4.5:1 or stay deliberately quiet. (The heatmap's colours were not decided either;
+the chart PR used the palette, see Done, and reverting is one line.)
 
 # Parked
 
@@ -636,6 +635,24 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Dashboard chart polish (2026-11-16, `feat/chart-polish`).** The charts, from
+  the UI/UX audit. **Toolbar:** Plotly's always-on toolbar with its black logo
+  square is now hidden until a chart is hovered or focused (it stays visible
+  where there is no hover, a phone, or it could not be reached), in the page's
+  own colours, with no logo and no box or lasso select (nothing is selectable).
+  **Legend:** the RRG no longer shows a one-entry "THEME" legend and uses the
+  freed width; the "(THEME)" suffix is also gone from the RRG and sentiment
+  hovers. **Drill-down:** rank (1 to 18) and the scores (about -1 to 1) shared one
+  axis, so the scores were flat lines along the bottom. Rank is now a dotted line
+  on its own right axis with 1 at the top, the legend sits above the plot, and the
+  scores fill the plot. **Heatmap:** red and blue (the only colours outside the
+  palette) became the palette's: green (moving independently or opposite, a
+  diversifier) through the card's inset colour at zero to terracotta (moving
+  together, overlap), and the note under the tab says so. The dark-mode recolour
+  now also maps the stops of a custom colour scale (it only handled named ones),
+  so the heatmap is a dark neutral at zero with light green and terracotta ends.
+  Jonas had not chosen the heatmap colours; this is the recommended default and
+  reverting is the one `colorscale` line in `dashboard/correlation.py`.
 - **Dashboard UI/UX audit: 12 defects fixed (2026-11-16,
   `fix/ui-audit-defects`).** The plain defects from a page-by-page audit; the
   remaining findings are Queued. **Controls:** every button, field and select now

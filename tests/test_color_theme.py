@@ -724,6 +724,27 @@ def test_recolor_leaves_unmapped_colours_and_named_colorscales_alone():
     assert out["data"][0]["marker"]["color"] == "#999999"
 
 
+@pytestmark_node
+def test_recolor_maps_the_hex_stops_of_a_custom_colorscale_and_keeps_positions():
+    """The correlation heatmap's palette scale is [[pos, hex], ...]. Without this
+    its ends stayed light-theme colours on a dark page."""
+    fig = {"data": [{"colorscale": [[0, "#5A6F49"], [0.5, "#F4EFE4"], [1, "#A55A3C"]]}]}
+    dark_map = {"#5A6F49": "#A9C48E", "#F4EFE4": "#262218", "#A55A3C": "#D98E6B"}
+    out = _recolor(fig, dark_map, True)
+    assert out["data"][0]["colorscale"] == [[0, "#A9C48E"], [0.5, "#262218"], [1, "#D98E6B"]]
+    assert _recolor(fig, dark_map, False) == fig, "light is untouched"
+
+
+def test_every_stop_of_the_heatmap_colorscale_has_a_dark_counterpart():
+    from dashboard.figures import CHART_DARK
+
+    corr, labels, tickers, block_sizes = _correlation_fixture()
+    scale = json.loads(_build_heatmap_figure(corr, labels, tickers, block_sizes))["data"][0]["colorscale"]
+    assert [stop[0] for stop in scale] == [0, 0.5, 1]
+    for _, hex_value in scale:
+        assert hex_value in CHART_DARK, f"{hex_value} would stay a light colour on a dark page"
+
+
 # ---------------------------------------------------------------------------
 # Whole-figure survivor test — closes the gap that let Important #1 (the
 # sentiment scatter's textfont labels shipping unthemed) get through 9 rounds

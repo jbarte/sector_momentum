@@ -81,3 +81,19 @@ select.sector-select:focus {
   padding-left: 10px;
   color: var(--fg2);
 }
+
+/* Plotly's toolbar: out of the way until the chart is hovered or focused, and in
+   the page's own colours. Its buttons set their own fill, hence !important. It
+   stays visible wherever hover is unreliable (a phone, a tablet, a touch laptop),
+   or it could not be reached. */
+.js-plotly-plot .modebar {
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+.js-plotly-plot:hover .modebar,
+.js-plotly-plot:focus-within .modebar { opacity: 1; }
+@media (hover: none), (pointer: coarse) { .js-plotly-plot .modebar { opacity: 1; } }
+.js-plotly-plot .modebar-group { background: transparent !important; }
+.js-plotly-plot .modebar-btn path { fill: var(--fg4) !important; }
+.js-plotly-plot .modebar-btn:hover path,
+.js-plotly-plot .modebar-btn.active path { fill: var(--fg1) !important; }

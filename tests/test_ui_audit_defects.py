@@ -183,3 +183,4 @@ def test_a_modal_returns_focus_even_where_a_click_does_not_focus_a_button():
     assert "var lastPressed = null, lastPressedAt = 0;" in modal
     assert "lastFocus = lastPressed;" in modal
     assert "Date.now() - lastPressedAt < 1000" in modal, "a stale press must not take focus"
+    assert "!hit.closest('[role=\"dialog\"]')" in modal, "a press inside a dialog is not a trigger"
