@@ -200,6 +200,24 @@ tbody td:nth-child(n+4) {
    (`tbody tr.leaderboard-row:hover`). The `.chevron` rule that used to sit
    here went with the element: the row itself is the disclosure control now. */
 .leaderboard-row { cursor: pointer; }
+/* A chevron at the right of the theme cell says the row opens, and turns over when it
+   does. The row is the disclosure control (aria-expanded is already kept in step). */
+.leaderboard-row .theme-cell { position: relative; padding-right: var(--space-7); }
+.leaderboard-row .theme-cell::after {
+  content: "";
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--fg4);
+  border-bottom: 1.5px solid var(--fg4);
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform var(--duration-base) var(--ease-glide),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+.leaderboard-row:hover .theme-cell::after { border-color: var(--fg1); }
+.leaderboard-row[aria-expanded="true"] .theme-cell::after { transform: translateY(-30%) rotate(-135deg); }
 .breakdown-row { display: none; }
 .breakdown-row.open { display: table-row; }
 /* width:0 + min-width:100% takes the breakdown out of the table's column
@@ -208,40 +226,36 @@ tbody td:nth-child(n+4) {
 .breakdown-inner {
   width: 0;
   min-width: 100%;
-  padding: 16px 20px;
-  background: var(--bg-sunken);
-  border-top: 1px solid var(--border-soft);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
 }
+/* The opened row (spec 2026-11-16-phone-first-screen-and-opened-row, part 4b): the
+   composite as one line, Level and Change side by side, the UCITS fund as a card.
+   It replaced a monospace block with a drawn tree (└─ ├─). */
+.bd-summary { margin-bottom: var(--space-4); }
+.bd-formula {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: var(--ls-heading);
+  color: var(--fg1);
+}
+.bd-formula-lead { color: var(--fg3); }
+.st-composite-val { color: var(--brand-strong); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bd-eq { color: var(--fg4); }
+.bd-term { white-space: nowrap; }
+.bd-part { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
+.bd-sub { margin: 2px 0 0; font-size: 12px; color: var(--fg4); }
 .breakdown-grid {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 24px;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-6);
   align-items: start;
 }
 /* 700px breakdown-grid rule moved to css/_responsive.css.j2. */
-
-/* Score tree */
-.score-tree {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 2;
-}
-.st-row { display: flex; align-items: baseline; gap: 4px; }
-.st-top .st-label { font-weight: 600; color: var(--fg1); }
-.st-top .st-val   { font-weight: 600; color: var(--brand-strong); }
-.st-conn  { color: var(--fg4); white-space: pre; min-width: 2.5em; }
-.st-label { color: var(--fg3); }
-.st-wt    { color: var(--fg4); font-size: 11px; }
-.st-val   { color: var(--fg2); margin-left: auto; min-width: 48px; text-align: right; }
-.st-meta  { color: var(--fg4); font-size: 10px; margin-left: 4px; }
-.bd-footer {
-  margin-top: 10px;
-  font-size: 11px;
-  color: var(--fg4);
-  border-top: 1px dashed var(--border-soft);
-  padding-top: 8px;
-  font-family: var(--font-mono);
-}
 
 /* Signal tables */
 .sig-section { margin-bottom: 12px; }
@@ -671,28 +685,33 @@ tbody td:nth-child(n+4) {
   border-top: 1px dashed var(--border-soft);
   padding-top: 10px;
 }
-.etf-table { border-collapse: collapse; width: 100%; font-size: 12px; }
-.etf-table th {
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: var(--ls-label);
-  color: var(--fg4);
-  border-bottom: 1px solid var(--border-soft);
-  padding: 2px 8px 5px;
-  text-align: left;
+.etf-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.etf-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
 }
-.etf-table td { padding: 4px 8px; vertical-align: middle; }
+.etf-head { font-size: 13px; line-height: 1.4; }
+.etf-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-3);   /* no dot separators: a wrapped line left one dangling */
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fg4);
+}
 .etf-ticker { font-family: var(--font-mono); font-weight: 600; color: var(--fg2); white-space: nowrap; }
 .etf-name   { color: var(--fg3); }
-.etf-ter    { font-family: var(--font-mono); color: var(--fg4); text-align: right; white-space: nowrap; }
+.etf-ter    { font-family: var(--font-mono); font-size: 11px; color: var(--fg4); white-space: nowrap; }
 .etf-isin   { font-family: var(--font-mono); font-size: 11px; color: var(--fg4); }
-.etf-match  { font-size: 11px; text-transform: capitalize; white-space: nowrap; }
-.etf-match-exact   { color: var(--up); }
+.etf-match  { font-size: 11px; white-space: nowrap; }
+.etf-match-exact   { color: var(--up-ink); }
 .etf-match-close   { color: var(--fg3); }
 .etf-match-partial { color: var(--fg4); font-style: italic; }
-.etf-link a { color: var(--brand-strong); text-decoration: none; }
-.etf-link a:hover { color: var(--brand-strong); }
+.etf-link { display: inline-flex; align-items: center; min-height: 24px; color: var(--brand-strong); font-weight: 600; text-decoration: none; }
+.etf-link:hover { text-decoration: underline; }
 
 /* =========================================================
    Leaderboard filter chips

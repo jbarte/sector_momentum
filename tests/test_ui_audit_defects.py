@@ -101,9 +101,12 @@ def test_wrapped_horizon_stats_start_flush_left_on_a_phone():
     assert re.search(r"\.hz-stat \+ \.hz-stat\s*\{[^}]*border-left:\s*none", resp)
 
 
-def test_an_opened_card_breakdown_drops_what_cannot_fit():
-    assert re.search(r"\.card-breakdown \.sig-bar,\s*\.card-breakdown \.st-meta,\s*"
-                     r"\.card-breakdown \.etf-isin,[^{]*\{\s*display:\s*none", _css("_responsive.css.j2"))
+def test_an_opened_card_breakdown_drops_only_the_signal_bars():
+    """Part 4b: the UCITS fund is a stacked card now, so the ISIN fits and is no longer
+    dropped on a phone (it was hidden by #333 to make the old table fit)."""
+    resp = _css("_responsive.css.j2")
+    assert ".card-breakdown .sig-bar { display: none; }" in resp
+    assert ".etf-isin" not in resp.split("Phone first screen")[0].split("The opened breakdown inside a card")[1].split("A chevron at the end")[0]
 
 
 # --- chart labels and states --------------------------------------------------
@@ -149,12 +152,6 @@ def test_movers_does_not_claim_nobody_moved_when_there_is_nothing_to_compare():
     hist = _history({1: {"Space": 1}, 2: {"Biotech": 1}})
     fig = json.loads(_build_movers_figure(hist))
     assert not fig["layout"].get("annotations"), "no message about rank changes"
-
-
-def test_the_isin_header_is_hidden_by_class_not_by_position():
-    resp = _css("_responsive.css.j2")
-    assert ".card-breakdown .etf-isin-h" in resp and "nth-child(4)" not in resp
-    assert 'class="etf-isin-h"' in (_ROOT / "dashboard" / "breakdown.py").read_text()
 
 
 def test_charts_grow_their_margin_for_long_labels_and_axis_titles():

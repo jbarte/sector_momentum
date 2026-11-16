@@ -184,7 +184,7 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
   system buttons already give press feedback. Revisit only if the app gains one
   of those surfaces.
 - **The 2026-11-16 UI audit fixes, the button and type system, the chart
-  polish and the phone first screen are web-only by decision.** The app already uses native controls (so no
+  polish, the phone first screen and the opened row are web-only by decision.** The app already uses native controls (so no
   primary/secondary button CSS), its own type, and has no RRG, Drill-down or
   correlation chart (its rank-history chart is a different chart). The one
   shared value, the primary button's solid green, is `--green-600`, which the
@@ -238,18 +238,9 @@ Still to do, in this order:
 
 A page-by-page audit of the live build (first visit, all seven tabs, Sentiment,
 every pop-up, 375px phone width, dark mode) found 28 things that were not
-premium. The 12 that were plain defects, the chart polish, the button and type system
-and the phone first screen have shipped (all in Done). What remains, each its own PR:
+premium. The 12 that were plain defects, the chart polish, the button and type system, the
+phone first screen and the opened row have shipped (all in Done). What remains:
 
-- **The opened row (part 4b of the phone/opened-row design,
-  `notes/specs/2026-11-16-phone-first-screen-and-opened-row-design.md`, decided with
-  Jonas):** the breakdown is a flat monospace block with drawn tree characters and
-  nothing on a closed row says it opens. Redo it, desktop and phone, as one card: the
-  composite as one line (Composite 1.060 = ½ Level 1.347 + ½ Change 0.772, from the
-  real weights), signal lists in sections with the page font and numbers in mono, a
-  chevron on each row, and the UCITS alternative as a stacked card (ticker and name,
-  then TER, ISIN and match) with the ISIN back on phones (hidden since the defect
-  fixes, to make room); on a phone the fund name currently wraps to five lines.
 - **Rank change text with the iOS app:** the leaderboard prints "▲ +5.0" (arrow
   and sign say the same thing, and ".0" on a whole number looks unfinished). The
   text is part of the iOS parity fixture (`delta_rank` in `band-fixture.json`, and
@@ -629,6 +620,23 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **The opened row redesigned (2026-11-16, `feat/opened-row`).** Part 4b of the
+  phone/opened-row design decided with Jonas (spec
+  `notes/specs/2026-11-16-phone-first-screen-and-opened-row-design.md`). It was a flat
+  monospace block with a drawn score tree (└─ ├─), an ASCII table for the UCITS fund
+  that lost its ISIN on a phone to fit, and nothing on the closed row to say it
+  opens. **Now:** the composite as one line, `Composite 1.060 = ½ Level 1.347 + ½
+  Change 0.772`, from the real weights (shown as percentages when they are not a
+  half, and as `80% × (…)` if the data pillar were ever below 100%); Level and
+  Change as counted sections side by side (one column on a phone), the counts
+  coming from the data ("1 signal", not a constant); the note "Not scored" kept;
+  the UCITS alternative as a card per fund (ticker and name, then TER, ISIN, match
+  and an "Open ↗" link with an accessible name), so the **ISIN is back on phones**;
+  and a chevron on every row and phone card that turns over when it opens. The panel
+  is an inset card inside the row. A match reads "Partial match" in sentence case, and
+  an "exact" match is `--up-ink` text (it was `--up`, a fill colour). CSS-only chevron:
+  the row already carries `aria-expanded`. `tests/test_opened_row.py` builds the real
+  HTML.
 - **Phone first screen, guest banner, Data Health and the Backtest table
   (2026-11-16, `feat/phone-first-screen`).** Part 4a of the phone/opened-row design
   decided with Jonas (spec `notes/specs/2026-11-16-phone-first-screen-and-opened-row-design.md`;

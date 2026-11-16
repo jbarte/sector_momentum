@@ -74,7 +74,7 @@ def _build_instruments_html(
         return ""
 
     is_ucits = region == "THEME"
-    rows = ""
+    cards = ""
     for etf in etf_list:
         ticker  = etf.get("ticker", "")
         name    = etf.get("name", "")
@@ -85,38 +85,34 @@ def _build_instruments_html(
             url = ""  # Drop URLs without valid scheme
         match   = etf.get("match", "")
         link    = (
-            f'<a href="{_html.escape(url)}" target="_blank" rel="noopener">↗</a>'
+            f'<a class="etf-link" href="{_html.escape(url)}" target="_blank" rel="noopener" '
+            f'aria-label="Open {_html.escape(name)} (opens in a new tab)">Open &#8599;</a>'
             if url else ""
         )
-        match_cell = (
-            f'<td class="etf-match etf-match-{_html.escape(match)}">'
-            f'{_html.escape(match)}</td>'
-        ) if is_ucits else ""
-        rows += (
-            f"<tr>"
-            f'<td class="etf-ticker">{_html.escape(ticker)}</td>'
-            f'<td class="etf-name">{_html.escape(name)}</td>'
-            f'<td class="etf-ter">{_html.escape(str(ter))}</td>'
-            f'<td class="etf-isin">{_html.escape(isin)}</td>'
-            f'{match_cell}'
-            f'<td class="etf-link">{link}</td>'
-            f"</tr>"
+        meta = []
+        if ter != "":
+            meta.append(f'<span class="etf-ter">TER {_html.escape(str(ter))}</span>')
+        if isin:
+            meta.append(f'<span class="etf-isin">{_html.escape(isin)}</span>')
+        if is_ucits and match:
+            meta.append(f'<span class="etf-match etf-match-{_html.escape(match)}">'
+                        f'{_html.escape(match.capitalize())} match</span>')
+        if link:
+            meta.append(link)
+        cards += (
+            f'<li class="etf-card">'
+            f'<div class="etf-head"><span class="etf-ticker">{_html.escape(ticker)}</span> '
+            f'<span class="etf-name">{_html.escape(name)}</span></div>'
+            f'<div class="etf-meta">{"".join(meta)}</div>'
+            f'</li>'
         )
 
     title = "UCITS Alternative" if is_ucits else "Instruments"
-    match_header = '<th scope="col">Match</th>' if is_ucits else ""
     return (
         f'<div class="bd-instruments">'
         f'<div class="sig-title">{title}</div>'
-        f'<table class="etf-table">'
-        f"<thead><tr>"
-        f'<th scope="col">Ticker</th><th scope="col">Name</th>'
-        f'<th scope="col">TER</th><th scope="col" class="etf-isin-h">ISIN</th>'
-        f'{match_header}<th scope="col"></th>'
-        f"</tr></thead>"
-        f"<tbody>{rows}</tbody>"
-        f"</table>"
-        f"</div>"
+        f'<ul class="etf-list">{cards}</ul>'
+        f'</div>'
     )
 
 
@@ -177,37 +173,24 @@ def _build_breakdown_html(
     level_score   = fv(score_row.get("level_score"))
     change_score  = fv(score_row.get("change_score"))
 
-    # Score-tree HTML
-    tree = (
-        f'<div class="score-tree">'
-        f'<div class="st-row st-top">'
-        f'<span class="st-label">Composite</span>'
-        f'<span class="st-val st-composite-val">{composite}</span>'
-        f'</div>'
-        f'<div class="st-row">'
-        f'<span class="st-conn">└─</span>'
-        f'<span class="st-label">Data Score</span>'
-        f'<span class="st-wt">(100%)</span>'
-        f'<span class="st-val st-data-val">{data_score}</span>'
-        f'</div>'
-        f'<div class="st-row st-sub">'
-        f'<span class="st-conn">  ├─</span>'
-        f'<span class="st-label">Level</span>'
-        f'<span class="st-wt">({level_weight*100:.0f}%)</span>'
-        f'<span class="st-val">{level_score}</span>'
-        f'<span class="st-meta">4 signals</span>'
-        f'</div>'
-        f'<div class="st-row st-sub">'
-        f'<span class="st-conn">  └─</span>'
-        f'<span class="st-label">Change</span>'
-        f'<span class="st-wt">({chg_weight*100:.0f}%)</span>'
-        f'<span class="st-val">{change_score}</span>'
-        f'<span class="st-meta">4 signals</span>'
-        f'</div>'
-        f'</div>'
-        f'<div class="bd-footer">'
-        f'ETF: {_html.escape(str(ticker))} &middot; '
-        f'Benchmark: {_html.escape(str(benchmark))}'
+    # The composite as one line: Composite 1.060 = ½ Level 1.347 + ½ Change 0.772. The
+    # weights are the real ones from the config (a drawn tree said the same in 7 lines).
+    def share(w: float) -> str:
+        return "½" if abs(w - 0.5) < 1e-9 else f"{w * 100:.0f}%"
+
+    # Each term is one unit, so a narrow screen breaks between the terms, not inside one.
+    parts = (
+        f'<span class="bd-term">{share(level_weight)} Level <b class="bd-part">{level_score}</b></span> '
+        f'+ <span class="bd-term">{share(chg_weight)} Change <b class="bd-part">{change_score}</b></span>'
+    )
+    if abs(data_weight - 1.0) > 1e-9:           # the data pillar is the whole score today
+        parts = f'{data_weight * 100:.0f}% &times; ({parts})'
+    summary = (
+        f'<div class="bd-summary">'
+        f'<p class="bd-formula"><span class="bd-formula-lead">Composite</span> '
+        f'<b class="st-composite-val">{composite}</b> <span class="bd-eq">=</span> {parts}</p>'
+        f'<p class="bd-sub">ETF {_html.escape(str(ticker))} &middot; '
+        f'benchmark {_html.escape(str(benchmark))}</p>'
         f'</div>'
     )
 
@@ -266,16 +249,17 @@ def _build_breakdown_html(
         + "</div>"
     ) if info_parts else ""
 
+    def section(title: str, rows: str, n: int) -> str:
+        return (
+            f'<div class="sig-section">'
+            f'<div class="sig-title">{title} &middot; {n} signal{"" if n == 1 else "s"}</div>'
+            f'<table class="sig-table"><tbody>{rows}</tbody></table>'
+            f'</div>'
+        )
+
     signals = (
-        f'<div class="sig-section">'
-        f'<div class="sig-title">Level Signals</div>'
-        f'<table class="sig-table"><tbody>{level_rows}</tbody></table>'
-        f'</div>'
-        f'<div class="sig-section">'
-        f'<div class="sig-title">Change Signals</div>'
-        f'<table class="sig-table"><tbody>{change_rows}</tbody></table>'
-        f'</div>'
-        f'{info_html}'
+        section("Level", level_rows, level_rows.count("<tr>"))
+        + section("Change", change_rows, change_rows.count("<tr>"))
     )
 
     instruments = _build_instruments_html(
@@ -283,10 +267,9 @@ def _build_breakdown_html(
     )
     return (
         f'<div class="breakdown-inner">'
-        f'<div class="breakdown-grid">'
-        f'<div class="bd-left">{tree}</div>'
-        f'<div class="bd-right">{signals}</div>'
-        f'</div>'
+        f'{summary}'
+        f'<div class="breakdown-grid">{signals}</div>'
+        f'{info_html}'
         f'{instruments}'
         f'</div>'
     )

@@ -210,7 +210,7 @@ def test_drilldown_explains_the_absence_instead_of_rendering_nothing():
 def test_a_buyable_theme_still_lists_its_ucits_row():
     html = _build_instruments_html("THEME|Semiconductors", {}, _THEMES)
     assert "bd-unbuyable" not in html
-    assert "etf-table" in html
+    assert "etf-card" in html
 
 
 def test_unbuyable_list_comes_from_config_not_the_rendered_rows():
