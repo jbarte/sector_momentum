@@ -47,11 +47,11 @@ def _contrast(a: str, b: str) -> float:
 
 def test_there_is_one_primary_button_and_it_is_white_on_solid_green():
     chrome = _css("_chrome.css.j2")
-    primary = re.search(r"\.btn-primary,\s*\.pill-button\.auth-send,\s*\.beginner-deck-nav #beginner-deck-next\s*\{([^}]*)\}", chrome)
+    primary = re.search(r"\.pill-button\.auth-send,\s*\.beginner-deck-nav #beginner-deck-next\s*\{([^}]*)\}", chrome)
     assert primary, "Send link and Next / Got it share one primary rule"
     assert "background: var(--solid)" in primary.group(1)
     assert "color: var(--on-solid)" in primary.group(1)
-    hover = re.search(r"\.btn-primary:hover,[^{]*\{([^}]*)\}", chrome).group(1)
+    hover = re.search(r"\.pill-button\.auth-send:hover,[^{]*\{([^}]*)\}", chrome).group(1)
     assert "var(--solid-hover)" in hover
 
 
@@ -68,7 +68,7 @@ def test_white_on_the_primary_buttons_clears_aa_in_both_states():
 def test_the_sign_in_field_and_its_button_are_one_height():
     chrome = _css("_chrome.css.j2")
     assert "min-height: var(--control-h)" in _rule(chrome, '.auth-form input[type="email"]')
-    assert "min-height: var(--control-h)" in _rule(chrome, ".auth-form .pill-button,\n.gate-modal .pill-button")
+    assert "min-height: var(--control-h)" in _rule(chrome, ".auth-form .pill-button,\n.gate-modal .pill-button,\n.methodology-modal .pill-button")
     assert re.search(r"--control-h:\s*32px", _css("_foundation.css.j2"))
 
 
@@ -133,3 +133,10 @@ def test_how_to_read_this_tab_is_at_the_top_of_every_tab():
         assert "chart-container" not in head and "<table" not in head and "tab-note" not in head, tab
         if tab != "leaderboard":     # the leaderboard has it in its filter row, also top right
             assert 'class="utility-row"' in head, f"{tab}: the button sits in the shared top-right row"
+
+
+def test_a_hidden_walkthrough_slide_does_not_run_its_animation():
+    """Hidden slides are rendered (one dialog height), so without this their
+    illustrations finished animating while slide 1 was showing."""
+    chrome = _css("_chrome.css.j2")
+    assert re.search(r"\.beginner-deck-card\[hidden\] \*\s*\{\s*animation:\s*none\s*!important", chrome)

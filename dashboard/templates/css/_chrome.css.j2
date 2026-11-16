@@ -55,14 +55,12 @@
    action a dialog or form exists for: Send link, Next / Got it. Everything else
    is secondary (the outline above), or a quiet text link. Before, there were five
    styles and the main action looked like the quietest control. */
-.btn-primary,
 .pill-button.auth-send,
 .beginner-deck-nav #beginner-deck-next {
   background: var(--solid);
   border-color: var(--solid);
   color: var(--on-solid);
 }
-.btn-primary:hover,
 .pill-button.auth-send:hover,
 .beginner-deck-nav #beginner-deck-next:hover {
   background: var(--solid-hover);
@@ -101,7 +99,8 @@
   width: 14em;
 }
 .auth-form .pill-button,
-.gate-modal .pill-button { min-height: var(--control-h); }
+.gate-modal .pill-button,
+.methodology-modal .pill-button { min-height: var(--control-h); }   /* incl. the alerts pop-up */
 .auth-status { color: var(--fg4); font-size: 12px; max-width: 16em; }
 .auth-status:empty { display: none; }
 
@@ -494,6 +493,10 @@
   animation: beginner-deck-illo-in .45s var(--illo-soft) forwards;
 }
 @keyframes beginner-deck-illo-in { to { opacity: 1; transform: translateY(0); } }
+/* A hidden slide is still rendered (so the dialog keeps one height), and its
+   illustration would finish animating while slide 1 is on screen. With no animation
+   while hidden, it starts when its slide is shown. */
+.beginner-deck-card[hidden] * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .beginner-deck-illo { opacity: 1; transform: none; animation: none; }
 }

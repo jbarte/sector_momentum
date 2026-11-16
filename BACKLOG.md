@@ -183,6 +183,13 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
   glide), no sticky table header, no tab bar (so no indicator or edge fades), and
   system buttons already give press feedback. Revisit only if the app gains one
   of those surfaces.
+- **The 2026-11-16 UI audit fixes, the button and type system and the chart
+  polish are web-only by decision.** The app already uses native controls (so no
+  primary/secondary button CSS), its own type, and has no RRG, Drill-down or
+  correlation chart (its rank-history chart is a different chart). The one
+  shared value, the primary button's solid green, is `--green-600`, which the
+  app's `Palette.solid` already is. The audit's remaining iOS-relevant item, the
+  rank change text, is Queued below.
 
 ---
 
