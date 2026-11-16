@@ -246,7 +246,9 @@ each its own PR:
 - **Phone header and the opened row:** the header takes about 300px before any
   content; the row breakdown is a flat monospace block with tree-drawing
   characters and no sign a row opens; on a phone the UCITS fund name still wraps to
-  five lines; the Data Health panel is open by default and 14px off the page edge;
+  five lines, and the ISIN (the unambiguous identifier of the UCITS fund to buy) is
+  hidden in an opened phone card to make room, so give it back when the UCITS table is restacked;
+  the Data Health panel is open by default and 14px off the page edge;
   the Backtest table wraps to three lines at 1024px and its section headings are
   13px.
 - **Rank change text with the iOS app:** the leaderboard prints "▲ +5.0" (arrow

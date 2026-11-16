@@ -69,8 +69,8 @@ def test_the_toolbar_appears_on_hover_and_stays_reachable_on_touch():
     css = (_ROOT / "dashboard" / "templates" / "css" / "_charts.css.j2").read_text()
     assert re.search(r"\.js-plotly-plot \.modebar\s*\{\s*opacity:\s*0;", css)
     assert ".js-plotly-plot:hover .modebar" in css and ".js-plotly-plot:focus-within .modebar" in css
-    assert re.search(r"@media \(hover: none\)\s*\{\s*\.js-plotly-plot \.modebar\s*\{\s*opacity:\s*1;", css), (
-        "without hover (a phone) the toolbar must stay visible or it cannot be reached")
+    assert re.search(r"@media \(hover: none\), \(pointer: coarse\)\s*\{\s*\.js-plotly-plot \.modebar\s*\{\s*opacity:\s*1;", css), (
+        "without reliable hover (a phone, a touch laptop) the toolbar must stay visible or it cannot be reached")
     assert re.search(r"\.modebar-btn path\s*\{\s*fill:\s*var\(--fg4\)\s*!important", css)
 
 
