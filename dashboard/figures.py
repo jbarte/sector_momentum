@@ -290,7 +290,7 @@ def _build_rrg_figure(rrg_df) -> str:
             textfont=dict(size=9),
             name=region,
             hovertemplate=(
-                "<b>%{text} (" + region + ")</b><br>"
+                "<b>%{text}</b><br>"
                 "RS-Ratio: %{x:.2f}<br>"
                 "RS-Momentum: %{y:.2f}<br>"
                 "<extra></extra>"
@@ -304,6 +304,8 @@ def _build_rrg_figure(rrg_df) -> str:
                    range=[x_min, x_max], gridcolor="#DFD5BE", zeroline=False),
         yaxis=dict(title="RS-Momentum (>100 = RS-Ratio rising)",
                    range=[y_min, y_max], gridcolor="#DFD5BE", zeroline=False),
+        # A legend with one entry ("THEME") explains nothing; it is for several cohorts.
+        showlegend=len(regions) > 1,
     ))
     return _fig_to_json(fig)
 
@@ -363,7 +365,7 @@ def _build_sentiment_scatter_figure(history_df) -> str:
             textfont=dict(size=9, color="#3E392B"),
             name=region,
             hovertemplate=(
-                "<b>%{text} (" + region + ")</b><br>"
+                "<b>%{text}</b><br>"
                 "Data: %{x:.3f}<br>Sentiment: %{y:.3f}<extra></extra>"
             ),
         ))
@@ -422,19 +424,36 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
         for signal in score_signals:
             if signal not in sk_data.columns:
                 continue
+            on_rank = signal == "rank"
             fig.add_trace(go.Scatter(
                 x=sk_data["run_at_str"].tolist(),
                 y=sk_data[signal].tolist(),
                 mode="lines+markers",
-                name=signal.replace("_", " ").title(),
-                line=dict(color=_SCORE_SIGNAL_COLORS.get(signal, "#8F8568")),
-                hovertemplate=f"<b>{signal}</b><br>Date: %{{x}}<br>Value: %{{y:.3f}}<extra></extra>",
+                name="Rank (right axis)" if on_rank else signal.replace("_", " ").title(),
+                # Rank is 1 to 18 and the scores are about -1 to 1: on one axis the
+                # scores were flat lines at the bottom. Rank gets its own axis,
+                # dotted, so the two kinds of number are never read against each other.
+                yaxis="y2" if on_rank else "y",
+                line=dict(color=_SCORE_SIGNAL_COLORS.get(signal, "#8F8568"),
+                          dash="dot" if on_rank else "solid"),
+                hovertemplate=(f"<b>Rank</b><br>Date: %{{x}}<br>Rank: %{{y:.0f}}<extra></extra>"
+                               if on_rank else
+                               f"<b>{signal}</b><br>Date: %{{x}}<br>Value: %{{y:.3f}}<extra></extra>"),
             ))
         fig.update_layout(**_base_layout(
             title=dict(text=f"{sector_name} — score components",
                        font=dict(size=13, color="#3E392B")),
             xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
-            yaxis=dict(title="Score / Rank", gridcolor="#DFD5BE"),
+            yaxis=dict(title="Score", gridcolor="#DFD5BE"),
+            # Reversed, so rank 1 is at the top and a theme climbing the board
+            # climbs the chart, like the scores do. Whole numbers only.
+            yaxis2=dict(title="Rank (1 = strongest)", overlaying="y", side="right",
+                        autorange="reversed", showgrid=False, tickformat="d",
+                        automargin=True),
+            # Above the plot, not beside it: at the right it sat on the rank axis title.
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
+                        font=dict(size=10)),
+            margin=dict(t=84),
         ))
         theme_signal_data[sk] = _fig_to_json(fig)
 
