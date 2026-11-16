@@ -83,7 +83,7 @@ def _build_instruments_html(
         url     = etf.get("url", "")
         if url and not (url.startswith("https://") or url.startswith("http://")):
             url = ""  # Drop URLs without valid scheme
-        match   = etf.get("match", "")
+        match   = str(etf.get("match", "")).strip().lower()    # exact | close | partial
         link    = (
             f'<a class="etf-link" href="{_html.escape(url)}" target="_blank" rel="noopener" '
             f'aria-label="Open {_html.escape(name)} (opens in a new tab)">Open &#8599;</a>'
@@ -169,14 +169,16 @@ def _build_breakdown_html(
         return f"{f:.3f}" if f is not None else "—"
 
     composite     = fv(score_row.get("composite"))
-    data_score    = fv(score_row.get("data_score"))
     level_score   = fv(score_row.get("level_score"))
     change_score  = fv(score_row.get("change_score"))
 
     # The composite as one line: Composite 1.060 = ½ Level 1.347 + ½ Change 0.772. The
     # weights are the real ones from the config (a drawn tree said the same in 7 lines).
     def share(w: float) -> str:
-        return "½" if abs(w - 0.5) < 1e-9 else f"{w * 100:.0f}%"
+        if abs(w - 0.5) < 1e-9:
+            return "½"
+        pct = f"{w * 100:.1f}".rstrip("0").rstrip(".")      # 30%, 33.3%, 99.5%: never rounded to look exact
+        return f"{pct}%"
 
     # Each term is one unit, so a narrow screen breaks between the terms, not inside one.
     parts = (
@@ -184,7 +186,7 @@ def _build_breakdown_html(
         f'+ <span class="bd-term">{share(chg_weight)} Change <b class="bd-part">{change_score}</b></span>'
     )
     if abs(data_weight - 1.0) > 1e-9:           # the data pillar is the whole score today
-        parts = f'{data_weight * 100:.0f}% &times; ({parts})'
+        parts = f'{share(data_weight)} &times; ({parts})'
     summary = (
         f'<div class="bd-summary">'
         f'<p class="bd-formula"><span class="bd-formula-lead">Composite</span> '
@@ -232,8 +234,9 @@ def _build_breakdown_html(
 
     level_order  = list(weights.get("level_signals",  {}).keys())
     change_order = list(weights.get("change_signals", {}).keys())
-    level_rows  = "".join(sig_row(n) for n in level_order)
-    change_rows = "".join(sig_row(n) for n in change_order)
+    # Rendered rows only: a signal with no metadata draws nothing and is not counted.
+    level_list  = [r for r in (sig_row(n) for n in level_order) if r]
+    change_list = [r for r in (sig_row(n) for n in change_order) if r]
 
     # Info-only signals (not scored)
     info_parts = []
@@ -249,18 +252,16 @@ def _build_breakdown_html(
         + "</div>"
     ) if info_parts else ""
 
-    def section(title: str, rows: str, n: int) -> str:
+    def section(title: str, rows: list[str]) -> str:
+        n = len(rows)
         return (
             f'<div class="sig-section">'
             f'<div class="sig-title">{title} &middot; {n} signal{"" if n == 1 else "s"}</div>'
-            f'<table class="sig-table"><tbody>{rows}</tbody></table>'
+            f'<table class="sig-table"><tbody>{"".join(rows)}</tbody></table>'
             f'</div>'
         )
 
-    signals = (
-        section("Level", level_rows, level_rows.count("<tr>"))
-        + section("Change", change_rows, change_rows.count("<tr>"))
-    )
+    signals = section("Level", level_list) + section("Change", change_list)
 
     instruments = _build_instruments_html(
         theme_key, sector_etfs or {}, themes_cfg=themes_cfg,

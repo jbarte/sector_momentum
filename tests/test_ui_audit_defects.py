@@ -106,7 +106,7 @@ def test_an_opened_card_breakdown_drops_only_the_signal_bars():
     dropped on a phone (it was hidden by #333 to make the old table fit)."""
     resp = _css("_responsive.css.j2")
     assert ".card-breakdown .sig-bar { display: none; }" in resp
-    assert ".etf-isin" not in resp.split("Phone first screen")[0].split("The opened breakdown inside a card")[1].split("A chevron at the end")[0]
+    assert not re.search(r"\.etf-isin[^{}]*\{[^}]*display:\s*none", resp), "the ISIN is shown on a phone"
 
 
 # --- chart labels and states --------------------------------------------------

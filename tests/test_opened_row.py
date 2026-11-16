@@ -140,8 +140,10 @@ def test_level_and_change_sit_side_by_side_and_the_panel_is_an_inset_card():
 
 def test_a_chevron_says_the_row_opens_and_turns_over_when_it_does():
     tables = _tables()
-    assert '.leaderboard-row .theme-cell::after' in tables
+    assert '.leaderboard-row[aria-expanded] .theme-cell::after' in tables
     assert '.leaderboard-row[aria-expanded="true"] .theme-cell::after { transform: translateY(-30%) rotate(-135deg); }' in tables
+    # only a row that can open has one: a past scan's rows have no breakdown and no aria-expanded
+    assert not re.search(r"\.leaderboard-row \.theme-cell(::after)? \{", tables)
 
 
 def test_a_phone_card_has_the_same_chevron_and_a_stacked_panel():
@@ -150,3 +152,21 @@ def test_a_phone_card_has_the_same_chevron_and_a_stacked_panel():
     assert ".leaderboard-card.open .card-line1::after { transform: translateY(3px) rotate(-135deg); }" in resp
     assert ".card-breakdown .sig-bar { display: none; }" in resp
     assert re.search(r"\.breakdown-grid \{ grid-template-columns: 1fr; \}", resp), "one column on a phone"
+
+
+def test_odd_weights_are_never_rounded_to_look_exact():
+    assert "33.3% Level 1.347 + 66.7% Change 0.772" in _text(_html(_weights(level=1 / 3, change=2 / 3)))
+    assert "99.5% × (½ Level" in _text(_html(_weights(data=0.995)))
+
+
+def test_a_missing_signal_is_not_counted():
+    """A name with no metadata draws no row, so it is not in the count either."""
+    text = _text(_html(_weights(level_sigs=("rs_ratio", "no_such_signal"), change_sigs=("rs_momentum",))))
+    assert re.search(r"Level · 1 signal(?!s)", text)
+
+
+def test_the_match_class_and_label_are_normalised():
+    cfg = {"ucits": {"Insurance": [{"ticker": "X", "name": "x", "ter": "0.1%", "isin": "I",
+                                    "url": "", "match": "PARTIAL"}]}}
+    html = _build_instruments_html("THEME|Insurance", {}, cfg)
+    assert 'class="etf-match etf-match-partial"' in html and "Partial match" in _text(html)

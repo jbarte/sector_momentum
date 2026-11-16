@@ -201,9 +201,11 @@ tbody td:nth-child(n+4) {
    here went with the element: the row itself is the disclosure control now. */
 .leaderboard-row { cursor: pointer; }
 /* A chevron at the right of the theme cell says the row opens, and turns over when it
-   does. The row is the disclosure control (aria-expanded is already kept in step). */
-.leaderboard-row .theme-cell { position: relative; padding-right: var(--space-7); }
-.leaderboard-row .theme-cell::after {
+   does. The row is the disclosure control (aria-expanded is already kept in step), and
+   only a row that can open has one: a past scan's rows have no breakdown and no
+   aria-expanded, so they get no chevron. */
+.leaderboard-row[aria-expanded] .theme-cell { position: relative; padding-right: var(--space-7); }
+.leaderboard-row[aria-expanded] .theme-cell::after {
   content: "";
   position: absolute;
   right: var(--space-3);
@@ -216,7 +218,7 @@ tbody td:nth-child(n+4) {
   transition: transform var(--duration-base) var(--ease-glide),
               border-color var(--duration-fast) var(--ease-standard);
 }
-.leaderboard-row:hover .theme-cell::after { border-color: var(--fg1); }
+.leaderboard-row[aria-expanded]:hover .theme-cell::after { border-color: var(--fg1); }
 .leaderboard-row[aria-expanded="true"] .theme-cell::after { transform: translateY(-30%) rotate(-135deg); }
 .breakdown-row { display: none; }
 .breakdown-row.open { display: table-row; }
