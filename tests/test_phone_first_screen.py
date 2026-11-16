@@ -88,6 +88,15 @@ def test_a_phone_keeps_one_filters_control_beside_the_guide_link():
         assert page.count(f'data-filter-value="{value}"') == 2, f"{value}: quick chip and full-set chip"
 
 
+def test_the_buy_band_scroller_leaves_room_for_its_fade():
+    assert re.search(r"padding: 0 calc\(var\(--space-4\) \* 2\) 0 var\(--space-4\);", _phone_block())
+
+
+def test_dismissing_the_banner_hands_focus_to_the_header_sign_in():
+    page = (_TPL / "index.html.j2").read_text()
+    assert 'var next = document.getElementById("auth-signin");' in page and "next.focus();" in page
+
+
 def test_the_track_record_label_keeps_a_44px_target_but_not_44px_of_layout():
     assert "#cell-track-record .strip-eyebrow { margin: -14px 0; }" in _phone_block()
     assert "min-height: 44px" in _css("_responsive.css.j2")
@@ -104,13 +113,20 @@ def _health(finbert_scored=16, finbert_total=18, prices_failed=0, produced=18, e
     }
 
 
-def test_partial_sentiment_coverage_does_not_open_data_health_by_itself():
+def test_a_nearly_complete_sentiment_run_does_not_open_data_health_by_itself():
     """16 of 18 scored is the usual state, sentiment is experimental and excluded from the
     ranking, and it kept the panel open (with a warning sign) every day."""
     ctx = build_health_context(_health(finbert_scored=16, finbert_total=18))
     assert _badge("finbert", 16, 18) == "amber"
     assert ctx["health_badges"]["finbert"] == "amber", "still shown amber inside the panel"
     assert ctx["health_any_warn"] is False
+    assert build_health_context(_health(finbert_scored=15, finbert_total=18))["health_any_warn"] is False  # 83%
+
+
+def test_a_half_covered_sentiment_run_still_opens_data_health():
+    ctx = build_health_context(_health(finbert_scored=12, finbert_total=18))     # 67%: amber, under 80%
+    assert ctx["health_badges"]["finbert"] == "amber" and ctx["health_any_warn"] is True
+    assert build_health_context(_health(finbert_scored=9, finbert_total=18))["health_any_warn"] is True
 
 
 def test_a_real_problem_still_opens_data_health():
@@ -123,7 +139,8 @@ def test_data_health_is_one_line_and_aligned_to_the_page_edge():
     footer = (_TPL / "_footer.html.j2").read_text()
     assert "Data Health &mdash; last scan {{ health.run_at[:10] }} {{ health.run_at[11:16] }} UTC" in footer
     assert "{{ health.sectors_produced }}/{{ health.sectors_expected }} themes" in footer
-    assert 'title="The scan took' in footer, "the run time moved to a tooltip"
+    assert "took {{ health.duration_s | round(0) | int }}s" in footer, "the run time is a row inside the panel"
+    assert 'title="The scan took' not in footer, "not a tooltip: touch and keyboard readers never see one"
     health_css = _css("_health.css.j2")
     assert re.search(r"\.health-panel \{ margin: var\(--space-4\) var\(--space-7\) 0;", health_css)
 

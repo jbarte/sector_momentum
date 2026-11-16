@@ -52,6 +52,9 @@ window.SMLagBanner = (function () {
   if (x) {
     x.addEventListener("click", function () {
       banner.hidden = true;
+      // The focused button just left the page: hand focus to the header's Sign in.
+      var next = document.getElementById("auth-signin");
+      if (next && !next.hidden) { next.focus(); }
       try { localStorage.setItem(KEY, banner.getAttribute("data-lag-date")); } catch (e) { /* ignore */ }
     });
   }

@@ -648,10 +648,10 @@ dashboard's drill-down tab covers most of the need.
   their label. **Controls:** a phone keeps one More filters control beside "How to read
   this tab"; the three quick chips are the same filters that are inside it.
   **Data Health:** one line ("last scan 2026-11-09 15:58 UTC · 18/18 themes", the run
-  time in a tooltip), aligned to the page edge, and no longer opened by partial
-  sentiment coverage (16 of 18 is the usual state; sentiment is experimental and
-  excluded from the ranking). A real sentiment outage, failed prices, or missing themes
-  still open it. **Backtest:** one line per cell and the nine columns fit 1024px (they
+  time a row inside the panel), aligned to the page edge, and no longer opened by a
+  near-complete sentiment run (80% or more scored; 16 of 18 is the usual state, and
+  sentiment is experimental and excluded from the ranking). A lower sentiment
+  coverage, a sentiment outage, failed prices, or missing themes still open it. **Backtest:** one line per cell and the nine columns fit 1024px (they
   wrapped to three lines; the headers may wrap to two); the section headings share one
   `.section-heading` class instead of three inline styles.
 - **Dashboard button and type system (2026-11-16, `feat/button-type-system`).**

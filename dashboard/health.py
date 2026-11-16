@@ -93,11 +93,14 @@ def build_health_context(health: dict | None, same_asof_streak: int | None = Non
         ),
     }
 
-    # Partial sentiment coverage (amber) no longer opens the panel on its own: sentiment is
-    # experimental and excluded from the ranking, and 16 of 18 scored is the usual state.
-    # A real sentiment outage (red) still does (see test_finbert_zero_denominator_...).
+    # Sentiment is experimental and excluded from the ranking, and 16 of 18 scored is the
+    # usual state: a near-complete run (80% or more) no longer opens the panel on its own.
+    # Anything lower still does, and so does a real outage (red; see
+    # test_finbert_zero_denominator_...). The badge colours themselves are unchanged.
+    fin_scored, fin_total = health.get("finbert_scored"), health.get("finbert_total")
+    finbert_nearly_complete = bool(fin_total) and fin_scored is not None and fin_scored / fin_total >= 0.8
     any_warn = any(
-        v == "red" or (v == "amber" and name != "finbert")
+        v == "red" or (v == "amber" and not (name == "finbert" and finbert_nearly_complete))
         for name, v in badges.items() if v is not None
     )
 
