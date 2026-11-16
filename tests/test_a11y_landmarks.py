@@ -276,10 +276,13 @@ def test_th_count_sanity_scoped_scan_still_finds_real_tables():
 
 
 def test_breakdown_instruments_table_th_are_scoped():
-    """dashboard/breakdown.py builds this table's HTML in Python, not Jinja —
-    _resolve_includes only inlines {% include %} directives, so this table
+    """dashboard/breakdown.py builds this HTML in Python, not Jinja —
+    _resolve_includes only inlines {% include %} directives, so it
     (injected into the page as a pre-rendered string, `row.breakdown_html`)
-    is invisible to the test above and needs its own check."""
+    is invisible to the test above and needs its own check. Since the 2026-11-16
+    opened-row redesign the UCITS fund is a list of cards, not a table, so there is
+    no <th> to scope; this pins that a table (and with it the unscoped-<th> risk)
+    does not come back unnoticed."""
     from dashboard.breakdown import _build_instruments_html
 
     themes_cfg = {"ucits": {"Semiconductors": [
@@ -287,7 +290,8 @@ def test_breakdown_instruments_table_th_are_scoped():
          "url": "https://example.com", "match": "exact"},
     ]}}
     html = _build_instruments_html("THEME|Semiconductors", {}, themes_cfg)
-    all_th = _TH_RE.findall(html)
-    assert all_th, "test fixture produced no <th> at all — fixture is broken"
+    assert '<ul class="etf-list">' in html and html.count('<li class="etf-card">') == 1, (
+        "test fixture produced no fund card: fixture is broken")
     unscoped = _unscoped_th(html)
     assert not unscoped, f"unscoped <th> in breakdown HTML: {unscoped}"
+    assert "<table" not in html, "a table is back: give its <th> a scope and update this test"

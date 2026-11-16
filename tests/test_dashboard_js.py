@@ -432,7 +432,7 @@ def test_leaderboard_render_with_breakdown_panel(tmp_path):
     assert "Energy" in html
     # Breakdown panel present
     assert "breakdown-inner" in html
-    assert "score-tree" in html
+    assert "bd-formula" in html   # the composite line that replaced the score tree
     # Rank column rendered
     assert ">1<" in html or ">1 <" in html or "rank" in html.lower()
     # No empty JS vars
