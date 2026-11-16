@@ -428,6 +428,9 @@
      Tab: Backtest
      ============================================================ -->
 <section id="tab-backtest" class="tab-panel" role="tabpanel">
+  <div class="utility-row">
+    <button type="button" class="tab-guide-btn" data-guide="guide_body_backtest">How to read this tab</button>
+  </div>
   <p class="tab-note">Equal-weight, long-only, <strong>net of {{ round_trip_bps | round | int }} bps round-trip trading costs</strong> (bps = basis points; 100 bps = 1%). Price-based signals only (breadth &amp; sentiment excluded). Each horizon is a rebalance cadence plus a hysteresis band: a holding is kept while its rank stays within top-N + buffer, so a one-rank wobble is not a trade.</p>
   <p class="tab-note"><strong>These are precomputed operating points from one sweep over one market history (2008–2026), not a live optimiser.</strong> The universe is replayed as it stands today, so themes that launched later are simply absent from the early years. Read the trades/year column next to the return, not instead of it.</p>
   {% if has_backtest %}
@@ -449,7 +452,6 @@
     </table>
   </div>
   <div class="chart-container" id="backtest-chart" style="height:420px"></div>
-  <button type="button" class="tab-guide-btn" data-guide="guide_body_backtest">How to read this tab</button>
   {% if badge_scorecard %}
   <h2 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">Badge scorecard</h2>
   <p class="tab-note">5-day forward return after each badge appeared.</p>
@@ -492,13 +494,15 @@
      Tab: Correlation
      ============================================================ -->
 <section id="tab-correlation" class="tab-panel" role="tabpanel">
+  <div class="utility-row">
+    <button type="button" class="tab-guide-btn" data-guide="guide_body_correlation">How to read this tab</button>
+  </div>
   {% if correlation_fig_json %}
   <p class="tab-note">60-trading-day rolling pairwise return correlations. Top-5 themes in bold. Terracotta = moving together (overlap); green = moving independently or opposite (a diversifier).</p>
   <div class="chart-container" id="correlation-chart" style="min-height:500px"></div>
   {% else %}
   <p class="leaderboard-empty">Not enough price history for a 60-day correlation matrix.</p>
   {% endif %}
-  <button type="button" class="tab-guide-btn" data-guide="guide_body_correlation">How to read this tab</button>
 </section>
 </div>
 </main>

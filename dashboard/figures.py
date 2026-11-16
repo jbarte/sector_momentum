@@ -421,10 +421,12 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
             continue
         region, sector_name = sk.split("|", 1)
         fig = go.Figure()
+        has_rank = False
         for signal in score_signals:
             if signal not in sk_data.columns:
                 continue
             on_rank = signal == "rank"
+            has_rank = has_rank or on_rank
             fig.add_trace(go.Scatter(
                 x=sk_data["run_at_str"].tolist(),
                 y=sk_data[signal].tolist(),
@@ -447,9 +449,10 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
             yaxis=dict(title="Score", gridcolor="#DFD5BE"),
             # Reversed, so rank 1 is at the top and a theme climbing the board
             # climbs the chart, like the scores do. Whole numbers only.
-            yaxis2=dict(title="Rank (1 = strongest)", overlaying="y", side="right",
-                        autorange="reversed", showgrid=False, tickformat="d",
-                        automargin=True),
+            # (only when a rank line is drawn on it: an orphan axis would label nothing)
+            yaxis2=(dict(title="Rank (1 = strongest)", overlaying="y", side="right",
+                         autorange="reversed", showgrid=False, tickformat="d",
+                         automargin=True) if has_rank else dict(visible=False)),
             # Above the plot, not beside it: at the right it sat on the rank axis title.
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
                         font=dict(size=10)),

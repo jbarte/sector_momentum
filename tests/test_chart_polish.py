@@ -84,3 +84,10 @@ def test_the_heatmap_is_in_the_palette_and_the_note_says_what_the_colours_mean()
     page = (_ROOT / "dashboard" / "templates" / "index.html.j2").read_text()
     assert "Terracotta = moving together" in page and "green = moving independently or opposite" in page
     assert "Red = moving together" not in page and "blue = moving independently" not in page
+
+
+def test_the_rank_axis_exists_only_when_a_rank_line_is_drawn_on_it():
+    hist = _history({"Space": [3, 2, 1]}).drop(columns=["rank"])
+    drill, _, _ = _build_drilldown_data(hist)
+    layout = json.loads(drill["THEME|Space"])["layout"]
+    assert layout["yaxis2"] == {"visible": False}, "no orphan 'Rank (1 = strongest)' axis"
