@@ -88,7 +88,7 @@ def _order_labels(
         highlight = len(items) > 5
 
         for rank, name, ticker in items:
-            label = f"{name} ({cohort.region})"
+            label = name   # no "(THEME)" suffix: themes are the only cohort
             if highlight and rank <= 5:
                 label = f"<b>{label}</b>"
             ordered.append((label, ticker))

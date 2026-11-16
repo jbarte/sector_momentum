@@ -28,6 +28,16 @@
    makes irrelevant on its own. #}
 window.SMModal = window.SMModal || (function () {
   var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  // Safari does not focus a button when it is clicked, so document.activeElement
+  // is <body> when a trigger opens a modal and focus would be lost on close.
+  // Remember the last control that was pressed to fall back on.
+  // Only a press within the last second counts: a modal opened without one (the
+  // first-visit walkthrough) must not hand focus to some control pressed minutes ago.
+  var lastPressed = null, lastPressedAt = 0;
+  document.addEventListener('click', function (e) {
+    var hit = e.target.closest ? e.target.closest('button, a[href], summary, [role="button"], [tabindex]') : null;
+    if (hit) { lastPressed = hit; lastPressedAt = Date.now(); }
+  }, true);
 
   function bind(overlay, opts) {
     opts = opts || {};
@@ -62,6 +72,10 @@ window.SMModal = window.SMModal || (function () {
       // Capture the trigger *before* showing, so focus returns to whatever the
       // reader was on rather than to the top of the page.
       lastFocus = document.activeElement;
+      if ((!lastFocus || lastFocus === document.body) && lastPressed && lastPressed.isConnected
+          && Date.now() - lastPressedAt < 1000) {
+        lastFocus = lastPressed;
+      }
       if (opts.onOpen) { opts.onOpen(); }
       overlay.hidden = false;
       // Scroll the panel back to the top: a reused modal otherwise opens

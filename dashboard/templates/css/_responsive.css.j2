@@ -20,6 +20,21 @@
   .card { margin: 12px 8px 16px; }
   .card > .tab-panel { padding: 14px 10px; }
   .card > .tabs { padding: 0 8px; }
+  .lag-banner { margin: 0 var(--space-4) var(--space-3); }
+  /* Wrapped stats start flush left: the separators are drawn on every item but
+     the first, so a wrapped line began with a stray indent and a rule. */
+  .horizon-stats { gap: 4px var(--space-4); }
+  .hz-stat + .hz-stat { margin-left: 0; padding-left: 0; border-left: none; }
+  /* The opened breakdown inside a card: drop what cannot fit (the signal bars,
+     the signal counts, the ISIN column) instead of cutting it off at the edge. */
+  .card-breakdown .breakdown-inner { padding: var(--space-3); }
+  .card-breakdown .sig-bar,
+  .card-breakdown .st-meta,
+  .card-breakdown .etf-isin,
+  .card-breakdown .etf-isin-h { display: none; }
+  .card-breakdown .sig-table td,
+  .card-breakdown .etf-table td,
+  .card-breakdown .etf-table th { padding-left: 4px; padding-right: 4px; }
   /* .site-footer's desktop layout (_chrome.css.j2) is
      `justify-content: space-between` on one row — disclaimer text left,
      Methodology/Alerts buttons right. At 375px that squeezes both against

@@ -139,8 +139,12 @@ def _base_layout(**overrides) -> dict:
         plot_bgcolor="#F4EFE4",
         font=dict(color="#3E392B", family="Inter, -apple-system, sans-serif"),
         legend=dict(bgcolor="#FAF7F0", bordercolor="#DFD5BE", font=dict(size=9)),
-        margin=dict(l=50, r=20, t=50, b=50),
+        margin=dict(l=50, r=20, t=50, b=64),
         hovermode="x unified",
+        # automargin: Plotly grows the margin to fit long theme names and axis
+        # titles, which were cut off (RRG x title, Movers and Correlation labels).
+        xaxis=dict(automargin=True),
+        yaxis=dict(automargin=True),
     )
     # Shallow-merge nested dicts one level deep
     for key in ("xaxis", "yaxis", "yaxis2", "title", "font", "legend", "margin"):
@@ -427,7 +431,7 @@ def _build_drilldown_data(history_df) -> tuple[dict, list[str]]:
                 hovertemplate=f"<b>{signal}</b><br>Date: %{{x}}<br>Value: %{{y:.3f}}<extra></extra>",
             ))
         fig.update_layout(**_base_layout(
-            title=dict(text=f"{sector_name} ({region}) — score components",
+            title=dict(text=f"{sector_name} — score components",
                        font=dict(size=13, color="#3E392B")),
             xaxis=dict(title="Scan Date", gridcolor="#DFD5BE"),
             yaxis=dict(title="Score / Rank", gridcolor="#DFD5BE"),
@@ -463,7 +467,20 @@ def _build_movers_figure(history_df) -> str:
 
     merged = latest.merge(prev, on=["region", "gics_sector"], how="inner")
     merged["delta_rank"] = merged["rank_prev"] - merged["rank_cur"]
-    merged["label"] = merged["gics_sector"] + " (" + merged["region"] + ")"
+    merged["label"] = merged["gics_sector"]   # themes are the only cohort: no "(THEME)" suffix
+    if len(merged) and (merged["delta_rank"] == 0).all():
+        # Nobody changed rank: an axis of -1..1 with no bars reads as broken.
+        fig = go.Figure()
+        fig.update_layout(**_base_layout(
+            title=dict(text="Movers — rank change (latest vs prior scan)",
+                       font=dict(size=13, color="#3E392B")),
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            annotations=[dict(text="No rank changes since the previous scan.", showarrow=False,
+                              xref="paper", yref="paper", x=0.5, y=0.5,
+                              font=dict(size=13, color="#8C8370"))],
+        ))
+        return _fig_to_json(fig)
     merged = merged.sort_values("delta_rank", ascending=True)
 
     colors = ["#8FA77A" if d >= 0 else "#BF6F50" for d in merged["delta_rank"]]
@@ -505,7 +522,7 @@ def _build_history_figure(history_df) -> str:
         return _fig_to_json(fig)
 
     df = history_df.copy()
-    df["sector_label"] = df["gics_sector"] + " (" + df["region"] + ")"
+    df["sector_label"] = df["gics_sector"]
     df["run_at_str"] = pd.to_datetime(df["run_at"], format="ISO8601", utc=True).dt.strftime("%Y-%m-%d")
     df = df.sort_values("scan_id")
 

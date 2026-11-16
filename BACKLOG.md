@@ -227,6 +227,43 @@ Still to do, in this order:
   grouped) and the `xcode-27` runner.
 - **Jonas, not a PR:** switch on GitHub's included-usage alerts at 90% and 100%.
 
+## Dashboard UI/UX audit (2026-11-16): what remains after the defect fixes
+
+A page-by-page audit of the live build (first visit, all seven tabs, Sentiment,
+every pop-up, 375px phone width, dark mode) found 28 things that were not
+premium. The 12 that were plain defects shipped as `fix/ui-audit-defects` (Done).
+The rest, in the order to ship them, each its own PR:
+
+- **Charts:** Plotly's toolbar is always on and shows a black logo square; a
+  legend with a single entry ("THEME"); the Drill-down plots rank (1 to 18) and
+  scores (about -1 to 1) on one axis, so the scores are flat lines; the
+  Correlation heatmap's red and blue are the only colours outside the palette.
+- **One button and type system:** there are five button styles and no primary one
+  (the main action in a pop-up reads as the quietest control); pop-up headings are
+  Inter 700 while everything else is the display font at 600; nine font sizes
+  (12, 12.25 and 13px side by side); the email field is 28px tall beside a 23px
+  button; click targets of 15 to 23px (Sign in, footer links, "VS ACWI"); "How to
+  read this tab" is top right on most tabs and below the chart on two; "—" and
+  "–" mixed for empty cells; tickers and the LEVEL / CHANGE labels are 3.66:1
+  (under 4.5:1, deliberate today).
+- **Phone header and the opened row:** the header takes about 300px before any
+  content; the row breakdown is a flat monospace block with tree-drawing
+  characters and no sign a row opens; on a phone the UCITS fund name still wraps to
+  five lines; the Data Health panel is open by default and 14px off the page edge;
+  the Backtest table wraps to three lines at 1024px and its section headings are
+  13px.
+- **Rank change text with the iOS app:** the leaderboard prints "▲ +5.0" (arrow
+  and sign say the same thing, and ".0" on a whole number looks unfinished). The
+  text is part of the iOS parity fixture (`delta_rank` in `band-fixture.json`, and
+  the app's `formatDelta`), so change both together: web first, then port.
+- **Not yet audited:** signed-in states (stars, the book lock, alerts, stops),
+  keyboard focus rings, and wide screens.
+
+Decisions for Jonas before the type and button PR: solid green or dark outline for
+the primary button; whether the small labels and tickers get darker to pass 4.5:1
+or stay deliberately quiet; and whether the heatmap moves to the palette's
+terracotta and green.
+
 # Parked
 
 ## Duplicate-date scans still write full score/signal rows — declined
@@ -599,6 +636,29 @@ dashboard's drill-down tab covers most of the need.
 
 # Done
 
+- **Dashboard UI/UX audit: 12 defects fixed (2026-11-16,
+  `fix/ui-audit-defects`).** The plain defects from a page-by-page audit; the
+  remaining findings are Queued. **Controls:** every button, field and select now
+  inherits the page font (the walkthrough's Back/Next were 13.3px Arial); one
+  32px close button for every pop-up (it was an 11x20px glyph); History's
+  "download" links use the brand colour instead of browser blue. **Walkthrough:**
+  all four slides share one height (they were 381, 423, 381 and 444px, so the
+  buttons moved under the pointer). **Table:** opening a row no longer shifts the
+  columns above it (Composite moved 14px); the "To stop" column is hidden until a
+  row has a stop (a guest saw a header over eighteen empty cells); the guest
+  banner has the page's side margin instead of touching the window edge.
+  **Charts:** the Drill-down menu shows the theme, not `THEME|AgTech...`; the
+  "(THEME)" suffix is gone from every chart label (themes are the only cohort);
+  axis titles and long theme names get the margin they need (the RRG's x title and
+  the Movers and Correlation labels were cut off); Movers says "No rank changes
+  since the previous scan." instead of drawing eighteen empty rows on a -1 to 1
+  axis. **Phone:** no scrollbar under the tab bar; wrapped horizon stats start
+  flush left; an opened card's breakdown fits (the signal bars, signal counts and
+  ISIN column are dropped, and nothing is cut off at the edge). **Focus:** a modal
+  returns focus to the control that opened it even in Safari, where a click does
+  not focus a button. One audit item was left out on purpose: the rank change text
+  "+5.0" is part of the iOS parity fixture, so it changes with the app, not alone
+  (Queued).
 - **Dashboard polish 5: iOS palette follows the web (2026-11-08,
   jbarte/etf-momentum-ios `feature/ivory-palette`, PR 18).** `Palette.swift` took
   the merged polish 2 light values (canvas `EFE9DC`, surface `FAF7F0`, raised

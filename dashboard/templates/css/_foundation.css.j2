@@ -217,6 +217,11 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
+/* Form controls do not inherit the page font by default (a bare <button> is
+   13.3px Arial). Every button, field and select here is meant to read as the
+   page's own type. */
+button, input, select, textarea { font-family: inherit; }
+
 /* =========================================================
    Responsive
    ========================================================= */
