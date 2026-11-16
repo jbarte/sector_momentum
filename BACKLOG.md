@@ -186,6 +186,47 @@ and parity fixture this repo publishes (see Done, 2026-09-19) and the 20-scan
 
 ---
 
+## CI cost and time: what remains of the 2026-10-31 optimization
+
+Why it exists: on 2026-10-30 GitHub stopped starting jobs on the private repos
+(etf-momentum-ios, commodity-ledger) because the account's $12 monthly compute
+pool was spent (macOS is $0.062 a minute, the pool is shared, and there is no
+payment method on file, by Jonas's choice, so a spent pool is a hard stop until
+the 1st). Full reasoning and sources: local
+`notes/research/reports/ETF Momentum CI optimization.md`. **Every minute and
+second figure below is an estimate from that report, not a measurement.**
+
+Shipped (iOS repo): the macOS job is split from a Linux fixture job, gated so a
+push that only merges an already-tested PR skips macOS, `ARCHS=arm64`, runner
+pinned to `macos-26`, markdown-only changes skipped, a twice-weekly macOS cron
+(etf-momentum-ios#17), and one retry when GitHub never provides a runner
+(etf-momentum-ios#19). Estimated use fell from about 206 to about 60 macOS
+minutes a month.
+
+Still to do, in this order:
+
+- **iOS build cache** (etf-momentum-ios): cache `.build` and `DerivedData`, keyed
+  on the Xcode version and `Package.resolved`, saved only from `main`. Est. a job
+  of about 150 s down to about 70 s.
+- **Web: CPU-only dependency locks.** `requirements.lock` and
+  `requirements-dev.lock` each still carry 19 GPU-only packages (`nvidia-*`,
+  `triton`, ...), about 2 GB per run. Regenerate CPU-only and key a venv cache on
+  the lock file, in `test.yml`, `scan.yml`, `build-docs.yml`, `restore-drill.yml`.
+  Est. about 75 s per run. Needs an arm64 `uv` locally (the one in
+  `~/.local/bin` is x86_64 and fails with "bad CPU type").
+- **Web: `execute_values` in `save_scan`** (`src/state.py`, still row by row),
+  within the same transaction. Est. about 35 s per scan.
+- **Decisions first:** GDELT fallback budget 600 s to 300 s; skipping the scan's
+  pytest when Tests is already green on that SHA (never removed, any doubt runs
+  it); path filters on `pull_request` only, never on README.md or ARCHITECTURE.md
+  (`tests/test_docs_match_config.py` reads them); never `cancel-in-progress` on
+  the Pages deploy; whether to delete `.github/workflows/code-review.yml` (it does
+  nothing today) or wire it up.
+- **Later:** move the scan's alert loop (`src/alerts.py`) to a job after deploy
+  (reliability, before the alert base grows); trials of `pytest-xdist` (DB tests
+  grouped) and the `xcode-27` runner.
+- **Jonas, not a PR:** switch on GitHub's included-usage alerts at 90% and 100%.
+
 # Parked
 
 ## Duplicate-date scans still write full score/signal rows — declined
