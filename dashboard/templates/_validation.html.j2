@@ -1,6 +1,6 @@
 {# Forward-return validation & holding-period stats panels #}
 {% if validation_min_scans_met %}
-<h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">Do the rankings predict returns?</h3>
+<h3 class="section-heading">Do the rankings predict returns?</h3>
 <p class="tab-note">Excess return of the top-5 themes vs the benchmark.</p>
 {% if not validation_conclusive %}
 <p class="tab-note val-provisional">
@@ -40,7 +40,7 @@
   </table>
 </div>
 
-<h3 style="margin:22px 0 6px;font-family:var(--font-display);font-size:15px;color:var(--fg1)">How long do top-5 positions last?</h3>
+<h3 class="section-heading">How long do top-5 positions last?</h3>
 <p class="tab-note">Duration of contiguous top-5 rank streaks (in market days).</p>
 <div class="table-wrap">
   <table>

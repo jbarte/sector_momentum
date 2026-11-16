@@ -93,7 +93,13 @@ def build_health_context(health: dict | None, same_asof_streak: int | None = Non
         ),
     }
 
-    any_warn = any(v in ("amber", "red") for v in badges.values() if v is not None)
+    # Partial sentiment coverage (amber) no longer opens the panel on its own: sentiment is
+    # experimental and excluded from the ranking, and 16 of 18 scored is the usual state.
+    # A real sentiment outage (red) still does (see test_finbert_zero_denominator_...).
+    any_warn = any(
+        v == "red" or (v == "amber" and name != "finbert")
+        for name, v in badges.items() if v is not None
+    )
 
     dropped = health.get("dropped_themes") or {}
     dropped_themes = sorted(

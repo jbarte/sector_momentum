@@ -1,7 +1,9 @@
 {% if health %}
 <details class="health-panel"{% if health_any_warn %} open{% endif %}>
   <summary>
-    {% if health_any_warn %}<span class="health-warn-dot" title="Degraded data source">&#9888;</span> {% endif %}Data Health &mdash; Last scan: {{ health.run_at[:19] }} UTC{% if health.duration_s is not none %} ({{ health.duration_s | round(0) | int }}s){% endif %}
+    {#- One line, and enough to know whether to open it: when it ran and how many themes
+        it produced. The run time moved to the tooltip. -#}
+    <span{% if health.duration_s is not none %} title="The scan took {{ health.duration_s | round(0) | int }}s"{% endif %}>{% if health_any_warn %}<span class="health-warn-dot" title="Degraded data source">&#9888;</span> {% endif %}Data Health &mdash; last scan {{ health.run_at[:10] }} {{ health.run_at[11:16] }} UTC{% if health.sectors_expected %} &middot; {{ health.sectors_produced }}/{{ health.sectors_expected }} themes{% endif %}</span>
   </summary>
   <div class="health-grid">
     <div class="health-row">

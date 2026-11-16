@@ -214,15 +214,18 @@ def test_guide_body_headings_are_h3_everywhere():
 def test_promoted_standalone_headings_kept_their_styling():
     """badge_scorecard_title and sent_news_heading moved from h3 to h2 to
     close an h1 -> h3 skip (found while verifying the audit's literal claim,
-    not itself named in it). Pure tag rename — asserts the inline styles
-    survived unchanged, since a tag-name edit has no business touching
-    presentation."""
+    not itself named in it). A tag-name edit has no business touching
+    presentation, so the heading keeps the same margin and type. Since the
+    2026-11-16 UI audit that styling is one class (.section-heading, shared with
+    the two validation headings) instead of three copies of an inline style;
+    the values are unchanged except weight 600 and the heading letter-spacing."""
     index = _text("index.html.j2")
-    assert re.search(
-        r'<h2 style="margin:22px 0 6px;font-family:var\(--font-display\);'
-        r'font-size:15px;color:var\(--fg1\)">Badge scorecard</h2>',
-        index,
-    ), "badge_scorecard_title must be an h2 with its original inline style"
+    assert '<h2 class="section-heading">Badge scorecard</h2>' in index, (
+        "badge_scorecard_title must be an h2 using the shared section-heading class")
+    css = _text("css/_sentiment.css.j2")
+    rule = re.search(r"\.section-heading\s*\{([^}]*)\}", css).group(1)
+    for needle in ("margin: 22px 0 6px", "font-family: var(--font-display)", "font-size: 15px", "color: var(--fg1)"):
+        assert needle in rule, needle
 
     sentiment = _text("sentiment.html.j2")
     assert re.search(

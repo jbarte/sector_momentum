@@ -75,6 +75,13 @@ tbody td {
   border-top: 1px solid var(--border-hair);
 }
 tbody tr:first-child td { border-top: none; }
+/* Backtest: a policy or a date range on one line each. They wrapped to three lines at
+   1024px; the wrapper scrolls sideways if a narrow window cannot fit them. */
+.bt-row td { white-space: nowrap; }
+/* ...and so the nine columns fit 1024px: the headers may wrap to two lines (they were
+   one line each and set the column widths) and the cells use 8px of side padding. */
+#tab-backtest thead th { white-space: normal; vertical-align: bottom; }
+#tab-backtest thead th, .bt-row td { padding-left: var(--space-2); padding-right: var(--space-2); }
 /* The 'To stop' column is only drawn once some row has something in it. A
    guest has no stops, so it was a header over eighteen empty cells. */
 #leaderboard-table:not(:has(.stop-cell > *)) :is(.col-stop, .stop-cell) { display: none; }
