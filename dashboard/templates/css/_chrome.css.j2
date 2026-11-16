@@ -206,6 +206,7 @@
    Tab bar
    ========================================================= */
 .tabs {
+  scrollbar-width: none;
   display: flex;
   position: relative;   /* .tab-indicator is placed against this */
   background: var(--bg-inset);
@@ -213,6 +214,7 @@
   overflow-x: auto;
   padding: 0 24px;
 }
+.tabs::-webkit-scrollbar { display: none; }   /* Safari < 18.2; the edge fades say it scrolls */
 .tab-btn {
   text-decoration: none;
   background: none;
@@ -284,7 +286,7 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: 10px 16px;
-  margin: 0 0 12px;
+  margin: 0 var(--space-7) var(--space-3);
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -385,7 +387,12 @@
 }
 .methodology-modal h2 { margin: 0 0 14px; font-size: 1.3rem; color: var(--fg1); }
 .methodology-modal h3 { margin: 20px 0 6px; font-size: 1rem; color: var(--fg1); }
-.beginner-deck-card { margin-bottom: 8px; }
+/* Every card occupies the same grid cell and a hidden one only turns invisible,
+   so the dialog is as tall as its tallest card. Before, it grew and shrank
+   (381, 423, 381, 444px) and the buttons moved under the pointer. */
+.beginner-deck-cards { display: grid; margin-bottom: 8px; }
+.beginner-deck-card { grid-area: 1 / 1; }
+.beginner-deck-card[hidden] { display: block; visibility: hidden; }
 .beginner-deck-nav {
   display: flex;
   justify-content: space-between;
@@ -393,6 +400,8 @@
 }
 .beginner-deck-nav button {
   padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 500;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -469,18 +478,31 @@
 .methodology-body li { margin-bottom: 4px; }
 .methodology-body ul { margin: 6px 0 12px; padding-left: 20px; }
 .methodology-body code { font-size: 1em; color: var(--fg1); }
-.methodology-close {
+/* One close button for every pop-up (.guide-close shares it): a 32px target,
+   not the 11x20px the bare glyph gave. */
+.methodology-close,
+.guide-close {
   position: absolute;
-  top: 12px;
-  right: 14px;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border: none;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--fg4);
+  font-family: inherit;
   font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+              background var(--duration-fast) var(--ease-standard);
 }
-.methodology-close:hover { color: var(--fg1); }
+.methodology-close:hover,
+.guide-close:hover { color: var(--fg1); background: var(--bg-sunken); }
 /* Footer trigger styled as a link button */
 .footer-link {
   border: none;

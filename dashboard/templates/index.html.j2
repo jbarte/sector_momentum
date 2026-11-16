@@ -1902,7 +1902,8 @@ function _populateDrilldownSelect() {
   keys.forEach(function (k) {
     var opt = document.createElement('option');
     opt.value = k;
-    opt.textContent = k;
+    // Keys are REGION|theme; the reader sees the theme.
+    opt.textContent = k.indexOf('|') >= 0 ? k.slice(k.indexOf('|') + 1) : k;
     sel.appendChild(opt);
   });
 }
@@ -1915,7 +1916,7 @@ function updateDrilldown() {
   var fig = chart && chart.drilldown ? chart.drilldown[key] : null;
   if (!fig) {
     document.getElementById('drilldown-chart').innerHTML =
-      '<p style="padding:24px;color:var(--fg4)">No data for ' + key + '</p>';
+      '<p style="padding:24px;color:var(--fg4)">No data for ' + (key.indexOf('|') >= 0 ? key.slice(key.indexOf('|') + 1) : key) + '</p>';
     return;
   }
   SMTheme.smPlot('drilldown-chart', fig);

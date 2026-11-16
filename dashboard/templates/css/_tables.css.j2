@@ -75,6 +75,17 @@ tbody td {
   border-top: 1px solid var(--border-hair);
 }
 tbody tr:first-child td { border-top: none; }
+/* The 'To stop' column is only drawn once some row has something in it. A
+   guest has no stops, so it was a header over eighteen empty cells. */
+#leaderboard-table:not(:has(.stop-cell > *)) :is(.col-stop, .stop-cell) { display: none; }
+/* Plain links in a cell (History 'download') were the browser's default blue.
+   :where() keeps this at zero specificity so any classed link wins. */
+:where(tbody td > a[href]:not([class])) {
+  color: var(--brand-strong);
+  text-decoration-color: color-mix(in srgb, var(--brand-strong) 40%, transparent);
+  text-underline-offset: 3px;
+}
+:where(tbody td > a[href]:not([class])):hover { text-decoration-color: currentColor; }
 /* Numbers must line up and must not jitter when they change. */
 tbody td, .horizon-stats, .chip, .rp-count, .summary-strip { font-variant-numeric: tabular-nums; }
 tbody tr.leaderboard-row:hover { background: var(--bg-inset); transition: background 140ms var(--ease-standard); }
@@ -184,7 +195,12 @@ tbody td:nth-child(n+4) {
 .leaderboard-row { cursor: pointer; }
 .breakdown-row { display: none; }
 .breakdown-row.open { display: table-row; }
+/* width:0 + min-width:100% takes the breakdown out of the table's column
+   sizing: its content's minimum width otherwise widened the columns above
+   when a row opened (Composite shifted 14px). */
 .breakdown-inner {
+  width: 0;
+  min-width: 100%;
   padding: 16px 20px;
   background: var(--bg-sunken);
   border-top: 1px solid var(--border-soft);

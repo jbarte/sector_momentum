@@ -91,9 +91,9 @@ class TestOrderLabels:
         themes_cfg = _make_themes_cfg(3)
         ranks = {"THEME|Theme0": 2, "THEME|Theme1": 1, "THEME|Theme2": 3}
         labels, tickers, _ = _order_labels(cohorts(themes_cfg), ranks)
-        assert labels[0] == "Theme1 (THEME)"   # rank 1
-        assert labels[1] == "Theme0 (THEME)"   # rank 2
-        assert labels[2] == "Theme2 (THEME)"   # rank 3
+        assert labels[0] == "Theme1"   # rank 1
+        assert labels[1] == "Theme0"   # rank 2
+        assert labels[2] == "Theme2"   # rank 3
 
     def test_top5_bold(self):
         from dashboard.correlation import _order_labels
@@ -168,7 +168,7 @@ def test_order_labels_includes_theme_cohort_when_themes_cfg_supplied():
 
     assert tickers == ["UFO", "XBI"]
     assert block_sizes == [2]
-    assert labels[-1].endswith("(THEME)")
+    assert labels[-1] == "Biotech"   # no "(THEME)" suffix: themes are the only cohort
 
 
 def test_build_correlation_context_raises_on_duplicate_ticker_across_cohorts():
@@ -202,7 +202,7 @@ def test_order_labels_follows_cohorts_and_reports_block_sizes():
 
     assert tickers == ["UFO", "SOXX"], "ranked within cohort"
     assert block_sizes == [2]
-    assert labels[0].endswith("(THEME)")
+    assert labels[0] == "Space"
 
 
 def test_block_boundaries_match_the_previous_single_divider():
